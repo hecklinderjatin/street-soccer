@@ -15,7 +15,8 @@ export type PossessionEvents = {
 //   control (see dribble() below).
 // - A loose ball goes to the nearest eligible player in reach: slow and low
 //   enough = control; too fast = it deflects off them. The intended
-//   receiver of a pass always controls it (automatic first touch).
+//   receiver of a pass always controls it (automatic first touch), and the
+//   passer's other teammates leave it to them while it travels.
 // Keepers are handled by systems/keeper.ts.
 export function stepPossession(
   ball: Ball,
@@ -45,9 +46,17 @@ export function stepPossession(
   if (ball.z > POSSESSION.maxControlHeight || ball.inNet !== 0) return events;
   let best: Player | null = null;
   let bestDist = Infinity;
+  // A pass in flight is the receiver's: the passer's other teammates don't
+  // cut it out (they move by themselves now and stood in its way), though
+  // opponents can intercept.
+  const passTo = players.find((q) => q.receiving);
   for (const p of players) {
+    if (passTo && p !== passTo && p.team === passTo.team) continue;
     // A keeper inside its box uses its hands (systems/keeper.ts); outside, its feet.
     if ((p.role === 'keeper' && inOwnBox(p)) || time < p.lockUntil) continue;
+    // Right after a won tackle only the tackler may take it.
+    if (ball.priority && ball.priority !== p && time < ball.priorityUntil)
+      continue;
     const reach =
       POSSESSION.controlRadius +
       (p.receiving ? POSSESSION.receiveBonusRadius : 0);

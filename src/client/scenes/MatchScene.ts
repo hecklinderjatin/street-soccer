@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import {
+  AI,
   BALL,
   FORMATION,
   INPUT,
@@ -7,7 +8,10 @@ import {
   PASS,
   PITCH,
   SHOOT,
+  LEVELS,
+  STAMINA,
   STICK,
+  TACKLE,
 } from '../../shared/tuning';
 import type { MatchConfig, MatchResult } from '../../shared/types';
 import { createBallTexture } from '../art/ballArt';
@@ -36,10 +40,18 @@ import {
   cpuKeeperReact,
   keepInBox,
   startDive,
-  stepDummyKeeper,
+  keeperStick,
+  stepKeeperHands,
   stepKeeperBody,
 } from '../systems/keeper';
 import { separatePlayers } from '../systems/collisions';
+import { TeamBrain, type TeamView } from '../systems/ai';
+import {
+  resolveTackle,
+  startTackle,
+  stepLunge,
+  tacklePhase,
+} from '../systems/tackle';
 import { MatchFlow } from '../systems/MatchFlow';
 import { constrainMove, stepPlayer } from '../systems/movement';
 import { releaseBall, stepPossession } from '../systems/possession';
@@ -48,6 +60,8 @@ import { pixelText } from '../ui/pixelFont';
 import type { HudData, MatchHudState } from './HudScene';
 
 const NO_MOVE: StickInput = { x: 0, y: 0, r: 0 };
+const STAND_STILL = { move: NO_MOVE, sprint: false };
+const DEBUG = new URLSearchParams(window.location.search).has('debug');
 const realNow = () => performance.now() / 1000;
 const AIM_AT = newProjected();
 const SHOT_TEXT_DEPTH = 3e6; // above players, markers and the stamina bar
@@ -69,9 +83,12 @@ const SHAFT_HALF_END = 7; // ... and at the head
 // order: input -> (AI) -> move players -> move ball -> possession ->
 // actions (pass, shoot, switch) -> match flow. Per frame: camera, then draw.
 //
-// Phase 2: the home team (4 outfield, 2-1-1) plus a stand-in keeper in each
-// goal. Teammates hold their spots unless receiving a pass; Phase 3 adds the
-// away outfield team, AI, tackles and the real goalkeepers.
+// Phase 3 (in progress): 5v5, each side 4 outfield (2-1-1) plus a keeper;
+// the away team mirrors the home formation. Outfielders the human isn't
+// controlling are driven by the shared outfield AI (systems/ai.ts, one
+// TeamBrain per side): positioning, pressing and tackles, and AI carriers
+// that pass, shoot, dribble or clear (stepAiCarriers). Tackles for
+// everyone are in systems/tackle.ts (the human's B1 without the ball).
 export class MatchScene extends Phaser.Scene {
   private config!: MatchConfig;
   private readonly fixed = new FixedStep();
@@ -80,6 +97,10 @@ export class MatchScene extends Phaser.Scene {
   private court!: Court;
   private ball!: Ball;
   private home: Player[] = []; // outfield players
+  private away: Player[] = []; // CPU outfield players
+  private homeBrain!: TeamBrain; // AI for our players the human isn't controlling
+  private awayBrain!: TeamBrain;
+  private roleText: Phaser.GameObjects.BitmapText[] = []; // ?debug: AI role over each outfielder
   private homeKeeper!: Player;
   private awayKeeper!: Player;
   private everyone: Player[] = [];
@@ -91,8 +112,9 @@ export class MatchScene extends Phaser.Scene {
   private shotText!: Phaser.GameObjects.BitmapText; // the swipe shape, above the shooter
 
   private simTime = 0;
-  private stats = { shots: 0, passes: 0 };
+  private stats = { shots: 0, passes: 0, tacklesWon: 0 };
   private followShotUntil = -Infinity; // sim time: until then control follows the player closest to the loose ball (after a shot)
+  private liveSince = Infinity; // sim time play last became live (AI tackle grace)
   private pendingPass: {
     passer: Player;
     receiver: Player;
@@ -117,9 +139,11 @@ export class MatchScene extends Phaser.Scene {
     this.config = data;
     this.fixed.reset();
     this.home = [];
+    this.away = [];
+    this.liveSince = Infinity;
     this.everyone = [];
     this.simTime = 0;
-    this.stats = { shots: 0, passes: 0 };
+    this.stats = { shots: 0, passes: 0, tacklesWon: 0 };
     this.pendingPass = null;
     this.followShotUntil = -Infinity;
     this.outRestart = null;
@@ -149,7 +173,15 @@ export class MatchScene extends Phaser.Scene {
       PITCH.width - k.x,
       k.y
     );
-    this.everyone = [...this.home, this.homeKeeper, this.awayKeeper];
+    this.away = FORMATION.outfield.map(
+      (s) => new Player(this, 'away', 'outfield', PITCH.width - s.x, s.y)
+    );
+    this.everyone = [
+      ...this.home,
+      ...this.away,
+      this.homeKeeper,
+      this.awayKeeper,
+    ];
     this.ball = new Ball(this);
     this.marker = this.add.graphics();
     this.shotText = pixelText(this, 0, 0, '', 0.6 * PX, PAL.white)
@@ -158,6 +190,23 @@ export class MatchScene extends Phaser.Scene {
       .setVisible(false);
     this.controlled = this.forward;
 
+    // Our AI teammates play at normal; the CPU at the chosen difficulty.
+    this.homeBrain = new TeamBrain('home', LEVELS.normal);
+    this.awayBrain = new TeamBrain('away', LEVELS[this.config.difficulty]);
+    this.roleText = DEBUG
+      ? [...this.home, ...this.away].map((p) =>
+          pixelText(
+            this,
+            0,
+            0,
+            '',
+            0.5 * PX,
+            p.team === 'home' ? PAL.white : PAL.yellow
+          )
+            .setOrigin(0.5, 1)
+            .setDepth(SHOT_TEXT_DEPTH)
+        )
+      : [];
     this.flow = new MatchFlow();
     this.controls = new Controls();
     this.controls.bindKeyboard(this);
@@ -205,6 +254,7 @@ export class MatchScene extends Phaser.Scene {
     this.ball.interpolate(alpha);
     this.updatePassPreview();
     this.updateShotText();
+    this.updateRoleText();
     this.updateGroundMarker();
 
     const b = this.ball;
@@ -235,45 +285,95 @@ export class MatchScene extends Phaser.Scene {
     for (const p of this.everyone) p.savePrevious();
     ball.savePrevious();
 
-    // Input -> movement. Only the controlled player moves (by the stick);
-    // nobody runs toward the ball by themselves (user preference). A pass's
+    // Input -> AI -> movement. The controlled player moves by the stick;
+    // every other outfielder by its team's AI (only while live). A pass's
     // receiver keeps a guaranteed first touch while the pass is travelling;
     // once a loose ball has died, that flag is dropped.
     const frozen = this.flow.playersFrozen;
     if (!ball.owner && ball.z === 0 && ball.speed < PASS.receiverStopBelow)
       this.clearReceivers();
-    for (const p of this.home) {
-      const human = p === this.controlled && !frozen;
-      stepPlayer(
-        p,
-        human ? this.controls.move : NO_MOVE,
-        human && this.controls.sprint,
-        dt,
-        ball.owner === p
-      );
+    const aiOn = this.flow.phase === 'live' && !frozen;
+    // Fairness: the team behind on the scoreboard gets its breath back faster.
+    const score = this.flow.score;
+    const regen = (p: Player) =>
+      score[p.team] < score[p.team === 'home' ? 'away' : 'home']
+        ? STAMINA.trailingRegen
+        : 1;
+    if (!aiOn) this.liveSince = Infinity;
+    else if (this.liveSince === Infinity) this.liveSince = t;
+    const homeView = this.teamView('home');
+    const awayView = this.teamView('away');
+    if (aiOn) {
+      this.homeBrain.think(homeView, t);
+      this.awayBrain.think(awayView, t);
+      // Tackles the AI decided on (never for the human's player).
+      for (const brain of [this.homeBrain, this.awayBrain]) {
+        for (const { p, dir } of brain.tackles)
+          if (p !== this.controlled) startTackle(p, dir, t, ball.owner);
+        brain.tackles.length = 0;
+      }
     }
-    // Keepers: the human steers ours when controlling it; otherwise each
-    // takes up its spot between ball and goal centre (keeperPositionStick;
-    // the CPU one also dives at shots, cpuKeeperReact).
+    for (const p of [...this.home, ...this.away]) {
+      const human = p === this.controlled && !frozen;
+      // A lunge moves the body itself; start-up, recovery, a stumble or
+      // being tackled (stagger) stop the player.
+      if (stepLunge(p, t, dt)) continue;
+      const busy = tacklePhase(p, t) !== 'none' || t < p.staggerUntil;
+      const steer = busy
+        ? STAND_STILL
+        : human
+          ? { move: this.controls.move, sprint: this.controls.sprint }
+          : aiOn
+            ? (p.team === 'home' ? this.homeBrain : this.awayBrain).steer(
+                p,
+                p.team === 'home' ? homeView : awayView
+              )
+            : STAND_STILL;
+      // The direction asked for (a sharp change dodges a tackle: juke).
+      if (steer.move.r > STICK.deadZone)
+        p.wantDir = Math.atan2(steer.move.y, steer.move.x);
+      stepPlayer(p, steer.move, steer.sprint, dt, ball.owner === p, regen(p));
+      // An AI player standing still keeps its eyes on the ball.
+      if (!human && !busy && steer.move.r <= STICK.deadZone && p.speed < 5)
+        p.heading = Math.atan2(ball.y - p.y, ball.x - p.x);
+    }
+    // Keepers: the human steers ours when controlling it; otherwise each is
+    // AI (keeper.ts): positioning, claiming, rushing out (keeperStick) and
+    // dives at shots or at a carrier's feet (cpuKeeperReact, with its
+    // level's reaction time; ours plays at normal).
     for (const k of [this.homeKeeper, this.awayKeeper]) {
-      // A keeper the human isn't controlling reacts to shots by diving.
-      if (k !== this.controlled && !frozen) cpuKeeperReact(k, ball, t);
+      const home = k.team === 'home';
+      if (k !== this.controlled && !frozen)
+        cpuKeeperReact(
+          k,
+          ball,
+          t,
+          (home ? LEVELS.normal : LEVELS[this.config.difficulty])
+            .keeperReactSec,
+          Math.random
+        );
       if (stepKeeperBody(k, t, dt)) continue; // diving or down after a dive
       const human = k === this.controlled;
-      const move = frozen
-        ? NO_MOVE
+      const steer = frozen
+        ? STAND_STILL
         : human
-          ? this.controls.move
-          : this.keeperPositionStick(k);
-      stepPlayer(k, move, human && this.controls.sprint, dt, ball.owner === k);
+          ? { move: this.controls.move, sprint: this.controls.sprint }
+          : keeperStick(
+              k,
+              ball,
+              home ? this.home : this.away,
+              home ? this.away : this.home
+            );
+      stepPlayer(k, steer.move, steer.sprint, dt, ball.owner === k, regen(k));
       // Standing still, a keeper keeps its eyes on the ball.
-      if (move.r <= STICK.deadZone && k.speed < 5)
+      if (steer.move.r <= STICK.deadZone && k.speed < 5)
         k.heading = Math.atan2(ball.y - k.y, ball.x - k.x);
     }
 
     // Bodies can't overlap; then everyone back inside their limits.
     separatePlayers(this.everyone);
-    for (const p of this.home) [p.x, p.y] = constrainMove(p.prevY, p.x, p.y);
+    for (const p of [...this.home, ...this.away])
+      [p.x, p.y] = constrainMove(p.prevY, p.x, p.y);
     // Keepers may leave their box (playing with their feet), but not while
     // holding the ball in their hands.
     for (const k of [this.homeKeeper, this.awayKeeper]) {
@@ -284,28 +384,39 @@ export class MatchScene extends Phaser.Scene {
     this.controls.sprinting = this.controlled.sprinting;
     this.controls.sprintLocked = this.controlled.sprintLocked;
 
+    // Lunges that reach an opposing carrier's ball (tackle.ts decides).
+    if (this.flow.phase === 'live')
+      for (const p of [...this.home, ...this.away]) {
+        const result = resolveTackle(p, ball, t, Math.random);
+        if (result === 'won' && p === this.controlled)
+          this.stats.tacklesWon += 1;
+        if (result === 'won') {
+          this.flow.onTouch();
+          this.clearReceivers();
+        }
+      }
+
     // Ball, then who has it (only while live: not during the kickoff freeze).
     if (!ball.owner) stepFreeBall(ball, dt);
     if (this.outRestart && t >= this.outRestart.at)
       this.restartWithKeeper(this.outRestart.keeper);
     if (this.flow.phase === 'live' && ball.out === 0) {
       // Keepers are included: inside their box possession skips them (hands,
-      // see stepDummyKeeper); outside it they play with their feet.
-      const events = stepPossession(
-        ball,
-        [...this.home, this.homeKeeper, this.awayKeeper],
-        t,
-        dt
-      );
+      // see stepKeeperHands); outside it they play with their feet.
+      const events = stepPossession(ball, this.everyone, t, dt);
       if (events.gained) this.onGained(events.gained);
-      if (events.deflected) this.flow.onTouch();
+      if (events.deflected) {
+        this.flow.onTouch();
+        this.clearReceivers(); // a deflected pass is anyone's
+      }
       for (const keeper of [this.homeKeeper, this.awayKeeper]) {
-        const teammates = keeper.team === 'home' ? this.home : [];
+        const home = keeper.team === 'home';
         const human = keeper === this.controlled;
-        const event = stepDummyKeeper(
+        const event = stepKeeperHands(
           keeper,
           ball,
-          teammates,
+          home ? this.home : this.away,
+          home ? this.away : this.home,
           t,
           dt,
           Math.random,
@@ -313,13 +424,20 @@ export class MatchScene extends Phaser.Scene {
         );
         if (!event) continue;
         this.flow.onTouch();
-        this.clearReceivers();
-        // Our keeper catches: the human takes over the keeper.
-        if (event === 'caught' && keeper === this.homeKeeper)
+        // A throw marks its receiver (kickPass); anything else frees the ball.
+        if (event !== 'thrown') this.clearReceivers();
+        // Our keeper takes the ball (catch or smother): the human takes over.
+        if ((event === 'caught' || event === 'smothered') && home)
           this.setControlled(keeper);
-        // Held too long and auto-thrown: control goes back to an outfielder.
-        if (event === 'thrown' && human)
-          this.setControlled(this.nearestOutfielder(ball.x, ball.y));
+        // Held too long and auto-distributed: control goes to the throw's
+        // receiver, or to the outfielder nearest where a punt is heading.
+        if ((event === 'thrown' || event === 'punted') && human) {
+          const receiver = this.home.find((p) => p.receiving);
+          this.setControlled(
+            receiver ??
+              this.nearestOutfielder(ball.x + ball.vx, ball.y + ball.vy)
+          );
+        }
       }
     }
 
@@ -350,12 +468,15 @@ export class MatchScene extends Phaser.Scene {
       };
     }
 
-    if (this.flow.phase === 'live') this.stepActions(t);
+    if (this.flow.phase === 'live') {
+      this.stepActions(t);
+      this.stepAiCarriers(t);
+    }
     this.flow.tickClock(dt);
   }
 
   // Context buttons. With the ball: 1 = pass, 2 = shoot (hold to charge).
-  // Without: 1 = tackle (Phase 3), 2 = switch player. A press is remembered
+  // Without: 1 = tackle, 2 = switch player. A press is remembered
   // for 150 ms while the ball is close, so pressing just before gaining the
   // ball still counts as a pass or shot.
   private stepActions(t: number) {
@@ -456,7 +577,18 @@ export class MatchScene extends Phaser.Scene {
       if (hasBall) {
         controls.consume(1); // already passing or shooting
       } else if (!ballClose) {
-        controls.consume(1); // TACKLE arrives in Phase 3.
+        controls.consume(1);
+        // TACKLE: a lunge along the stick (the facing with it centred).
+        // Not at a teammate's ball.
+        if (!ball.owner || ball.owner.team !== c.team)
+          startTackle(
+            c,
+            controls.move.r > STICK.deadZone
+              ? Math.atan2(controls.move.y, controls.move.x)
+              : c.heading,
+            t,
+            ball.owner
+          );
       }
     }
     if (!hasBall) this.passChargeSince = null;
@@ -622,43 +754,6 @@ export class MatchScene extends Phaser.Scene {
     };
   }
 
-  // Stick that walks a keeper to its spot: on the line from its goal centre
-  // toward the ball, further off the line the closer the ball (narrowing
-  // the angle), kept within the goal mouth's width. It slows as it arrives
-  // so it doesn't jitter, and stops once there.
-  private keeperPositionStick(k: Player): StickInput {
-    const ball = this.ball;
-    // Set when a shot is struck: it doesn't walk across with a fast ball
-    // (that would stop everything; saving those is for dives, Phase 3).
-    if (!ball.owner && ball.speed > KEEPER.setAbove) return NO_MOVE;
-    const gx = k.team === 'home' ? 0 : PITCH.width;
-    const gy = PITCH.height / 2;
-    const bx = ball.x - gx;
-    const by = ball.y - gy;
-    const d = Math.hypot(bx, by);
-    const near = clamp(
-      (KEEPER.outFarDist - d) / (KEEPER.outFarDist - KEEPER.outNearDist),
-      0,
-      1
-    );
-    const out = KEEPER.lineOut + (KEEPER.maxOut - KEEPER.lineOut) * near;
-    const ux = d > 1 ? Math.abs(bx) / d : 1; // always out into the pitch
-    const uy = d > 1 ? by / d : 0;
-    const halfMouth = PITCH.goalMouth / 2;
-    const tx =
-      gx + (k.team === 'home' ? 1 : -1) * Math.max(KEEPER.lineOut, ux * out);
-    const ty = gy + clamp(uy * out, -halfMouth, halfMouth);
-    const dx = tx - k.x;
-    const dy = ty - k.y;
-    const dist = Math.hypot(dx, dy);
-    if (dist < 6) return NO_MOVE;
-    return {
-      x: dx / dist,
-      y: dy / dist,
-      r: STICK.sprintAt * Math.min(1, dist / 40),
-    };
-  }
-
   // Goal kick after the ball went out behind a goal: the defending keeper,
   // back on its spot, has the ball in hand (ours is then human-controlled).
   private restartWithKeeper(keeper: Player) {
@@ -733,7 +828,90 @@ export class MatchScene extends Phaser.Scene {
     if (p.team === 'home') this.setControlled(p);
   }
 
+  // What a team's AI sees: its outfielders, the other side's, and which
+  // of its players (if any) the human is controlling.
+  private teamView(team: 'home' | 'away'): TeamView {
+    const home = team === 'home';
+    const c = this.controlled;
+    return {
+      mates: home ? this.home : this.away,
+      opponents: home ? this.away : this.home,
+      human: home && c.role === 'outfield' ? c : null,
+      ball: this.ball,
+      oppKeeper: home ? this.awayKeeper : this.homeKeeper,
+      canTackle: this.simTime - this.liveSince >= TACKLE.kickoffGraceSec,
+      rand: Math.random,
+    };
+  }
+
+  // ?debug: each outfielder's AI role over its head (HUMAN for ours).
+  private updateRoleText() {
+    [...this.home, ...this.away].forEach((p, i) => {
+      const text = this.roleText[i];
+      if (!text) return;
+      const brain = p.team === 'home' ? this.homeBrain : this.awayBrain;
+      const t = this.simTime;
+      const label =
+        t < p.staggerUntil
+          ? 'STAGGER'
+          : p.stumbling && t < p.tackleUntil
+            ? 'DOWN'
+            : tacklePhase(p, t) !== 'none'
+              ? 'TACKLE'
+              : p === this.controlled
+                ? 'HUMAN'
+                : (brain.orders.get(p)?.role ?? '-').toUpperCase();
+      if (text.text !== label) text.setText(label);
+      this.projector.project(p.renderX, p.renderY, PLAYER_HEIGHT + 16, AIM_AT);
+      text.setPosition(AIM_AT.x, AIM_AT.y);
+    });
+  }
+
+  // AI carriers' passes, shots and clearances, when their brain says
+  // they're due (dribbling is steering). The normal kickPass / kickShot,
+  // so the same physics, aim error and keeper reactions apply.
+  private stepAiCarriers(t: number) {
+    const ball = this.ball;
+    for (const brain of [this.homeBrain, this.awayBrain]) {
+      const due = brain.takeAction(t, ball);
+      if (!due || due.p === this.controlled) continue;
+      const { p, act } = due;
+      if (act.kind === 'dribble') continue;
+      if (act.kind === 'pass') {
+        kickPass(
+          ball,
+          p,
+          act.to,
+          this.opponentsOf(p),
+          Math.random,
+          null,
+          brain.skill.passErrorScale
+        );
+        releaseBall(ball, p, t);
+        continue;
+      }
+      const dx = act.x - p.x;
+      const dy = act.y - p.y;
+      const len = Math.hypot(dx, dy) || 1;
+      kickShot(
+        ball,
+        p,
+        { x: dx / len, y: dy / len, r: 1 },
+        act.kind === 'shoot' ? act.charge : AI.clearCharge,
+        this.opponentsOf(p),
+        Math.random,
+        act.kind === 'clear' ? { x: 0, y: -AI.clearChip } : undefined
+      );
+      releaseBall(ball, p, t);
+      p.playShoot();
+    }
+  }
+
   private setControlled(p: Player) {
+    // Both sides re-think at once: the released player gets an AI role on
+    // the next step (no freeze), the new one drops its AI role.
+    this.homeBrain.wake();
+    this.awayBrain.wake();
     this.controlled.controlled = false;
     p.controlled = true;
     this.controlled = p;
@@ -742,25 +920,40 @@ export class MatchScene extends Phaser.Scene {
   }
 
   private clearReceivers() {
-    for (const p of this.home) p.receiving = false;
+    for (const p of [...this.home, ...this.away]) p.receiving = false;
   }
 
   private opponentsOf(p: Player) {
-    return p.team === 'home' ? [this.awayKeeper] : [this.homeKeeper];
+    return p.team === 'home'
+      ? [...this.away, this.awayKeeper]
+      : [...this.home, this.homeKeeper];
   }
 
   private get forward() {
     return this.home[this.home.length - 1] ?? this.home[0] ?? this.homeKeeper;
   }
 
+  private get awayForward() {
+    return this.away[this.away.length - 1] ?? this.away[0] ?? this.awayKeeper;
+  }
+
   // Players to their spots, ball on the centre spot. The kicking team's
-  // forward stands next to the ball (the away side has no outfield team
-  // until Phase 3, so after a home goal the ball just waits at the centre).
+  // forward stands next to the ball; the away side mirrors ours.
   private resetForKickoff() {
     this.ball.placeAt(PITCH.width / 2, PITCH.height / 2);
-    FORMATION.outfield.forEach((s, i) => this.home[i]?.placeAt(s.x, s.y));
-    if (this.flow.kickoffTeam === 'home')
-      this.forward.placeAt(FORMATION.kickoffSpot.x, FORMATION.kickoffSpot.y);
+    FORMATION.outfield.forEach((s, i) => {
+      this.home[i]?.placeAt(s.x, s.y);
+      this.away[i]?.placeAt(PITCH.width - s.x, s.y);
+    });
+    // The other side's forward waits outside the centre circle.
+    const spotY = FORMATION.kickoffSpot.y;
+    if (this.flow.kickoffTeam === 'home') {
+      this.forward.placeAt(FORMATION.kickoffSpot.x, spotY);
+      this.awayForward.placeAt(PITCH.width - FORMATION.defendKickoffX, spotY);
+    } else {
+      this.awayForward.placeAt(PITCH.width - FORMATION.kickoffSpot.x, spotY);
+      this.forward.placeAt(FORMATION.defendKickoffX, spotY);
+    }
     this.homeKeeper.placeAt(FORMATION.keeper.x, FORMATION.keeper.y);
     this.awayKeeper.placeAt(
       PITCH.width - FORMATION.keeper.x,
@@ -1015,7 +1208,7 @@ export class MatchScene extends Phaser.Scene {
       goalsAgainst: this.flow.score.away,
       shots: this.stats.shots,
       passes: this.stats.passes,
-      tacklesWon: 0,
+      tacklesWon: this.stats.tacklesWon,
     };
     this.scene.start('Result', result);
   }

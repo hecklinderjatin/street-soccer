@@ -99,14 +99,16 @@ export function idealPassWeight(dist: number) {
 // distance, with a small aim error (bigger under pressure). An opponent
 // close to the pass line turns it into a chip over them. With a `weight`
 // (a held PASS, 0..1) the player sets the pace instead: it can stop short
-// of the receiver or run past them.
+// of the receiver or run past them. `errorScale` scales the aim error (the
+// CPU team's difficulty).
 export function kickPass(
   ball: Ball,
   passer: Player,
   receiver: Player,
   opponents: readonly Player[],
   rand: () => number,
-  weight: number | null = null
+  weight: number | null = null,
+  errorScale = 1 // x the aim error (AI difficulty; 1 for the human)
 ) {
   const dist = Math.hypot(receiver.x - ball.x, receiver.y - ball.y);
   const speed =
@@ -122,6 +124,7 @@ export function kickPass(
   );
   const error =
     (pressured ? PASS.pressureErrorDeg : PASS.errorDeg) *
+    errorScale *
     DEG *
     (rand() * 2 - 1);
   const angle = Math.atan2(ty - ball.y, tx - ball.x) + error;

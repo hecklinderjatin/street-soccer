@@ -58,6 +58,7 @@ export const FORMATION = {
     { x: 1120, y: 650 }, // forward
   ],
   kickoffSpot: { x: 1176, y: 650 }, // kicker's spot next to the ball when kicking off
+  defendKickoffX: 1020, // the forward of the team NOT kicking off waits here (outside the centre circle; mirrored for away)
 } as const;
 
 export const BALL = {
@@ -197,8 +198,9 @@ export const SHOOT = {
   aimArrow: true, // show the strike direction (not the target) while charging
 } as const;
 
-// Phase 2 stand-in keeper: stands on the goal line, catches slow balls and
-// parries fast ones. Phase 3 replaces it with the real goalkeeper AI.
+// Goalkeepers (systems/keeper.ts; both teams, and ours whenever the human
+// isn't controlling it): positioning, claiming, rushing out, reaction dives
+// and smothers, hands (catch / parry), distribution.
 export const KEEPER = {
   reach: 40, // ground distance at which the keeper gets to the ball
   reachHeight: 120, // highest ball it can reach while diving ...
@@ -228,9 +230,10 @@ export const KEEPER = {
   outFarDist: 1000, // ball this far from goal = lineOut
   outNearDist: 350, // ball this close = maxOut
   setAbove: 450, // a free ball faster than this (a shot): the keeper holds its position
-  // CPU keeper reaction dive (cpuKeeperReact): sees a shot coming, waits
-  // reactSec, then dives toward where it will pass, as far as needed.
-  reactSec: 0.35,
+  // Keeper reaction dive (cpuKeeperReact): sees a shot coming, waits its
+  // reaction time (LEVELS.keeperReactSec), then dives toward where it will
+  // pass, as far as needed.
+  reactJitter: 0.04, // reaction time +- up to this, random per reaction (borderline shots become a mix, not frame luck)
   reactMinSpeed: 300, // slower balls toward goal don't trigger a dive
   reactHorizonSec: 1.2, // ignores balls further away in time than this
   reactMargin: 30, // also reacts to shots this far outside the posts
@@ -238,6 +241,140 @@ export const KEEPER = {
   diveSec: 0.35, // dive length in time (~170 px)
   diveRecoverSec: 0.45, // down on the ground after a dive, can't move
   diveReach: 64, // reach while diving (normally `reach`)
+  // Claiming: a loose ball the keeper reaches first, in or near its box.
+  claimMargin: 0.15, // s it must beat every opponent by
+  claimBoxMargin: 40, // the meeting point may be this far outside the box
+  // Rushing out: an opposing carrier through on goal.
+  rushDist: 450, // carrier this close to the goal centre (and nearer to goal than our outfielders) ...
+  rushGap: 80, // ... the keeper comes out to this far from it ...
+  rushMax: 170, // ... at most this far off its line (staying in the box)
+  smotherRange: 95, // dives at the ball of a carrier this close (in its box), after its reaction time
+  // Distribution (a keeper holding the ball and not human-controlled).
+  throwMinDist: 120, // throw candidates between these distances
+  throwMaxDist: 800,
+  throwOpenDist: 120, // a teammate with no opponent this close is open
+  throwMinScore: 0.55, // best throw scoring below this: punt it long instead
+  puntSpeed: 820, // a punt upfield
+  puntLift: 520,
+} as const;
+
+// Outfield AI (Phase 3), one shared brain per team (systems/ai.ts). Each
+// team re-assigns roles every think interval; players steer toward their
+// role's target every step with the normal movement rules (same speeds,
+// stamina and turning as the human).
+export const AI = {
+  // Formation: spots slide with the ball and with who has it.
+  shiftX: 0.5, // spots move this fraction of the ball's offset from the centre (along the pitch) ...
+  shiftY: 0.35, // ... and across it
+  attackPush: 140, // spots move this far upfield while the team has the ball ...
+  defendDrop: 100, // ... and this far back while the opponent has it
+  edgeMargin: 60, // spots stay this far inside the pitch
+  // Loose ball: one chaser per team (the quickest to reach it).
+  chaseKeepSec: 0.25, // the current chaser keeps the job unless someone else is this much quicker
+  interceptMaxSec: 2.5, // how far ahead the ball's roll is predicted
+  // Defending: one presser, the rest mark or cover.
+  pressGap: 70, // the presser jockeys this far goal-side of the carrier (contains; tackles come in step 4)
+  pressLeadSec: 0.4, // the presser aims where the carrier will be this soon (keeps its distance)
+  pressKeep: 60, // the current presser keeps the job unless another is this much closer (px)
+  humanPressDist: 130, // our human player this close to the carrier counts as our presser
+  markGap: 50, // markers stand this far from their man, goal-side and toward the ball
+  // Attacking: supporters spread into open space, the furthest forward runs ahead.
+  runAhead: 280, // the runner aims this far ahead of the ball
+  openDist: 100, // a support spot this close to an opponent shifts away from them
+  supportMinDist: 170, // supporters keep at least this far from the carrier
+  spaceDist: 90, // teammates closer than this push their targets apart
+  // Steering.
+  arriveDist: 10, // within this of the target: stand (and face the ball)
+  slowDist: 140, // closer than this the walk slows down toward the target
+  sprintFar: 320, // sprint to a target further than this (any role)
+  sprintChase: 60, // chasers / pressers sprint while further than this
+  saveStaminaBelow: 30, // below this stamina only chasers / pressers sprint
+  // Pressing closes in on a slow carrier (who could otherwise shield forever).
+  pressGapClose: 40, // gap to a standing carrier (pressGap at walking pace and above)
+  // Tackles (the presser only), checked each think (chance: LEVELS).
+  tackleBehindFactor: 0.3, // chance x this from behind the carrier (low success there)
+  tackleCooldownSec: 1, // after an attempt, at least this long before the next
+  // Carrying (any AI player with the ball): a utility score per option,
+  // each with some random variation (LEVELS.decisionNoise).
+  carrySettleSec: 0.3, // first touch: no pass or shot sooner than this after gaining the ball
+  shootRange: 560, // no shots from further than this from the goal centre
+  shootInside: 30, // aim this far inside the post, on the side away from the keeper
+  laneBlock: 35, // an opponent this close to the shot line blocks it
+  shotCharge: 0.7, // aimed charge (middle of the perfect band), +- LEVELS.shotChargeNoise
+  passMin: 100, // pass candidates between these distances
+  passMax: 750,
+  passLaneSafe: 60, // a pass lane this clear (px) counts as fully safe
+  pressureNear: 60, // an opponent this close to the carrier = under pressure (pass or clear sooner; 90 meant every tackle met a pass)
+  dribbleLook: 200, // dribble target this far ahead (toward goal)
+  dribbleDodge: 110, // sidestep this far around an opponent in the way
+  dribbleSprintSpace: 220, // sprint with the ball when the way ahead is this clear
+  clearCharge: 0.6, // a clearance: the normal shot at this charge ...
+  clearChip: 0.7, // ... with this much swipe-up (lofted over players)
+} as const;
+
+// Difficulty: how sharp the CPU team is (our AI teammates and our keeper
+// always play at normal). Same movement, physics and rules at every level
+// (no speed boosts or guaranteed saves): only reaction, decisions,
+// accuracy and positioning change.
+export const LEVELS = {
+  easy: {
+    thinkSec: 0.3, // re-thinks this often (reaction)
+    tackleChance: 0.25, // presser goes in, per think while in range
+    shotChargeNoise: 0.25, // shot charge spread around AI.shotCharge
+    decisionNoise: 0.25, // option scores x (1 +- this): worse choices
+    passErrorScale: 1.3, // x the pass aim error
+    aimSpread: 110, // shots aimed up to this much in from the AI.shootInside spot toward the centre (keeper-side misses)
+    markGapScale: 1.5, // x AI.markGap: looser marking
+    keeperReactSec: 0.5, // keeper reaction to a shot / a carrier through on goal (+- KEEPER.reactJitter)
+  },
+  normal: {
+    thinkSec: 0.2,
+    tackleChance: 0.45,
+    shotChargeNoise: 0.12,
+    decisionNoise: 0.1,
+    passErrorScale: 1,
+    aimSpread: 70,
+    markGapScale: 1,
+    keeperReactSec: 0.4,
+  },
+  hard: {
+    thinkSec: 0.12,
+    tackleChance: 0.65,
+    shotChargeNoise: 0.05,
+    decisionNoise: 0.05,
+    passErrorScale: 0.7,
+    aimSpread: 40,
+    markGapScale: 0.85,
+    keeperReactSec: 0.32,
+  },
+} as const;
+
+// Tackles (B1 without the ball, and the AI's presser). Start-up, then a
+// lunge (active), then recovery. During the lunge the ball of an opposing
+// carrier within reach in front is contested: a success chance with
+// modifiers decides (a juke dodges it). Win: the ball pops out, the carrier
+// staggers, the tackler has first touch for a moment. Fail: a stumble.
+export const TACKLE = {
+  windupSec: 0.1, // start-up (no contact yet)
+  activeSec: 0.15, // the lunge, when contact counts
+  recoverSec: 0.35, // after a lunge that touched nothing
+  lungeDist: 70, // px covered by the lunge
+  reach: 48, // ball within this of the tackler ...
+  arcDeg: 70, // ... and within this of the lunge direction = contact
+  baseChance: 0.55, // success chance on contact, plus:
+  frontBonus: 0.15, // coming from the carrier's front or side ...
+  behindPenalty: 0.3, // ... or minus this from behind
+  frontArcDeg: 110, // tackler within this of the carrier's facing = front / side
+  carrierSprintPenalty: 0.15, // the carrier was sprinting (harder to catch)
+  tacklerSprintBonus: 0.1, // the tackler went in at a sprint
+  jukeDeg: 120, // carrier's stick turned this much since the tackle started = dodged
+  popSpeed: 110, // won: the ball is knocked loose at this speed ...
+  popAhead: 40, // ... toward the point this far ahead of the tackler on its lunge line
+  staggerSec: 0.5, // ... the carrier staggers (can't move or touch the ball) ...
+  priorityTackleSec: 0.35, // ... and the tackler has first touch this long
+  winRecoverSec: 0.1, // won: back on its feet this soon
+  stumbleSec: 0.6, // failed: down this long
+  kickoffGraceSec: 0.5, // no AI tackles this soon after kickoff
 } as const;
 
 export const INPUT = {
@@ -275,6 +412,7 @@ export const STAMINA = {
   drainPerSec: 16, // while sprinting (about 6 s from full)
   regenPerSec: 30, // after the regen delay
   regenDelaySec: 0.4, // pause after sprinting before stamina refills
+  trailingRegen: 1.15, // fairness: the team behind on the scoreboard refills this much faster
   unlockAt: 20, // after hitting 0, sprint stays locked until stamina reaches this
 } as const;
 

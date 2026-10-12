@@ -30,6 +30,8 @@ export class Ball {
 
   owner: Player | null = null;
   lastTouch: Player | null = null; // for stats and future rules
+  priority: Player | null = null; // only this player may take the loose ball ...
+  priorityUntil = 0; // ... until this sim time (a won tackle)
   inNet: -1 | 0 | 1 = 0; // which net the ball is in (-1 left, 1 right)
   out: -1 | 0 | 1 = 0; // went out over the bar / end wall behind this goal (until the restart)
   private rolled = 0; // distance rolled, drives the spinning frames
@@ -59,6 +61,8 @@ export class Ball {
     this.vx = this.vy = this.vz = this.spin = this.dip = 0;
     this.owner = null;
     this.lastTouch = null;
+    this.priority = null;
+    this.priorityUntil = 0;
     this.inNet = 0;
     this.out = 0;
     this.trailPoints.length = 0;

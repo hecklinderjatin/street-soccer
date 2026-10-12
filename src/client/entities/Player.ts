@@ -58,6 +58,17 @@ export class Player {
   lying = false; // keeper: diving or down after a dive (drawn on its side)
   reactAt = -1; // CPU keeper: sim time it reacts to the shot it has seen (-1 = none)
   passTarget = false; // drawn with the blue ring: where a pass would go now
+  // Tackles (systems/tackle.ts; sim times in seconds).
+  tackleAt = -Infinity; // the current / last tackle started
+  tackleUntil = -Infinity; // it (with its recovery or stumble) ends
+  tackleDir = 0; // lunge direction (radians)
+  tackleSprint = false; // went in at a sprint
+  tackleDone = false; // contact already resolved (one per tackle)
+  stumbling = false; // a failed tackle: down (drawn on its side) until tackleUntil
+  jukeRef: number | null = null; // the carrier's stick direction when the tackle started
+  staggerUntil = -Infinity; // tackled: can't move or touch the ball until then
+  tackleReadyAt = 0; // AI: no new tackle before this
+  wantDir = 0; // the direction last asked for by stick or AI (the juke check)
 
   private readonly sprite: Phaser.GameObjects.Sprite;
   private readonly targetRing: Phaser.GameObjects.Image;
@@ -125,6 +136,11 @@ export class Player {
     this.recoverUntil = 0;
     this.lying = false;
     this.reactAt = -1;
+    this.tackleAt = this.tackleUntil = this.staggerUntil = -Infinity;
+    this.tackleDone = false;
+    this.stumbling = false;
+    this.jukeRef = null;
+    this.tackleReadyAt = 0;
   }
 
   // Plays the strike animation once (shot or keeper kick); running and

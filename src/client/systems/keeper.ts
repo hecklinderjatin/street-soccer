@@ -1,8 +1,34 @@
-import { BALL, KEEPER, PITCH, PLAYER } from '../../shared/tuning';
+import {
+  BALL,
+  KEEPER,
+  PITCH,
+  PLAYER,
+  STICK,
+  TACKLE,
+} from '../../shared/tuning';
 import type { Ball } from '../entities/Ball';
 import type { Player } from '../entities/Player';
+import { kickPass } from './actions';
+import { interceptPoint } from './ai';
+import type { StickInput } from './Controls';
+import { clamp, distToSegment } from './geometry';
 
-export type KeeperEvent = 'caught' | 'parried' | 'thrown' | null;
+// Goalkeepers (both teams share this code; ours is AI-driven too whenever
+// the human isn't controlling it):
+// - keeperStick: where to stand or run: claim a loose ball it reaches
+//   first, rush out at a carrier through on goal, otherwise narrow the
+//   angle on the line from goal centre toward the ball;
+// - cpuKeeperReact: after its reaction time, dive at a shot it can reach,
+//   or at the feet of a carrier close in its box (smother);
+// - stepKeeperHands: catch / parry / smother with its hands (only inside
+//   its box), hold, then distribute: throw to an open teammate or punt.
+// Every save comes from real contact: reach, timing and the dive.
+export type KeeperEvent =
+  'caught' | 'smothered' | 'parried' | 'thrown' | 'punted' | null;
+
+export type KeeperSteer = { move: StickInput; sprint: boolean };
+
+const STAND: KeeperSteer = { move: { x: 0, y: 0, r: 0 }, sprint: false };
 
 // The keeper's own big box, where it may use its hands. Outside it the
 // keeper is free to roam but plays the ball with its feet like anyone else.
@@ -16,14 +42,13 @@ function boxBounds(keeper: Player, inset: number) {
   return { minX, maxX, top, bottom };
 }
 
+function inBox(keeper: Player, x: number, y: number, margin = 0) {
+  const b = boxBounds(keeper, -margin);
+  return x >= b.minX && x <= b.maxX && y >= b.top && y <= b.bottom;
+}
+
 export function inOwnBox(keeper: Player) {
-  const b = boxBounds(keeper, 0);
-  return (
-    keeper.x >= b.minX &&
-    keeper.x <= b.maxX &&
-    keeper.y >= b.top &&
-    keeper.y <= b.bottom
-  );
+  return inBox(keeper, keeper.x, keeper.y);
 }
 
 // A keeper holding the ball in its hands can't carry it out of the box.
@@ -33,16 +58,97 @@ export function keepInBox(keeper: Player) {
   keeper.y = Math.max(b.top, Math.min(b.bottom, keeper.y));
 }
 
-// Phase 2 stand-in goalkeeper: stands still on its goal line. A ball it can
-// reach is caught if slow, parried back into play if fast. A caught ball is
-// held in the hands; a CPU keeper throws it to the nearest teammate (or
-// upfield) after a moment, while a human-controlled keeper decides itself
-// (throw or kick, see MatchScene) and only auto-throws after a long hold.
-// Phase 3 replaces the positioning with arc positioning, prediction and dives.
-export function stepDummyKeeper(
+// Where the keeper goes this step (when the human isn't controlling it):
+// 1. Claim: a loose, not-too-fast ball it can meet in or near its box
+//    sooner than any opponent (by KEEPER.claimMargin) and any teammate:
+//    it sprints to the meeting point.
+// 2. A shot (a fast free ball): it holds its position (saving is the dive).
+// 3. Rush out: an opposing carrier near goal with none of our outfielders
+//    between it and the goal: it comes out toward the carrier (to
+//    KEEPER.rushGap from it, at most KEEPER.rushMax off its line).
+// 4. Otherwise it narrows the angle: on the line from its goal centre toward
+//    the ball, further off the line the closer the ball, within the mouth.
+export function keeperStick(
+  k: Player,
+  ball: Ball,
+  mates: readonly Player[],
+  opponents: readonly Player[]
+): KeeperSteer {
+  const gx = k.team === 'home' ? 0 : PITCH.width;
+  const gy = PITCH.height / 2;
+
+  if (!ball.owner && ball.inNet === 0 && ball.speed < KEEPER.setAbove) {
+    const meet = interceptPoint(k, ball);
+    if (inBox(k, meet.x, meet.y, KEEPER.claimBoxMargin)) {
+      const beats = (ps: readonly Player[], margin: number) =>
+        ps.every((p) => meet.t + margin < interceptPoint(p, ball).t);
+      if (beats(opponents, KEEPER.claimMargin) && beats(mates, 0))
+        return toward(k, meet.x, meet.y, true);
+    }
+  }
+  if (!ball.owner && ball.speed > KEEPER.setAbove) return STAND;
+
+  const c = ball.owner;
+  if (c && c.team !== k.team && c.role !== 'keeper') {
+    const dc = Math.hypot(c.x - gx, c.y - gy);
+    const through = mates.every((m) => Math.hypot(m.x - gx, m.y - gy) > dc);
+    if (dc < KEEPER.rushDist && through) {
+      const out = clamp(dc - KEEPER.rushGap, KEEPER.lineOut, KEEPER.rushMax);
+      const b = boxBounds(k, PLAYER.radius);
+      return toward(
+        k,
+        clamp(gx + ((c.x - gx) / dc) * out, b.minX, b.maxX),
+        clamp(gy + ((c.y - gy) / dc) * out, b.top, b.bottom),
+        true
+      );
+    }
+  }
+
+  const bx = ball.x - gx;
+  const by = ball.y - gy;
+  const d = Math.hypot(bx, by);
+  const near = clamp(
+    (KEEPER.outFarDist - d) / (KEEPER.outFarDist - KEEPER.outNearDist),
+    0,
+    1
+  );
+  const out = KEEPER.lineOut + (KEEPER.maxOut - KEEPER.lineOut) * near;
+  const ux = d > 1 ? Math.abs(bx) / d : 1; // always out into the pitch
+  const uy = d > 1 ? by / d : 0;
+  const halfMouth = PITCH.goalMouth / 2;
+  const tx =
+    gx + (k.team === 'home' ? 1 : -1) * Math.max(KEEPER.lineOut, ux * out);
+  const ty = gy + clamp(uy * out, -halfMouth, halfMouth);
+  return toward(k, tx, ty, false);
+}
+
+// Stick toward a point: slows as it arrives (no jitter), stops there.
+function toward(k: Player, tx: number, ty: number, sprint: boolean) {
+  const dx = tx - k.x;
+  const dy = ty - k.y;
+  const dist = Math.hypot(dx, dy);
+  if (dist < 6) return STAND;
+  return {
+    move: {
+      x: dx / dist,
+      y: dy / dist,
+      r: sprint ? 1 : STICK.sprintAt * Math.min(1, dist / 40),
+    },
+    sprint: sprint && dist > 40,
+  };
+}
+
+// A keeper's hands, for one step (only inside its own box). A ball it can
+// reach is caught if slow, parried back into play if fast. Diving at an
+// opposing carrier's feet with the ball in reach smothers it (the carrier
+// staggers, as after a lost tackle). A held ball is distributed after
+// KEEPER.holdSec (a human-controlled keeper decides itself, see
+// MatchScene, and only auto-distributes after KEEPER.humanHoldMaxSec).
+export function stepKeeperHands(
   keeper: Player,
   ball: Ball,
   teammates: readonly Player[],
+  opponents: readonly Player[],
   time: number,
   dt: number,
   rand: () => number,
@@ -64,42 +170,30 @@ export function stepDummyKeeper(
       (humanControlled ? KEEPER.humanHoldMaxSec : KEEPER.holdSec)
     )
       return null;
-
-    let target = { x: PITCH.width / 2, y: PITCH.height / 2 };
-    let receiver: Player | null = null;
-    let best = Infinity;
-    for (const t of teammates) {
-      if (t === keeper || t.role === 'keeper') continue;
-      const d = Math.hypot(t.x - keeper.x, t.y - keeper.y);
-      if (d < best) {
-        best = d;
-        receiver = t;
-        target = { x: t.x, y: t.y };
-      }
-    }
-    const angle = Math.atan2(target.y - ball.y, target.x - ball.x);
-    ball.vx = Math.cos(angle) * KEEPER.throwSpeed;
-    ball.vy = Math.sin(angle) * KEEPER.throwSpeed;
-    ball.vz = KEEPER.throwLift;
-    ball.owner = null;
-    ball.lastTouch = keeper;
-    if (receiver) receiver.receiving = true;
-    keeper.holdTimer = 0;
-    keeper.holding = false;
-    keeper.lockUntil = time + KEEPER.lockAfterSec;
-    return 'thrown';
+    return distribute(keeper, ball, teammates, opponents, time, rand);
   }
 
-  // Hands only inside its own box.
-  if (
-    time < keeper.lockUntil ||
-    ball.owner ||
-    ball.inNet !== 0 ||
-    !inOwnBox(keeper)
-  )
+  if (time < keeper.lockUntil || ball.inNet !== 0 || !inOwnBox(keeper))
     return null;
   const dist = Math.hypot(ball.x - keeper.x, ball.y - keeper.y);
   const diving = time < keeper.diveUntil;
+
+  const carrier = ball.owner;
+  if (carrier) {
+    if (
+      !diving ||
+      carrier.team === keeper.team ||
+      carrier.holding ||
+      dist > KEEPER.diveReach
+    )
+      return null;
+    carrier.staggerUntil = time + TACKLE.staggerSec;
+    carrier.lockUntil = time + TACKLE.staggerSec;
+    carrier.receiving = false;
+    take(ball, keeper);
+    return 'smothered';
+  }
+
   const reach = diving ? KEEPER.diveReach : KEEPER.reach;
   const reachHeight = diving ? KEEPER.reachHeight : KEEPER.standReachHeight;
   if (dist > reach || ball.z > reachHeight) return null;
@@ -117,25 +211,124 @@ export function stepDummyKeeper(
     return 'parried';
   }
 
+  take(ball, keeper);
+  return 'caught';
+}
+
+function take(ball: Ball, keeper: Player) {
   ball.owner = keeper;
   ball.lastTouch = keeper;
   ball.spin = 0;
   ball.dip = 0;
   keeper.holdTimer = 0;
   keeper.holding = true;
-  return 'caught';
 }
 
-// CPU keeper reaction (stand-in until Phase 3): when a shot is heading for
-// its goal it waits its reaction time (KEEPER.reactSec), then dives toward
-// where the ball will pass it, only as far as needed. Only what it can
-// reach in the time left gets saved, so a fast shot placed toward a corner
-// beats it and a slow or central one doesn't. The prediction is a straight
-// line with gravity (no curl), so a late-bending curler can fool it.
-export function cpuKeeperReact(keeper: Player, ball: Ball, time: number) {
-  if (time < keeper.recoverUntil || ball.owner || ball.inNet !== 0) {
+// Out of the hands: a throw to the best open teammate (open, a safe lane,
+// further upfield; the normal pass, lofted), or a long punt upfield toward
+// the most advanced teammate's side when nobody is open enough.
+function distribute(
+  keeper: Player,
+  ball: Ball,
+  teammates: readonly Player[],
+  opponents: readonly Player[],
+  time: number,
+  rand: () => number
+): KeeperEvent {
+  const outward = keeper.team === 'home' ? 1 : -1;
+  let best: Player | null = null;
+  let bestScore = -Infinity;
+  let front: Player | null = null;
+  for (const t of teammates) {
+    if (t.role === 'keeper') continue;
+    if (!front || (t.x - front.x) * outward > 0) front = t;
+    const d = Math.hypot(t.x - keeper.x, t.y - keeper.y);
+    if (d < KEEPER.throwMinDist || d > KEEPER.throwMaxDist) continue;
+    let near = Infinity;
+    let lane = Infinity;
+    for (const o of opponents) {
+      near = Math.min(near, Math.hypot(o.x - t.x, o.y - t.y));
+      lane = Math.min(
+        lane,
+        distToSegment(o.x, o.y, keeper.x, keeper.y, t.x, t.y)
+      );
+    }
+    const score =
+      0.5 * clamp(near / KEEPER.throwOpenDist, 0, 1) +
+      0.35 * clamp(lane / 60, 0, 1) +
+      0.25 * clamp(((t.x - keeper.x) * outward) / 800, 0, 1) +
+      0.1 * rand();
+    if (score > bestScore) {
+      best = t;
+      bestScore = score;
+    }
+  }
+
+  ball.owner = null;
+  ball.lastTouch = keeper;
+  keeper.holdTimer = 0;
+  keeper.holding = false;
+  keeper.lockUntil = time + KEEPER.lockAfterSec;
+  if (best && bestScore >= KEEPER.throwMinScore) {
+    kickPass(ball, keeper, best, opponents, rand);
+    ball.vz = KEEPER.throwLift;
+    return 'thrown';
+  }
+  const tx = clamp(keeper.x + outward * 1100, 0, PITCH.width);
+  const ty = front ? front.y : PITCH.height / 2;
+  const angle = Math.atan2(ty - ball.y, tx - ball.x);
+  ball.vx = Math.cos(angle) * KEEPER.puntSpeed;
+  ball.vy = Math.sin(angle) * KEEPER.puntSpeed;
+  ball.vz = KEEPER.puntLift;
+  ball.spin = 0;
+  ball.dip = 0;
+  return 'punted';
+}
+
+// Keeper reactions (whenever the human isn't controlling it), after its
+// reaction time `reactSec` (LEVELS.keeperReactSec, +- KEEPER.reactJitter):
+// - a shot heading for its goal: a dive toward where the ball will pass
+//   it, only as far as needed. Only what it can reach in the time left gets
+//   saved, so a fast shot placed toward a corner beats it and a slow or
+//   central one doesn't. The prediction is a straight line with gravity
+//   (no curl), so a late-bending curler can fool it.
+// - a carrier close in its box (KEEPER.smotherRange): a dive at the ball's
+//   coming position (smother, see stepKeeperHands). Dribbling round it or
+//   shooting first beats it.
+export function cpuKeeperReact(
+  keeper: Player,
+  ball: Ball,
+  time: number,
+  reactSec: number,
+  rand: () => number
+) {
+  const target = keeperThreat(keeper, ball, time);
+  if (!target) {
     keeper.reactAt = -1;
     return;
+  }
+  if (keeper.reactAt < 0) {
+    keeper.reactAt = time + reactSec + (rand() * 2 - 1) * KEEPER.reactJitter;
+    return;
+  }
+  if (time < keeper.reactAt) return;
+  keeper.reactAt = -1;
+  startDive(keeper, target.dir, time, target.dist);
+}
+
+// What the keeper would dive at now: direction and distance, or null.
+function keeperThreat(keeper: Player, ball: Ball, time: number) {
+  if (time < keeper.recoverUntil || ball.inNet !== 0) return null;
+  const c = ball.owner;
+  if (c) {
+    if (c.team === keeper.team || c.holding || !inOwnBox(keeper)) return null;
+    if (!inBox(keeper, ball.x, ball.y)) return null;
+    // Where the ball will be as the dive gets there.
+    const bx = ball.x + ball.vx * 0.15;
+    const by = ball.y + ball.vy * 0.15;
+    const d = Math.hypot(bx - keeper.x, by - keeper.y);
+    if (d > KEEPER.smotherRange) return null;
+    return { dir: Math.atan2(by - keeper.y, bx - keeper.x), dist: d };
   }
   const goalX = keeper.team === 'home' ? 0 : PITCH.width;
   const t =
@@ -143,10 +336,7 @@ export function cpuKeeperReact(keeper: Player, ball: Ball, time: number) {
     Math.sign(goalX - ball.x) === Math.sign(ball.vx)
       ? (keeper.x - ball.x) / ball.vx
       : -1;
-  if (t <= 0 || t > KEEPER.reactHorizonSec) {
-    keeper.reactAt = -1;
-    return;
-  }
+  if (t <= 0 || t > KEEPER.reactHorizonSec) return null;
   // Where and how high the ball passes the keeper.
   const y = ball.y + ball.vy * t;
   const z = ball.z + ball.vz * t - 0.5 * BALL.gravity * (1 + ball.dip) * t * t;
@@ -159,22 +349,12 @@ export function cpuKeeperReact(keeper: Player, ball: Ball, time: number) {
     !onTarget ||
     z > KEEPER.reachHeight ||
     Math.abs(offset) < KEEPER.reach * 0.7 // coming at it: no dive needed
-  ) {
-    keeper.reactAt = -1;
-    return;
-  }
-  if (keeper.reactAt < 0) {
-    keeper.reactAt = time + KEEPER.reactSec;
-    return;
-  }
-  if (time < keeper.reactAt) return;
-  keeper.reactAt = -1;
-  startDive(
-    keeper,
-    offset < 0 ? -Math.PI / 2 : Math.PI / 2,
-    time,
-    Math.abs(offset) - KEEPER.diveReach / 2
-  );
+  )
+    return null;
+  return {
+    dir: offset < 0 ? -Math.PI / 2 : Math.PI / 2,
+    dist: Math.abs(offset) - KEEPER.diveReach / 2,
+  };
 }
 
 // Starts a dive: a short lunge (with extended reach), then a moment down on

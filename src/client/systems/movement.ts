@@ -8,13 +8,15 @@ import { DEG, angleDiff, clamp, rotateTowards } from './geometry';
 // toward the stick quickly when slow (a pivot on the spot) and in wider arcs
 // at speed; the further the heading is off the stick, the more the player
 // eases off, so a sharp reversal plants, turns and re-accelerates. With the
-// ball: a little slower, slower to accelerate and to turn.
+// ball: a little slower, slower to accelerate and to turn. `regenScale`
+// speeds up stamina refill (the trailing team, STAMINA.trailingRegen).
 export function stepPlayer(
   player: Player,
   move: StickInput,
   wantsSprint: boolean,
   dt: number,
-  hasBall: boolean
+  hasBall: boolean,
+  regenScale = 1
 ) {
   const active = move.r > STICK.deadZone;
 
@@ -81,7 +83,7 @@ export function stepPlayer(
   player.x = x;
   player.y = y;
 
-  stepStamina(player, sprinting && player.speed > 0, dt);
+  stepStamina(player, sprinting && player.speed > 0, dt, regenScale);
 }
 
 const GOAL_TOP = (PITCH.height - PITCH.goalMouth) / 2;
@@ -113,7 +115,12 @@ export function constrainMove(
   return [x, y];
 }
 
-function stepStamina(player: Player, sprinting: boolean, dt: number) {
+function stepStamina(
+  player: Player,
+  sprinting: boolean,
+  dt: number,
+  regenScale: number
+) {
   player.sprinting = sprinting;
   if (sprinting) {
     player.sinceSprint = 0;
@@ -125,7 +132,7 @@ function stepStamina(player: Player, sprinting: boolean, dt: number) {
   if (player.sinceSprint >= STAMINA.regenDelaySec) {
     player.stamina = Math.min(
       STAMINA.max,
-      player.stamina + STAMINA.regenPerSec * dt
+      player.stamina + STAMINA.regenPerSec * regenScale * dt
     );
   }
   if (player.sprintLocked && player.stamina >= STAMINA.unlockAt)

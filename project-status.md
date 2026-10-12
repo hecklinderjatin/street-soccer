@@ -8,7 +8,7 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
-**Phase 2 (ball, dribbling, pass, shoot, goals, match flow) is done** and verified in a local preview with scripted scenarios. It still needs a real-phone playtest in Reddit. Phase 3 (5v5 with AI, tackles, real keepers) is next.
+**Phase 2 (ball, dribbling, pass, shoot, goals, match flow) is done** and verified in a local preview with scripted scenarios. It still needs a real-phone playtest in Reddit. **Phase 3 (5v5 with AI) is in progress: steps 1-5 of 6 (away team, AI hand-over, shared outfield AI, AI carriers + tackles, keepers + difficulty) are done; step 6 is the phone playtest.** The user picked plan v3 (one shared AI for both teams, opponents first) plus v2's tackle rules, steering, debug overlay and regression matrix. Build order: 1 away team + resets, 2 released players hand over to AI, 3 shared outfield AI (support, recover, chase/intercept, one presser, mark/cover), 4 AI carriers (pass/shoot/dribble) + tackles (human B1 too), 5 keepers + Easy/Normal/Hard, 6 phone playtest. Keeper control stays for now (the plans assume the keeper is AI-only; the user hasn't decided).
 
 What works now:
 
@@ -18,7 +18,24 @@ What works now:
   - textured ground, the far wall with graffiti and an apartment facade, thick end walls with the goals in the gaps;
   - 3D goals with nets, a see-through fence on the near touchline, a crowd behind it;
   - a basketball court and a car park beyond the goal lines.
-- **Home team:** 4 outfield players in a 2-1-1 shape (red). There is a stand-in keeper in each goal: home in green, CPU in yellow. Teammates hold their spots (no automatic runs).
+- **Teams (5v5):** home 4 outfield players in a 2-1-1 shape (red) plus a keeper (green); away (CPU) 4 outfield players in the mirrored shape (blue, `MatchScene.away`) plus a keeper (yellow). All 10 are in `everyone` (collisions, possession, rendering) and both outfield teams are constrained and stepped. Outfielders the human isn't controlling are driven by the **shared outfield AI** (below). Kickoff: the kicking side's forward stands next to the ball and the other side's forward waits outside the centre circle (`FORMATION.defendKickoffX` 1020, mirrored). `opponentsOf` now includes the opposing outfielders, which affects shot/pass pressure and chips over a blocked pass lane. The away keeper throws to the away outfielders.
+- **Outfield AI (`systems/ai.ts`, `AI` in tuning):** one `TeamBrain` per side, the same code for both. It re-assigns roles every `AI.mateThinkSec` 0.15 s (ours) or `AI.thinkSec` 0.3/0.2/0.12 s by difficulty (CPU). Every step each AI player steers to its role's target through the normal `stepPlayer` (same speeds, turning, stamina, no teleports); standing still, it faces the ball. Only runs while live (not during freezes or celebrations).
+  - **Loose ball:** one **chaser** per team: whoever reaches the ball first at a sprint along its predicted roll (`interceptPoint`); an intended receiver of ours always goes. If our human is quickest, no AI chases. The current chaser keeps the job unless someone is 0.25 s quicker. Others **cover** formation spots.
+  - **Opponent on the ball:** one **presser** jockeys 70 px goal-side of the carrier, aiming where the carrier will be in 0.4 s, so it backs off as the carrier advances (no tackles until step 4). If our human is within 130 px of the carrier, they are our presser and no AI presses. The rest **mark** the most dangerous opponents (closest to our goal; nearest free player each), 50 px goal-side and leaning toward the ball; leftovers **cover** dropped-back spots.
+  - **Own ball:** **support** spots pushed 140 px upfield, moved out of the way of the nearest opponent (100 px) and kept 170 px from the carrier; the furthest-forward supporter is the **runner**, 280 px ahead of the ball.
+  - Formation spots slide with the ball (0.5 along, 0.35 across). Teammates within 90 px push their targets apart (not chasers or pressers). Sprinting: chasers and pressers beyond 60 px, anyone beyond 320 px, saving stamina below 30.
+  - **Hand-over (step 2):** `setControlled` wakes both brains, so the released player gets an AI role on the next step and the new one drops its role. Our AI players can win loose balls; control then follows the ball to them, as before.
+  - **?debug:** each outfielder shows its role over its head (HUMAN for yours; `updateRoleText`).
+- **AI carriers (`TeamBrain.decideCarry`, executed by `MatchScene.stepAiCarriers`):** any AI player with the ball (an AI keeper with it at its feet too) scores its options at each think, each score x (1 +- `decisionNoise`, by level). Pressure counts only opponents able to act (not staggered or down):
+  - **shoot** within 560 px of the goal centre: 1.7 x closeness + 0.45 with a clear line (an opponent within 35 px of it: -0.8), minus a wide-angle penalty; aims 30 px inside the post away from the keeper, pulled toward the centre by up to `aimSpread` 110 / 70 / 40 px (easy / normal / hard); charge 0.7 +- 0.25 / 0.12 / 0.05 through the normal `kickShot` (same aim error and keeper reactions);
+  - **pass** to a teammate 100-750 px away: 0.15 + 0.5 x progress + 0.3 x open + 0.3 x lane safety, -0.2 over 500 px, +0.3 under pressure (an opponent within 60 px); the normal `kickPass` (auto weight, lead, chip over a blocked lane);
+  - **dribble** (not keepers) 200 px toward goal, sidestepping 110 px round the nearest player in the way; 0.45 + 0.5 x space ahead, -0.4 under pressure; sprints with 220 px of space;
+  - **clear**: a lofted kick upfield (`kickShot` at 0.6 with swipe-up 0.7): 0.55 under pressure in our half, 0.35 for a keeper, else 0.05.
+  Passes and shots wait for the first touch to settle (0.3 s after gaining it).
+- **Tackles (`systems/tackle.ts`, `TACKLE` in tuning), the human and the AI alike:** start-up 0.10 s (slows), lunge 0.15 s (70 px), recovery 0.35 s. Contact = an opposing carrier's ball within 48 px and within 70 degrees of the lunge, during the lunge (one per tackle). Success chance 55%, +15% from the carrier's front/side (within 110 degrees of its facing) or -30% from behind, -15% if the carrier sprints, +10% if the tackler went in at a sprint. **Juke:** the carrier's stick (or AI direction, `Player.wantDir`) turned more than 120 degrees since the tackle started = always fails. **Won:** the ball is knocked loose at 110 px/s toward a point 40 px ahead on the lunge line, where the sliding tackler collects it (first touch is the tackler's for 0.35 s, `Ball.priority`); the carrier staggers 0.5 s (no moving or touching the ball); the tackler is up after 0.1 s. **Failed:** the tackler stumbles 0.6 s (drawn on its side). Deviation from the plan's 300 px/s pop: popping along the lunge sent the ball away from the tackler to the carrier's teammates; a random-side nudge often took it out of reach. Now every won tackle in tests ended with the tackler on the ball.
+  - **Human:** B1 (TACKLE) without the ball lunges along the stick (the facing with it centred); not at a teammate's ball.
+  - **AI:** only the presser, when the ball (predicted 0.17 s ahead) is within lunge reach: a chance per think of 0.25 / 0.45 / 0.65 (easy / normal / hard; ours normal), x0.3 from behind; 1 s cooldown; none in the first 0.5 s after kickoff (`liveSince`). The presser closes to 40 px of a standing carrier (70 px at walking pace and above) so a shielding carrier can be reached.
+- **Pass in flight belongs to its receiver:** while a pass travels, the passer's other teammates can't take it (opponents can intercept); a deflection frees it. Needed because AI teammates now stand in passing lanes (an AI pass was cut out at 904 px/s by a teammate next to the passer).
 - **Ball** (`entities/Ball.ts`, `systems/ballPhysics.ts`):
   - 3D position and velocity: rolling drag 0.35/s plus 40 px/s² rolling friction, air drag 0.5/s, gravity 1400, bounce 40%, spin curve. A full-power shot travels about 1000 px in all (it no longer crosses the court); a tap about 525 px;
   - 50% bounce off the far wall, near fence, end walls and posts;
@@ -45,10 +62,14 @@ What works now:
   - **Left / Right = CURL:** sidespin up to 1.1 rad/s (decaying) bending that way **as the shooter sees it** (moving right on screen, a left curl bends up the screen). It leaves along the stick and bends away from that line, so aim outside the post. -20% pace, -25% lift, stray -20% at full.
   - No swipe = the plain shot above (no spin). `BALL.spinMinSpeed` is 300 so curlers keep bending as they slow.
 - **Switch:** a tap goes to the teammate nearest the ball, the keeper included; repeat taps within 1 s cycle; 0.12 s cooldown. **Holding SWITCH (0.35 s)** jumps straight to our keeper. When the ball is heading toward our goal (faster than 250 px/s, in our third), a tap picks the keeper first. **After a shot** control follows the outfielder **closest to the loose ball**, re-checked every step as the ball travels (the shooter keeps it while still closest; another takes over once 30 px closer, `SHOOT.followShotMargin`). It ends when someone gains the ball, when the ball has died (after a last pick), when the player presses SWITCH, or after 4 s (`followShotMaxSec`; `MatchScene.followShotUntil`).
-- **Stand-in keepers** (`systems/keeper.ts`):
-  - when not human-controlled, stand on the line from their goal centre toward the ball, 30 px off the line with the ball 1000+ px away, up to 60 px out with it 350 px away (narrowing the angle; within the mouth's width; `keeperPositionStick`). Once a shot is struck (free ball faster than 450 px/s) they hold their position; walking across with it saved almost every shot in testing. So corner shots and chips over a keeper off its line can score. They catch balls at or below 650 px/s and parry faster ones (25% speed);
-  - **CPU keeper reaction dive** (`cpuKeeperReact`): sees a shot heading for its goal (faster than 300 px/s, on target or within 30 px of a post, under its reach height, arriving within 1.2 s), waits 0.35 s, then dives sideways toward where it will pass, only as far as needed. It predicts a straight line (no curl), so a late-bending curler can beat it. Standing it reaches 96 high (just under the bar), diving 120. Measured from 450 px, central (10 shots each): straight at it 0 goals; perfect-timed to a corner 10; a weak tap to the corner 0; power to the corner 10; chip at 65% charge 6 (shorter ones are caught, 80% goes over); curl aimed 100 px outside the post 10; from 750 px a perfect corner shot 0 and a curl 3.
-  - CPU keeper: holds a caught ball 1 s, then throws it to the nearest teammate (toward the centre for now).
+- **Goalkeepers** (`systems/keeper.ts`, `KEEPER` in tuning; both teams, and ours whenever the human isn't controlling it):
+  - **Positioning** (`keeperStick`): on the line from its goal centre toward the ball, 30 px off the line with the ball 1000+ px away, up to 60 px out with it 350 px away (within the mouth's width). Once a shot is struck (free ball faster than 450 px/s) it holds its position (saving is the dive).
+  - **Claiming:** a loose ball slower than 450 px/s that it can meet in its box (or 40 px outside) at least 0.15 s before any opponent, and before any teammate: it sprints to the meeting point (`ai.interceptPoint`). Tested: 8/8 balls rolling into the box with an attacker 350 px behind were claimed.
+  - **Rushing out:** an opposing carrier within 450 px of goal with none of the keeper's outfielders nearer the goal: it comes out toward the carrier (to 80 px from it, at most 170 px off its line, inside its box).
+  - **Reaction** (`cpuKeeperReact`, reaction `LEVELS.keeperReactSec` 0.5 / 0.4 / 0.32 s +- 0.04 random; ours always 0.4): a shot heading for its goal (faster than 300 px/s, on target or within 30 px of a post, under its reach height, arriving within 1.2 s): a sideways dive toward where it will pass, only as far as needed (straight-line prediction, so a late curler can beat it); a carrier close in its box (95 px): a **smother** dive at the ball. Diving with an opposing carrier's ball in reach in its box takes it (the carrier staggers 0.5 s, like a lost tackle). Standing it reaches 96 high, diving 120. Catch at or below 650 px/s, parry faster (25% speed).
+  - **Shot table** (perfect-timed shots from straight in front, 12 each, goals; corner = aimed 105 px off centre, mid = 60, weak = 20% charge): easy: 450 px corner 12, mid 12, central 0, weak corner 10; 300 px corner 12, mid 0, weak 12. Normal: 450 corner 12, mid 5, central 0, weak 0; 300 corner 12, mid 0, weak 12. Hard: 450 everything saved; 300 corner 12, weak 12, mid 0. So placement, power and distance decide; hard asks you to get closer.
+  - **1v1** (normal, the human dribbling at goal through the middle): shooting at a corner within 420 px (keeper still on its line) 12/12 goals; within 330 px (keeper rushed out to ~170 px) 12/12; waiting until 250 px: 2/12 (it's on top of you); dribbling on without shooting: smothered 8/8.
+  - **Distribution** (holding the ball, not human-controlled: after 1 s; a human-controlled keeper auto-distributes after 6 s): throws (the normal pass, lofted) to the best teammate 120-800 px away scored on openness (no opponent within 120 px), lane safety and progress; if nothing scores 0.55, a long punt (820 px/s, lift 520) upfield toward the most advanced teammate's side. Control goes to the throw's receiver, or the outfielder nearest where a punt is heading.
   - **You can control your keeper:** SWITCH to it (hold SWITCH to jump straight there), or it catches the ball. Without the ball you can move it anywhere, **out of its box too** (sprint allowed). Hands only inside its own box: it catches, parries and holds there, can't carry a held ball out (`keepInBox` while `holding`), and outside the box it plays with its feet like an outfielder (dribble, PASS/SHOOT; fast balls deflect), and it faces the ball when standing. **B1 = DIVE:** along the stick (a full 0.35 s lunge at 480 px/s), or with the stick centred a smart dive toward where the ball will cross the keeper's line, only as far as needed. Reach while diving is 64 (normally 40), then 0.45 s down (drawn on its side). B2 = SWITCH out. With the ball: B1 = THROW to the ring-marked teammate; **B2 = KICK, held to charge** (tap = 520 px/s low clearance, full = 900 px/s lofted; the ring is white then yellow). **KICK takes the same swipes:** up = PUNT (1.5x lift), down = DRIVE (1.3x speed, 0.4x lift), left/right = CURL (bends 18° that way, spin 0.9 rad/s). Control then passes to the receiver or the nearest outfielder. It auto-throws after 6 s.
 - **Player collision** (`systems/collisions.ts`): bodies of radius 16 push apart (half each) after movement; then court and box limits are re-applied.
 - **Match flow** (`systems/MatchFlow.ts`):
@@ -64,7 +85,6 @@ Not yet built (Phase 3):
 
 - No away outfield team, so after a home goal the "away kickoff" just leaves the ball on the centre spot.
 - TACKLE does nothing yet, and there's no AI.
-- No real goalkeepers (dives, arc positioning) or difficulty differences.
 - No switch speed boost.
 
 The server still has the template's demo endpoints (`/api/state`, `/api/score`, `/api/leaderboard` with Redis); Phase 5 replaces them with `/api/init` + `/api/challenge` and removes Redis.
@@ -76,7 +96,7 @@ The server still has the template's demo endpoints (`/api/state`, `/api/score`, 
 | 0     | Replace GameMaker template with Phaser, scene skeleton, landscape, pixel style                                                                                             | Done                                                  |
 | 1     | Fixed 60 Hz loop, 2.5D (x, y, z) model, pitch 2400x1300, camera, floating joystick, keyboard fallback, one player with walk/sprint/stamina                                 | Done, plus the broadcast camera                       |
 | 2     | Ball physics, possession and dribble touches, context buttons (+ J/K keys), pass (target ring), shoot (charge), goals and match flow (clock, kickoff, golden goal, Result) | Done (awaiting phone playtest); switch included early |
-| 3     | Away 5v5 team, tackle, AI state machine (Chase/Support/Mark/Carry), real goalkeepers, difficulty levels, fairness helpers, switch boost                                    | Next                                                  |
+| 3     | Away 5v5 team, tackle, AI state machine (Chase/Support/Mark/Carry), real goalkeepers, difficulty levels, fairness helpers, switch boost                                    | In progress (steps 1-5/6)                                 |
 | 4     | HUD polish (crests, name tags, minimap), sprites and animation states, juice (shake, particles, celebrations), audio, haptics, performance pass                            |                                                       |
 | 5     | Server `/api/init` + `/api/challenge`, challenge posts, splash challenge banner, cleanup, deploy and launch                                                                |                                                       |
 
@@ -112,7 +132,9 @@ src/
       ballPhysics.ts        stepFreeBall() (gravity, bounce, drag, spin) and collideBall() (walls, fence, posts, nets, goal detection)
       possession.ts         stepPossession(): control/deflect for a loose ball, close-control dribble (angle + distance around the carrier); gainBall (cushioned)/releaseBall
       actions.ts            choosePassTarget(), kickPass(), kickShot() (aim assist, curve)
-      keeper.ts             stepDummyKeeper(): Phase 2 stand-in keeper (catch/parry/hold/throw; human-held option); keepInBox() (only while holding), inOwnBox()
+      keeper.ts             goalkeepers: keeperStick() (position / claim / rush), cpuKeeperReact() (shot dives, smothers), stepKeeperHands() (catch / parry / smother / hold / distribute), startDive(), stepKeeperBody(), keepInBox(), inOwnBox()
+      ai.ts                 TeamBrain: shared outfield AI for both teams (role assignment + steering: chase/press/mark/cover/support/run/carry), carrier decisions (decideCarry), AI tackle intent, interceptPoint()
+      tackle.ts             tackles for everyone: startTackle(), stepLunge(), resolveTackle() (contact, success chance, juke, win/fail), tacklePhase()
       collisions.ts         separatePlayers(): body-circle push-apart
       MatchFlow.ts          kickoff/live/goal/fulltime state machine, clock, score, golden goal, banners, time scale
       CameraRig.ts          focus point: ball/player blend + filtered look-ahead, critically damped smooth-follow (smoothDamp), zoom, clamp -> projector.setFocus
@@ -146,6 +168,7 @@ public/ball.svg             pixel ball shown on the splash
 - Goals are centred on y=650 with a 260 mouth (y 520..780), crossbar 104 high, nets 60 deep.
 - Players may enter a goal (x down to -46 or up to 2446, feet radius 14). `constrainMove` resolves x against the current row, then y against the new column, so the posts and side nets act as walls.
 - Ball radius 10. It is walled in all round: the far wall (y=0), near fence (y=1300), end walls outside the mouth and the posts (circles of radius 6). A ball fully over the line in the mouth (x < -10 or > 2410, z under the bar) is a goal; `ball.inNet` then keeps it in the net box (roof 73 high).
+- Fairness (from the MVP plan): the team behind on the scoreboard refills stamina 15% faster (`STAMINA.trailingRegen`); no AI tackles in the first 0.5 s after kickoff; the receiver of a pass has a +10 px first touch.
 - Formation (home): left back (520, 420), right back (520, 880), midfielder (840, 650), forward (1120, 650), keeper (40, 650). At a home kickoff the forward stands at (1176, 650) by the ball on the centre spot (1200, 650). The CPU keeper is at (2360, 650).
 - The ground texture extends 720 beyond each goal line and 320 beyond the near touchline (`GROUND_EXTENT`). Scenery is render-only.
 
@@ -171,7 +194,7 @@ public/ball.svg             pixel ball shown on the splash
 1. Save previous positions.
 2. Movement: `stepPlayer` for home outfielders. The controlled player follows the stick; receivers auto-run to the intercept point unless steered; everyone holds still while `flow.playersFrozen`.
 3. Free ball physics (`stepFreeBall`) if nobody owns it.
-4. While live, possession: `stepPossession` (control, deflect, or dribble the carrier), then `stepDummyKeeper` for both keepers.
+4. While live, possession: `stepPossession` (control, deflect, or dribble the carrier), then `stepKeeperHands` for both keepers.
 5. `collideBall`; on a goal: release, clear actions, `flow.onGoal`.
 6. While live, actions (`stepActions`): a pending pass fires after the wind-up; B1 = pass; B2 = charge/shoot or switch; presses are buffered.
 7. `flow.tickClock(dt)`.
@@ -219,7 +242,8 @@ public/ball.svg             pixel ball shown on the splash
   - B1 = PASS / TACKLE, B2 = SHOOT (hold to charge) / SWITCH.
   - A press is kept for 150 ms only when the ball is loose within 60 px of the controlled player, so it can become a pass or shot on gaining the ball. Otherwise it acts on the spot (switch/tackle).
   - Shot charge is timed in real time from the press.
-- **Stand-in keepers until Phase 3**: a keeper per goal on its line (catch ≤ 650 px/s, parry faster) keeps shooting testable. They're excluded from pass targets; the human can control ours (via SWITCH or when it catches the ball), including a DIVE (user request).
+- **Goalkeepers share one AI** (keeper.ts) for both sides; saves only come from real reach and dive timing. Difficulty changes reaction time only (no reach or speed boosts). The human can control ours (via SWITCH or when it catches the ball), including a DIVE (user request); the Phase 3 plans assumed an AI-only keeper, and the user hasn't decided yet whether to keep keeper control.
+- **Difficulty = one table (`LEVELS`)** for the CPU; our AI teammates and keeper always play at normal. Same movement and physics at every level (v3: "no impossible movement or guaranteed saves"); only reaction (think rate, keeper reaction), decisions (score noise), accuracy (pass error, shot charge and placement) and positioning (marking distance) change.
 - **Ball feel tuned by simulation, not the plan's numbers** (user feedback: shots crossed the whole court, rebounds too strong, shots too flat). The plan's 0.55/s drag let a lifted 950 px/s shot travel about 1700 px. The ground/air drag, friction and bounce were picked with a scratch simulator of `stepFreeBall` so a full shot travels about 1000 px while 300-900 px passes still arrive (verified in game).
 - **Switch was pulled forward from Phase 3** because teammates exist now. The 0.2 s speed boost on switch is still to do.
 - **Debug hook:** `?debug` in the URL sets `window.__game`. Use `__game.scene.getScene('Match')` to read or set state in tests (ball, home, controlled, flow, controls.press/release, controls.touchStick).
@@ -255,30 +279,44 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 - The ball's shadow is a simple oval (no light direction); fine for now.
 - Away kickoff with no away team: the ball waits on the centre spot until a home player takes it.
 - The far wall and near fence are still infinitely tall for the ball; only the end walls have a height (120) for the ball to clear.
-- The CPU keeper throws toward the centre (it has no teammates yet), so its throws often hit or reach home players.
 
 ## Next up
 
 **Phase 3:**
 
-- **Away team:** 4 outfield players (blue) in a mirrored 2-1-1 formation; kickoffs by the conceding team; formation spots that shift with the ball.
-- **Tackle** (B1 without the ball):
-  - phases 0.10 / 0.15 / 0.35 s, a 70 px lunge, a 48 px arc of ±70°;
-  - success chance 55% with the modifiers (front/side +15%, behind -30%, carrier sprinting -15%, tackler sprinting +10%);
-  - the juke dodge (stick reversed >120° during start-up);
-  - win: ball pops out at 300 px/s, the carrier staggers 0.5 s, and the tackler gets 0.2 s of first-touch priority;
-  - fail: a stumble.
-- **AI state machine** per player, thinking every 150 ms (staggered) with a difficulty reaction delay:
-  - Chase: one per team besides the human.
-  - Support: open space 150-300 px ahead.
-  - Mark: goal-side of an opponent.
-  - Carry: a utility choice between shoot (within 450 px with a clear lane), pass (a teammate 120+ px closer to goal with a clear lane) and dribble, with about 10% randomness.
-- **Real goalkeepers:** arc between ball and goal centre, predict where the ball crosses the line, dive if reachable (reaction 0.28 / 0.18 / 0.10 s by difficulty); corners beat them more often.
-- **Difficulty table** (reaction, move speed, tackle success, pass error, keeper delay).
-- **Fairness helpers:** stamina regen +15% for the trailing team; no AI tackles within 0.5 s of kickoff; bonus first touch for the human after a pass (already +10 px).
+- ~~Away team~~, ~~AI hand-over~~, ~~shared outfield AI~~, ~~AI carriers and tackles~~, ~~keepers and difficulty~~ (done, steps 1-5). **Next: step 6,** phone playtest in Reddit (all three levels; check frame rate with 10 players, control ownership after resets, both kickoff directions).
+- **Open decision (user):** keep human keeper control, or make the keeper AI-only (both Phase 3 plans assume AI-only).
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+### 2026-10-13: Phase 3 step 5 - goalkeepers and difficulty
+- `keeper.ts` reworked (shared by both keepers): `keeperStick` (positioning moved from `MatchScene.keeperPositionStick`, plus claiming and rushing out), `cpuKeeperReact(k, ball, time, reactSec, rand)` (shot dives with a per-level reaction and +-0.04 s jitter, plus smother dives), `stepKeeperHands` (was `stepDummyKeeper`; adds the smother and the throw-or-punt distribution). New `KeeperEvent`s 'smothered' and 'punted'. `KEEPER.reactSec` moved to `LEVELS.keeperReactSec`.
+- New `LEVELS` table (easy / normal / hard): think rate, tackle chance, shot charge noise, decision noise, pass error scale, shot aim spread, marking distance scale, keeper reaction. `AI.thinkSec`, `tackleChance`, `shotChargeNoise`, `decisionNoise` and the mate* values were folded into it; `BrainSkill` is a row. `kickPass` takes an `errorScale`.
+- Fairness: `STAMINA.trailingRegen` 1.15 (`stepPlayer(..., regenScale)`). Result screen: TACKLES now counts tackles won by the human's player (was always 0).
+- AI fixes found while testing: pressure ignores staggered / downed opponents (after winning a tackle the AI always panicked into a pass because the player it had just tackled counted as pressure); AI shots get a placement spread (every AI shot was a perfect corner: our keeper saved 0 of 5-6 a match). Easy pass error 1.6 -> 1.3.
+- Keeper reaction tuned with shot tables (results in Current state). At first normal 0.35 s sat exactly on the edge for a corner from 450 px (the same shot was saved or scored depending on one 1/60 s step), so 0.5 / 0.4 / 0.32 s plus a random +-0.04 s.
+- Verified (preview): shot tables per level; claims 8/8; 1v1 table; distribution throws to the open midfielder; AI-vs-AI matches (our side driven by the home brain through the controls): easy 0-1 (CPU 12 shots, our keeper 8 saves), normal 0-1 (CPU 18 shots, 9 saves), hard 0-4 (CPU 10 shots). No errors, nothing stuck.
+
+### 2026-10-13: Phase 3 step 4 - AI carriers and tackles
+- New `systems/tackle.ts` (phases, lunge, contact, chance with modifiers, juke, stagger / stumble / first-touch priority) and `TACKLE` tuning. Player fields: `tackleAt`, `tackleUntil`, `tackleDir`, `tackleSprint`, `tackleDone`, `stumbling`, `jukeRef`, `staggerUntil`, `tackleReadyAt`, `wantDir`. Ball: `priority` / `priorityUntil` (possession skips everyone else meanwhile).
+- `ai.ts`: carriers score shoot / pass / dribble / clear (`decideCarry`); passes and shots are handed to `MatchScene.stepAiCarriers` (`takeAction`); the presser decides tackles (`wantsTackle`, `tackles` queue). `BrainSkill` per team (think rate, tackle chance, shot charge noise). `TeamView` gains `oppKeeper`, `canTackle`, `rand`.
+- `MatchScene`: lunges move bodies, start-up / recovery / stumble / stagger stop the player; tackles resolve before the ball moves; B1 = TACKLE for the human. The away stand-in (`stepAwayCarrier`, `AWAY_CLEAR_SEC`) is gone.
+- `possession.ts`: a pass in flight can't be taken by the passer's other teammates; a deflection clears receivers.
+- Tuning found by testing: won-tackle pop (see Current state); `AI.pressureNear` 90 -> 60 (at 90 every human tackle met an AI pass: 39 of 40); shoot vs pass scores rebalanced (the AI shot 0-3 times a match while passing 50 times; now 4 / 6 shots on normal / hard).
+- Verified (fast-forwarded matches in the preview, idle human): no errors, nothing stuck. Normal: 33 passes, 4 shots, 52 tackles (22 won), 0-3. Hard: 48 passes, 6 shots, 62 tackles, 0-3. Easy: 12 passes, 0 shots. Human tackling an AI carrier (40 runs, varied angles): 19 won (all ended with the tackler on the ball), 11 failed, 9 times the AI passed first. Human dribbling straight at the press: tackled in 0.4-3.6 s; reversing the stick as a tackle starts (juke) beat every tackle.
+
+### 2026-10-13: Phase 3 steps 2-3 - AI hand-over and shared outfield AI
+- New `systems/ai.ts`: `TeamBrain` (think = role assignment at a team-level cadence; steer = per-step stick + sprint toward the role target), `interceptPoint`, roles chase / press / mark / cover / support / run / carry. New `AI` tuning block. `MatchScene`: `teamView()`, both brains think then steer every live step; `outfieldStick` removed; `setControlled` wakes the brains; ?debug role labels.
+- The Phase 2 rule 'nobody runs toward the ball by themselves' is replaced by the AI (the user asked for AI teammates in Phase 3).
+- Tuning after testing: `pressGap` 40 -> 70 and `pressLeadSec` 0.4 (the presser was standing on the carrier, blocking the dribble; now it jockeys at about 73 px, backing off).
+- Verified (scripted, preview): at most one chaser per team at any time; our AI midfielder won a loose ball and control moved to him, with the old human player becoming the runner; with the away team on the ball our human counted as presser and the AI teammates marked; the away clearance was won by our chaser; our kickoff ball was kept. Whole sim step with AI: 0.056 ms.
+
+### 2026-10-13: Phase 3 step 1 - away team on the pitch (5v5)
+- Plan chosen: v3 plus parts of v2 (see Current state). `MatchScene.away`: 4 CPU outfielders mirrored from `FORMATION.outfield`. They're in `everyone`, possession, separation, constraints and `clearReceivers`. `opponentsOf` covers both whole teams; the away keeper throws to them.
+- Kickoff: the conceding side kicks off with its forward next to the ball; the other side's forward waits outside the centre circle (`FORMATION.defendKickoffX`).
+- `outfieldStick(p)` is the AI hook for non-human outfielders (NO_MOVE for now). `stepAwayCarrier` is a stand-in that clears the ball for an away carrier (chipped `kickShot` toward our goal after 0.7 s) until AI carriers and tackles exist.
+- Verified (scripted, preview): 10 players at kickoff and after home and away goals, both kickoffs correct, the away kickoff lofted over our forward and play continued; the away goal kick was thrown to an away outfielder, who cleared.
 
 ### 2026-10-13: Pointer stretches into the charge arrow; weighted passes (user request)
 - **One arrow, not two:** the separate aim arrow drawn from the ball while charging is gone (`updateAimArrow`/`drawGroundArrow`/`aimArrow` removed; the label part is now `updateShotText`). Instead the ring's own pointer stretches: while SHOOT / KICK / a weighted PASS charges, its head slides outward along the strike direction (up to `POINTER_STRETCH` 190 world px, ease-in `POINTER_EASE` 1.6 so it speeds up as the charge builds) with a tapering shaft behind it, in the charge colours. The pointer now always sits just outside the gauge (`POINTER_GAP` 19), so nothing jumps when charging starts. `SHOOT.aimArrow` false keeps the pointer short.
