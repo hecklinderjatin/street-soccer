@@ -58,29 +58,61 @@ function rollDistance(v0: number, v1: number) {
     (ROLL_A / (ROLL_K * ROLL_K)) * Math.log((v0 + c) / (v1 + c))
   );
 }
-export function passSpeed(dist: number) {
+export function passSpeed(dist: number, maxSpeed: number = PASS.maxSpeed) {
   let lo: number = PASS.arriveSpeed;
-  let hi: number = PASS.maxSpeed * 2;
+  let hi: number = maxSpeed * 2;
   for (let i = 0; i < 30; i++) {
     const mid = (lo + hi) / 2;
     if (rollDistance(mid, PASS.arriveSpeed) < dist) lo = mid;
     else hi = mid;
   }
-  return clamp(hi, PASS.minSpeed, PASS.maxSpeed);
+  return clamp(hi, PASS.minSpeed, maxSpeed);
+}
+
+// Weighted pass: the charge (0..1) for a PASS held `held` seconds (it
+// starts filling once the hold is longer than a tap), the roll distance a
+// charge asks for (curved, so short passes get more of the hold), and the
+// charge that would weigh a pass over `dist` just right.
+export function passWeight(held: number) {
+  return clamp(
+    (held - PASS.weightTapSec) / (PASS.weightChargeSec - PASS.weightTapSec),
+    0,
+    1
+  );
+}
+function weightDistance(weight: number) {
+  return (
+    PASS.weightMinDist +
+    (PASS.weightMaxDist - PASS.weightMinDist) * weight ** PASS.weightCurve
+  );
+}
+export function idealPassWeight(dist: number) {
+  const f = clamp(
+    (dist - PASS.weightMinDist) / (PASS.weightMaxDist - PASS.weightMinDist),
+    0,
+    1
+  );
+  return f ** (1 / PASS.weightCurve);
 }
 
 // Sends the ball toward where the receiver will be, at a speed scaled by
 // distance, with a small aim error (bigger under pressure). An opponent
-// close to the pass line turns it into a chip over them.
+// close to the pass line turns it into a chip over them. With a `weight`
+// (a held PASS, 0..1) the player sets the pace instead: it can stop short
+// of the receiver or run past them.
 export function kickPass(
   ball: Ball,
   passer: Player,
   receiver: Player,
   opponents: readonly Player[],
-  rand: () => number
+  rand: () => number,
+  weight: number | null = null
 ) {
   const dist = Math.hypot(receiver.x - ball.x, receiver.y - ball.y);
-  const speed = passSpeed(dist);
+  const speed =
+    weight === null
+      ? passSpeed(dist)
+      : passSpeed(weightDistance(weight), PASS.weightMaxSpeed);
   const travel = dist / speed;
   const tx = receiver.x + receiver.vx * travel * PASS.leadFactor;
   const ty = receiver.y + receiver.vy * travel * PASS.leadFactor;

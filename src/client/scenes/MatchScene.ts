@@ -23,6 +23,8 @@ import {
   choosePassTarget,
   kickPass,
   kickShot,
+  idealPassWeight,
+  passWeight,
   shotDirection,
 } from '../systems/actions';
 import { collideBall, stepFreeBall } from '../systems/ballPhysics';
@@ -53,8 +55,13 @@ const SHOT_TEXT_DEPTH = 3e6; // above players, markers and the stamina bar
 const RING_RADIUS = 44; // the ground marker ring round the controlled player, world px
 const RING_POINTS = 40;
 const GAUGE_SEGMENTS = 24; // segments of the charge gauge round the ring
-const ARROW_HEAD_BACK = 18; // arrow head strokes run back this far from the tip ...
-const ARROW_HEAD_SIDE = 12; // ... and out to the side this far
+const POINTER_GAP = 19; // pointer base sits this far outside the ring (clear of the gauge)
+const POINTER_LENGTH = 28; // pointer head length ...
+const POINTER_HALF_WIDTH = 17; // ... and half its width, world px
+const POINTER_STRETCH = 190; // how far the head slides out at full charge
+const POINTER_EASE = 1.6; // > 1: the stretch speeds up as the charge builds
+const SHAFT_HALF_START = 3; // shaft half-width at the ring ...
+const SHAFT_HALF_END = 7; // ... and at the head
 
 // A match on the street court, seen through the broadcast camera.
 // The simulation runs at a fixed 60 Hz (FixedStep) on the flat ground plane;
@@ -80,15 +87,19 @@ export class MatchScene extends Phaser.Scene {
   private flow!: MatchFlow;
   private rig!: CameraRig;
   private hudState!: MatchHudState;
-  private aimArrow!: Phaser.GameObjects.Graphics;
   private marker!: Phaser.GameObjects.Graphics; // ring + pointer + charge gauge under the controlled player
   private shotText!: Phaser.GameObjects.BitmapText; // the swipe shape, above the shooter
 
   private simTime = 0;
   private stats = { shots: 0, passes: 0 };
   private followShotUntil = -Infinity; // sim time: until then control follows the player closest to the loose ball (after a shot)
-  private pendingPass: { passer: Player; receiver: Player; at: number } | null =
-    null;
+  private pendingPass: {
+    passer: Player;
+    receiver: Player;
+    at: number;
+    weight: number | null; // weighted pass charge 0..1, null = normal pass
+  } | null = null;
+  private passChargeSince: number | null = null; // real time a held PASS started charging
   private outRestart: { keeper: Player; at: number } | null = null; // goal kick after the ball went out
   private chargeSince: number | null = null; // real time the shot charge started
   private lastSwitchAt = -Infinity;
@@ -113,6 +124,7 @@ export class MatchScene extends Phaser.Scene {
     this.followShotUntil = -Infinity;
     this.outRestart = null;
     this.chargeSince = null;
+    this.passChargeSince = null;
     this.lastSwitchAt = -Infinity;
     this.switchCycle = [];
     this.switchIndex = 0;
@@ -139,7 +151,6 @@ export class MatchScene extends Phaser.Scene {
     );
     this.everyone = [...this.home, this.homeKeeper, this.awayKeeper];
     this.ball = new Ball(this);
-    this.aimArrow = this.add.graphics();
     this.marker = this.add.graphics();
     this.shotText = pixelText(this, 0, 0, '', 0.6 * PX, PAL.white)
       .setOrigin(0.5, 1)
@@ -193,7 +204,7 @@ export class MatchScene extends Phaser.Scene {
     for (const p of this.everyone) p.interpolate(alpha);
     this.ball.interpolate(alpha);
     this.updatePassPreview();
-    this.updateAimArrow();
+    this.updateShotText();
     this.updateGroundMarker();
 
     const b = this.ball;
@@ -317,6 +328,7 @@ export class MatchScene extends Phaser.Scene {
       if (ball.owner) releaseBall(ball, ball.owner, t);
       this.pendingPass = null;
       this.chargeSince = null;
+      this.passChargeSince = null;
       this.clearReceivers();
       // Ball in the right net = home scores (home attacks right).
       this.flow.onGoal(contact.goal > 0 ? 'home' : 'away');
@@ -325,6 +337,7 @@ export class MatchScene extends Phaser.Scene {
       // Over the bar (or over the end wall): the defending keeper restarts.
       if (ball.owner) releaseBall(ball, ball.owner, t);
       this.chargeSince = null;
+      this.passChargeSince = null;
       this.clearReceivers();
       const overBar = Math.abs(ball.y - PITCH.height / 2) < PITCH.goalMouth / 2;
       this.flow.flash(
@@ -387,10 +400,17 @@ export class MatchScene extends Phaser.Scene {
     const c = this.controlled;
 
     if (this.pendingPass && t >= this.pendingPass.at) {
-      const { passer, receiver } = this.pendingPass;
+      const { passer, receiver, weight } = this.pendingPass;
       this.pendingPass = null;
       if (ball.owner === passer) {
-        kickPass(ball, passer, receiver, this.opponentsOf(passer), Math.random);
+        kickPass(
+          ball,
+          passer,
+          receiver,
+          this.opponentsOf(passer),
+          Math.random,
+          weight
+        );
         releaseBall(ball, passer, t);
         this.stats.passes += 1;
         // Control moves to the receiver the moment the pass is released.
@@ -412,20 +432,36 @@ export class MatchScene extends Phaser.Scene {
       !ball.owner &&
       Math.hypot(ball.x - c.x, ball.y - c.y) < INPUT.bufferNearBall;
 
-    if (fresh(1)) {
-      if (hasBall) {
+    // PASS: a tap is the normal pass (pace fitted to the distance); held,
+    // it charges a weighted pass, struck on release at the pace you chose.
+    // The target is picked on release, as the preview ring shows.
+    if (hasBall && !this.pendingPass && this.chargeSince === null) {
+      if (this.passChargeSince === null && fresh(1)) {
         controls.consume(1);
-        const receiver = this.pendingPass
-          ? null
-          : choosePassTarget(c, this.home, controls.move);
+        this.passChargeSince = realNow();
+      }
+      if (this.passChargeSince !== null && !controls.isHeld(1)) {
+        const held = realNow() - this.passChargeSince;
+        this.passChargeSince = null;
+        const receiver = choosePassTarget(c, this.home, controls.move);
         if (receiver)
-          this.pendingPass = { passer: c, receiver, at: t + PASS.windUpSec };
+          this.pendingPass = {
+            passer: c,
+            receiver,
+            at: t + PASS.windUpSec,
+            weight: held <= PASS.weightTapSec ? null : passWeight(held),
+          };
+      }
+    } else if (fresh(1)) {
+      if (hasBall) {
+        controls.consume(1); // already passing or shooting
       } else if (!ballClose) {
         controls.consume(1); // TACKLE arrives in Phase 3.
       }
     }
+    if (!hasBall) this.passChargeSince = null;
 
-    if (hasBall && !this.pendingPass) {
+    if (hasBall && !this.pendingPass && this.passChargeSince === null) {
       if (this.chargeSince === null && fresh(2)) {
         controls.consume(2);
         this.chargeSince = realNow();
@@ -435,6 +471,7 @@ export class MatchScene extends Phaser.Scene {
         const charge =
           held <= SHOOT.tapMaxSec ? 0 : clamp(held / SHOOT.chargeSec, 0, 1);
         this.chargeSince = null;
+        this.passChargeSince = null;
         kickShot(
           ball,
           c,
@@ -470,11 +507,13 @@ export class MatchScene extends Phaser.Scene {
     const ball = this.ball;
     const controls = this.controls;
     const fresh = (id: 1 | 2) => controls.pressAge(id) <= INPUT.bufferSec;
+    this.passChargeSince = null; // a throw is never weighted
 
     // Without the ball: 1 = dive (along the stick, or with the stick centred
     // to where the ball will cross the keeper's line), 2 = switch out.
     if (ball.owner !== k) {
       this.chargeSince = null;
+      this.passChargeSince = null;
       if (fresh(1)) {
         controls.consume(1);
         if (controls.move.r > STICK.deadZone) {
@@ -522,6 +561,7 @@ export class MatchScene extends Phaser.Scene {
         1
       );
       this.chargeSince = null;
+      this.passChargeSince = null;
       const upfield = k.team === 'home' ? 0 : Math.PI;
       const dir =
         controls.move.r > STICK.deadZone
@@ -698,6 +738,7 @@ export class MatchScene extends Phaser.Scene {
     p.controlled = true;
     this.controlled = p;
     this.chargeSince = null;
+    this.passChargeSince = null;
   }
 
   private clearReceivers() {
@@ -729,41 +770,25 @@ export class MatchScene extends Phaser.Scene {
     this.followShotUntil = -Infinity;
     this.outRestart = null;
     this.chargeSince = null;
+    this.passChargeSince = null;
     this.setControlled(this.forward);
   }
 
-  // While a shot (or keeper kick) charges: a short arrow on the ground from
-  // the ball along the direction it will leave in. It shows the strike
-  // direction only (no target, no curve), longer with more charge.
-  private updateAimArrow() {
-    const g = this.aimArrow;
-    g.clear();
+  // While a shot (or keeper kick) charges: the swipe shape above the
+  // shooter's head (the thumb hides the button). The strike direction is
+  // shown by the ground marker's pointer stretching out (updateGroundMarker).
+  private updateShotText() {
     const c = this.controlled;
-    const ball = this.ball;
-    const charging = this.chargeSince !== null && ball.owner === c;
-    // The swipe shape above the shooter's head (the thumb hides the button).
+    const charging = this.chargeSince !== null && this.ball.owner === c;
     this.shotText.setVisible(charging);
-    if (charging) {
-      const label =
-        shotLabel(this.controls.swipe, c.holding) ||
-        (c.holding ? 'KICK' : 'SHOT');
-      if (this.shotText.text !== label) this.shotText.setText(label);
-      // Above the overhead arrow (which sits over the sprite).
-      this.projector.project(c.renderX, c.renderY, PLAYER_HEIGHT + 48, AIM_AT);
-      this.shotText.setPosition(AIM_AT.x, AIM_AT.y);
-    }
-    if (!SHOOT.aimArrow || !charging) return;
-    const charge = this.currentCharge() ?? 0;
-    this.drawGroundArrow(
-      g,
-      ball.renderX,
-      ball.renderY,
-      this.strikeDirection(c),
-      0,
-      60 + 160 * charge,
-      this.chargeColor(charge, c.holding)
-    );
-    g.setDepth(ball.renderY + 0.3);
+    if (!charging) return;
+    const label =
+      shotLabel(this.controls.swipe, c.holding) ||
+      (c.holding ? 'KICK' : 'SHOT');
+    if (this.shotText.text !== label) this.shotText.setText(label);
+    // Above the overhead arrow (which sits over the sprite).
+    this.projector.project(c.renderX, c.renderY, PLAYER_HEIGHT + 48, AIM_AT);
+    this.shotText.setPosition(AIM_AT.x, AIM_AT.y);
   }
 
   // How far the shot (or keeper kick) is charged, 0..1, or null when the
@@ -772,6 +797,48 @@ export class MatchScene extends Phaser.Scene {
     if (this.chargeSince === null || this.ball.owner !== this.controlled)
       return null;
     return clamp((realNow() - this.chargeSince) / SHOOT.chargeSec, 0, 1);
+  }
+
+  // The charge being built on the controlled player's ball, shot or
+  // weighted pass, with where it goes and its colour; null when none is.
+  // `ideal` (passes) is the charge that weighs the pass just right.
+  private activeCharge(c: Player): {
+    charge: number;
+    dir: number;
+    color: number;
+    ideal: number | null;
+  } | null {
+    const shot = this.currentCharge();
+    if (shot !== null)
+      return {
+        charge: shot,
+        dir: this.strikeDirection(c),
+        color: this.chargeColor(shot, c.holding),
+        ideal: null,
+      };
+    if (this.passChargeSince === null || this.ball.owner !== c) return null;
+    const held = realNow() - this.passChargeSince;
+    // A tap's worth of holding is still a normal pass: no gauge yet.
+    if (held <= PASS.weightTapSec) return null;
+    const charge = passWeight(held);
+    const target = this.home.find((p) => p.passTarget);
+    if (!target)
+      return { charge, dir: c.heading, color: PAL.white, ideal: null };
+    const ideal = idealPassWeight(
+      Math.hypot(target.x - this.ball.x, target.y - this.ball.y)
+    );
+    const off = charge - ideal;
+    return {
+      charge,
+      dir: Math.atan2(target.y - c.y, target.x - c.x),
+      color:
+        Math.abs(off) <= PASS.weightGoodBand
+          ? PAL.green
+          : off > 0
+            ? PAL.red
+            : PAL.white,
+      ideal,
+    };
   }
 
   // Which way the strike will leave: the stick, or the facing with the stick
@@ -792,23 +859,35 @@ export class MatchScene extends Phaser.Scene {
 
   // The controlled player's ground marker (FIFA-style): a ring round the
   // feet with a pointer on it toward the facing direction. While SHOOT /
-  // KICK charges, the pointer follows the strike direction and a segmented
-  // gauge fills round the ring, in the aim arrow's colours.
+  // KICK or a weighted PASS charges, a segmented gauge fills round the ring
+  // and the pointer itself stretches out into an arrow along the strike
+  // (pass) direction, growing faster the longer it is held. It is the same
+  // arrow throughout: the head slides out from the ring with a shaft behind.
   private updateGroundMarker() {
     const g = this.marker;
     g.clear();
     const c = this.controlled;
     if (this.flow.phase === 'fulltime') return;
-    const charge = this.currentCharge();
-    const dir = charge === null ? c.heading : this.strikeDirection(c);
-    const color =
-      charge === null ? PAL.white : this.chargeColor(charge, c.holding);
+    const active = this.activeCharge(c);
+    const charge = active?.charge ?? null;
+    const dir = active?.dir ?? c.heading;
+    const color = active?.color ?? PAL.white;
     const x = c.renderX;
     const y = c.renderY;
     const ground = (angle: number, radius: number) => {
       this.projector.project(
         x + Math.cos(angle) * radius,
         y + Math.sin(angle) * radius,
+        0,
+        AIM_AT
+      );
+      return { x: AIM_AT.x, y: AIM_AT.y };
+    };
+    // A point `along` the pointer direction and `across` it (world px).
+    const onPointer = (along: number, across: number) => {
+      this.projector.project(
+        x + Math.cos(dir) * along - Math.sin(dir) * across,
+        y + Math.sin(dir) * along + Math.cos(dir) * across,
         0,
         AIM_AT
       );
@@ -828,7 +907,8 @@ export class MatchScene extends Phaser.Scene {
     );
 
     // Gauge: segments round the ring from the pointer, clockwise on screen.
-    if (charge !== null) {
+    // For a weighted pass the segments that would weigh it right glow green.
+    if (active && charge !== null) {
       const step = (Math.PI * 2) / GAUGE_SEGMENTS;
       const lit = Math.ceil(charge * GAUGE_SEGMENTS);
       for (let i = 0; i < GAUGE_SEGMENTS; i++) {
@@ -836,7 +916,12 @@ export class MatchScene extends Phaser.Scene {
         const a1 = dir + (i + 1) * step - step * 0.12;
         const inner = RING_RADIUS + 5;
         const outer = RING_RADIUS + 15;
+        const mid = (i + 0.5) / GAUGE_SEGMENTS;
+        const good =
+          active.ideal !== null &&
+          Math.abs(mid - active.ideal) <= PASS.weightGoodBand;
         if (i < lit) g.fillStyle(color, 0.95);
+        else if (good) g.fillStyle(PAL.green, 0.45);
         else g.fillStyle(PAL.black, 0.3);
         g.fillPoints(
           [
@@ -850,12 +935,29 @@ export class MatchScene extends Phaser.Scene {
       }
     }
 
-    // Pointer: a triangle pointing along the direction, just outside the
-    // ring (outside the gauge while that shows).
-    const base = RING_RADIUS + (charge === null ? 6 : 19);
-    const tip = ground(dir, base + 28);
-    const left = ground(dir + 0.28, base);
-    const right = ground(dir - 0.28, base);
+    // Pointer: a triangle just outside the gauge pointing along the
+    // direction. While charging it slides outward (ease-in, so it speeds
+    // up as the charge builds) and a tapering shaft fills in behind it.
+    const base = RING_RADIUS + POINTER_GAP;
+    const reach =
+      charge === null || !SHOOT.aimArrow
+        ? 0
+        : POINTER_STRETCH * Math.pow(charge, POINTER_EASE);
+    const headBack = base + reach; // where the head's back edge sits
+    if (reach > 1) {
+      g.fillStyle(color, 0.8).fillPoints(
+        [
+          onPointer(base, -SHAFT_HALF_START),
+          onPointer(headBack, -SHAFT_HALF_END),
+          onPointer(headBack, SHAFT_HALF_END),
+          onPointer(base, SHAFT_HALF_START),
+        ],
+        true
+      );
+    }
+    const tip = onPointer(headBack + POINTER_LENGTH, 0);
+    const left = onPointer(headBack, -POINTER_HALF_WIDTH);
+    const right = onPointer(headBack, POINTER_HALF_WIDTH);
     g.fillStyle(color, 0.95).fillTriangle(
       tip.x,
       tip.y,
@@ -865,41 +967,6 @@ export class MatchScene extends Phaser.Scene {
       right.y
     );
     g.setDepth(y - 0.5); // under the player's sprite
-  }
-
-  // An arrow lying on the ground from `start` to `end` world px along `dir`
-  // from (x, y): a line that fades in toward the tip, plus a two-stroke head.
-  private drawGroundArrow(
-    g: Phaser.GameObjects.Graphics,
-    x: number,
-    y: number,
-    dir: number,
-    start: number,
-    end: number,
-    color: number
-  ) {
-    const at = (along: number, across = 0) => {
-      this.projector.project(
-        x + Math.cos(dir) * along + Math.cos(dir + Math.PI / 2) * across,
-        y + Math.sin(dir) * along + Math.sin(dir + Math.PI / 2) * across,
-        0,
-        AIM_AT
-      );
-      return { x: AIM_AT.x, y: AIM_AT.y, s: AIM_AT.scale };
-    };
-    let prev = at(start);
-    [0.25, 0.5, 0.75, 1].forEach((f, i) => {
-      const p = at(start + (end - start) * f);
-      g.lineStyle(Math.max(3, 4 * p.s), color, 0.5 + 0.15 * i);
-      g.lineBetween(prev.x, prev.y, p.x, p.y);
-      prev = p;
-    });
-    // Arrow head: two strokes back from the tip, either side.
-    const tip = prev;
-    for (const s of [-1, 1]) {
-      const wing = at(end - ARROW_HEAD_BACK, ARROW_HEAD_SIDE * s);
-      g.lineBetween(tip.x, tip.y, wing.x, wing.y);
-    }
   }
 
   private updatePassPreview() {

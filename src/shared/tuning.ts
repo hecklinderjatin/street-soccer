@@ -121,6 +121,18 @@ export const PASS = {
   chipLane: 60, // an opponent this close to the pass line turns it into a chip
   chipVz: 380, // vertical speed of a chip
   receiverStopBelow: 60, // the receiver stops running onto the pass once the ball is slower than this (px/s)
+  // Weighted pass (user request): hold PASS to set the pace yourself. A tap
+  // is the normal pass above (pace fitted to the distance); held, the charge
+  // picks how far the ball rolls before slowing to arriveSpeed, so it can be
+  // under-hit (stops short, run onto it) or over-hit (runs past). Target,
+  // lead and aim error stay as above.
+  weightTapSec: 0.12, // released faster than this = normal pass
+  weightChargeSec: 0.9, // hold time for full pace (the charge fills from weightTapSec)
+  weightMinDist: 100, // roll distance at the lightest weighted pass ...
+  weightMaxDist: 1300, // ... and at full pace
+  weightCurve: 1.5, // distance grows as charge^this: finer control of short passes
+  weightMaxSpeed: 1150, // weighted passes may be struck harder than maxSpeed
+  weightGoodBand: 0.09, // charge within this of the receiver's ideal = well weighted (gauge green)
 } as const;
 
 export const SHOOT = {
