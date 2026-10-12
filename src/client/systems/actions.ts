@@ -1,0 +1,237 @@
+import { BALL, PASS, SHOOT, STICK } from '../../shared/tuning';
+import type { Ball } from '../entities/Ball';
+import type { Player } from '../entities/Player';
+import type { StickInput, SwipeVec } from './Controls';
+import { DEG, angleDiff, clamp, distToSegment, lerp } from './geometry';
+
+// The teammate a pass goes to: the NEAREST outfield teammate in the
+// direction of the stick (the facing direction when the stick is neutral).
+// Only teammates inside a narrow cone count; if nobody is there the cone
+// widens step by step (PASS.coneStepsDeg) until someone is found.
+export function choosePassTarget(
+  passer: Player,
+  teammates: readonly Player[],
+  move: StickInput
+): Player | null {
+  const aim =
+    move.r > STICK.deadZone ? Math.atan2(move.y, move.x) : passer.heading;
+  for (const cone of PASS.coneStepsDeg) {
+    const target = nearestInCone(passer, teammates, aim, (cone / 2) * DEG);
+    if (target) return target;
+  }
+  return null;
+}
+
+function nearestInCone(
+  passer: Player,
+  teammates: readonly Player[],
+  aim: number,
+  halfCone: number
+) {
+  let best: Player | null = null;
+  let bestDist = Infinity;
+  for (const t of teammates) {
+    if (t === passer || t.role === 'keeper') continue;
+    const dx = t.x - passer.x;
+    const dy = t.y - passer.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist < 1 || Math.abs(angleDiff(Math.atan2(dy, dx), aim)) > halfCone)
+      continue;
+    if (dist < bestDist) {
+      best = t;
+      bestDist = dist;
+    }
+  }
+  return best;
+}
+
+// Strike speed for a rolling pass to cover `dist` and still arrive at about
+// PASS.arriveSpeed. Rolling follows dv/dt = -k v - a (k = -ln groundDrag,
+// a = rollFriction), so the distance covered slowing from v0 to v1 is
+// (v0 - v1)/k - (a/k^2) ln((v0 + a/k)/(v1 + a/k)); v0 is found by bisection.
+const ROLL_K = -Math.log(BALL.groundDrag);
+const ROLL_A = BALL.rollFriction;
+function rollDistance(v0: number, v1: number) {
+  const c = ROLL_A / ROLL_K;
+  return (
+    (v0 - v1) / ROLL_K -
+    (ROLL_A / (ROLL_K * ROLL_K)) * Math.log((v0 + c) / (v1 + c))
+  );
+}
+export function passSpeed(dist: number) {
+  let lo: number = PASS.arriveSpeed;
+  let hi: number = PASS.maxSpeed * 2;
+  for (let i = 0; i < 30; i++) {
+    const mid = (lo + hi) / 2;
+    if (rollDistance(mid, PASS.arriveSpeed) < dist) lo = mid;
+    else hi = mid;
+  }
+  return clamp(hi, PASS.minSpeed, PASS.maxSpeed);
+}
+
+// Sends the ball toward where the receiver will be, at a speed scaled by
+// distance, with a small aim error (bigger under pressure). An opponent
+// close to the pass line turns it into a chip over them.
+export function kickPass(
+  ball: Ball,
+  passer: Player,
+  receiver: Player,
+  opponents: readonly Player[],
+  rand: () => number
+) {
+  const dist = Math.hypot(receiver.x - ball.x, receiver.y - ball.y);
+  const speed = passSpeed(dist);
+  const travel = dist / speed;
+  const tx = receiver.x + receiver.vx * travel * PASS.leadFactor;
+  const ty = receiver.y + receiver.vy * travel * PASS.leadFactor;
+
+  const pressured = opponents.some(
+    (o) => Math.hypot(o.x - passer.x, o.y - passer.y) < PASS.pressureRadius
+  );
+  const error =
+    (pressured ? PASS.pressureErrorDeg : PASS.errorDeg) *
+    DEG *
+    (rand() * 2 - 1);
+  const angle = Math.atan2(ty - ball.y, tx - ball.x) + error;
+  const chip = opponents.some(
+    (o) => distToSegment(o.x, o.y, ball.x, ball.y, tx, ty) < PASS.chipLane
+  );
+
+  ball.vx = Math.cos(angle) * speed;
+  ball.vy = Math.sin(angle) * speed;
+  ball.vz = chip ? PASS.chipVz : 0;
+  ball.spin = 0;
+  ball.dip = 0;
+  ball.lastTouch = passer;
+  receiver.receiving = true;
+}
+
+// Shot (skill-based, user request: no help from the game). The ball leaves
+// exactly along the stick, or the facing with the stick centred: no aim
+// assist, no snapping to the goal, no auto-ranging. Charge 0..1 sets the
+// pace and height. The shooter's run feeds the strike: running onto it adds
+// pace and height, shooting back across the run costs power and accuracy.
+// Accuracy is timing: releasing in the green band just below the sweet spot
+// is a perfect strike (strays at most 0.5 degrees); any other release strays
+// up to 2 degrees, and over-hitting past the sweet spot adds stray and lift
+// (over the bar). Sprinting, shooting back across the run and a defender
+// close by add stray too. The stray is a triangular spread, mostly small.
+//
+// `swipe` (analog, from the SHOOT button) shapes the strike; each effect is
+// scaled by how far that way the thumb slid, and they mix:
+// - up = chip: blends toward a lob whose distance the charge sets;
+// - down = power: more pace and lift with topspin that makes it dip;
+// - left / right = curl: sidespin bending the ball that way as the shooter
+//   sees it (moving right on screen, a left curl bends up the screen). It
+//   leaves along the stick and bends away from that line.
+export function kickShot(
+  ball: Ball,
+  shooter: Player,
+  move: StickInput,
+  charge: number,
+  opponents: readonly Player[],
+  rand: () => number,
+  swipe: SwipeVec = { x: 0, y: 0 }
+) {
+  const shape = shotShape(swipe);
+  const aim = shotDirection(shooter, move);
+  const overHit = Math.max(
+    0,
+    (charge - SHOOT.sweetSpot) / (1 - SHOOT.sweetSpot)
+  );
+
+  // The run feeds the strike (FIFA-like): running onto the ball toward the
+  // shot adds pace and height; striking back across or against the run
+  // loses power and accuracy. `across` is 0 shooting along the run, 1
+  // shooting straight back against it.
+  const runAngle = angleDiff(shooter.heading, aim);
+  const runAlong = shooter.speed * Math.cos(runAngle);
+  const across = shooter.speed > 20 ? (1 - Math.cos(runAngle)) / 2 : 0;
+
+  // Stray: timing first, then body shape and pressure, scaled by the shape.
+  const pressured = opponents.some(
+    (o) => Math.hypot(o.x - shooter.x, o.y - shooter.y) < PASS.pressureRadius
+  );
+  const shapeScale = Math.max(
+    0.4,
+    1 +
+      SHOOT.powerErrorMore * shape.power -
+      SHOOT.chipErrorLess * shape.chip -
+      SHOOT.curlErrorLess * Math.abs(shape.curl)
+  );
+  const errorDeg =
+    shapeScale *
+    ((isPerfectCharge(charge) ? SHOOT.perfectErrorDeg : SHOOT.normalErrorDeg) +
+      SHOOT.overHitErrorDeg * overHit +
+      (shooter.sprinting ? SHOOT.sprintErrorDeg : 0) +
+      SHOOT.acrossErrorDeg * across +
+      (pressured ? SHOOT.pressureErrorDeg : 0));
+  const launch = aim + errorDeg * DEG * (rand() + rand() - 1);
+
+  // The driven strike: pace and lift from the charge and the run, more
+  // with power, less with curl.
+  const drivenSpeed = Math.max(
+    SHOOT.tapSpeed * 0.6,
+    lerp(SHOOT.tapSpeed, SHOOT.fullSpeed, charge) *
+      (1 + SHOOT.powerSpeedGain * shape.power) *
+      (1 - SHOOT.curlSpeedLoss * Math.abs(shape.curl)) *
+      (1 - SHOOT.acrossPowerLoss * across) +
+      SHOOT.runCarry * runAlong
+  );
+  const drivenLift =
+    (lerp(SHOOT.tapLift, SHOOT.fullLift, charge) +
+      SHOOT.runLift * Math.max(0, runAlong)) *
+    (1 + SHOOT.powerLiftGain * shape.power) *
+    (1 - SHOOT.curlLiftLoss * Math.abs(shape.curl));
+  // The lob it blends toward with chip.
+  const lobSpeed = lerp(SHOOT.chipMinSpeed, SHOOT.chipMaxSpeed, charge);
+  const lobLift = lerp(SHOOT.chipMinLift, SHOOT.chipMaxLift, charge);
+
+  const speed = lerp(drivenSpeed, lobSpeed, shape.chip);
+  const lift =
+    lerp(drivenLift, lobLift, shape.chip) +
+    SHOOT.overHitLift * overHit * (1 + SHOOT.powerOverHit * shape.power);
+
+  ball.vx = Math.cos(launch) * speed;
+  ball.vy = Math.sin(launch) * speed;
+  ball.vz = lift;
+  ball.spin = shape.curl * SHOOT.curlSpin;
+  ball.dip = SHOOT.powerDip * shape.power;
+  ball.lastTouch = shooter;
+}
+
+// A swipe as amounts of each effect: chip and power 0..1 (up / down),
+// curl -1..1 (left / right; + bends to the shooter's right, which is how
+// positive spin turns in stepFreeBall).
+export function shotShape(swipe: SwipeVec) {
+  return {
+    chip: Math.max(0, -swipe.y),
+    power: Math.max(0, swipe.y),
+    curl: swipe.x,
+  };
+}
+
+// Short label for a swipe, for the HUD: e.g. "CHIP 60 CURL R 40".
+export function shotLabel(swipe: SwipeVec, kick = false) {
+  const s = shotShape(swipe);
+  const pct = (v: number) => Math.round(Math.abs(v) * 10) * 10;
+  const parts: string[] = [];
+  if (pct(s.chip) > 0) parts.push(`${kick ? 'PUNT' : 'CHIP'} ${pct(s.chip)}`);
+  if (pct(s.power) > 0)
+    parts.push(`${kick ? 'DRIVE' : 'POWER'} ${pct(s.power)}`);
+  if (pct(s.curl) > 0)
+    parts.push(`CURL ${s.curl < 0 ? 'L' : 'R'} ${pct(s.curl)}`);
+  return parts.join(' ');
+}
+
+// The direction a shot leaves in: the stick, or the facing when centred.
+export function shotDirection(shooter: Player, move: StickInput) {
+  return move.r > STICK.deadZone ? Math.atan2(move.y, move.x) : shooter.heading;
+}
+
+// Is this charge a perfect (green) release?
+export function isPerfectCharge(charge: number) {
+  return (
+    charge >= SHOOT.sweetSpot - SHOOT.perfectBand && charge <= SHOOT.sweetSpot
+  );
+}

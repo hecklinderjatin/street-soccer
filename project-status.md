@@ -1,0 +1,502 @@
+# Street Soccer: Project Status
+
+Hand-off notes for any developer or AI model picking up this project. **Update this file after every change**: add a changelog entry at the top of the changelog, and keep "Current state", "Decisions" and "Next up" accurate.
+
+- **Source plan:** `Street Soccer MVP Plan.md` (by @ketan, Oct 12, 2026; kept outside the repo in the user's Downloads). It defines scope, tuning numbers, controls, AI and the 5-week build plan.
+- **Repo rules:** see `AGENTS.md` (Devvit rules, code style: type aliases, named exports, no type casts).
+- **Look target:** the user wants the camera angle of a FIFA-style TV broadcast camera: elevated beside the near touchline, perspective, touchlines horizontal, side lines converging. The rendering is built around this (see "Broadcast camera" below), in a retro pixel-art style ("Mode 7"-like).
+
+## Current state
+
+**Phase 2 (ball, dribbling, pass, shoot, goals, match flow) is done** and verified in a local preview with scripted scenarios. It still needs a real-phone playtest in Reddit. Phase 3 (5v5 with AI, tackles, real keepers) is next.
+
+What works now:
+
+- Inline splash post in the feed (`splash.html`), retro styled, with a Play button that opens the game in expanded mode.
+- Scene flow: Boot -> Menu (difficulty picker + Play) -> Match + Hud (overlay) -> Result (Play again / Menu). The pause menu's Quit goes back to Menu.
+- **Court (perspective view):**
+  - textured ground, the far wall with graffiti and an apartment facade, thick end walls with the goals in the gaps;
+  - 3D goals with nets, a see-through fence on the near touchline, a crowd behind it;
+  - a basketball court and a car park beyond the goal lines.
+- **Home team:** 4 outfield players in a 2-1-1 shape (red). There is a stand-in keeper in each goal: home in green, CPU in yellow. Teammates hold their spots (no automatic runs).
+- **Ball** (`entities/Ball.ts`, `systems/ballPhysics.ts`):
+  - 3D position and velocity: rolling drag 0.35/s plus 40 px/s² rolling friction, air drag 0.5/s, gravity 1400, bounce 40%, spin curve. A full-power shot travels about 1000 px in all (it no longer crosses the court); a tap about 525 px;
+  - 50% bounce off the far wall, near fence, end walls and posts;
+  - enters a goal only through the mouth, under the bar (fully over the line = goal, then the net holds it); at bar height it hits the crossbar and comes back; over the bar, or over an end wall (higher than 120), it goes out behind the goal. An OVER THE BAR / OUT banner shows, and after 0.9 s the defending keeper restarts with the ball in hand (ours is then human-controlled);
+  - drawn with two rolling frames, lifted and scaled with height, plus a ground shadow that shrinks and fades as it rises (added early at the user's request, so height reads in perspective).
+- **Possession** (`systems/possession.ts`):
+  - control within 34 px, below 40 px high (feet to chest) and under 1000 px/s, so passes and most shots at a teammate are controlled; faster balls deflect off the player (20% speed kept); 0.25 s regain lockout;
+  - the intended receiver of a pass always controls it, with a +10 px first-touch bonus;
+  - **close-control dribbling (FIFA-like):** the ball's place around the carrier is an angle plus a distance. The distance is about 20 px at the feet when slow, about 28-30 jogging and about 42-53 sprinting, with small rhythmic taps or sprint knock-ons (smooth, no jolts). The angle follows the facing at a limited 620 deg/s, so on turns the ball is dragged round the player in an arc. The first touch is cushioned (a fast ball runs on a little, then settles);
+  - **momentum movement:** speed ramps (accel 1500, or 1150 with the ball; decel 1800); turns are fast when slow (a 1080 deg/s pivot under 70 px/s) and wider at speed (900 -> 380 deg/s, x0.85 with the ball); sharp direction changes brake (plant and turn); with-ball speeds 205/290 px/s.
+- **Controls:**
+  - two context buttons (HUD bottom right) plus J/K: PASS/SHOOT with the ball, TACKLE/SWITCH without;
+  - 150 ms press buffer when the ball is close;
+  - control follows the ball (gaining it switches control to the carrier).
+- **Pass** (`systems/actions.ts`):
+  - target = the **nearest** outfield teammate in the stick direction (the facing when the stick is centred): a 60° cone first, widening to 110°, 180° and then all round if nobody is in it (`PASS.coneStepsDeg`). A pulsing blue ring marks the target while you hold the ball;
+  - 0.08 s wind-up; strike speed solved from the ball physics so the pass arrives at about 170 px/s (clamped 300-950); leads the receiver; 3° error (8° under pressure); chips over a blocked lane;
+  - control moves to the receiver at release. **Nobody runs toward the ball by themselves** (user preference): only the controlled player moves, by the stick. The receiver keeps a guaranteed first touch while the pass travels, dropped once the loose ball is slower than 60 px/s;
+- **Shoot (skill-based, user request: no help from the game; `actions.kickShot`):** the ball leaves **exactly along the stick** (the facing with the stick centred). No aim assist, no snapping to the goal, no auto-ranging, no automatic curve. Tap = 900 px/s (lift 120); hold up to 0.6 s for up to 1250 px/s (lift 420). **The run feeds the strike (FIFA-like):** half the run speed along the shot is added to ball speed (subtracted when running away); 0.35 x that run speed is added as lift; shooting back across the run loses up to 30% power. **Accuracy = timing:** releasing in the green band (charge 60-80%) is a perfect strike (strays at most 0.5°); any other release strays up to 2°; over-hitting past 80% adds up to +5° stray and +180 lift (over the bar). Sprinting +3°, straight back across the run +5° (scaled), a defender within the pressure radius +3°. Stray is a triangular spread (mostly small); there is no random lift. While charging, an **aim arrow** on the ground shows the strike direction only (white / green perfect / red over-hit; `SHOOT.aimArrow` turns it off). A free ball faster than 650 px/s draws a fading trail.
+- **Swipe shots (PES-mobile layout, ANALOG):** while pressing SHOOT, slide the thumb: up = CHIP, down = POWER, left / right = CURL. **How far you slide is how much of the effect** (10 px of wobble ignored, full at 70 px; `Controls.swipe` is a vector, `actions.shotShape`), and diagonals mix (e.g. up-right = a chipped curler). It follows the thumb until release, so sliding back takes effect away. Hold to charge as usual; a flick works too (but a flick is a low-charge strike). The arrows around the button grow and turn yellow with the amount, and because the thumb hides the button, **a label above the shooter** spells out the shape while charging (e.g. `CHIP 70 CURL R 70`, `SHOT` with no swipe; `actions.shotLabel`). Keyboard: T / G / F / H = SHOOT with a full swipe up / down / left / right.
+  - **Up = CHIP:** blends toward a lob whose pace (450-900) and loft (450-750) the charge sets. At a full swipe the first bounce is about 310 px at a tap and about 700 px at the sweet spot, so you judge the distance. Stray -30% at full.
+  - **Down = POWER:** +22% pace and +30% lift with topspin (`ball.dip` up to 0.7 extra gravity until it lands), stray +40%, and over-hit lift +30% at full.
+  - **Left / Right = CURL:** sidespin up to 1.1 rad/s (decaying) bending that way **as the shooter sees it** (moving right on screen, a left curl bends up the screen). It leaves along the stick and bends away from that line, so aim outside the post. -20% pace, -25% lift, stray -20% at full.
+  - No swipe = the plain shot above (no spin). `BALL.spinMinSpeed` is 300 so curlers keep bending as they slow.
+- **Switch:** a tap goes to the teammate nearest the ball, the keeper included; repeat taps within 1 s cycle; 0.12 s cooldown. **Holding SWITCH (0.35 s)** jumps straight to our keeper. When the ball is heading toward our goal (faster than 250 px/s, in our third), a tap picks the keeper first.
+- **Stand-in keepers** (`systems/keeper.ts`):
+  - when not human-controlled, stand on the line from their goal centre toward the ball, 30 px off the line with the ball 1000+ px away, up to 60 px out with it 350 px away (narrowing the angle; within the mouth's width; `keeperPositionStick`). Once a shot is struck (free ball faster than 450 px/s) they hold their position; walking across with it saved almost every shot in testing. So corner shots and chips over a keeper off its line can score. They catch balls at or below 650 px/s and parry faster ones (25% speed);
+  - **CPU keeper reaction dive** (`cpuKeeperReact`): sees a shot heading for its goal (faster than 300 px/s, on target or within 30 px of a post, under its reach height, arriving within 1.2 s), waits 0.35 s, then dives sideways toward where it will pass, only as far as needed. It predicts a straight line (no curl), so a late-bending curler can beat it. Standing it reaches 96 high (just under the bar), diving 120. Measured from 450 px, central (10 shots each): straight at it 0 goals; perfect-timed to a corner 10; a weak tap to the corner 0; power to the corner 10; chip at 65% charge 6 (shorter ones are caught, 80% goes over); curl aimed 100 px outside the post 10; from 750 px a perfect corner shot 0 and a curl 3.
+  - CPU keeper: holds a caught ball 1 s, then throws it to the nearest teammate (toward the centre for now).
+  - **You can control your keeper:** SWITCH to it (hold SWITCH to jump straight there), or it catches the ball. Without the ball you can move it anywhere, **out of its box too** (sprint allowed). Hands only inside its own box: it catches, parries and holds there, can't carry a held ball out (`keepInBox` while `holding`), and outside the box it plays with its feet like an outfielder (dribble, PASS/SHOOT; fast balls deflect), and it faces the ball when standing. **B1 = DIVE:** along the stick (a full 0.35 s lunge at 480 px/s), or with the stick centred a smart dive toward where the ball will cross the keeper's line, only as far as needed. Reach while diving is 64 (normally 40), then 0.45 s down (drawn on its side). B2 = SWITCH out. With the ball: B1 = THROW to the ring-marked teammate; **B2 = KICK, held to charge** (tap = 520 px/s low clearance, full = 900 px/s lofted; the ring is white then yellow). **KICK takes the same swipes:** up = PUNT (1.5x lift), down = DRIVE (1.3x speed, 0.4x lift), left/right = CURL (bends 18° that way, spin 0.9 rad/s). Control then passes to the receiver or the nearest outfielder. It auto-throws after 6 s.
+- **Player collision** (`systems/collisions.ts`): bodies of radius 16 push apart (half each) after movement; then court and box limits are re-applied.
+- **Match flow** (`systems/MatchFlow.ts`):
+  - kickoff with a 1 s READY freeze, then GO!; the 90 s clock starts at the first touch;
+  - goal = 0.3 s hit-stop, 1 s slow motion at 0.4x, 2.5 s celebration, then a reset with the conceding team kicking off;
+  - full time: level -> 30 s golden goal (next goal wins), still level -> draw; then a FULL TIME banner and the Result screen with goals, shots and passes.
+- **HUD:**
+  - scoreboard pill "YOU x - y CPU" (top left), clock (top centre; red and pulsing in the last 10 s, GOLDEN GOAL label), centre banners;
+  - floating joystick, action buttons, pause; FPS/debug under the scoreboard.
+- Type check, lint and build all pass.
+
+Not yet built (Phase 3):
+
+- No away outfield team, so after a home goal the "away kickoff" just leaves the ball on the centre spot.
+- TACKLE does nothing yet, and there's no AI.
+- No real goalkeepers (dives, arc positioning) or difficulty differences.
+- No switch speed boost.
+
+The server still has the template's demo endpoints (`/api/state`, `/api/score`, `/api/leaderboard` with Redis); Phase 5 replaces them with `/api/init` + `/api/challenge` and removes Redis.
+
+## Phase roadmap
+
+| Phase | Scope                                                                                                                                                                      | Status                                                |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| 0     | Replace GameMaker template with Phaser, scene skeleton, landscape, pixel style                                                                                             | Done                                                  |
+| 1     | Fixed 60 Hz loop, 2.5D (x, y, z) model, pitch 2400x1300, camera, floating joystick, keyboard fallback, one player with walk/sprint/stamina                                 | Done, plus the broadcast camera                       |
+| 2     | Ball physics, possession and dribble touches, context buttons (+ J/K keys), pass (target ring), shoot (charge), goals and match flow (clock, kickoff, golden goal, Result) | Done (awaiting phone playtest); switch included early |
+| 3     | Away 5v5 team, tackle, AI state machine (Chase/Support/Mark/Carry), real goalkeepers, difficulty levels, fairness helpers, switch boost                                    | Next                                                  |
+| 4     | HUD polish (crests, name tags, minimap), sprites and animation states, juice (shake, particles, celebrations), audio, haptics, performance pass                            |                                                       |
+| 5     | Server `/api/init` + `/api/challenge`, challenge posts, splash challenge banner, cleanup, deploy and launch                                                                |                                                       |
+
+## Architecture
+
+```
+src/
+  client/
+    index.html, style.css   game entrypoint ("game" in devvit.json); #game box is 1280x720
+    main.ts                 creates Phaser.Game (WEBGL, Scale.NONE, pixelArt), forceLandscape; ?debug exposes window.__game
+    splash.html/.css/.ts    inline feed entrypoint ("default"); must stay light, no Phaser
+    scenes/
+      BootScene             builds the pixel font, then Menu
+      MenuScene             difficulty + Play -> Match(MatchConfig)
+      MatchScene            the match: players, ball, fixed-step sim (input, movement, ball, possession, actions, flow), camera; launches Hud
+      HudScene              screen-space UI: scoreboard, clock, banners, joystick, action buttons, pause, FPS/debug
+      ResultScene           score + stats; Play again / Menu
+    render/                 the perspective "broadcast camera" layer
+      Projector.ts          3D camera math: setFocus(fx, fy, zoom), project(x, y, z) -> screen x/y, scale, depth; groundSquash()
+      ProjectedPlane.ts     textured quad in 3D (ground, walls, fence) as a Phaser Mesh with per-frame vertex positions; bilinear()
+      Court.ts              builds and reprojects everything static: surfaces, goals, props, crowd (depth constants live here)
+      Goal.ts               3D goal drawn with Graphics lines in three depth layers; NEAR_WALL_DEPTH
+      PitchLines.ts         pitch markings (touchlines, halfway, centre circle, boxes, spots) as projected Graphics lines, at least 2 px wide
+      Crowd.ts              spectator billboards in rows, idle/cheer frames with a hop, out of sync
+      Billboard.ts          static upright prop (car, hoop): camera-facing sprite at a ground point, depth = base + y
+    entities/
+      Player.ts             sim fields (position, heading, speed, stamina, lockUntil, dribble touch state, receiving, passTarget) + render
+      Ball.ts               3D sim fields, owner, lastTouch, inNet + render (rolling frames, lift with height)
+    systems/
+      FixedStep.ts          60 Hz accumulator; returns the interpolation alpha
+      Controls.ts           input bridge: joystick (touchStick), keyboard (WASD/Shift/J/K), button press/hold/buffer state
+      movement.ts           stepPlayer(): momentum (accel/decel, speed-dependent turning, plant-and-turn), speeds with/without ball, stamina; constrainMove()
+      ballPhysics.ts        stepFreeBall() (gravity, bounce, drag, spin) and collideBall() (walls, fence, posts, nets, goal detection)
+      possession.ts         stepPossession(): control/deflect for a loose ball, close-control dribble (angle + distance around the carrier); gainBall (cushioned)/releaseBall
+      actions.ts            choosePassTarget(), kickPass(), kickShot() (aim assist, curve)
+      keeper.ts             stepDummyKeeper(): Phase 2 stand-in keeper (catch/parry/hold/throw; human-held option); keepInBox() (only while holding), inOwnBox()
+      collisions.ts         separatePlayers(): body-circle push-apart
+      MatchFlow.ts          kickoff/live/goal/fulltime state machine, clock, score, golden goal, banners, time scale
+      CameraRig.ts          focus point: ball/player blend + filtered look-ahead, critically damped smooth-follow (smoothDamp), zoom, clamp -> projector.setFocus
+      geometry.ts           DEG, clamp, lerp, angleDiff, distToSegment
+    art/                    textures painted in code at art-pixel resolution (1 texel = PX world px)
+      pixelArt.ts           makeTexture, fill, paintRows, paintRing, paintEllipseRing, hex
+      pitchArt.ts           court textures; GROUND_EXTENT, BASKETBALL, PARKING
+      playerArt.ts          player sheets per kit (home, away, homeKeeper, awayKeeper) + run anims, rings (control, pass target), arrow, joystick parts, round button discs
+      ballArt.ts            6x6 ball, two rolling frames
+      sceneryArt.ts         prop textures: hoop, cars, spectators
+    ui/
+      landscape.ts          forced landscape: CSS scale/rotate of #game + pointer mapping
+      palette.ts            PX (art pixel = 4 world/screen px) and PAL (16 colours)
+      pixelFont.ts          5x7 glyphs -> RetroFont 'pixel'; pixelText(); paintPixelText() for baked art
+      TextButton.ts         pixel-art button class (sinks on press, fires on release)
+      Joystick.ts           floating joystick (HUD scene, left half)
+      ActionButtons.ts      two context buttons (HUD scene, right side), per-pointer tracking, charge ring
+      backdrop.ts           menu/result street backdrop; seededRandom()
+  server/                   Hono app: /api/* (template demo), /internal/menu|form|triggers
+  shared/
+    tuning.ts               every gameplay number: VIEW, SIM, PITCH, MATCH, FORMATION, BALL, POSSESSION, DRIBBLE, PASS, SHOOT, KEEPER, INPUT, PLAYER, STAMINA, STICK, CROWD, CAMERA
+    types.ts                Difficulty, Team ('home' human / 'away' CPU), MatchConfig, MatchResult
+    api.ts                  request/response types (template demo for now)
+public/ball.svg             pixel ball shown on the splash
+```
+
+**World coordinates (simulation):**
+
+- Flat ground plane: x 0..2400 along the pitch (goal lines at x=0 and x=2400); y 0..1300 across it (y=0 is the far touchline, y=1300 the near one, nearest the camera); z is height above the ground.
+- Home attacks right (scores in the right goal, x=2400); its keeper guards the left goal.
+- Goals are centred on y=650 with a 260 mouth (y 520..780), crossbar 104 high, nets 60 deep.
+- Players may enter a goal (x down to -46 or up to 2446, feet radius 14). `constrainMove` resolves x against the current row, then y against the new column, so the posts and side nets act as walls.
+- Ball radius 10. It is walled in all round: the far wall (y=0), near fence (y=1300), end walls outside the mouth and the posts (circles of radius 6). A ball fully over the line in the mouth (x < -10 or > 2410, z under the bar) is a goal; `ball.inNet` then keeps it in the net box (roof 73 high).
+- Formation (home): left back (520, 420), right back (520, 880), midfielder (840, 650), forward (1120, 650), keeper (40, 650). At a home kickoff the forward stands at (1176, 650) by the ball on the centre spot (1200, 650). The CPU keeper is at (2360, 650).
+- The ground texture extends 720 beyond each goal line and 320 beyond the near touchline (`GROUND_EXTENT`). Scenery is render-only.
+
+**World geometry (render):** solid walls are boxes 32 thick (`wallThickness`), extending outward from the court.
+
+- Far wall: a brick face at y=0 (160 tall), coping on top (y -32..0), and the facade rising from the back of the wall (y=-32, z 160..440).
+- End walls (120 tall): solid blocks along x=0 (x -32..0) and x=2400 (2400..2432), outside the goal mouth. Only camera-facing faces are built.
+- Fence: y=1300, 96 tall. Crowd: 2 rows at y≈1364/1412, x -120..2520, spacing from `CROWD`.
+
+**Depth (Phaser setDepth), back to front:**
+
+- Ground -3e6; far wall -2.6e6; props outside the court -2.5e6 + y; end walls (far segments) -2e6.
+- Players by ground y, and the ball by y + 0.5, sharing that range with the goal layers:
+  - back layer at y=519;
+  - near side net at `NEAR_WALL_DEPTH - 1`;
+  - near end-wall segments at `NEAR_WALL_DEPTH` (782);
+  - frame layer at +1.
+- Ground rings (control and pass target) at the player's y - 1.
+- Fence 1e6; crowd 1e6 + 1 + y; overhead arrow and stamina bar 2e6. The HUD is a separate scene, always on top.
+
+**Fixed step (MatchScene.step), in the plan's order:**
+
+1. Save previous positions.
+2. Movement: `stepPlayer` for home outfielders. The controlled player follows the stick; receivers auto-run to the intercept point unless steered; everyone holds still while `flow.playersFrozen`.
+3. Free ball physics (`stepFreeBall`) if nobody owns it.
+4. While live, possession: `stepPossession` (control, deflect, or dribble the carrier), then `stepDummyKeeper` for both keepers.
+5. `collideBall`; on a goal: release, clear actions, `flow.onGoal`.
+6. While live, actions (`stepActions`): a pending pass fires after the wind-up; B1 = pass; B2 = charge/shoot or switch; presses are buffered.
+7. `flow.tickClock(dt)`.
+
+**Per render frame (MatchScene.update):**
+
+1. `controls.sample()`.
+2. `flow.update(realDt)`, which may request a kickoff reset or finish the match.
+3. `FixedStep.advance(delta * flow.timeScale)`: hit-stop/slow-mo scales the sim.
+4. Interpolate, then the pass preview ring.
+5. Camera: ball and controlled player, with air zoom while the ball is high and fast.
+6. `court.update`, `player.render`, `ball.render`, then `updateHud` (writes `MatchHudState`).
+
+**Scene restarts:** Phaser reuses the scene instance, so per-match state (lists, timers, stats, pending actions) is reset in `init()`. Scene-event listeners added in `create()` must be removed on SHUTDOWN.
+
+**Scene data:**
+
+- Menu starts Match with `MatchConfig`.
+- Match launches Hud with `HudData`: `controls`, `state` (a `MatchHudState` object the Match mutates each frame), and `debugInfo()`. It stops Hud on shutdown.
+- Match starts Result with `MatchResult`; Result restarts Match with the same difficulty.
+
+## Decisions (and why)
+
+- **Phaser 3 only, no GameMaker.** The project was generated from the GameMaker Devvit template; all GameMaker runner files were removed. Only Phaser.js (Three.js optional later) is allowed.
+- **Server stays Hono** (the template's framework), not Express as the plan says. Same `/api/*` endpoints.
+- **Broadcast camera (perspective) instead of a top-down view** (user request, FIFA-like screenshots).
+  - The simulation stays 2D on the ground plane; only rendering is 3D. `Projector` is a pinhole camera that sits on the near side, raised, looking toward the far side and tilted down by `CAMERA.tiltDeg` (35°), with `fovDeg` 40°.
+  - It never yaws, so x-lines stay horizontal and y-lines converge. `focusScale` (0.85) sets the camera distance. The air zoom of 0.88 pulls the camera back while the ball is high and fast.
+  - **Ground and walls** are `ProjectedPlane`s: a Phaser Mesh grid whose vertices' `vx/vy` we overwrite each frame with projected screen positions. The mesh is removed from the update list so its own 3D `preUpdate` never runs. A dense grid (ground 40x18) hides affine warping. The Mesh needs WebGL, so the game is `Phaser.WEBGL`.
+  - **Sprites are camera-facing billboards**, scaled by `PX * projected scale`. Vertical geometry is foreshortened by about cos(tilt), so the goal height is 104.
+  - **Camera focus clamps** (x 400..2000, y 400..960) keep the view on the court.
+- **Forced landscape via CSS rotation, not the Screen Orientation API.** `screen.orientation.lock` needs fullscreen, which the Reddit webview doesn't give. So `ui/landscape.ts` scales/rotates the fixed 1280x720 `#game` box; Phaser runs in `Scale.NONE`; `input.transformPointer` is wrapped to map touches back through the rotation; the layout is re-checked every frame.
+- **Retro pixel art style.**
+  - Crisp textures via `antialias: false` (nearest filtering) with `roundPixels: false`. Do NOT use `pixelArt: true`: it forces roundPixels, and rounding each sprite and ground vertex separately under the moving perspective camera made everything step and shimmer against each other. One art pixel = `PX` = 4 world px; only colours from `PAL`. Don't snap HUD or overlay positions to the PX grid either: that made the stamina bar and joystick knob move in 4 px steps.
+  - Text uses the generated bitmap font. Only capitals exist: **`setText()` does not upper-case, so do it yourself.**
+  - Everything is generated in code (placeholder art until real atlases exist).
+- **HUD is a separate scene** (`Hud`, registered last), fed by a plain `MatchHudState` object.
+- **Fixed 60 Hz simulation with render interpolation.** The elapsed time per frame is capped at 5 steps; the accumulator resets on resume. Hit-stop and slow motion scale the time fed to `FixedStep`, so the sim stays deterministic per step.
+- **Camera motion is continuous** (user feedback: the camera moved in steps): no hard dead zone (it made the camera stand still and then lurch). The focus follows its target with a critically damped smooth-damp (`CAMERA.followSec` 0.35), and the look-ahead is low-pass filtered (`lookAheadSmoothSec` 0.45), so dribble taps and turns can't jolt it. Runs per render frame with real dt. Measured over a zig-zag dribble with a reversal: 0 stop-starts, and the camera's speed changes by about 5 px/s per frame (median), 34 at most.
+- **Movement feels FIFA-like, not instant** (user feedback: movement with the ball felt rigid and chunky). This overrides the plan's "no acceleration ramp": speed ramps up (0 -> jog in about 0.2 s, which is still responsive), turning rate drops with speed (wide arcs when sprinting, a quick pivot when slow), and the further the heading is off the stick (45° -> 150°), the more the player eases off. So a reversal plants, turns and re-accelerates instead of snapping round.
+- **Dribble model (close control).** The previous model (a spring pulling the ball to a point ahead of the facing, with large out-and-back touches) felt chunky: on turns the target swung round and the ball cut through the player's body. Now the ball is placed relative to the carrier by an angle that follows the facing at a limited rate (dragged round in an arc) and a distance that eases to a speed-dependent lead with small smooth taps. Its velocity is derived from its motion. Measured: jogging lead 29-31 px with at most 0.44 px change per step; a 180° turn keeps the ball at least 26 px from the feet; sprint lead 47-53 px. The carrier loses the ball beyond 110 px (leash).
+- **Ball control limit raised from the plan's 450 to 750 px/s and 40 high** (user request: a shot at a teammate should be controlled). The intended receiver of a pass always controls it (automatic first touch).
+- **Shot aim assist** uses where the stick line crosses the goal line, clamped 24 px inside the posts, not just "goal centre". So pointing at a corner aims at that corner, while straight down the middle hits the keeper. Curve: the shot launches half the bend off-line, and its spin brings it back across.
+- **Button contexts and buffering:**
+  - B1 = PASS / TACKLE, B2 = SHOOT (hold to charge) / SWITCH.
+  - A press is kept for 150 ms only when the ball is loose within 60 px of the controlled player, so it can become a pass or shot on gaining the ball. Otherwise it acts on the spot (switch/tackle).
+  - Shot charge is timed in real time from the press.
+- **Stand-in keepers until Phase 3**: a keeper per goal on its line (catch ≤ 650 px/s, parry faster) keeps shooting testable. They're excluded from pass targets; the human can control ours (via SWITCH or when it catches the ball), including a DIVE (user request).
+- **Ball feel tuned by simulation, not the plan's numbers** (user feedback: shots crossed the whole court, rebounds too strong, shots too flat). The plan's 0.55/s drag let a lifted 950 px/s shot travel about 1700 px. The ground/air drag, friction and bounce were picked with a scratch simulator of `stepFreeBall` so a full shot travels about 1000 px while 300-900 px passes still arrive (verified in game).
+- **Switch was pulled forward from Phase 3** because teammates exist now. The 0.2 s speed boost on switch is still to do.
+- **Debug hook:** `?debug` in the URL sets `window.__game`. Use `__game.scene.getScene('Match')` to read or set state in tests (ball, home, controlled, flow, controls.press/release, controls.touchStick).
+- **Devvit `context` may be undefined** outside Reddit (local preview), so read it as `context?.username`.
+
+## How to run and verify
+
+The user runs the game commands themselves in WSL (`npm run dev` for the Reddit playtest). An AI assistant should not start the playtest; just tell the user which command to run.
+
+Checks the assistant can run (through WSL, since `node_modules` was installed there):
+
+- `npm run test:types`, `npm run lint`, `npm run build`
+- From Git Bash, prefix with `MSYS_NO_PATHCONV=1 wsl --cd "/mnt/f/code ball/street-soccer" -- bash -lc "..."`, or the `/mnt/f` path gets mangled.
+- Local visual check: serve `dist/client` with any static server on port 4173 and open it. The game runs as a guest outside Reddit.
+  - In the Claude desktop app, `F:\code ball\.claude\launch.json` has a `dist-preview` config, which uses a scratchpad `serve.mjs` that may no longer exist.
+  - **Best way to test gameplay:** open `/?debug` and script scenarios through `window.__game`:
+    - teleport with `placeAt`;
+    - steer with `controls.touchStick = {x, y, r}`;
+    - press buttons with `controls.press(1|2)` / `release`;
+    - read `flow`, `ball`, `stats`.
+    - Screenshots are low-res in emulated viewports; read state via JS instead.
+  - For real input testing, use a phone-sized viewport under 768 px wide and reload, then drive the joystick and buttons with synthetic `TouchEvent`s, using fresh touch identifiers each time. Synthetic mouse events fight the real cursor.
+  - The preview pane sometimes throttles rendering. Time the game's own work by wrapping `requestAnimationFrame` before blaming the code (about 1.4 ms of JS per frame measured in Phase 1).
+
+## Known issues / notes
+
+- The Vite build warns that `game.js` is over 500 kB. That's Phaser (about 1.2 MB minified); harmless. The splash bundle stays tiny.
+- Git has no commits: the machine has no git user.name/email set, so the initial commit failed. Set an identity, then commit per phase.
+- `devvit.json` still has the template's "Example form" menu item (removed in Phase 5).
+- Goal depth sorting is per layer, so in rare overlaps a player in front of the goal can be drawn behind the crossbar.
+- Phaser Mesh has no canvas renderer, so the game requires WebGL.
+- The ball's shadow is a simple oval (no light direction); fine for now.
+- Away kickoff with no away team: the ball waits on the centre spot until a home player takes it.
+- The far wall and near fence are still infinitely tall for the ball; only the end walls have a height (120) for the ball to clear.
+- The CPU keeper throws toward the centre (it has no teammates yet), so its throws often hit or reach home players.
+
+## Next up
+
+**Phase 3:**
+
+- **Away team:** 4 outfield players (blue) in a mirrored 2-1-1 formation; kickoffs by the conceding team; formation spots that shift with the ball.
+- **Tackle** (B1 without the ball):
+  - phases 0.10 / 0.15 / 0.35 s, a 70 px lunge, a 48 px arc of ±70°;
+  - success chance 55% with the modifiers (front/side +15%, behind -30%, carrier sprinting -15%, tackler sprinting +10%);
+  - the juke dodge (stick reversed >120° during start-up);
+  - win: ball pops out at 300 px/s, the carrier staggers 0.5 s, and the tackler gets 0.2 s of first-touch priority;
+  - fail: a stumble.
+- **AI state machine** per player, thinking every 150 ms (staggered) with a difficulty reaction delay:
+  - Chase: one per team besides the human.
+  - Support: open space 150-300 px ahead.
+  - Mark: goal-side of an opponent.
+  - Carry: a utility choice between shoot (within 450 px with a clear lane), pass (a teammate 120+ px closer to goal with a clear lane) and dribble, with about 10% randomness.
+- **Real goalkeepers:** arc between ball and goal centre, predict where the ball crosses the line, dive if reachable (reaction 0.28 / 0.18 / 0.10 s by difficulty); corners beat them more often.
+- **Difficulty table** (reaction, move speed, tackle success, pass error, keeper delay).
+- **Fairness helpers:** stamina regen +15% for the trailing team; no AI tackles within 0.5 s of kickoff; bonus first touch for the human after a pass (already +10 px).
+- **Switch boost:** 0.2 s speed boost toward the ball.
+
+## Changelog
+
+### 2026-10-12: Analog swipes, shot label, CPU keeper dives (user feedback: shots lacked control, too easy to score, swipes not working properly)
+- Checked with real pointer events (portrait, rotated layout): swipes registered correctly. The problems were the design: all-or-nothing types, a thumb hiding the feedback, and a keeper that never dived.
+- **Analog swipe:** `Controls.swipe` is now a vector `SwipeVec` (each axis -1..1, from the press point; `SHOOT.swipeDeadPx` 10, `swipeFullPx` 70). `actions.shotShape()` turns it into chip / power / curl amounts that scale each effect and mix. `kickShot(..., swipe)` blends the driven strike toward a lob by `chip`. `SHOT_FOR_SWIPE` / `ShotType` were removed. The keeper KICK uses the same amounts (punt / drive / curl, no launch offset any more; `KEEPER.curlKickDeg` removed).
+- **Shot label above the shooter** while charging (`MatchScene.shotText`, `actions.shotLabel`). The ActionButtons arrows grow with the amount.
+- **CPU keeper reaction dive** `keeper.cpuKeeperReact` + `Player.reactAt`; `KEEPER.reactSec` 0.35, `reactMinSpeed`, `reactHorizonSec`, `reactMargin`; new `standReachHeight` 96 (diving keeps 120); `maxOut` 100 -> 60. Tuned by scripted batches (results under Stand-in keepers): 0.25 s reaction and 100 px out saved almost everything.
+- Testing note: when batch-testing shots, clear `controls.move` right after the shot and stop the trial at the keeper's first touch; otherwise the scripted shooter dribbles parried rebounds into the net and they count as goals.
+
+### 2026-10-12: Skill-based shooting, no assist (user request; same 4-swipe layout)
+- `kickShot` rewritten: the ball leaves exactly along the stick (or facing). Removed `shotTargetY` (goal snapping), `launchForCurl`/`simulateCrossing`/`curlSpin` (auto-curl onto a target), the chip's auto-ranging `kickChip`, the automatic 6° curve on normal shots, random lift variance and distance-based error.
+- Accuracy is now timing: green band (`SHOOT.perfectBand` below `sweetSpot`) = perfect strike (0.5° max), otherwise 2°, over-hit +5°; body factors (sprint 3°, across 5°, pressure 3°). Type scales: chip 0.7, curl 0.8, power 1.4.
+- CHIP: charge sets pace (450-900) and lift (450-750); CURL: fixed `curlSpin` 1.1 rad/s; POWER unchanged (dip).
+- New exported `shotDirection()` and `isPerfectCharge()`; `MatchScene.updateAimArrow()` draws the strike-direction arrow while charging (also for keeper KICK, white). The ActionButtons green band uses `SHOOT.perfectBand`.
+- SHOOT keys removed: `assistRange`, `awayFromGoalDeg`, `farSideAim`, `postInset`, `curveDeg`, `baseErrorDeg`, `powerErrorDeg`, `distanceErrorDeg`, `liftVariance`, `chipMin/MaxFlightSec`, `chipLandBehind`, `chipRangeError`, `chipOverHitRange`, `curlDeg`, `curlMaxSpin`.
+
+### 2026-10-12: Better shooting, more stamina, keeper KICK swipes (user request)
+- **Shot aim rework:** in range (1100 px) every shot goes at the goal and the stick picks the spot (`actions.shotTargetY`); it used to follow the facing unless the stick was within 25° of the goal, so shots while running across went sideways. `SHOOT.aimAssistDeg` replaced by `assistRange`, `awayFromGoalDeg`, `farSideAim`.
+- **POWER dips:** new `Ball.dip` (extra gravity until first landing, reset wherever spin is reset and on landing), power lift 1.1 -> 1.3x, error 1.5 -> 1.4x.
+- **Ball trail** (`Ball.renderTrail`) above 650 px/s, so curl, dip and loft are visible.
+- **Swipe threshold** 24 -> 18 px.
+- **Keepers off their line** (`MatchScene.keeperPositionStick` replaces `returnToSpot`): `KEEPER.lineOut/maxOut/outFarDist/outNearDist`. This also applies to our keeper when we don't control it (it moves along with the ball in front of its goal; it doesn't chase the ball).
+- **Keeper KICK swipes:** PUNT / DRIVE / CURL (`KEEPER.punt*`, `drive*`, `curlKick*`); the ActionButtons hints show on KICK with those names.
+- **Stamina:** drain 35 -> 16/s (about 6 s of sprint), regen 20 -> 30/s, delay 0.8 -> 0.4 s, unlock 30 -> 20.
+
+### 2026-10-12: Swipe map changed (user request: up chip, down power, left/right curl)
+- `SHOT_FOR_SWIPE`: up `chip`, down `power`, left `curlLeft`, right `curlRight`. LOW and the far-post-only FINESSE removed; `ShotType` is 'normal' | 'chip' | 'power' | 'curlLeft' | 'curlRight'.
+- Curl direction comes from the swipe (positive spin = bends to the shooter's right); a neutral stick aims at the corner on the bend side. SHOOT `finesse*`/`low*` replaced by `curl*` (curlDeg 22 -> 26, max spin 1.4 -> 1.6) and `powerOverHit` 1.3.
+- Button labels: CHIP up, POWER down, CURL left and right.
+
+### 2026-10-12: Swipe shots on the SHOOT button (user request: PES-mobile style)
+- `Controls.swipe` ('none' | 'up' | 'down' | 'left' | 'right'), reset on each SHOOT press; `setSwipe()`. Keyboard T / G / F / H press SHOOT with a swipe.
+- `ActionButtons`: tracks the SHOOT pointer's slide from its press point (`POINTER_MOVE`, also checked on release for quick flicks); arrows and labels around the button; the chosen type's name replaces SHOOT while held.
+- `actions.kickShot(..., type)` with `ShotType` 'normal' | 'chip' | 'low' | 'finesse' | 'power' and `SHOT_FOR_SWIPE`; new `kickChip()`, `curlSpin()` and `launchForCurl()`/`simulateCrossing()` (a 2D copy of the stepFreeBall rules, secant steps on the miss). The first version used a closed-form launch offset that bent too little (a curl aimed at the far post finished at the keeper).
+- Side labels (CURL, POWER) sit above their arrows; beside them POWER ran off the 1280 px edge.
+- Verified (preview, random error off): curls from (1700,400), (1700,900) and (1800,1000) crossed exactly at the far post (y 756 / 544) and scored; chips dropped into the net about 5 high at the line, and over-hit chips went over; low shots stayed at height 0; power shots left at 1100-1525 px/s, and a full-charge one went over the bar. New `SHOOT.*` swipe numbers; `BALL.spinMinSpeed` 500 -> 300.
+- `MatchScene.stepActions` passes `SHOT_FOR_SWIPE[controls.swipe]`. Keeper KICK ignores swipes.
+
+### 2026-10-12: No automatic runs; markings always visible (user feedback)
+- **Removed the receiver auto-run** (`MatchScene.interceptMove` deleted). Only the controlled player moves, by the stick. Audit of other automatic movement:
+  - uncontrolled keepers still walk back to their goal-line spot (`returnToSpot`); that's not toward the ball;
+  - keepers only turn to face the ball (no movement);
+  - body collision pushes are physics, not runs;
+  - nothing else moves players on its own.
+- **Pitch markings flickered:** they were 1 art pixel (4 world px) in the ground texture, under 2 screen px far from the camera, and nearest sampling dropped them as the camera moved. They are now drawn by the new `render/PitchLines.ts` as projected Graphics lines each frame (width = 4 world px x perspective scale, clamped 2-6 px; long lines split into 80 px segments so the width follows the perspective). `pitchArt.paintChalk` was removed; the basketball/parking lines stay painted.
+- Verified in a local preview: after a pass (received, control moved) and after a dead pass, every outfielder moved 0 px on its own; mid-pan screenshot shows all markings solid.
+
+### 2026-10-12: Keeper can leave the box (user request)
+- New `Player.holding` (ball in the keeper's hands). `keeper.inOwnBox()` was added. `keepInBox()` now applies only while holding; otherwise keepers use `constrainMove` like outfielders.
+- `stepDummyKeeper` catches and parries only when the keeper is inside its own box, sets/clears `holding`, and ignores feet possession.
+- `stepPossession` now gets the keepers too: it skips a keeper inside its box (hands rules) and treats one outside like an outfielder; a keeper owner is "held" only while `holding`.
+- `MatchScene`:
+  - routes a keeper with the ball at its feet to the outfield actions (PASS/SHOOT);
+  - labels: THROW/KICK in hands, DIVE/SWITCH without the ball, PASS/SHOOT at its feet;
+  - throw/kick and the restart set or clear `holding`.
+- Verified in a local preview:
+  - the keeper runs out to x 539 (box edge 300);
+  - outside, a slow ball is taken at the feet (z 0, PASS/SHOOT), dribbled and passed (control to the receiver);
+  - inside, a ball is caught in the hands (THROW/KICK);
+  - holding, it stops at x 286 on the box edge;
+  - switched away while stranded at (700, 500), it runs back toward its spot.
+
+### 2026-10-12: Pass target, dead passes, keeper switching and controls (user feedback)
+1. **Pass target = the nearest teammate in the stick direction.** `choosePassTarget(passer, teammates, move)` (the opponents parameter was dropped) uses widening cones (`PASS.coneStepsDeg`). The weighted angle/closeness/space scoring and its PASS fields were removed.
+2. **No auto-run after a pass dies:** `MatchScene.step` clears receivers once the loose ball is slower than `PASS.receiverStopBelow`.
+3. **Keeper switching:**
+   - holding SWITCH for `INPUT.keeperHoldSec` jumps to the keeper (`switchHoldArmed`, armed by a SWITCH press);
+   - a threat (ball toward our goal faster than `INPUT.keeperThreatSpeed`, in our third) puts the keeper first in the cycle.
+4. **Keeper controls:**
+   - smart dive with the stick centred (`diveTarget`, toward the predicted crossing on the keeper's line); `startDive(..., distance)` shortens the dive so it doesn't overshoot;
+   - KICK is held to charge (`KEEPER.kickMinSpeed`/`kickMinLift` up to `kickSpeed`/`kickLift`); the charge ring's `sweetSpot` flag gives plain colours for kicks;
+   - keepers face the ball when standing.
+- Verified in a local preview:
+  - stick right picks the nearest teammate that way (not a farther one dead ahead); stick up picks the one above;
+  - a dying pass: the receiver stops (speed 0, no longer receiving);
+  - a tap SWITCH in midfield goes to an outfielder; a hold goes to the keeper; under threat a tap goes to the keeper;
+  - smart dives at about 20/90/150 px offsets were all caught without overshooting;
+  - kick tap 528 px/s (lift 145), full 869 px/s (lift 350).
+- **Note:** `npm run prettier -- <file>` formats the WHOLE repo (the script is `prettier --write .`). This happened once here, so all source files and the Markdown tables are now Prettier-formatted (formatting only; build verified).
+
+### 2026-10-12: Keeper control via SWITCH, and DIVE (user request)
+
+- SWITCH candidates now include the home keeper (sorted by distance to the ball, as before).
+- While the human controls the keeper without the ball, it stays controlled (previously control bounced straight back to an outfielder). B1 = DIVE (`keeper.startDive`), B2 = SWITCH. Labels are DIVE/SWITCH, and THROW/KICK with the ball.
+- New KEEPER `diveSpeed`, `diveSec`, `diveRecoverSec`, `diveReach`.
+- `keeper.stepKeeperBody()` moves the keeper through a dive and holds it during recovery. `stepDummyKeeper` uses `diveReach` while diving.
+- New Player fields `diveUntil`/`recoverUntil`/`diveDir`/`lying`; a lying keeper's sprite is rotated about 80°.
+- The keeper sprints with the stick like outfielders.
+- Verified in a local preview:
+  - SWITCH with the ball loose near our goal -> keeper, with DIVE/SWITCH labels;
+  - the keeper walks and stops at the box edge (y 364);
+  - a dive from (40, 650) caught a far-corner ball at y 482, with THROW/KICK labels after;
+  - KICK -> control to an outfielder; SWITCH -> keeper -> SWITCH -> outfielder.
+
+### 2026-10-12: Stronger shots shaped by the run (user feedback: shots too weak; FIFA-like momentum)
+
+- SHOOT: `tapSpeed` 600 -> 900, `fullSpeed` 850 -> 1250, `tapLift` 140 -> 120, `fullLift` 520 -> 420. Air drag is unchanged, so range stays bounded: a full shot travels about 1360 px, and about 1600 px off a sprint. A full shot covers 450 px in about 0.43 s (was 0.67 s), simulated.
+- New SHOOT `runCarry` 0.5, `runLift` 0.35, `acrossPowerLoss` 0.3, `acrossErrorDeg` 6, used in `kickShot` from the shooter's heading and speed relative to the aim.
+- POSSESSION `maxControlSpeed` 750 -> 1000, so faster shots at a teammate can still be controlled.
+- Verified by stepping the real sim:
+  - launch at 70% charge: standing 1145 px/s (lift 311); jogging toward goal 1255 (432); sprinting toward goal 1310 (429); running across 973; running away 692;
+  - from 450 px at the corner: standing 61% goals; sprinting 53% (16/80 wide); running across 49%.
+
+### 2026-10-12: Realistic shooting: misses, posts, over the bar (user feedback: every on-target shot went in)
+
+- `actions.kickShot(ball, shooter, move, charge, opponents, rand)`:
+  - random sideways error from base, power, distance, sprint and pressure (new `SHOOT.*ErrorDeg`), with a triangular spread;
+  - lift variance (`liftVariance`) and an over-hit past `sweetSpot` adding up to `overHitLift`.
+- `ballPhysics.collideBall`: crossbar bounce; a ball over the bar or over an end wall sets `ball.out` / `contact.out` (new `Ball.out` field) and is no longer collided.
+- `MatchScene`: on `contact.out`, `flow.flash('OVER THE BAR' | 'OUT')`, and after `SHOOT.outRestartSec` `restartWithKeeper()` gives the defending keeper the ball on its spot (ours becomes human-controlled). Possession is skipped while the ball is out.
+- `MatchFlow.flash(text, sec)`: a short banner during live play.
+- `ActionButtons`: the charge ring is white, then green in the sweet spot, then red when over-hitting.
+- Verified by stepping the real simulation (80 shots per case, with the stand-in keeper):
+  - 250 px corner tap 100% goals; sweet spot 98%; over-hit 0% (over the bar 71, crossbar 7);
+  - 450 px corner sweet spot 61% (wide 9, post 5, keeper 10); over-hit 0%; at the keeper 21%;
+  - 750 px corner 54% (wide 12, keeper 17).
+  - In live play: an over-hit showed OVER THE BAR at a height of 161, then the CPU keeper restarted from its spot.
+- **Testing note:** when stepping `m.step()` by hand with the scene paused, set `m.controls.move` directly. `controls.sample()` only runs in the render update, so `touchStick` alone is ignored, which made shots go straight and skewed the first batches. Also reset `flow.clock` per trial so long batches don't hit full time.
+
+### 2026-10-12: Smooth camera, no pixel stepping (user feedback)
+
+- **Root cause 1 (everything "chunky"):** `pixelArt: true` forced `roundPixels`, so every sprite and every projected ground vertex was rounded to whole pixels on its own each frame, and moving objects stepped against the background. `main.ts` now uses `antialias: false` (still crisp) with `roundPixels: false`.
+- **Root cause 2 (camera in steps):** `CameraRig` had a hard 60 px dead zone (stand still, then lurch) and a look-ahead taken straight from the ball's instant velocity, which flickers during dribble taps and turns. It is now a critically damped smooth-damp follow (`CAMERA.followSec`) with a filtered look-ahead (`CAMERA.lookAheadSmoothSec`); `CAMERA.lerp` and `CAMERA.deadZone` were removed.
+- The stamina bar position and the joystick parts are no longer snapped to the 4 px grid (they moved in visible 4 px steps).
+- Verified in a local preview: `cameras.main.roundPixels` is false; the art stays crisp; over 299 frames of zig-zag/sprint/reversal dribbling there were 0 camera stop-starts, and the camera's speed changed by about 5 px/s per frame (median), 34 at most.
+
+### 2026-10-12: FIFA-style movement and dribble rework (user feedback: "rigid and chunky")
+
+- `movement.stepPlayer`: momentum locomotion.
+  - New PLAYER `accel`/`accelWithBall`/`decel`, speed-dependent turning (`turnRateSlow`/`turnRateFast`, `turnWithBallFactor`), a pivot when slow (`pivotBelowSpeed`/`pivotRate`), and an ease-off on large heading error (`slowTurnFromDeg`/`stopTurnAtDeg`).
+  - Removed `instantTurnAbove`, `turnRate`, `snapTurnBelowSpeed`, `turnRateWithBall` and `turnRateSprintWithBall`.
+- `possession.dribble`: close control replaces the spring.
+  - The ball sits at `dribbleAngle`/`dribbleDist` around the carrier (new Player fields, replacing `touchLead`). The angle follows the facing at `DRIBBLE.swingRate`; the distance eases (`settleRate`) to `closeLead`/`walkLead`/`sprintLead` plus smooth taps (`walkTouch`/`sprintTouch`).
+  - `gainBall` cushions the first touch (`cushionPerSpeed`/`cushionMax`). The DRIBBLE spring fields were removed.
+- `geometry.rotateTowards` is now shared (moved out of movement.ts).
+- Verified in a local preview (sampled every sim step via `?debug`):
+  - accel 0 -> 192 px/s in about 0.2 s;
+  - jogging lead 29-31 px with at most 0.44 px of change per step;
+  - 180° turn: the ball stays ≥ 26 px from the feet, speed dips to 44 then recovers, possession kept;
+  - sprint lead 47-53 px;
+  - a pass reception cushions (ball distance 43 -> 20 eases over about 0.35 s).
+
+### 2026-10-12: Phase 2 feedback: ball feel, smooth dribble, keeper control, collisions
+
+User feedback, items 1-7:
+
+1. **Rebounds too strong:** wall/fence/post bounce 0.8 -> 0.5; fast ball off a player keeps 0.2 (was 0.35); keeper parry 0.25 (was 0.35).
+2. **Shots crossed the whole court:**
+   - ground drag 0.55 -> 0.35/s, plus new `BALL.rollFriction` 40 px/s²;
+   - air drag 0.92 -> 0.5/s; bounce 0.55 -> 0.4; full shot 950 -> 850, tap 650 -> 600;
+   - pass strike speed is now solved from the physics (`passSpeed()`, bisection on the closed-form roll distance) to arrive at about 170 px/s: `PASS.speedPerPx` was replaced by `arriveSpeed`; min/max 300/950.
+   - Verified: a full shot from x=322 stopped at x=1325 (was about 1700 px of travel); a tap travelled about 525 px; 300/600/900 px passes were all received.
+3. **Dribble not smooth:** the lead profile is now a smooth `(1 - cos)` out-and-back (the old `sin` profile jolted at every touch); the spring tracks the target's velocity including the lead's rate; stiffer spring (900, 9000 cap); leads shortened (30-46 walk, 58 sprint, rest 24). Measured: a smooth 26 -> 49 lead wave.
+4. **A shot at a teammate wasn't controlled:** `maxControlSpeed` 450 -> 750 and `maxControlHeight` 20 -> 40. Verified: a tap shot at a teammate 250 px away was controlled, and control moved to them.
+5. **Shots too flat:** tap lift 60 -> 140, full lift 360 -> 520 (peaks about 92-96, under the bar). New ball shadow (`BALL_SHADOW_KEY`) so height reads in perspective.
+6. **Keeper controls:**
+   - when our keeper catches the ball, the human controls it (moves within its box via `keepInBox`); THROW (B1) to the ring-marked teammate; KICK (B2) as a long lofted ball;
+   - control then passes to the receiver / the nearest outfielder;
+   - it auto-throws after 6 s (`KEEPER.humanHoldMaxSec`);
+   - uncontrolled keepers walk back to their goal-line spot (found when a keeper left off its line conceded an own goal in testing).
+   - Verified: catch -> control -> walk -> throw -> keeper returns to (45, 649); kick peaks at 95 and is collected by an outfielder.
+7. **Player collision:** new `systems/collisions.ts` (`separatePlayers`, body radius 16), run after movement; outfielders are re-constrained with `constrainMove` and keepers with `keepInBox`. Verified: stacked players end 32 apart.
+
+### 2026-10-12: Phase 2: ball, dribbling, pass, shoot, keepers, match flow
+
+- `tuning.ts`:
+  - new MATCH timings, plus FORMATION, BALL, POSSESSION, DRIBBLE, PASS, SHOOT, KEEPER and INPUT;
+  - with-ball turn rates in PLAYER;
+  - `CROWD` moved above `CAMERA` so the camera comment sits with `CAMERA` again.
+- `types.ts`: `Team` moved here from `playerArt`.
+- New entity: `entities/Ball.ts`.
+- New systems: `ballPhysics`, `possession`, `actions`, `keeper` (stand-in), `MatchFlow`, `geometry`.
+- New UI: `ui/ActionButtons.ts`. New art: `art/ballArt.ts`. New renderer: `render/Court.ts`, which took the court and scenery construction out of `MatchScene`.
+- `Player`: role (outfield/keeper), kits per role (keeper kits green/yellow), possession and dribble fields, `receiving`, pass-target ring, `placeAt()`; `render()` now takes the time.
+- `Controls`: buttons (press, release, held, buffer age, consume) and J/K keys.
+- `movement.stepPlayer` takes `hasBall` (with-ball speeds and turn rates).
+- `HudScene`: scoreboard, clock (red pulse under 10 s, GOLDEN GOAL), centre banners and action buttons; the debug text moved under the scoreboard; buttons are released on pause, blur and hide.
+- `MatchScene` rewritten around the fixed-step order above; `?debug` testing hook in `main.ts`.
+- Verified in a local preview with scripted scenarios:
+  - kickoff possession starts the clock;
+  - a half-charged shot (about 800 px/s) into the top corner scored, the net held the ball, and play reset with the CPU kicking off;
+  - the pass preview follows the stick to each teammate; a pass at about 420 px/s moved control to the receiver, who collected it;
+  - the dribble lead oscillated 42-63 px;
+  - the keeper caught a 649 px/s tap shot, held it 1 s and threw it out; it parried a full-power shot at about 330 px/s;
+  - the far and end walls bounced the ball; a ball in the left net scored for the CPU with home kicking off;
+  - golden goal at 0-0;
+  - full time at 1-0 showed the Result screen ("YOU WIN! 1 - 0", shots and passes counted);
+  - Play again started a clean 0-0 / 90 s match;
+  - the GOAL! banner showed with the score updated.
+
+### 2026-10-12: Smaller crowd, spacing in tuning.ts (user request)
+
+- New `CROWD` block in `shared/tuning.ts` (`minGap` 70, `extraGap` 40), used by `render/Crowd.ts`: about 29 spectators per row, about 58 in total.
+
+### 2026-10-12: Thick walls, inside-the-net movement fix, crowd (user feedback)
+
+- Removed the goal recess walls (user request). End walls and the far wall are now solid 32-thick blocks with coping on top and camera-facing end faces; the far wall's facade rises from the back of the wall.
+- `Goal` split into three depth layers with `NEAR_WALL_DEPTH`.
+- Fixed the player "springing" out of the net: `constrainMove(fromY, toX, toY)` resolves axes separately.
+- New crowd: `render/Crowd.ts` plus 12 spectator variants.
+- `HudScene` releases the joystick on game BLUR/HIDDEN.
+
+### 2026-10-12: Goal recesses, scenery, walk into the goal (user feedback)
+
+- End walls wrapped the goal as a recess (later removed); `endWallHeight` 100 -> 120.
+- Basketball court behind the left goal and a car park behind the right one (`art/sceneryArt.ts`, `render/Billboard.ts`).
+- Players can walk into a goal through the mouth.
+- Per-match lists are reset in `init()` (Phaser reuses scenes); the RESUME listener is removed on shutdown.
+
+### 2026-10-12: Broadcast (FIFA-style) perspective camera
+
+- New `render/`: `Projector`, `ProjectedPlane`, `Goal`. `art/pitchArt.ts` repainted for 3D. `CameraRig` drives the projector focus. `Player` renders via the projector. `main.ts` uses `Phaser.WEBGL`.
+
+### 2026-10-12: Phase 1: pitch, camera, joystick, one player
+
+- New `art/`, `systems/` (`FixedStep`, `Controls`, `movement`, `CameraRig`), `entities/Player.ts`, `ui/Joystick.ts`, `scenes/HudScene.ts`; `MatchScene` rewritten.
+
+### 2026-10-12: Phase 0 improvements: forced landscape and retro pixel art
+
+- `ui/landscape.ts`, `ui/palette.ts`, `ui/pixelFont.ts`, `ui/backdrop.ts`; pixel-art `TextButton`; restyled scenes and splash; `public/ball.svg`; `context?.username` guard. Created this file.
+
+### 2026-10-12: Phase 0: GameMaker template replaced with Phaser
+
+- Removed the GameMaker runner, the setup scripts and `docs/`; added `phaser@3.90.0`, the boot and the Boot/Menu/Match/Result scenes, `shared/tuning.ts` and `shared/types.ts`; updated `AGENTS.md` and `README.md`.
