@@ -6,9 +6,14 @@ import { PAL, PX } from '../ui/palette';
 import {
   MARKER_ARROW,
   MARKER_TARGET,
-  PLAYER_H,
+  IDLE_FRAME,
+  PLAYER_HEIGHT,
+  PLAYER_ORIGIN_Y,
+  PLAYER_PX,
+  idleAnim,
   playerTexture,
   runAnim,
+  shootAnim,
   type Kit,
 } from '../art/playerArt';
 
@@ -60,6 +65,7 @@ export class Player {
   private readonly barBg: Phaser.GameObjects.Rectangle;
   private readonly barFill: Phaser.GameObjects.Rectangle;
   private readonly kit: Kit;
+  private shooting = false; // the strike animation is playing
 
   constructor(
     scene: Phaser.Scene,
@@ -80,8 +86,8 @@ export class Player {
 
     this.targetRing = scene.add.image(0, 0, MARKER_TARGET);
     this.sprite = scene.add
-      .sprite(0, 0, playerTexture(this.kit), 'idle')
-      .setOrigin(0.5, 1);
+      .sprite(0, 0, playerTexture(this.kit), IDLE_FRAME)
+      .setOrigin(0.5, PLAYER_ORIGIN_Y);
     this.arrow = scene.add
       .image(0, 0, MARKER_ARROW)
       .setScale(PX)
@@ -121,6 +127,17 @@ export class Player {
     this.reactAt = -1;
   }
 
+  // Plays the strike animation once (shot or keeper kick); running and
+  // standing animations wait until it has finished.
+  playShoot() {
+    this.shooting = true;
+    this.sprite.anims.timeScale = 1;
+    this.sprite.play(shootAnim(this.kit));
+    this.sprite.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
+      this.shooting = false;
+    });
+  }
+
   // Call at the start of every simulation step.
   savePrevious() {
     this.prevX = this.x;
@@ -137,21 +154,25 @@ export class Player {
     const x = this.renderX;
     const y = this.renderY;
     projector.project(x, y, this.z, feet);
-    projector.project(x, y, this.z + PLAYER_H * PX, head);
+    projector.project(x, y, this.z + PLAYER_HEIGHT, head);
 
     this.sprite
       .setPosition(feet.x, feet.y)
-      .setScale(PX * feet.scale)
+      .setScale(PLAYER_PX * feet.scale)
       .setDepth(y);
     this.sprite.setAngle(
       this.lying ? (Math.cos(this.diveDir) < 0 ? -80 : 80) : 0
     );
-    if (this.speed > 10) {
+    // A shot / kick animation plays out; otherwise run or stand.
+    if (this.shooting) {
+      // left alone until it completes
+    } else if (this.speed > 10) {
       this.sprite.play(runAnim(this.kit), true);
       // Leg cycle speeds up with running speed (sprint ~1.5x).
       this.sprite.anims.timeScale = this.speed / 220;
-    } else if (this.sprite.anims.isPlaying) {
-      this.sprite.stop().setFrame('idle');
+    } else {
+      this.sprite.play(idleAnim(this.kit), true);
+      this.sprite.anims.timeScale = 1;
     }
     const cos = Math.cos(this.heading);
     if (Math.abs(cos) > 0.2) this.sprite.setFlipX(cos < 0);
@@ -160,7 +181,7 @@ export class Player {
     // markers, which keep a fixed screen size and sit just above the sprite.
     // The controlled player is marked by the arrow overhead and the facing
     // arrow on the ground (drawn by the Match scene).
-    const top = feet.y - PLAYER_H * PX * feet.scale;
+    const top = feet.y - PLAYER_HEIGHT * feet.scale;
     const squash = projector.groundSquash(x, y);
     projector.project(x, y, 0, feet);
     const ringScale = PX * feet.scale;

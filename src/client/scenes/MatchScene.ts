@@ -11,7 +11,7 @@ import {
 } from '../../shared/tuning';
 import type { MatchConfig, MatchResult } from '../../shared/types';
 import { createBallTexture } from '../art/ballArt';
-import { createPlayerTextures } from '../art/playerArt';
+import { PLAYER_HEIGHT, createPlayerTextures } from '../art/playerArt';
 import { Ball } from '../entities/Ball';
 import { Player } from '../entities/Player';
 import { Court } from '../render/Court';
@@ -49,9 +49,10 @@ const NO_MOVE: StickInput = { x: 0, y: 0, r: 0 };
 const realNow = () => performance.now() / 1000;
 const AIM_AT = newProjected();
 const SHOT_TEXT_DEPTH = 3e6; // above players, markers and the stamina bar
-// The facing arrow under the controlled player, in world px from their feet.
-const FACING_ARROW_START = 22;
-const FACING_ARROW_END = 78;
+// Controlled-player ground marker (ring, pointer and charge gauge).
+const RING_RADIUS = 44; // the ground marker ring round the controlled player, world px
+const RING_POINTS = 40;
+const GAUGE_SEGMENTS = 24; // segments of the charge gauge round the ring
 const ARROW_HEAD_BACK = 18; // arrow head strokes run back this far from the tip ...
 const ARROW_HEAD_SIDE = 12; // ... and out to the side this far
 
@@ -80,10 +81,12 @@ export class MatchScene extends Phaser.Scene {
   private rig!: CameraRig;
   private hudState!: MatchHudState;
   private aimArrow!: Phaser.GameObjects.Graphics;
+  private marker!: Phaser.GameObjects.Graphics; // ring + pointer + charge gauge under the controlled player
   private shotText!: Phaser.GameObjects.BitmapText; // the swipe shape, above the shooter
 
   private simTime = 0;
   private stats = { shots: 0, passes: 0 };
+  private followShotUntil = -Infinity; // sim time: until then control follows the player closest to the loose ball (after a shot)
   private pendingPass: { passer: Player; receiver: Player; at: number } | null =
     null;
   private outRestart: { keeper: Player; at: number } | null = null; // goal kick after the ball went out
@@ -107,6 +110,7 @@ export class MatchScene extends Phaser.Scene {
     this.simTime = 0;
     this.stats = { shots: 0, passes: 0 };
     this.pendingPass = null;
+    this.followShotUntil = -Infinity;
     this.outRestart = null;
     this.chargeSince = null;
     this.lastSwitchAt = -Infinity;
@@ -136,6 +140,7 @@ export class MatchScene extends Phaser.Scene {
     this.everyone = [...this.home, this.homeKeeper, this.awayKeeper];
     this.ball = new Ball(this);
     this.aimArrow = this.add.graphics();
+    this.marker = this.add.graphics();
     this.shotText = pixelText(this, 0, 0, '', 0.6 * PX, PAL.white)
       .setOrigin(0.5, 1)
       .setDepth(SHOT_TEXT_DEPTH)
@@ -189,6 +194,7 @@ export class MatchScene extends Phaser.Scene {
     this.ball.interpolate(alpha);
     this.updatePassPreview();
     this.updateAimArrow();
+    this.updateGroundMarker();
 
     const b = this.ball;
     this.rig.setBallInAir(
@@ -354,6 +360,30 @@ export class MatchScene extends Phaser.Scene {
       if (this.controlled !== this.homeKeeper)
         this.setControlled(this.homeKeeper);
     }
+    // After a shot, while the ball is loose: control stays with whichever
+    // outfielder is closest to the ball (the shooter too, while it still
+    // is), re-checked every step as the ball travels. A small margin stops
+    // it flickering between two players at nearly the same distance. It
+    // ends when someone gains the ball (control follows the ball then, see
+    // onGained), when the ball has died (after a last pick), when the
+    // player switches by hand, or after SHOOT.followShotMaxSec.
+    if (t < this.followShotUntil) {
+      if (ball.owner) {
+        this.followShotUntil = -Infinity;
+      } else {
+        const nearest = this.nearestOutfielder(ball.x, ball.y);
+        const current = this.controlled;
+        const dist = (p: Player) => Math.hypot(p.x - ball.x, p.y - ball.y);
+        if (
+          nearest !== current &&
+          (current.role === 'keeper' ||
+            dist(current) - dist(nearest) > SHOOT.followShotMargin)
+        )
+          this.setControlled(nearest);
+        if (ball.z === 0 && ball.speed < PASS.receiverStopBelow)
+          this.followShotUntil = -Infinity;
+      }
+    }
     const c = this.controlled;
 
     if (this.pendingPass && t >= this.pendingPass.at) {
@@ -416,6 +446,10 @@ export class MatchScene extends Phaser.Scene {
         );
         releaseBall(ball, c, t);
         this.stats.shots += 1;
+        c.playShoot();
+        // From now on control follows the player closest to the ball
+        // (see the check at the top).
+        this.followShotUntil = t + SHOOT.followShotMaxSec;
       }
     } else {
       if (!hasBall) this.chargeSince = null;
@@ -515,6 +549,7 @@ export class MatchScene extends Phaser.Scene {
         (KEEPER.kickMinLift + (KEEPER.kickLift - KEEPER.kickMinLift) * charge) *
         liftScale;
       ball.spin = shape.curl * KEEPER.curlKickSpin;
+      k.playShoot();
       ball.dip = 0;
       release();
       const reach = 300 + 500 * charge;
@@ -600,10 +635,11 @@ export class MatchScene extends Phaser.Scene {
     if (keeper === this.homeKeeper) this.setControlled(keeper);
   }
 
-  private nearestOutfielder(x: number, y: number) {
+  private nearestOutfielder(x: number, y: number, except?: Player) {
     let best = this.forward;
     let bestDist = Infinity;
     for (const p of this.home) {
+      if (p === except) continue;
       const d = Math.hypot(p.x - x, p.y - y);
       if (d < bestDist) {
         best = p;
@@ -617,6 +653,7 @@ export class MatchScene extends Phaser.Scene {
   // a second cycles to the next nearest.
   private switchPlayer(t: number) {
     if (t - this.lastSwitchAt < INPUT.switchCooldownSec) return;
+    this.followShotUntil = -Infinity; // the player chose; stop following the shot
     if (
       t - this.lastSwitchAt > INPUT.switchCycleSec ||
       this.switchCycle.length === 0
@@ -689,6 +726,7 @@ export class MatchScene extends Phaser.Scene {
       FORMATION.keeper.y
     );
     this.pendingPass = null;
+    this.followShotUntil = -Infinity;
     this.outRestart = null;
     this.chargeSince = null;
     this.setControlled(this.forward);
@@ -710,58 +748,123 @@ export class MatchScene extends Phaser.Scene {
         shotLabel(this.controls.swipe, c.holding) ||
         (c.holding ? 'KICK' : 'SHOT');
       if (this.shotText.text !== label) this.shotText.setText(label);
-      this.projector.project(c.renderX, c.renderY, 70, AIM_AT);
+      // Above the overhead arrow (which sits over the sprite).
+      this.projector.project(c.renderX, c.renderY, PLAYER_HEIGHT + 48, AIM_AT);
       this.shotText.setPosition(AIM_AT.x, AIM_AT.y);
     }
-    const pressed =
-      this.controls.isHeld(2) && ball.owner === c && this.flow.phase === 'live';
-    // Not shooting: a persistent arrow on the ground showing which way the
-    // controlled player faces (it replaced the ring under the player). It
-    // gives way to the charging arrow below the moment SHOOT is pressed.
-    if (!pressed && this.flow.phase !== 'fulltime') {
-      this.drawGroundArrow(
-        g,
-        c.renderX,
-        c.renderY,
-        c.heading,
-        FACING_ARROW_START,
-        FACING_ARROW_END,
-        PAL.white
-      );
-      g.setDepth(c.renderY - 0.5); // under the player's sprite
-      return;
-    }
-    if (!SHOOT.aimArrow || this.chargeSince === null || !charging) return;
-    const charge = clamp(
-      (realNow() - this.chargeSince) / SHOOT.chargeSec,
-      0,
-      1
-    );
-    // A keeper kick from the hands goes upfield with the stick centred.
-    const hands = c.holding;
-    const dir =
-      hands && this.controls.move.r <= STICK.deadZone
-        ? c.team === 'home'
-          ? 0
-          : Math.PI
-        : shotDirection(c, this.controls.move);
-    const color = hands
-      ? PAL.white
-      : isPerfectCharge(charge)
-        ? PAL.green
-        : charge > SHOOT.sweetSpot
-          ? PAL.red
-          : PAL.white;
+    if (!SHOOT.aimArrow || !charging) return;
+    const charge = this.currentCharge() ?? 0;
     this.drawGroundArrow(
       g,
       ball.renderX,
       ball.renderY,
-      dir,
+      this.strikeDirection(c),
       0,
       60 + 160 * charge,
-      color
+      this.chargeColor(charge, c.holding)
     );
     g.setDepth(ball.renderY + 0.3);
+  }
+
+  // How far the shot (or keeper kick) is charged, 0..1, or null when the
+  // controlled player isn't charging one.
+  private currentCharge() {
+    if (this.chargeSince === null || this.ball.owner !== this.controlled)
+      return null;
+    return clamp((realNow() - this.chargeSince) / SHOOT.chargeSec, 0, 1);
+  }
+
+  // Which way the strike will leave: the stick, or the facing with the stick
+  // centred; a keeper kick from the hands goes upfield then.
+  private strikeDirection(c: Player) {
+    if (c.holding && this.controls.move.r <= STICK.deadZone)
+      return c.team === 'home' ? 0 : Math.PI;
+    return shotDirection(c, this.controls.move);
+  }
+
+  // White while building, green in the perfect band, red when over-hit (a
+  // keeper kick has no bands).
+  private chargeColor(charge: number, hands: boolean) {
+    if (hands) return PAL.white;
+    if (isPerfectCharge(charge)) return PAL.green;
+    return charge > SHOOT.sweetSpot ? PAL.red : PAL.white;
+  }
+
+  // The controlled player's ground marker (FIFA-style): a ring round the
+  // feet with a pointer on it toward the facing direction. While SHOOT /
+  // KICK charges, the pointer follows the strike direction and a segmented
+  // gauge fills round the ring, in the aim arrow's colours.
+  private updateGroundMarker() {
+    const g = this.marker;
+    g.clear();
+    const c = this.controlled;
+    if (this.flow.phase === 'fulltime') return;
+    const charge = this.currentCharge();
+    const dir = charge === null ? c.heading : this.strikeDirection(c);
+    const color =
+      charge === null ? PAL.white : this.chargeColor(charge, c.holding);
+    const x = c.renderX;
+    const y = c.renderY;
+    const ground = (angle: number, radius: number) => {
+      this.projector.project(
+        x + Math.cos(angle) * radius,
+        y + Math.sin(angle) * radius,
+        0,
+        AIM_AT
+      );
+      return { x: AIM_AT.x, y: AIM_AT.y };
+    };
+    const scale = this.projector.project(x, y, 0, AIM_AT).scale;
+
+    // Disc and ring.
+    const ring = Array.from({ length: RING_POINTS }, (_, i) =>
+      ground((i / RING_POINTS) * Math.PI * 2, RING_RADIUS)
+    );
+    g.fillStyle(PAL.black, 0.22).fillPoints(ring, true);
+    g.lineStyle(Math.max(2, 3 * scale), color, 0.85).strokePoints(
+      ring,
+      true,
+      true
+    );
+
+    // Gauge: segments round the ring from the pointer, clockwise on screen.
+    if (charge !== null) {
+      const step = (Math.PI * 2) / GAUGE_SEGMENTS;
+      const lit = Math.ceil(charge * GAUGE_SEGMENTS);
+      for (let i = 0; i < GAUGE_SEGMENTS; i++) {
+        const a0 = dir + i * step + step * 0.12;
+        const a1 = dir + (i + 1) * step - step * 0.12;
+        const inner = RING_RADIUS + 5;
+        const outer = RING_RADIUS + 15;
+        if (i < lit) g.fillStyle(color, 0.95);
+        else g.fillStyle(PAL.black, 0.3);
+        g.fillPoints(
+          [
+            ground(a0, inner),
+            ground(a1, inner),
+            ground(a1, outer),
+            ground(a0, outer),
+          ],
+          true
+        );
+      }
+    }
+
+    // Pointer: a triangle pointing along the direction, just outside the
+    // ring (outside the gauge while that shows).
+    const base = RING_RADIUS + (charge === null ? 6 : 19);
+    const tip = ground(dir, base + 28);
+    const left = ground(dir + 0.28, base);
+    const right = ground(dir - 0.28, base);
+    g.fillStyle(color, 0.95).fillTriangle(
+      tip.x,
+      tip.y,
+      left.x,
+      left.y,
+      right.x,
+      right.y
+    );
+    g.setDepth(y - 0.5); // under the player's sprite
   }
 
   // An arrow lying on the ground from `start` to `end` world px along `dir`

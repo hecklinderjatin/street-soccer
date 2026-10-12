@@ -33,6 +33,7 @@ What works now:
   - two context buttons (HUD bottom right) plus J/K: PASS/SHOOT with the ball, TACKLE/SWITCH without;
   - 150 ms press buffer when the ball is close;
   - control follows the ball (gaining it switches control to the carrier).
+  - **Controlled player marker (FIFA-style, `MatchScene.updateGroundMarker`):** the yellow arrow overhead plus a **ground ring** (radius 44 world px, dark translucent disc, white outline) with a **pointer** on it toward the facing direction (`heading`). While SHOOT / KICK charges, the pointer follows the strike direction, a **24-segment gauge** fills round the ring (white, green in the perfect band, red when over-hit, white for a keeper kick) and the long aim arrow still shows ahead of the ball. No separate full-length arrow when idle. The ring is drawn as projected points every frame at depth y - 0.5 (under the player).
 - **Pass** (`systems/actions.ts`):
   - target = the **nearest** outfield teammate in the stick direction (the facing when the stick is centred): a 60° cone first, widening to 110°, 180° and then all round if nobody is in it (`PASS.coneStepsDeg`). A pulsing blue ring marks the target while you hold the ball;
   - 0.08 s wind-up; strike speed solved from the ball physics so the pass arrives at about 170 px/s (clamped 300-950); leads the receiver; 3° error (8° under pressure); chips over a blocked lane;
@@ -43,7 +44,7 @@ What works now:
   - **Down = POWER:** +22% pace and +30% lift with topspin (`ball.dip` up to 0.7 extra gravity until it lands), stray +40%, and over-hit lift +30% at full.
   - **Left / Right = CURL:** sidespin up to 1.1 rad/s (decaying) bending that way **as the shooter sees it** (moving right on screen, a left curl bends up the screen). It leaves along the stick and bends away from that line, so aim outside the post. -20% pace, -25% lift, stray -20% at full.
   - No swipe = the plain shot above (no spin). `BALL.spinMinSpeed` is 300 so curlers keep bending as they slow.
-- **Switch:** a tap goes to the teammate nearest the ball, the keeper included; repeat taps within 1 s cycle; 0.12 s cooldown. **Holding SWITCH (0.35 s)** jumps straight to our keeper. When the ball is heading toward our goal (faster than 250 px/s, in our third), a tap picks the keeper first.
+- **Switch:** a tap goes to the teammate nearest the ball, the keeper included; repeat taps within 1 s cycle; 0.12 s cooldown. **Holding SWITCH (0.35 s)** jumps straight to our keeper. When the ball is heading toward our goal (faster than 250 px/s, in our third), a tap picks the keeper first. **After a shot** (0.35 s after it is struck, `SHOOT.afterShotSwitchSec`) control moves to the teammate nearest the ball (the shooter excluded; outfield only), unless the player already switched or somebody has the ball by then (`MatchScene.pendingShotSwitch`).
 - **Stand-in keepers** (`systems/keeper.ts`):
   - when not human-controlled, stand on the line from their goal centre toward the ball, 30 px off the line with the ball 1000+ px away, up to 60 px out with it 350 px away (narrowing the angle; within the mouth's width; `keeperPositionStick`). Once a shot is struck (free ball faster than 450 px/s) they hold their position; walking across with it saved almost every shot in testing. So corner shots and chips over a keeper off its line can score. They catch balls at or below 650 px/s and parry faster ones (25% speed);
   - **CPU keeper reaction dive** (`cpuKeeperReact`): sees a shot heading for its goal (faster than 300 px/s, on target or within 30 px of a post, under its reach height, arriving within 1.2 s), waits 0.35 s, then dives sideways toward where it will pass, only as far as needed. It predicts a straight line (no curl), so a late-bending curler can beat it. Standing it reaches 96 high (just under the bar), diving 120. Measured from 450 px, central (10 shots each): straight at it 0 goals; perfect-timed to a corner 10; a weak tap to the corner 0; power to the corner 10; chip at 65% charge 6 (shorter ones are caught, 80% goes over); curl aimed 100 px outside the post 10; from 750 px a perfect corner shot 0 and a curl 3.
@@ -119,7 +120,7 @@ src/
     art/                    textures painted in code at art-pixel resolution (1 texel = PX world px)
       pixelArt.ts           makeTexture, fill, paintRows, paintRing, paintEllipseRing, hex
       pitchArt.ts           court textures; GROUND_EXTENT, BASKETBALL, PARKING
-      playerArt.ts          player sheets per kit (home, away, homeKeeper, awayKeeper) + run anims, rings (control, pass target), arrow, joystick parts, round button discs
+      playerArt.ts          player sheets per kit (home, away, homeKeeper, awayKeeper): 24x32 art px frames drawn at PLAYER_PX 2.75 (about 88 world px tall), posed from skeletons (idle1-3, run1-8 procedural gait, shoot_windup/contact/follow/recover) + idle, run and shoot anims; pass-target ring, overhead arrow, joystick parts, round button discs
       ballArt.ts            6x6 ball, two rolling frames
       sceneryArt.ts         prop textures: hoop, cars, spectators
     ui/
@@ -163,7 +164,7 @@ public/ball.svg             pixel ball shown on the splash
   - near end-wall segments at `NEAR_WALL_DEPTH` (782);
   - frame layer at +1.
 - Ground rings (control and pass target) at the player's y - 1.
-- Fence 1e6; crowd 1e6 + 1 + y; overhead arrow and stamina bar 2e6. The HUD is a separate scene, always on top.
+- Fence 1e6; crowd 1e6 + 1 + y; overhead arrow and stamina bar 2e6; shot label 3e6. The HUD is a separate scene, always on top. The ground marker (`MatchScene.marker`) sits at depth y - 0.5; the charging aim arrow (`aimArrow`) at ball y + 0.3.
 
 **Fixed step (MatchScene.step), in the plan's order:**
 
@@ -277,6 +278,28 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+### 2026-10-13: Player sprites reworked from a style reference (user request)
+- The user supplied an 8-bit-football style sheet (big bearded head, side-on, idle x3, run x8, shoot wind-up/contact/follow-through/recovery). It is another artist's work showing a recognisable footballer, so the sprites are **original art in that style**, not traced: generic face, our kits.
+- `art/playerArt.ts` rewritten: frames are **posed skeletons** (hip, neck, knees, ankles, toes, shoulders, elbows, hands) rasterised into a 24x32 char grid (`Grid`: pixel capsules, back limbs in shade colours, near limbs with a darker rim where they cross the body, the back of the shirt shaded, one silhouette outline), then painted with the kit palette. The run is a procedural 8-frame gait (`runLeg` / `runArm`: thigh +-40 deg, knee folds on the forward swing, arms opposite); idle and shot poses are explicit joint lists. Each pose is grounded so its lowest boot touches row 29; a soft alpha shadow sits under the feet. Kits gained shade colours (`shirtShade`, `shortsShade`, `sockShade`).
+- Sprites are drawn at `PLAYER_PX` 2.75 world px per art pixel (finer than PX 4) so a 32-row frame is 88 world px tall, a bit under the crossbar; `PLAYER_HEIGHT` and `PLAYER_ORIGIN_Y` (30/32, the boot line) replace `PLAYER_H * PX` / origin 1 in `Player` and the shot label.
+- Anims: idle (idle1, 2, 3, 2 at 4 fps), run (8 frames at `RUN_FPS` 16, scaled by speed / 220), shoot (4 frames at 14 fps, once).
+- Iterations, found by reading frames back from the texture and by in-game close-ups (camera zoom 3): per-limb outlines blacked out the narrow torso (now one silhouette outline + rims); the head had a double outline and read as long hair (now fill-only, short hair, bigger face); idle arms sat over the chest (moved to the sides); the shirt shading covered half the shirt (narrowed).
+
+### 2026-10-12: New player sprites (user-supplied art)
+- `art/playerArt.ts` replaced with the user's 18x26 sprites (was 10x16): 8 frames per kit (`idle1`, `idle2`, `run1`, `run2`, `shoot_windup`, `shoot_contact`, `shoot_follow`, `shoot_recover`). Kits gained socks, an accent (armband) colour and white boots. New anims `idleAnim` (2 frames, 3 fps loop), `runAnim` (run1, idle1, run2, idle1 at 10 fps), `shootAnim` (4 frames at 12 fps, once). Added `IDLE_FRAME`.
+- Fixes needed to integrate it: the old `'idle'` frame no longer exists (`Player` now starts on `IDLE_FRAME` and loops the idle anim when standing); `FRAME_MAPS[frame] ?? []` for the strict index check; the unused palette key `o` dropped. All rows verified 18 wide and 26 tall.
+- `Player.playShoot()` plays the strike once (a `shooting` flag holds off run/idle until `ANIMATION_COMPLETE`); called on shots and on keeper kicks.
+- Players are now 26 art px tall (104 world px, was 64), so they look about 1.6x bigger. The overhead arrow and stamina bar follow `PLAYER_H`; the shot label was at a fixed height of 70 (inside the taller sprite) and now sits at `PLAYER_H * PX + 48`.
+
+### 2026-10-12: FIFA-style ring with pointer and gauge; control moves after a shot (user request, reference screenshot)
+- The full-length facing arrow was replaced by a ground ring with a short pointer (like the reference): `MatchScene.updateGroundMarker`, `marker` Graphics, `RING_RADIUS` 44. While SHOOT / KICK charges a segmented gauge (`GAUGE_SEGMENTS` 24) fills round the ring in the aim arrow's colours and the pointer follows the strike direction; helpers `currentCharge()`, `strikeDirection()`, `chargeColor()` are shared with the aim arrow. `FACING_ARROW_*` constants removed. (An earlier 26 px ring sat under the player's sprite and was invisible.)
+- **After a shot control moves** to the teammate nearest the ball (shooter excluded): `pendingShotSwitch`, `SHOOT.afterShotSwitchSec` 0.35, `nearestOutfielder(x, y, except?)`. Verified: shooter at x 1176, ball 1753 after 0.7 s, control passed to the player at x 840 (nearest to the ball).
+- Testing note: the preview's emulated 1280x720 viewport screenshots the game as a tiny corner; zoom with `scene.cameras.main.setZoom(3).centerOn(...)` to inspect small markers.
+
+### 2026-10-12: Facing arrow replaces the ring under the player (user request)
+- Removed the yellow ring under the controlled player (`Player.ring`, `MARKER_RING`). In its place `MatchScene.updateAimArrow` draws a persistent white arrow on the ground along the player's `heading`; the existing arrow drawing was extracted into `drawGroundArrow()` (also used by the charging aim arrow). Hidden while SHOOT / KICK is pressed with the ball (the charging arrow, with its white / green / red logic, shows instead) and back on release. Not drawn at full time.
+- The pass-target ring (blue) and the overhead yellow arrow are unchanged.
 
 ### 2026-10-12: Analog swipes, shot label, CPU keeper dives (user feedback: shots lacked control, too easy to score, swipes not working properly)
 - Checked with real pointer events (portrait, rotated layout): swipes registered correctly. The problems were the design: all-or-nothing types, a thumb hiding the feedback, and a keeper that never dived.

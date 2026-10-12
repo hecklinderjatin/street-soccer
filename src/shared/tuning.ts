@@ -149,6 +149,8 @@ export const SHOOT = {
   runLift: 0.35, // extra lift per px/s of run speed toward the shot (sprint shots fly higher)
   acrossPowerLoss: 0.3, // power lost shooting straight back against the run (scales with the angle)
   outRestartSec: 0.9, // after a ball goes over the bar, the defending keeper restarts after this
+  followShotMaxSec: 4, // after a shot, control follows the outfielder closest to the loose ball for up to this long ...
+  followShotMargin: 30, // ... switching only when another is this much closer (no flicker)
   // Swipe shots (PES-mobile layout, analog): while pressing SHOOT, slide
   // the thumb. Up = chip, down = power, left / right = curl. How FAR you
   // slide is how much of the effect the strike gets (diagonals mix, e.g. a
