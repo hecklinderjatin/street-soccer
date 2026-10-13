@@ -5,6 +5,7 @@ import {
   FORMATION,
   INPUT,
   KEEPER,
+  MATCH,
   PASS,
   PITCH,
   SHOOT,
@@ -12,8 +13,9 @@ import {
   STAMINA,
   STICK,
   TACKLE,
+  TACTICS,
 } from '../../shared/tuning';
-import type { MatchConfig, MatchResult } from '../../shared/types';
+import type { MatchConfig, MatchResult, Team } from '../../shared/types';
 import { createBallTexture } from '../art/ballArt';
 import { PLAYER_HEIGHT, createPlayerTextures } from '../art/playerArt';
 import { Ball } from '../entities/Ball';
@@ -27,6 +29,7 @@ import {
   choosePassTarget,
   kickPass,
   kickShot,
+  kickThroughPass,
   idealPassWeight,
   passWeight,
   shotDirection,
@@ -35,7 +38,7 @@ import { collideBall, stepFreeBall } from '../systems/ballPhysics';
 import { CameraRig } from '../systems/CameraRig';
 import { Controls, type StickInput } from '../systems/Controls';
 import { FixedStep } from '../systems/FixedStep';
-import { clamp } from '../systems/geometry';
+import { DEG, angleDiff, clamp } from '../systems/geometry';
 import {
   cpuKeeperReact,
   keepInBox,
@@ -45,7 +48,7 @@ import {
   stepKeeperBody,
 } from '../systems/keeper';
 import { separatePlayers } from '../systems/collisions';
-import { TeamBrain, type TeamView } from '../systems/ai';
+import { TeamBrain, interceptPoint, type TeamView } from '../systems/ai';
 import {
   resolveTackle,
   startTackle,
@@ -54,7 +57,7 @@ import {
 } from '../systems/tackle';
 import { MatchFlow } from '../systems/MatchFlow';
 import { constrainMove, stepPlayer } from '../systems/movement';
-import { releaseBall, stepPossession } from '../systems/possession';
+import { gainBall, releaseBall, stepPossession } from '../systems/possession';
 import { PAL, PX } from '../ui/palette';
 import { pixelText } from '../ui/pixelFont';
 import type { HudData, MatchHudState } from './HudScene';
@@ -123,6 +126,10 @@ export class MatchScene extends Phaser.Scene {
     weight: number | null; // weighted pass charge 0..1, null = normal pass
   } | null = null;
   private passChargeSince: number | null = null; // real time a held PASS started charging
+  // Receive assist (PASS.receiveAssist): our receiver of the pass in flight
+  // comes to meet the ball until the human steers it; `stickDir` is how the
+  // stick was held when the pass left (null = centred since).
+  private receiveAssist: { p: Player; stickDir: number | null } | null = null;
   private outRestart: { keeper: Player; at: number } | null = null; // goal kick after the ball went out
   private chargeSince: number | null = null; // real time the shot charge started
   private lastSwitchAt = -Infinity;
@@ -157,6 +164,7 @@ export class MatchScene extends Phaser.Scene {
     this.outRestart = null;
     this.chargeSince = null;
     this.passChargeSince = null;
+    this.receiveAssist = null;
     this.lastSwitchAt = -Infinity;
     this.switchCycle = [];
     this.switchIndex = 0;
@@ -194,9 +202,14 @@ export class MatchScene extends Phaser.Scene {
       .setVisible(false);
     this.controlled = this.forward;
 
-    // Our AI teammates play at normal; the CPU at the chosen difficulty.
-    this.homeBrain = new TeamBrain('home', LEVELS.normal);
-    this.awayBrain = new TeamBrain('away', LEVELS[this.config.difficulty]);
+    // Our AI teammates play at normal with the attacking plan (user
+    // request); the CPU at the chosen difficulty with the balanced plan.
+    this.homeBrain = new TeamBrain('home', LEVELS.normal, TACTICS.attacking);
+    this.awayBrain = new TeamBrain(
+      'away',
+      LEVELS[this.config.difficulty],
+      TACTICS.balanced
+    );
     this.roleText = DEBUG
       ? this.outfield.map((p) =>
           pixelText(
@@ -330,7 +343,7 @@ export class MatchScene extends Phaser.Scene {
       const steer = busy
         ? STAND_STILL
         : human
-          ? { move: this.controls.move, sprint: this.controls.sprint }
+          ? this.humanSteer(p)
           : aiOn
             ? (p.team === 'home' ? this.homeBrain : this.awayBrain).steer(
                 p,
@@ -351,14 +364,15 @@ export class MatchScene extends Phaser.Scene {
     // level's reaction time; ours plays at normal).
     for (const k of [this.homeKeeper, this.awayKeeper]) {
       const home = k.team === 'home';
+      const level = home ? LEVELS.normal : LEVELS[this.config.difficulty];
       if (k !== this.controlled && !frozen)
         cpuKeeperReact(
           k,
           ball,
           t,
-          (home ? LEVELS.normal : LEVELS[this.config.difficulty])
-            .keeperReactSec,
-          Math.random
+          level.keeperReactSec,
+          Math.random,
+          level.keeperDiveError
         );
       if (stepKeeperBody(k, t, dt)) continue; // diving or down after a dive
       const human = k === this.controlled;
@@ -388,6 +402,9 @@ export class MatchScene extends Phaser.Scene {
       if (k.holding) keepInBox(k);
       else [k.x, k.y] = constrainMove(k.prevY, k.x, k.y);
     }
+    // What the other side's AI will see of everyone a moment later
+    // (LEVELS.readSec: it reacts late, so feints work).
+    for (const p of this.everyone) p.recordSeen();
 
     this.controls.sprinting = this.controlled.sprinting;
     this.controls.sprintLocked = this.controlled.sprintLocked;
@@ -438,14 +455,17 @@ export class MatchScene extends Phaser.Scene {
         if ((event === 'caught' || event === 'smothered') && home)
           this.setControlled(keeper);
         // Held too long and auto-distributed: control goes to the throw's
-        // receiver, or to the outfielder nearest where a punt is heading.
+        // receiver (who comes to meet it), or to the outfielder nearest
+        // where a punt is heading.
         if ((event === 'thrown' || event === 'punted') && human) {
           const receiver = this.home.find((p) => p.receiving);
           this.setControlled(
             receiver ??
               this.nearestOutfielder(ball.x + ball.vx, ball.y + ball.vy)
           );
+          if (receiver) this.startReceiveAssist(receiver);
         }
+        if (event === 'thrown') this.passReaction(keeper.team, t);
       }
     }
 
@@ -477,6 +497,13 @@ export class MatchScene extends Phaser.Scene {
     }
 
     if (this.flow.phase === 'live') {
+      // The CPU kicks off by itself, a moment after the freeze.
+      if (
+        this.flow.awaitingKickoff &&
+        this.flow.kickoffTeam === 'away' &&
+        this.flow.phaseTime >= MATCH.cpuKickoffSec
+      )
+        this.cpuKickoff(t);
       this.stepActions(t);
       this.stepAiCarriers(t);
     }
@@ -542,13 +569,27 @@ export class MatchScene extends Phaser.Scene {
         );
         releaseBall(ball, passer, t);
         this.stats.passes += 1;
-        // Control moves to the receiver the moment the pass is released.
+        // Control moves to the receiver the moment the pass is released;
+        // it comes to meet the ball until the human steers it.
         this.setControlled(receiver);
+        this.startReceiveAssist(receiver);
+        // The passer (AI now) may burst forward for a one-two.
+        this.homeBrain.passAndRun(passer, t, Math.random);
+        this.flow.kickedOff(); // a kickoff pass starts the match
+        this.passReaction('home', t);
       }
     }
 
     const hasBall = ball.owner === c;
     const fresh = (id: 1 | 2) => controls.pressAge(id) <= INPUT.bufferSec;
+    // Waiting for the kickoff (user request): only PASS does anything, and
+    // only for our kicker; no shot, tackle or switch.
+    const kickoff = this.flow.awaitingKickoff;
+    if (kickoff && !hasBall) {
+      if (fresh(1)) controls.consume(1);
+      if (fresh(2)) controls.consume(2);
+      return;
+    }
 
     // Keeper with the ball in hands, or without the ball: keeper actions.
     // With the ball at its feet (outside the box) it passes and shoots
@@ -601,6 +642,10 @@ export class MatchScene extends Phaser.Scene {
     }
     if (!hasBall) this.passChargeSince = null;
 
+    if (kickoff) {
+      if (fresh(2)) controls.consume(2); // no kickoff shot
+      return;
+    }
     if (hasBall && !this.pendingPass && this.passChargeSince === null) {
       if (this.chargeSince === null && fresh(2)) {
         controls.consume(2);
@@ -686,6 +731,8 @@ export class MatchScene extends Phaser.Scene {
         release();
         this.stats.passes += 1;
         this.setControlled(receiver);
+        this.startReceiveAssist(receiver);
+        this.passReaction('home', t);
       }
       return;
     }
@@ -792,8 +839,11 @@ export class MatchScene extends Phaser.Scene {
     return best;
   }
 
-  // Switch to the teammate nearest the ball (the keeper included); pressing again within
-  // a second cycles to the next nearest.
+  // Switch to the player our AI has sent for the ball (the presser when
+  // they have it, the chaser or a pass's receiver when it's loose: the one
+  // actually going, not just the nearest), else the teammate who can get to
+  // the ball soonest (the keeper included); pressing again within a second
+  // cycles on through them in that order.
   private switchPlayer(t: number) {
     if (t - this.lastSwitchAt < INPUT.switchCooldownSec) return;
     this.followShotUntil = -Infinity; // the player chose; stop following the shot
@@ -802,13 +852,18 @@ export class MatchScene extends Phaser.Scene {
       this.switchCycle.length === 0
     ) {
       const ball = this.ball;
-      this.switchCycle = [...this.home, this.homeKeeper]
+      const soonest = new Map<Player, number>();
+      for (const p of [...this.home, this.homeKeeper])
+        soonest.set(p, interceptPoint(p, ball).t);
+      this.switchCycle = [...soonest.keys()]
         .filter((p) => p !== this.controlled)
-        .sort(
-          (a, b) =>
-            Math.hypot(a.x - ball.x, a.y - ball.y) -
-            Math.hypot(b.x - ball.x, b.y - ball.y)
-        );
+        .sort((a, b) => (soonest.get(a) ?? 0) - (soonest.get(b) ?? 0));
+      const pick = this.homeBrain.switchTarget();
+      if (pick && pick !== this.controlled)
+        this.switchCycle = [
+          pick,
+          ...this.switchCycle.filter((p) => p !== pick),
+        ];
       // Danger: the ball heading for our goal in our third -> keeper first.
       const threat =
         !ball.owner &&
@@ -834,6 +889,9 @@ export class MatchScene extends Phaser.Scene {
     this.clearReceivers();
     // Control follows the ball: when our team gains it, we control the carrier.
     if (p.team === 'home') this.setControlled(p);
+    // A CPU player who has just won the ball decides at once (even while
+    // its team's pass reaction delay is running).
+    else this.awayBrain.wake();
   }
 
   // What a team's AI sees: its outfielders, the other side's, and which
@@ -886,21 +944,40 @@ export class MatchScene extends Phaser.Scene {
       const { p, act } = due;
       if (act.kind === 'dribble') continue;
       if (act.kind === 'pass') {
-        kickPass(
-          ball,
-          p,
-          act.to,
-          this.opponentsOf(p),
-          Math.random,
-          null,
-          brain.skill.passErrorScale
-        );
+        if (act.through)
+          kickThroughPass(
+            ball,
+            p,
+            act.to,
+            this.opponentsOf(p),
+            Math.random,
+            brain.skill.passErrorScale
+          );
+        else
+          kickPass(
+            ball,
+            p,
+            act.to,
+            this.opponentsOf(p),
+            Math.random,
+            null,
+            brain.skill.passErrorScale
+          );
         releaseBall(ball, p, t);
+        brain.passAndRun(p, t, Math.random); // maybe a one-two run
+        this.passReaction(p.team, t);
         continue;
       }
       const dx = act.x - p.x;
       const dy = act.y - p.y;
       const len = Math.hypot(dx, dy) || 1;
+      // A clearance is lofted; a chip shot is a full swipe up.
+      const swipe =
+        act.kind === 'clear'
+          ? { x: 0, y: -AI.clearChip }
+          : act.chip > 0
+            ? { x: 0, y: -act.chip }
+            : undefined;
       kickShot(
         ball,
         p,
@@ -908,7 +985,7 @@ export class MatchScene extends Phaser.Scene {
         act.kind === 'shoot' ? act.charge : AI.clearCharge,
         this.opponentsOf(p),
         Math.random,
-        act.kind === 'clear' ? { x: 0, y: -AI.clearChip } : undefined
+        swipe
       );
       releaseBall(ball, p, t);
       p.playShoot();
@@ -925,6 +1002,104 @@ export class MatchScene extends Phaser.Scene {
     this.controlled = p;
     this.chargeSince = null;
     this.passChargeSince = null;
+    this.receiveAssist = null; // a pass's receiver gets it again (startReceiveAssist)
+  }
+
+  // The stick for the controlled outfielder. Receive assist: while it is
+  // the intended receiver of a pass still travelling and the human hasn't
+  // steered it yet, it comes to meet the ball (where it can first reach
+  // it; at a sprint when an opponent could get there too). Any new stick
+  // input hands it straight back: pushing the stick after centring it, or
+  // turning it PASS.assistTakeoverDeg from how it was held at the pass.
+  private humanSteer(p: Player) {
+    const manual = { move: this.controls.move, sprint: this.controls.sprint };
+    const assist = this.receiveAssist;
+    const ball = this.ball;
+    if (!assist || assist.p !== p || !p.receiving || ball.owner) {
+      this.receiveAssist = null;
+      return manual;
+    }
+    const move = this.controls.move;
+    if (move.r > STICK.deadZone) {
+      const dir = Math.atan2(move.y, move.x);
+      if (
+        assist.stickDir === null ||
+        Math.abs(angleDiff(dir, assist.stickDir)) >
+          PASS.assistTakeoverDeg * DEG
+      ) {
+        this.receiveAssist = null;
+        return manual;
+      }
+    } else {
+      assist.stickDir = null; // centred: the next push takes over
+    }
+    const meet = interceptPoint(p, ball);
+    const dx = meet.x - p.x;
+    const dy = meet.y - p.y;
+    const d = Math.hypot(dx, dy);
+    if (d < AI.arriveDist) return STAND_STILL;
+    const contested = this.opponentsOf(p).some(
+      (o) => interceptPoint(o, ball).t < meet.t + AI.chaseRelaxSec
+    );
+    const sprint = contested && d > AI.sprintChase;
+    return {
+      move: {
+        x: dx / d,
+        y: dy / d,
+        r: sprint ? 1 : clamp(d / AI.slowDist, 0.2, 0.8),
+      },
+      sprint,
+    };
+  }
+
+  // A pass (or throw) to our controlled `p` has just left: it comes to meet
+  // the ball until the human steers it (humanSteer).
+  private startReceiveAssist(p: Player) {
+    if (!PASS.receiveAssist || !p.receiving || p !== this.controlled) return;
+    const move = this.controls.move;
+    this.receiveAssist = {
+      p,
+      stickDir: move.r > STICK.deadZone ? Math.atan2(move.y, move.x) : null,
+    };
+  }
+
+  // The CPU's kickoff: its kicker passes to the nearest teammate (the
+  // normal pass at its level's accuracy), and play starts.
+  private cpuKickoff(t: number) {
+    const ball = this.ball;
+    const kicker = this.awayForward;
+    let to: Player | null = null;
+    let best = Infinity;
+    for (const p of this.away) {
+      if (p === kicker) continue;
+      const d = Math.hypot(p.x - kicker.x, p.y - kicker.y);
+      if (d < best) {
+        to = p;
+        best = d;
+      }
+    }
+    if (ball.owner === kicker && to) {
+      kickPass(
+        ball,
+        kicker,
+        to,
+        this.opponentsOf(kicker),
+        Math.random,
+        null,
+        this.awayBrain.skill.passErrorScale
+      );
+      releaseBall(ball, kicker, t);
+      this.passReaction('away', t);
+    }
+    this.flow.kickedOff();
+  }
+
+  // After a pass or throw by `team`, the other side's AI only reacts once
+  // its pass reaction time is up (LEVELS.passReactSec): until then only
+  // players already in the way can cut it out.
+  private passReaction(team: Team, t: number) {
+    const other = team === 'home' ? this.awayBrain : this.homeBrain;
+    other.delay(t, other.skill.passReactSec);
   }
 
   private clearReceivers() {
@@ -967,11 +1142,19 @@ export class MatchScene extends Phaser.Scene {
       PITCH.width - FORMATION.keeper.x,
       FORMATION.keeper.y
     );
+    // The kicker has the ball at its feet; play (AI, clock) starts with its
+    // kickoff pass (MatchFlow.kickedOff).
+    gainBall(
+      this.ball,
+      this.flow.kickoffTeam === 'home' ? this.forward : this.awayForward
+    );
+    this.switchHoldArmed = false;
     this.pendingPass = null;
     this.followShotUntil = -Infinity;
     this.outRestart = null;
     this.chargeSince = null;
     this.passChargeSince = null;
+    this.receiveAssist = null;
     // Nothing the AI had queued (a pass, a shot, a tackle) survives a restart.
     this.homeBrain.reset();
     this.awayBrain.reset();

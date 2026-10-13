@@ -15,8 +15,9 @@ export type PossessionEvents = {
 //   control (see dribble() below).
 // - A loose ball goes to the nearest eligible player in reach: slow and low
 //   enough = control; too fast = it deflects off them. The intended
-//   receiver of a pass always controls it (automatic first touch), and the
-//   passer's other teammates leave it to them while it travels.
+//   receiver of a pass always controls it (automatic first touch, bigger
+//   reach), the passer's other teammates leave it to them while it travels,
+//   and opponents must be closer to a moving pass to cut it out.
 // Keepers are handled by systems/keeper.ts.
 export function stepPossession(
   ball: Ball,
@@ -48,8 +49,10 @@ export function stepPossession(
   let bestDist = Infinity;
   // A pass in flight is the receiver's: the passer's other teammates don't
   // cut it out (they move by themselves now and stood in its way), though
-  // opponents can intercept.
+  // opponents can intercept it, from close to the ball only while it is
+  // still moving well (POSSESSION.interceptRadius).
   const passTo = players.find((q) => q.receiving);
+  const passMoving = passTo && ball.speed > POSSESSION.interceptFullBelow;
   for (const p of players) {
     if (passTo && p !== passTo && p.team === passTo.team) continue;
     // A keeper inside its box uses its hands (systems/keeper.ts); outside, its feet.
@@ -57,9 +60,11 @@ export function stepPossession(
     // Right after a won tackle only the tackler may take it.
     if (ball.priority && ball.priority !== p && time < ball.priorityUntil)
       continue;
-    const reach =
-      POSSESSION.controlRadius +
-      (p.receiving ? POSSESSION.receiveBonusRadius : 0);
+    const reach = p.receiving
+      ? POSSESSION.controlRadius + POSSESSION.receiveBonusRadius
+      : passMoving
+        ? POSSESSION.interceptRadius
+        : POSSESSION.controlRadius;
     const dist = Math.hypot(ball.x - p.x, ball.y - p.y);
     if (dist < reach && dist < bestDist) {
       best = p;

@@ -37,14 +37,18 @@ export const PITCH = {
 export const MATCH = {
   durationSec: 90, // regular time
   goldenGoalSec: 30, // extra time when level at full time
-  kickoffFreezeSec: 1, // players frozen in formation before kickoff
-  goBannerSec: 0.6, // "GO!" shown after the freeze
+  kickoffFreezeSec: 1, // players frozen in formation before kickoff ...
+  // ... then nothing moves and the clock waits until the kickoff pass
+  // (user request): you press PASS ("PASS TO START"), or the CPU kicker
+  // passes this long after the freeze.
+  cpuKickoffSec: 0.8,
+  goBannerSec: 0.6, // "GO!" shown after the kickoff pass
   goalHitStopSec: 0.3, // simulation frozen right after a goal
   celebrationSec: 2.5, // celebration before the reset
   slowMoSec: 1, // first part of the celebration runs in slow motion
   slowMoScale: 0.4, // slow-motion speed
   fullTimePauseSec: 1.8, // FULL TIME banner before the result screen
-  goldenBannerSec: 1.5, // GOLDEN GOAL banner when extra time starts
+  goldenBreakSec: 2, // level at full time: the game pauses this long (GOLDEN GOAL banner), then a kickoff with a fresh goldenGoalSec clock
 } as const;
 
 // Formation spots for the home team (attacking right, x toward 2400),
@@ -86,7 +90,9 @@ export const POSSESSION = {
   maxControlHeight: 40, // ball must be lower than this (feet to chest)
   maxControlSpeed: 1000, // slower than this is controlled (passes, most shots), faster is deflected
   regainLockSec: 0.25, // after losing or releasing the ball
-  receiveBonusRadius: 10, // the intended receiver of a pass gets a bigger first touch
+  receiveBonusRadius: 22, // the intended receiver of a pass gets a bigger first touch
+  interceptRadius: 22, // an opponent cuts out a moving pass only this close to the ball (a loose ball: controlRadius) ...
+  interceptFullBelow: 200, // ... until it has slowed under this (px/s): a dying pass is anyone's
   leash: 110, // the carrier loses the ball if it gets this far away
 } as const;
 
@@ -109,17 +115,26 @@ export const DRIBBLE = {
 
 export const PASS = {
   windUpSec: 0.08, // between the press and the ball leaving
-  arriveSpeed: 170, // a pass is struck so it still rolls at about this speed on arrival ...
+  arriveSpeed: 230, // a pass is struck so it still rolls at about this speed on arrival (was 170: slow passes were cut out) ...
   minSpeed: 300, // ... clamped to this range
-  maxSpeed: 950,
+  maxSpeed: 1100,
   // Target: the NEAREST teammate inside a narrow cone around the stick; if
   // nobody is in it the cone widens step by step (then the whole circle).
   coneStepsDeg: [60, 110, 180, 360], // full cone widths tried in order
   leadFactor: 0.8, // aim at receiver position + velocity * travel time * this
-  errorDeg: 3, // random aim error ...
-  pressureErrorDeg: 8, // ... grows to this with an opponent close by
+  errorDeg: 1.5, // random aim error (the human's; the CPU's is x LEVELS.passErrorScale) ...
+  pressureErrorDeg: 4, // ... grows to this with an opponent close by
   pressureRadius: 80,
-  chipLane: 60, // an opponent this close to the pass line turns it into a chip
+  // Receive assist (user request: passes must reach their man). Control
+  // moves to the receiver as the pass leaves, while the stick is still
+  // pushed the way you passed, which used to run him away from the ball.
+  // Now he comes to meet the ball until you steer him yourself: push the
+  // stick again after centring it, or turn it this far from how it was
+  // held when you passed.
+  receiveAssist: true,
+  assistTakeoverDeg: 40,
+  chipLane: 60, // an opponent this close to the pass line turns it into a chip ...
+  chipFromAhead: 30, // ... if the ball still has to pass it (this far along the line or more; not one beside or behind the passer)
   chipVz: 380, // vertical speed of a chip
   receiverStopBelow: 60, // the receiver stops running onto the pass once the ball is slower than this (px/s)
   // Weighted pass (user request): hold PASS to set the pace yourself. A tap
@@ -205,7 +220,12 @@ export const KEEPER = {
   reach: 40, // ground distance at which the keeper gets to the ball
   reachHeight: 120, // highest ball it can reach while diving ...
   standReachHeight: 96, // ... and standing (just under the bar: a dropping chip can beat it)
-  parryAbove: 650, // faster balls are parried, slower ones caught
+  // Catch or parry: a ball slower than catchSureBelow is always caught;
+  // faster, the catch chance falls to none at catchNoneAbove (parried
+  // instead: rebounds), and is lower again while diving.
+  catchSureBelow: 420,
+  catchNoneAbove: 900,
+  diveCatchFactor: 0.75, // x the catch chance in a dive (above catchSureBelow)
   parryKeep: 0.25, // speed kept on a parry
   holdSec: 1, // holds a caught ball this long before throwing it out
   throwSpeed: 560,
@@ -229,7 +249,8 @@ export const KEEPER = {
   maxOut: 60, // ... and with it close
   outFarDist: 1000, // ball this far from goal = lineOut
   outNearDist: 350, // ball this close = maxOut
-  setAbove: 450, // a free ball faster than this (a shot): the keeper holds its position
+  setAbove: 450, // a free ball faster than this (a shot): the keeper sets itself ...
+  shuffleStick: 0.5, // ... side-stepping toward where it will cross at this stick (~140 px/s, a walk), until its dive
   // Keeper reaction dive (cpuKeeperReact): sees a shot coming, waits its
   // reaction time (LEVELS.keeperReactSec), then dives toward where it will
   // pass, as far as needed.
@@ -263,53 +284,194 @@ export const KEEPER = {
 // role's target every step with the normal movement rules (same speeds,
 // stamina and turning as the human).
 export const AI = {
-  // Formation: spots slide with the ball and with who has it.
-  shiftX: 0.5, // spots move this fraction of the ball's offset from the centre (along the pitch) ...
-  shiftY: 0.35, // ... and across it
-  attackPush: 140, // spots move this far upfield while the team has the ball ...
-  defendDrop: 100, // ... and this far back while the opponent has it
+  // Formation: spots slide with the ball and with who has it. Kept low so
+  // players hold their areas instead of everyone sliding to the ball (user
+  // feedback: "it feels so overcrowded at times"; was 0.5 / 0.35).
+  shiftX: 0.35, // spots move this fraction of the ball's offset from the centre (along the pitch) ...
+  shiftY: 0.2, // ... and across it
+  // (how far each slot pushes up with the ball / drops back without it is
+  // the team's plan: TACTICS)
+  attackWidth: 1.6, // with the ball spots also go this much further out from the middle (wide players near the touchlines)
   edgeMargin: 60, // spots stay this far inside the pitch
+  // Reading the opponent's carrier: an AI reacts to where it was, how it
+  // moved and faced LEVELS.readSec ago (user request: it followed every
+  // feint at once), recorded up to this far back.
+  readMaxSec: 0.5,
+  // Calm movement (no fidgeting): a player standing at its spot only sets
+  // off again once the spot is restartDist away, and spots glide to new
+  // places (aimEaseRate per second) instead of jumping; a new job further
+  // than aimSnapDist away is taken at once.
+  restartDist: 45,
+  settledSpeed: 15, // px/s: slower than this counts as standing at the spot
+  aimEaseRate: 3,
+  aimSnapDist: 250,
+  posErrorSec: 3, // each player's positioning error (LEVELS.posError) is renewed about this often
   // Loose ball: one chaser per team (the quickest to reach it).
   chaseKeepSec: 0.25, // the current chaser keeps the job unless someone else is this much quicker
   interceptMaxSec: 2.5, // how far ahead the ball's roll is predicted
-  // Defending: one presser, the rest mark or cover.
-  pressGap: 70, // the presser jockeys this far goal-side of the carrier (contains; tackles come in step 4)
+  chaseRelaxSec: 0.5, // no opponent can get there within this (s) of our chaser: it jogs (saves stamina)
+  chaseLoseSec: 0.2, // an opponent this much quicker to it, in our half: the chaser takes a goal-side spot instead
+  // Defending: one presser; a few markers near our goal; the rest hold zones
+  // (zonal defence, not every player man-marking one of the attackers).
+  // The presser contains, it doesn't shadow (user feedback: it followed the
+  // carrier like a shadow and cut out every pass back). Its spot is worked
+  // out when its team thinks (it reacts, it doesn't mirror every step) and
+  // doesn't follow a carrier retreating toward its own goal.
+  pressGap: 95, // the presser jockeys this far goal-side of a carrier on the move ...
+  pressGapDeep: 170, // ... and this far off one deep in its own half (room to play out) ...
+  pressDeepFrom: 1200, // ... from this far from the presser's goal line ...
+  pressDeepFull: 1700, // ... fully from this far
   pressLeadSec: 0.4, // the presser aims where the carrier will be this soon (keeps its distance)
   pressKeep: 60, // the current presser keeps the job unless another is this much closer (px)
   humanPressDist: 130, // our human player this close to the carrier counts as our presser
-  markGap: 50, // markers stand this far from their man, goal-side and toward the ball
+  markGap: 50, // markers stand this far from their man, goal-side and toward the ball ...
+  markSag: 0.12, // ... plus this much per px he is from the ball (tight near the ball, loose away from it) ...
+  markGapMax: 170, // ... up to this
+  markZone: 900, // only opponents this close to our goal line get a marker ...
+  markZoneKeep: 120, // ... and a marked one keeps his marker until this much further out
+  maxMarkers: 2, // at most this many markers; at least one other player always holds a zone
+  zoneCompact: 0.2, // zone spots move this fraction toward the line from the ball to our goal (closing the middle; was 0.35)
   // Attacking: supporters spread into open space, the furthest forward runs ahead.
-  runAhead: 280, // the runner aims this far ahead of the ball
-  openDist: 100, // a support spot this close to an opponent shifts away from them
-  supportMinDist: 170, // supporters keep at least this far from the carrier
-  spaceDist: 90, // teammates closer than this push their targets apart
+  openDist: 140, // a support spot this close to an opponent shifts away from them
+  supportMinDist: 240, // supporters keep at least this far from the carrier
+  spaceDist: 150, // teammates closer than this push their spots apart (cover / support / run / show)
+  restGap: 110, // rest defence: our deepest player stays this far goal-side of their most advanced one ...
+  restBehindBall: 150, // ... and at least this far behind the ball
+  showPress: 0.35, // our carrier pressed this hard (pressureOn): the nearest teammate shows for the ball ...
+  showDist: 200, // ... at a free spot this far from the carrier ...
+  showClear: 90, // ... with no opponent this close to it ...
+  showTries: 4, // ... trying the spots nearest that teammate first
+  // After a pass the passer may burst forward for a return pass
+  // (give-and-go): chance and from where up the pitch are the plan's
+  // (TACTICS); the chance ramps up over this share of the pitch.
+  giveGoRamp: 0.25,
+  giveGoDist: 320, // the burst aims this far upfield ...
+  giveGoInward: 0.25, // ... and this fraction of the way in toward the middle ...
+  giveGoSec: 1.6, // ... for this long
   // Steering.
   arriveDist: 10, // within this of the target: stand (and face the ball)
   slowDist: 140, // closer than this the walk slows down toward the target
   sprintFar: 320, // sprint to a target further than this (any role)
   sprintChase: 60, // chasers / pressers sprint while further than this
   saveStaminaBelow: 30, // below this stamina only chasers / pressers sprint
-  // Pressing closes in on a slow carrier (who could otherwise shield forever).
-  pressGapClose: 40, // gap to a standing carrier (pressGap at walking pace and above)
-  // Tackles (the presser only), checked each think (chance: LEVELS).
-  tackleBehindFactor: 0.3, // chance x this from behind the carrier (low success there)
+  pressGapClose: 85, // gap to a slow carrier (pressGap at walking pace and above)
+  // A carrier idle on the ball gets attacked (user request): standing
+  // (slower than idleSpeed) this long, the presser goes in for the ball in
+  // front of it and tackles more; longer, a second player closes in from
+  // behind. Moving off faster than idleBreakSpeed ends it.
+  idleSpeed: 40,
+  idleBreakSpeed: 120,
+  idleSec: 1.5,
+  idleGap: 30, // the presser stands this far beyond the ball (DRIBBLE.closeLead in front of the carrier)
+  idleTackleBoost: 2, // x the tackle chance (at most 0.95)
+  idleDoubleSec: 2.5,
+  // Counter-attack: for this long after winning the ball from the other
+  // side, an AI carrier with space ahead runs straight at goal.
+  counterSec: 3,
+  counterSpace: 250, // ... with nobody within this ahead of it ...
+  counterBonus: 0.35, // ... dribbling is worth this much more
+  // Tackles (the presser only, and only from the carrier's front or side:
+  // from behind it gets goal-side first), checked each think (chance: LEVELS).
   tackleCooldownSec: 1, // after an attempt, at least this long before the next
   // Carrying (any AI player with the ball): a utility score per option,
   // each with some random variation (LEVELS.decisionNoise).
   carrySettleSec: 0.3, // first touch: no pass or shot sooner than this after gaining the ball
-  shootRange: 560, // no shots from further than this from the goal centre
-  shootInside: 30, // aim this far inside the post, on the side away from the keeper
+  shootRange: 760, // no shots from further than this from the goal centre
+  // When to shoot (user request: not only from round the box; based on how
+  // hard it is to score and on the situation): the shot's quality (0..1,
+  // from distance, angle and how open the goal is) against what the moment
+  // asks for: shotPatience with time and space (it works the ball closer:
+  // a clinical finish), down to shotHurry when pressed, crowded or blocked
+  // off (it shoots at once, from range too), x a random appetite per
+  // possession. Roughly: unpressed it shoots from 250-440 px, pressed from
+  // up to 600-670 px.
+  shotNearDist: 150, // quality from distance: full this close ...
+  shotFarDist: 800, // ... none from this far
+  shotBlockedFactor: 0.3, // x quality with a defender in the shot line
+  shotPatience: 0.55, // quality wanted with time and space ...
+  shotHurry: 0.12, // ... and when fully pressed / crowded
+  crowdDist: 160, // opponents this close count as a crowd (2 = half hurry, 3 = full)
+  shotWayAhead: 140, // an opponent this close straight ahead toward goal blocks the way on ...
+  shotBlockedHurry: 0.5, // ... = this much hurry
+  appetiteMin: 0.7, // x the quality wanted, random per possession
+  appetiteMax: 1.3,
+  shotWeight: 1.1, // shoot score at exactly the quality wanted ...
+  shotScoreCap: 1.6, // ... up to this many times that for a better chance
+  shootInside: 30, // shot spots stay this far inside the posts
+  shotPoints: 5, // spots across the goal mouth the AI picks its shot from (the most open one) ...
+  shotPickNoiseDeg: 6, // ... with up to this much random preference
+  shotClearMaxDeg: 45, // a spot's openness: the angle from its line to the nearest blocker, capped here ...
+  shotClearDeg: 12, // ... and this much counts as fully open
   laneBlock: 35, // an opponent this close to the shot line blocks it
   shotCharge: 0.7, // aimed charge (middle of the perfect band), +- LEVELS.shotChargeNoise
+  chipKeeperOut: 110, // chip the keeper when it is this far off its line ...
+  chipMinGap: 140, // ... at least this far from the ball ...
+  chipLateral: 70, // ... and this close to the shot line (in the way)
+  chipClearance: 16, // the lob must pass this far above the keeper's standing reach ...
+  chipUnderBar: 14, // ... and cross the goal line this far under the bar (or land within chipLandShort of it)
+  chipLandShort: 80,
+  chipChargeMin: 0.2, // charges tried, from this up to the sweet spot ...
+  chipChargeStep: 0.05, // ... in these steps
+  chipNoise: 0.4, // x LEVELS.shotChargeNoise: charge spread on a chip
+  chipScore: 1.1, // base score of a chip (up to 0.4 more the further out the keeper)
   passMin: 100, // pass candidates between these distances
   passMax: 750,
   passLaneSafe: 60, // a pass lane this clear (px) counts as fully safe
-  pressureNear: 60, // an opponent this close to the carrier = under pressure (pass or clear sooner; 90 meant every tackle met a pass)
-  dribbleLook: 200, // dribble target this far ahead (toward goal)
-  dribbleDodge: 110, // sidestep this far around an opponent in the way
+  throughMinRun: 150, // through balls only to a teammate running upfield at least this fast ...
+  throughAhead: 50, // ... aimed this far beyond where it will be when the ball arrives (and it must get there TACTICS.throughMargin s before any opponent)
+  throughEdge: 70, // through-ball spots stay this far inside the pitch
+  // Pressure on a carrier (pressureOn): how soon an opponent could be on it.
+  // A jockeying presser counts a little, one sprinting in a lot; opponents
+  // already in a tackle don't count (passing every time a tackle started
+  // made tackles useless).
+  pressureReach: 40, // px: closer than this counts as already there
+  pressureBaseSpeed: 165, // px/s an opponent is taken to close at from standing ...
+  pressureClosing: 0.35, // ... plus this share of how fast it is already closing in
+  pressureSec: 0.12, // there this soon = full pressure (a standing opponent ~60 px away) ...
+  pressureFarSec: 0.2, // ... none from this
+  dribbleLook: 200, // dribble target this far ahead
   dribbleSprintSpace: 220, // sprint with the ball when the way ahead is this clear
+  cutInFrom: 0.45, // dribble straight upfield before this share of the pitch, then cut in toward goal ...
+  cutInFull: 0.8, // ... fully from this
+  avoidDist: 200, // opponents this close (ahead and to the sides) turn the dribble away from them ...
+  avoidTurnDeg: 70, // ... this much per unit of (distance-weighted) closeness ...
+  avoidMaxDeg: 50, // ... at most this much
+  dribbleBlend: 0.55, // each think the dribble direction turns this fraction toward the new choice (no zig-zag)
   clearCharge: 0.6, // a clearance: the normal shot at this charge ...
   clearChip: 0.7, // ... with this much swipe-up (lofted over players)
+} as const;
+
+// Team game plans (TeamBrain style). Our AI teammates play the attacking
+// plan (user request: "make our teammates more attacking, the whole plan
+// more aggressive; attackers go ahead when we have the ball and track back
+// otherwise, defenders and the midfielder come forward too"); the CPU plays
+// the balanced plan (as before). Per-slot arrays are in FORMATION order:
+// left back, right back, midfielder, forward.
+export const TACTICS = {
+  attacking: {
+    pushAttack: [330, 330, 420, 480], // with the ball, each slot's spot goes this far upfield (defenders to about halfway, the forward high) ...
+    dropDefend: [110, 110, 200, 260], // ... without it, this far back (everyone tracks back, the forward too)
+    outletForward: false, // defending: the forward tracks back (no outlet left up)
+    runAhead: 340, // the forward runs at least this far ahead of the ball (or its pushed-up spot if further)
+    giveGoChance: 0.85, // after a pass, chance the passer bursts forward for a return pass ...
+    giveGoFrom: 0.2, // ... none before this share of the pitch (full chance AI.giveGoRamp further up)
+    throughMargin: 0.08, // through balls when the runner gets there this many s before any opponent (riskier)
+    passProgress: 0.7, // pass score per unit of forward progress (more forward passes)
+    pressHigh: true, // presses close even deep in the carrier's own half (no AI.pressGapDeep)
+    pressGapScale: 0.85, // x the presser's gap (tighter)
+  },
+  balanced: {
+    pushAttack: [140, 140, 140, 140],
+    dropDefend: [100, 100, 100, 100],
+    outletForward: true, // defending: the forward stays up (an outlet, one body fewer round the ball)
+    runAhead: 280,
+    giveGoChance: 0.6,
+    giveGoFrom: 0.3,
+    throughMargin: 0.15,
+    passProgress: 0.5,
+    pressHigh: false,
+    pressGapScale: 1,
+  },
 } as const;
 
 // Difficulty: how sharp the CPU team is (our AI teammates and our keeper
@@ -319,33 +481,45 @@ export const AI = {
 export const LEVELS = {
   easy: {
     thinkSec: 0.3, // re-thinks this often (reaction)
+    readSec: 0.35, // reacts to the opponent's carrier as it was this long ago (feints and sudden turns fool it)
     tackleChance: 0.25, // presser goes in, per think while in range
     shotChargeNoise: 0.25, // shot charge spread around AI.shotCharge
     decisionNoise: 0.25, // option scores x (1 +- this): worse choices
-    passErrorScale: 1.3, // x the pass aim error
+    passErrorScale: 2.6, // x PASS.errorDeg (the human's, halved when passing was made easier: the CPU's stays as it was)
+    passReactSec: 0.45, // the opponent's pass is only seen this long after it is struck
     aimSpread: 110, // shots aimed up to this much in from the AI.shootInside spot toward the centre (keeper-side misses)
     markGapScale: 1.5, // x AI.markGap: looser marking
+    posError: 70, // px each player's spot is off by at most (renewed every AI.posErrorSec): natural gaps
     keeperReactSec: 0.5, // keeper reaction to a shot / a carrier through on goal (+- KEEPER.reactJitter)
+    keeperDiveError: 30, // px a keeper's dive may fall short or overshoot by
   },
   normal: {
     thinkSec: 0.2,
+    readSec: 0.25,
     tackleChance: 0.45,
     shotChargeNoise: 0.12,
     decisionNoise: 0.1,
-    passErrorScale: 1,
+    passErrorScale: 2,
+    passReactSec: 0.32,
     aimSpread: 70,
     markGapScale: 1,
+    posError: 30,
     keeperReactSec: 0.4,
+    keeperDiveError: 12,
   },
   hard: {
     thinkSec: 0.12,
+    readSec: 0.15,
     tackleChance: 0.65,
     shotChargeNoise: 0.05,
     decisionNoise: 0.05,
-    passErrorScale: 0.7,
+    passErrorScale: 1.4,
+    passReactSec: 0.22,
     aimSpread: 40,
     markGapScale: 0.85,
+    posError: 12,
     keeperReactSec: 0.32,
+    keeperDiveError: 5,
   },
 } as const;
 
@@ -367,7 +541,7 @@ export const TACKLE = {
   frontArcDeg: 110, // tackler within this of the carrier's facing = front / side
   carrierSprintPenalty: 0.15, // the carrier was sprinting (harder to catch)
   tacklerSprintBonus: 0.1, // the tackler went in at a sprint
-  jukeDeg: 120, // carrier's stick turned this much since the tackle started = dodged
+  jukeDeg: 90, // carrier's stick turned this much since the tackle started = dodged (was 120: hard to fake, user feedback)
   popSpeed: 110, // won: the ball is knocked loose at this speed ...
   popAhead: 40, // ... toward the point this far ahead of the tackler on its lunge line
   staggerSec: 0.5, // ... the carrier staggers (can't move or touch the ball) ...
@@ -409,7 +583,7 @@ export const PLAYER = {
 
 export const STAMINA = {
   max: 100, // full stamina
-  drainPerSec: 16, // while sprinting (about 6 s from full)
+  drainPerSec: 12.3, // while sprinting (about 8 s from full; was 16 / ~6 s: +30% stamina for everyone, user request)
   regenPerSec: 30, // after the regen delay
   regenDelaySec: 0.4, // pause after sprinting before stamina refills
   trailingRegen: 1.15, // fairness: the team behind on the scoreboard refills this much faster
@@ -445,7 +619,7 @@ export const CAMERA = {
   lookAheadFullSpeed: 300, // ball speed (px/s) at which the full look-ahead applies
   followSec: 0.35, // the focus eases onto its target in about this long (smooth, no steps)
   lookAheadSmoothSec: 0.45, // look-ahead is filtered over about this long, so taps and turns cannot jolt it
-  zoom: 1, // default zoom
-  airZoom: 0.88, // zoom while the ball is in the air on a long pass or shot (Phase 2)
+  zoom: 0.9, // default zoom (was 1: zoomed out a little, less crowded on screen)
+  airZoom: 0.84, // zoom while the ball is in the air on a long pass or shot (Phase 2)
   zoomReturnSec: 0.6, // time to ease back to the default zoom
 } as const;

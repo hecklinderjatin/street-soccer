@@ -1,4 +1,4 @@
-import { BALL, PASS, SHOOT, STICK } from '../../shared/tuning';
+import { AI, BALL, PASS, PITCH, SHOOT, SIM, STICK } from '../../shared/tuning';
 import type { Ball } from '../entities/Ball';
 import type { Player } from '../entities/Player';
 import type { StickInput, SwipeVec } from './Controls';
@@ -118,7 +118,92 @@ export function kickPass(
   const travel = dist / speed;
   const tx = receiver.x + receiver.vx * travel * PASS.leadFactor;
   const ty = receiver.y + receiver.vy * travel * PASS.leadFactor;
+  strikePass(ball, passer, receiver, tx, ty, speed, opponents, rand, errorScale);
+}
 
+// A through ball (AI): into the path of a teammate running forward, struck
+// to throughSpot() at the pace that gets it there. Same aim error and chip
+// rule as any pass.
+export function kickThroughPass(
+  ball: Ball,
+  passer: Player,
+  receiver: Player,
+  opponents: readonly Player[],
+  rand: () => number,
+  errorScale = 1
+) {
+  const spot = throughSpot(ball.x, ball.y, receiver);
+  const speed = passSpeed(Math.hypot(spot.x - ball.x, spot.y - ball.y));
+  strikePass(
+    ball,
+    passer,
+    receiver,
+    spot.x,
+    spot.y,
+    speed,
+    opponents,
+    rand,
+    errorScale
+  );
+}
+
+// Where a through ball to `q` goes: where it will be on its run when the
+// ball (a normal pass from `fromX`, `fromY`) gets there, plus
+// AI.throughAhead into the space beyond; refined a few times, since the
+// travel time depends on the distance. Kept inside the pitch.
+export function throughSpot(fromX: number, fromY: number, q: Player) {
+  const run = Math.hypot(q.vx, q.vy) || 1;
+  const ux = q.vx / run;
+  const uy = q.vy / run;
+  let x = q.x;
+  let y = q.y;
+  for (let i = 0; i < 3; i++) {
+    const t = passTravelTime(Math.hypot(x - fromX, y - fromY));
+    x = q.x + q.vx * t + ux * AI.throughAhead;
+    y = q.y + q.vy * t + uy * AI.throughAhead;
+  }
+  return {
+    x: clamp(x, AI.throughEdge, PITCH.width - AI.throughEdge),
+    y: clamp(y, AI.throughEdge, PITCH.height - AI.throughEdge),
+  };
+}
+
+// Seconds a normal pass takes to roll `dist`: struck at passSpeed(dist),
+// it covers x(t) = (v0 + c)(1 - e^(-k t)) / k - c t (c = a / k, the
+// rolling law above); solved for t by bisection. A pass too long to get
+// there takes the time until it stops.
+export function passTravelTime(dist: number) {
+  const v0 = passSpeed(dist);
+  const c = ROLL_A / ROLL_K;
+  const covered = (t: number) =>
+    ((v0 + c) * (1 - Math.exp(-ROLL_K * t))) / ROLL_K - c * t;
+  const stopAt = Math.log((v0 + c) / c) / ROLL_K;
+  if (covered(stopAt) <= dist) return stopAt;
+  let lo = 0;
+  let hi = stopAt;
+  for (let i = 0; i < 30; i++) {
+    const mid = (lo + hi) / 2;
+    if (covered(mid) < dist) lo = mid;
+    else hi = mid;
+  }
+  return hi;
+}
+
+// Strikes a pass toward (tx, ty) at `speed` (kickPass, kickThroughPass):
+// a small aim error (bigger under pressure, x errorScale); an opponent
+// close to the line ahead turns it into a chip over them. Marks the
+// receiver.
+function strikePass(
+  ball: Ball,
+  passer: Player,
+  receiver: Player,
+  tx: number,
+  ty: number,
+  speed: number,
+  opponents: readonly Player[],
+  rand: () => number,
+  errorScale: number
+) {
   const pressured = opponents.some(
     (o) => Math.hypot(o.x - passer.x, o.y - passer.y) < PASS.pressureRadius
   );
@@ -128,8 +213,15 @@ export function kickPass(
     DEG *
     (rand() * 2 - 1);
   const angle = Math.atan2(ty - ball.y, tx - ball.x) + error;
+  // Chipped only over an opponent the ball still has to pass (one beside
+  // or behind the passer, like a presser at its shoulder, isn't in the way).
+  const lineLen = Math.hypot(tx - ball.x, ty - ball.y) || 1;
+  const ux = (tx - ball.x) / lineLen;
+  const uy = (ty - ball.y) / lineLen;
   const chip = opponents.some(
-    (o) => distToSegment(o.x, o.y, ball.x, ball.y, tx, ty) < PASS.chipLane
+    (o) =>
+      (o.x - ball.x) * ux + (o.y - ball.y) * uy > PASS.chipFromAhead &&
+      distToSegment(o.x, o.y, ball.x, ball.y, tx, ty) < PASS.chipLane
   );
 
   ball.vx = Math.cos(angle) * speed;
@@ -269,4 +361,42 @@ export function isPerfectCharge(charge: number) {
   return (
     charge >= SHOOT.sweetSpot - SHOOT.perfectBand && charge <= SHOOT.sweetSpot
   );
+}
+
+// The flight of a full chip (swipe all the way up) struck at `charge` from
+// the ground, stepped like stepFreeBall (gravity, air drag; a full chip's
+// pace and lift come from the charge alone): its height at each of the
+// ground distances `at` along the way (0 once it has come down) and where it
+// first lands. The AI uses it to pick a chip that clears a keeper off its
+// line and still dips under the bar.
+export function chipFlight(charge: number, at: readonly number[]) {
+  const overHit = Math.max(
+    0,
+    (charge - SHOOT.sweetSpot) / (1 - SHOOT.sweetSpot)
+  );
+  const dt = 1 / SIM.hz;
+  const keep = Math.pow(BALL.airDrag, dt);
+  let v = lerp(SHOOT.chipMinSpeed, SHOOT.chipMaxSpeed, charge);
+  let vz =
+    lerp(SHOOT.chipMinLift, SHOOT.chipMaxLift, charge) +
+    SHOOT.overHitLift * overHit;
+  const heights = at.map(() => 0);
+  let x = 0;
+  let z = 0;
+  for (let i = 0; i < SIM.hz * 5; i++) {
+    vz -= BALL.gravity * dt;
+    const nz = z + vz * dt;
+    v *= keep;
+    const nx = x + v * dt;
+    if (nz <= 0) {
+      x = nx;
+      break;
+    }
+    at.forEach((d, j) => {
+      if (d > x && d <= nx) heights[j] = nz;
+    });
+    x = nx;
+    z = nz;
+  }
+  return { heights, landing: x };
 }

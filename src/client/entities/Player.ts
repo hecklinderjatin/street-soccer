@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { STAMINA } from '../../shared/tuning';
+import { AI, SIM, STAMINA } from '../../shared/tuning';
 import type { Team } from '../../shared/types';
 import { newProjected, type Projector } from '../render/Projector';
 import { PAL, PX } from '../ui/palette';
@@ -18,6 +18,16 @@ import {
 } from '../art/playerArt';
 
 export type Role = 'outfield' | 'keeper';
+
+// How a player was at one moment, as an opponent's AI sees it (seenAgo).
+export type Seen = {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  heading: number;
+};
+const SEEN_STEPS = Math.ceil(AI.readMaxSec * SIM.hz) + 1; // one record per fixed step
 
 const DEPTH_OVERLAY = 2_000_000; // above the fence
 const BAR_W = 14; // stamina bar width in art pixels
@@ -70,6 +80,18 @@ export class Player {
   staggerUntil = -Infinity; // tackled: can't move or touch the ball until then
   tackleReadyAt = 0; // AI: no new tackle before this
   wantDir = 0; // the direction last asked for by stick or AI (the juke check)
+
+  // The last AI.readMaxSec of position / movement / facing, one record per
+  // fixed step in a ring (recordSeen, seenAgo).
+  private readonly seenLog: Seen[] = Array.from({ length: SEEN_STEPS }, () => ({
+    x: 0,
+    y: 0,
+    vx: 0,
+    vy: 0,
+    heading: 0,
+  }));
+  private seenHead = 0; // where the next record goes
+  private seenCount = 0;
 
   private readonly sprite: Phaser.GameObjects.Sprite;
   private readonly targetRing: Phaser.GameObjects.Image;
@@ -143,6 +165,41 @@ export class Player {
     this.stumbling = false;
     this.jukeRef = null;
     this.tackleReadyAt = 0;
+    this.seenCount = 0; // a fresh picture after a reset
+  }
+
+  // Records this step's position, movement and facing (MatchScene, once per
+  // fixed step after movement).
+  recordSeen() {
+    const s = this.seenLog[this.seenHead];
+    if (!s) return;
+    s.x = this.x;
+    s.y = this.y;
+    s.vx = this.vx;
+    s.vy = this.vy;
+    s.heading = this.heading;
+    this.seenHead = (this.seenHead + 1) % SEEN_STEPS;
+    this.seenCount = Math.min(this.seenCount + 1, SEEN_STEPS);
+  }
+
+  // How this player was `sec` ago (as far back as recorded; as it is now
+  // when nothing is): the late picture an opponent's AI reacts to
+  // (LEVELS.readSec), so a feint or a sudden turn isn't followed at once.
+  seenAgo(sec: number): Seen {
+    const back = Math.min(Math.round(sec * SIM.hz), this.seenCount - 1);
+    const s =
+      back >= 0
+        ? this.seenLog[(this.seenHead - 1 - back + SEEN_STEPS) % SEEN_STEPS]
+        : undefined;
+    return (
+      s ?? {
+        x: this.x,
+        y: this.y,
+        vx: this.vx,
+        vy: this.vy,
+        heading: this.heading,
+      }
+    );
   }
 
   // Plays the strike animation once (shot or keeper kick); running and

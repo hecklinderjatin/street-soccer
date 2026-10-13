@@ -11,7 +11,7 @@ import { DEG, angleDiff, clamp } from './geometry';
 // lunge direction. Then a success chance decides:
 //   base 55%, +15% from the carrier's front or side / -30% from behind,
 //   -15% if the carrier is sprinting, +10% if the tackler went in at a
-//   sprint; and if the carrier's stick turned more than 120 degrees since
+//   sprint; and if the carrier's stick turned more than 90 degrees since
 //   the tackle started (a juke), it always fails.
 // Win: the ball is knocked loose, nudged onto the tackler's path just ahead
 // (still sliding from the lunge, it usually collects it), the carrier staggers (no moving,

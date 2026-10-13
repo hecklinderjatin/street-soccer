@@ -62,12 +62,17 @@ export function keepInBox(keeper: Player) {
 // 1. Claim: a loose, not-too-fast ball it can meet in or near its box
 //    sooner than any opponent (by KEEPER.claimMargin) and any teammate:
 //    it sprints to the meeting point.
-// 2. A shot (a fast free ball): it holds its position (saving is the dive).
+// 2. A shot (a fast free ball) heading for its goal: it sets itself,
+//    side-stepping along its line toward where the ball will cross it at
+//    a walk (KEEPER.shuffleStick) until its reaction dive (cpuKeeperReact).
+//    Not at a sprint: a well-placed shot still beats it.
 // 3. Rush out: an opposing carrier near goal with none of our outfielders
 //    between it and the goal: it comes out toward the carrier (to
 //    KEEPER.rushGap from it, at most KEEPER.rushMax off its line).
-// 4. Otherwise it narrows the angle: on the line from its goal centre toward
-//    the ball, further off the line the closer the ball, within the mouth.
+// 4. Otherwise it narrows the angle: on the bisector of the angle between
+//    the ball and the two posts (both posts equally covered, so nearer the
+//    near post when the ball is wide), further off the line the closer the
+//    ball, within the mouth.
 export function keeperStick(
   k: Player,
   ball: Ball,
@@ -91,7 +96,25 @@ export function keeperStick(
         return toward(k, meet.x, meet.y, true);
     }
   }
-  if (!ball.owner && ball.speed > KEEPER.setAbove) return STAND;
+  const halfMouth = PITCH.goalMouth / 2;
+  if (!ball.owner && ball.speed > KEEPER.setAbove) {
+    // Where the ball will cross the keeper's line, if it is coming at the
+    // goal (on target, or just wide); otherwise it holds.
+    if (Math.abs(ball.vx) < 1 || Math.sign(k.x - ball.x) !== Math.sign(ball.vx))
+      return STAND;
+    const cross = ball.y + (ball.vy * (k.x - ball.x)) / ball.vx;
+    if (Math.abs(cross - gy) > halfMouth + KEEPER.reactMargin) return STAND;
+    const dy = clamp(cross, gy - halfMouth, gy + halfMouth) - k.y;
+    if (Math.abs(dy) < 6) return STAND;
+    return {
+      move: {
+        x: 0,
+        y: Math.sign(dy),
+        r: KEEPER.shuffleStick * Math.min(1, Math.abs(dy) / 40),
+      },
+      sprint: false,
+    };
+  }
 
   const c = ball.owner;
   if (c && c.team !== k.team && c.role !== 'keeper') {
@@ -109,8 +132,14 @@ export function keeperStick(
     }
   }
 
+  // The bisector meets the goal line where it splits the mouth in the ratio
+  // of the ball's distances to the two posts (angle bisector theorem).
+  const toTop = Math.hypot(ball.x - gx, ball.y - (gy - halfMouth));
+  const toBottom = Math.hypot(ball.x - gx, ball.y - (gy + halfMouth));
+  const ay =
+    gy - halfMouth + (2 * halfMouth * toTop) / Math.max(1, toTop + toBottom);
   const bx = ball.x - gx;
-  const by = ball.y - gy;
+  const by = ball.y - ay;
   const d = Math.hypot(bx, by);
   const near = clamp(
     (KEEPER.outFarDist - d) / (KEEPER.outFarDist - KEEPER.outNearDist),
@@ -120,10 +149,9 @@ export function keeperStick(
   const out = KEEPER.lineOut + (KEEPER.maxOut - KEEPER.lineOut) * near;
   const ux = d > 1 ? Math.abs(bx) / d : 1; // always out into the pitch
   const uy = d > 1 ? by / d : 0;
-  const halfMouth = PITCH.goalMouth / 2;
   const tx =
     gx + (k.team === 'home' ? 1 : -1) * Math.max(KEEPER.lineOut, ux * out);
-  const ty = gy + clamp(uy * out, -halfMouth, halfMouth);
+  const ty = clamp(ay + uy * out, gy - halfMouth, gy + halfMouth);
   return toward(k, tx, ty, false);
 }
 
@@ -144,7 +172,9 @@ function toward(k: Player, tx: number, ty: number, sprint: boolean) {
 }
 
 // A keeper's hands, for one step (only inside its own box). A ball it can
-// reach is caught if slow, parried back into play if fast. Diving at an
+// reach is caught if slow; faster, it is caught or parried back into play
+// by chance (KEEPER.catchSureBelow .. catchNoneAbove, less in a dive), one
+// roll per touch (a parry locks the keeper out for a moment). Diving at an
 // opposing carrier's feet with the ball in reach smothers it (the carrier
 // staggers, as after a lost tackle). A held ball is distributed after
 // KEEPER.holdSec (a human-controlled keeper decides itself, see
@@ -203,7 +233,18 @@ export function stepKeeperHands(
   const reachHeight = diving ? KEEPER.reachHeight : KEEPER.standReachHeight;
   if (dist > reach || ball.z > reachHeight) return null;
 
-  if (ball.speed > KEEPER.parryAbove) {
+  // Slow balls are always caught; faster, the catch gets less likely (and
+  // less again in a dive) and the rest are parried: rebounds.
+  const catchChance =
+    ball.speed <= KEEPER.catchSureBelow
+      ? 1
+      : clamp(
+          (KEEPER.catchNoneAbove - ball.speed) /
+            (KEEPER.catchNoneAbove - KEEPER.catchSureBelow),
+          0,
+          1
+        ) * (diving ? KEEPER.diveCatchFactor : 1);
+  if (catchChance < 1 && rand() >= catchChance) {
     const angle = (outward > 0 ? 0 : Math.PI) + (rand() - 0.5) * 1.4;
     const speed = ball.speed * KEEPER.parryKeep;
     ball.vx = Math.cos(angle) * speed;
@@ -300,12 +341,15 @@ function distribute(
 // - a carrier close in its box (KEEPER.smotherRange): a dive at the ball's
 //   coming position (smother, see stepKeeperHands). Dribbling round it or
 //   shooting first beats it.
+// Either dive's length is off by up to `diveError` (by difficulty), so a
+// weaker keeper sometimes dives short or past the ball.
 export function cpuKeeperReact(
   keeper: Player,
   ball: Ball,
   time: number,
   reactSec: number,
-  rand: () => number
+  rand: () => number,
+  diveError = 0 // px the dive may fall short or overshoot by (LEVELS.keeperDiveError)
 ) {
   const target = keeperThreat(keeper, ball, time);
   if (!target) {
@@ -322,7 +366,12 @@ export function cpuKeeperReact(
   }
   if (time < keeper.reactAt) return;
   keeper.reactAt = -1;
-  startDive(keeper, target.dir, time, target.dist);
+  startDive(
+    keeper,
+    target.dir,
+    time,
+    target.dist + (rand() * 2 - 1) * diveError
+  );
 }
 
 // What the keeper would dive at now: direction and distance, or null.

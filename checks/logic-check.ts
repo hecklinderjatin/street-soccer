@@ -134,7 +134,7 @@ check('tackle from behind: 25% chance', () => {
   assert.equal(tackleSetup(0.24, 0, 0).r, 'won');
   assert.equal(tackleSetup(0.26, 0, 0).r, 'failed');
 });
-check('juke (stick turned > 120 deg since the start) always fails', () => {
+check('juke (stick turned > 90 deg since the start) always fails', () => {
   const { p, r } = tackleSetup(0, 2.2);
   assert.equal(r, 'failed');
   assert.equal(p.stumbling, true);
