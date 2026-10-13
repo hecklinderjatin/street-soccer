@@ -2,7 +2,8 @@
 // snaps to that grid so the whole game reads as chunky pixel art.
 export const PX = 4;
 
-// Limited 16-colour palette (PICO-8 style). Use these, not ad-hoc colours.
+// Base PICO-8 palette plus a small character ramp for the supplied footballer
+// reference. Keep shared scenery/HUD colors stable; use named colors here.
 export const PAL = {
   black: 0x000000,
   navy: 0x1d2b53,
@@ -20,4 +21,24 @@ export const PAL = {
   lavender: 0x83769c,
   pink: 0xff77a8,
   peach: 0xffccaa,
+  ink: 0x292a30,
+  hairDark: 0x382116,
+  hairMid: 0x60391f,
+  hairLight: 0x85502c,
+  skinDark: 0x986344,
+  skinMid: 0xc28b60,
+  skinLight: 0xe5b386,
+  skinHighlight: 0xf3c99c,
+  kitPink: 0xef94aa,
+  kitPinkShade: 0xad5d78,
+  kitPinkLight: 0xffb3c3,
+  kitBlue: 0x609bc7,
+  kitBlueShade: 0x365574,
+  kitBlueLight: 0x9ec8e3,
+  kitGreen: 0x6aa875,
+  kitGreenShade: 0x3d7050,
+  kitGreenLight: 0xa1cf91,
+  kitGold: 0xe3bb66,
+  kitGoldShade: 0xa87b43,
+  kitGoldLight: 0xf6d891,
 } as const;

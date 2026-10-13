@@ -50,7 +50,7 @@ export function startTackle(
   p.tackleUntil =
     time + TACKLE.windupSec + TACKLE.activeSec + TACKLE.recoverSec;
   p.jukeRef = carrier && carrier.team !== p.team ? carrier.wantDir : null;
-  p.playShoot(); // the strike animation reads as a poke at the ball
+  p.playTackle();
   return true;
 }
 
@@ -129,6 +129,7 @@ export function resolveTackle(
   ball.priority = p;
   ball.priorityUntil = time + TACKLE.priorityTackleSec;
   carrier.staggerUntil = time + TACKLE.staggerSec;
+  carrier.playHurt(time, carrier.heading);
   carrier.lockUntil = time + TACKLE.staggerSec;
   carrier.receiving = false;
   p.tackleUntil = time + TACKLE.winRecoverSec;

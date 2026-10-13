@@ -1,9 +1,17 @@
 import Phaser from 'phaser';
-import { BALL_KEY, BALL_SHADOW_KEY, BALL_W } from '../art/ballArt';
+import {
+  BALL_KEY,
+  BALL_SHADOW_KEY,
+  BALL_W,
+  BALL_TEXTURE_W,
+  BALL_FRAMES,
+  BALL_SHOT_FRAMES,
+} from '../art/ballArt';
 import { newProjected, type Projector } from '../render/Projector';
 import { SHOOT } from '../../shared/tuning';
 import { PAL, PX } from '../ui/palette';
 import type { Player } from './Player';
+import { PLAYER_HEIGHT } from '../art/playerArt';
 
 const at = newProjected();
 const TRAIL_LENGTH = 14; // render frames of trail
@@ -35,6 +43,7 @@ export class Ball {
   inNet: -1 | 0 | 1 = 0; // which net the ball is in (-1 left, 1 right)
   out: -1 | 0 | 1 = 0; // went out over the bar / end wall behind this goal (until the restart)
   private rolled = 0; // distance rolled, drives the spinning frames
+  shotAnimationAge = Infinity; // seconds since strike; brief squash/stretch effect
 
   private readonly sprite: Phaser.GameObjects.Image;
   private readonly shadow: Phaser.GameObjects.Image;
@@ -66,6 +75,7 @@ export class Ball {
     this.inNet = 0;
     this.out = 0;
     this.trailPoints.length = 0;
+    this.shotAnimationAge = Infinity;
   }
 
   savePrevious() {
@@ -81,6 +91,22 @@ export class Ball {
   }
 
   render(projector: Projector, dtSec: number) {
+    if (this.owner || this.inNet !== 0 || this.out !== 0)
+      this.shotAnimationAge = Infinity;
+    const hands = this.owner?.heldBallScreen;
+    if (this.owner?.holding && hands?.visible) {
+      this.shadow.setVisible(false);
+      this.sprite
+        .setOrigin(0.5, 0.5)
+        .setFrame('a')
+        .setPosition(hands.x, hands.y)
+        .setScale(((PLAYER_HEIGHT * 0.14) / BALL_TEXTURE_W) * hands.scale)
+        .setDepth(this.owner.renderY + (hands.behindHands ? -0.1 : 0.5));
+      this.renderTrail(projector);
+      return;
+    }
+    this.shadow.setVisible(true);
+    this.sprite.setOrigin(0.5, 1);
     // Shadow on the ground under the ball: smaller and fainter the higher it is.
     projector.project(this.renderX, this.renderY, 0, at);
     const high = Math.min(1, this.renderZ / 200);
@@ -94,10 +120,22 @@ export class Ball {
     // Height also reads from a slight scale-up as the ball rises.
     const lift = 1 + this.renderZ / 400;
     this.rolled += this.speed * dtSec;
+    const shotFrame = Math.floor(this.shotAnimationAge * 18);
+    const shotVisual = shotFrame < BALL_SHOT_FRAMES.length;
+    this.shotAnimationAge += dtSec;
     this.sprite
-      .setFrame(Math.floor(this.rolled / 14) % 2 === 0 ? 'a' : 'b')
-      .setPosition(at.x, at.y)
-      .setScale(PX * at.scale * lift)
+      .setOrigin(0.5, shotVisual ? 0.5 : 1)
+      .setFrame(
+        shotVisual
+          ? (BALL_SHOT_FRAMES[shotFrame] ?? 'shot1')
+          : (BALL_FRAMES[Math.floor(this.rolled / 14) % BALL_FRAMES.length] ??
+              'a')
+      )
+      .setPosition(
+        at.x,
+        at.y - (shotVisual ? ((BALL_W * PX) / 2) * at.scale * lift : 0)
+      )
+      .setScale(((BALL_W * PX) / BALL_TEXTURE_W) * at.scale * lift)
       .setDepth(this.renderY + 0.5);
 
     this.renderTrail(projector);

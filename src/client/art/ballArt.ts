@@ -2,15 +2,18 @@ import Phaser from 'phaser';
 import { PAL } from '../ui/palette';
 import { makeTexture, paintRows } from './pixelArt';
 
-// 6x6 art-pixel ball with two frames; alternating them as it rolls makes
-// the patches look like they turn.
+// Authored rolling ball, with a separate logical size to preserve gameplay scale.
 export const BALL_KEY = 'ball';
 export const BALL_W = 6;
-
-const FRAMES: Record<'a' | 'b', string[]> = {
-  a: ['.kkkk.', 'kwwdwk', 'kwddwk', 'kwwwdk', 'kdwwwk', '.kkkk.'],
-  b: ['.kkkk.', 'kdwwwk', 'kwwdwk', 'kwddwk', 'kwwwwk', '.kkkk.'],
-};
+export const BALL_TEXTURE_W = 64;
+export const BALL_FRAMES = ['a', 'b', 'c', 'd', 'e', 'f'];
+export const AUTHORED_BALL_TEXTURE = 'ball-authored-source';
+export const AUTHORED_SHOT_BALL_TEXTURE = 'ball-shot-authored-source';
+export const BALL_SHOT_TEXTURE_W = 96;
+export const BALL_SHOT_FRAMES = Array.from(
+  { length: 6 },
+  (_, i) => `shot${i + 1}`
+);
 
 // Soft oval shadow drawn on the ground under the ball, so its height reads
 // in perspective (it shrinks and fades as the ball rises).
@@ -20,19 +23,45 @@ export function createBallTexture(scene: Phaser.Scene) {
   makeTexture(scene, BALL_SHADOW_KEY, BALL_W, 3, (ctx) => {
     paintRows(ctx, ['.kkkk.', 'kkkkkk', '.kkkk.'], { k: PAL.black });
   });
-  const palette = { k: PAL.black, w: PAL.white, d: PAL.darkGray };
+  const source = scene.textures.get(AUTHORED_BALL_TEXTURE).getSourceImage();
+  const shotSource = scene.textures
+    .get(AUTHORED_SHOT_BALL_TEXTURE)
+    .getSourceImage();
+  if (!(
+    source instanceof HTMLImageElement || source instanceof HTMLCanvasElement
+  ))
+    throw new Error('Authored ball artwork must be an image or canvas');
+  if (!(
+    shotSource instanceof HTMLImageElement ||
+    shotSource instanceof HTMLCanvasElement
+  ))
+    throw new Error('Authored shot ball artwork must be an image or canvas');
   makeTexture(
     scene,
     BALL_KEY,
-    BALL_W * 2,
-    BALL_W,
+    BALL_TEXTURE_W * BALL_FRAMES.length +
+      BALL_SHOT_TEXTURE_W * BALL_SHOT_FRAMES.length,
+    BALL_SHOT_TEXTURE_W,
     (ctx) => {
-      paintRows(ctx, FRAMES.a, palette, 0, 0);
-      paintRows(ctx, FRAMES.b, palette, BALL_W, 0);
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(source, 0, 0);
+      ctx.drawImage(shotSource, BALL_TEXTURE_W * BALL_FRAMES.length, 0);
     },
     [
-      { name: 'a', x: 0, y: 0, w: BALL_W, h: BALL_W },
-      { name: 'b', x: BALL_W, y: 0, w: BALL_W, h: BALL_W },
+      ...BALL_FRAMES.map((name, i) => ({
+        name,
+        x: i * BALL_TEXTURE_W,
+        y: 0,
+        w: BALL_TEXTURE_W,
+        h: BALL_TEXTURE_W,
+      })),
+      ...BALL_SHOT_FRAMES.map((name, i) => ({
+        name,
+        x: BALL_TEXTURE_W * BALL_FRAMES.length + i * BALL_SHOT_TEXTURE_W,
+        y: 0,
+        w: BALL_SHOT_TEXTURE_W,
+        h: BALL_SHOT_TEXTURE_W,
+      })),
     ]
   );
 }

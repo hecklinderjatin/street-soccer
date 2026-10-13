@@ -56,6 +56,9 @@ function player(o: Record<string, unknown>): any {
     reactAt: -1,
     reactSmother: false,
     playShoot() {},
+    playTackle() {},
+    playDive() {},
+    playHurt() {},
     ...o,
   };
 }

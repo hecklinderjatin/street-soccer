@@ -8,6 +8,28 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Shot and keeper carry replacements (2026-10-14):** latest supplied six-pose ball sheet replaces shot artwork; latest open-glove running sheet replaces keeper carrying artwork. Live held-ball anchors have been remeasured for all six poses. Existing shot trails, animation rates, stationary holding, physics and user scale/camera settings remain unchanged; visual review on localhost pending.
+
+**Shot-ball deformation (2026-10-14):** supplied six-pose squash/stretch ball plays once at 18 FPS on shots (and human keeper kicks), then returns to the rolling sheet. Shape changes preserve the sprite centre and base ball diameter. Existing trail rendering, shadow, ball physics and shot tuning are unchanged.
+
+**Keeper carrying and authored ball (2026-10-14):** moving keepers use the supplied six-pose gloved carrying cycle; stationary keepers retain the earlier four-pose holding loop. Ball hand anchors follow each pose and mirror with facing, with gloves drawn over the moving keeper's held ball. The ball itself now uses the supplied six-frame rolling artwork, preserving its logical 24 px world diameter and all ball physics.
+
+**Tackled-player reaction (2026-10-14):** supplied four recoil/fall poses now play on the carrier after a successful tackle or keeper smother. The reaction follows the existing stagger lock, mirrored to the player's facing; the final portion uses existing tackle get-up poses. Failed tacklers keep their own slide/stumble recovery. No changes to tackle success, ball release or lock durations; user visual review pending.
+
+**Keeper holding artwork (2026-10-14):** supplied four holding poses now loop while a keeper holds the ball, for both teams. The live ball is drawn between per-frame hand anchors, mirrored with the player, at a suitable held size. Free-ball rendering resumes on release; possession/distribution physics remain unchanged. The supplied sheet contains holding only, so no new throw wind-up/release animation is inferred.
+
+**Authored goalkeeper dive (2026-10-14):** both keepers use the latest six-pose, two-row raised-arm dive sheet, replacing the earlier four-pose sheet. Five poses span the active dive and the sixth holds through recovery; the source reaches left and is mirrored for rightward dives. Frames follow each dive's actual simulation start/end, including short AI dives; the landed pose holds through recovery and mirrors for leftward dives. Authored poses are not rotated. Save physics, reach and timing remain unchanged; user visual review pending.
+
+**Authored tackle (2026-10-14):** supplied eight-pose slide/recovery art replaces the reused shooting animation for human and AI tackles. Frames follow simulation wind-up/active/recovery; failed tackles hold the low pose before getting up, without rotating the authored slide. Existing tackle movement, contact and success rules are retained. Type check, lint, WSL build and all 14 logic checks pass; user visual review pending.
+
+**Directional running (2026-10-14):** supplied back/front sheets are used for up/down movement for all four kits. Predominantly vertical headings select four-frame cycles at 8 FPS; horizontal movement keeps the eight-frame side cycle at 16 FPS; upward and downward diagonals use their supplied four-frame three-quarter sheets at 8 FPS, mirrored for left. Enter/exit thresholds reduce view flicker; vertical sprites are not mirrored. Idle/shoot remain their existing side-view art.
+
+**Player size (2026-10-14):** user changed `PLAYER_PX` to `3.0 / DETAIL`; the frame world height is now 96 px (previously 88 px). Frame canvas is now 224x128 to fit full sliding tackles and outstretched keeper gloves; height and user-selected world scale are unchanged. WSL production rebuild passed; refresh localhost for visual review.
+
+**Authored idle artwork review (2026-10-14):** the user supplied a transparent four-pose idle sheet. Prepared aligned 352x724 frames in `public/art/player-idle-authored.png` plus frame metadata. `/player-idle-review.html` previews the original artwork enlarged and at 48-120 px heights, with play/pause. The game now uses all four supplied idle frames for every kit. Boot preloads the image; player textures composite it at the existing world size and foot origin. Home preserves the original colors, away/keeper clothing is recolored. Running now uses the latest supplied two-row, eight-pose sheet in row order at 16 FPS, replacing both earlier Run 1 and Run 2 sheets. Shooting uses the supplied wind-up/contact/follow-through/recovery frames at 14 FPS. All kits use the authored art; home retains source colors and other kits recolor clothing.
+
+**Character detail update (2026-10-14, branch `assests`):** code-generated player frames are now 96x128 with a smaller adult head, three-quarter eyes/nose/ear, swept hair highlights and a short beard, broader shoulders, longer angular jersey, clustered fabric folds, sleeve cuffs/armband badge, shorts folds, sock stripes and layered white boots. Updated toward the user's supplied sprite sheet: home wears pink shirt/shorts/socks; away is blue, keepers green/gold. Character-specific warm color ramps are named in the shared palette. World size, leg/arm animation endpoints, frame names and animation timings remain the same. The neck/shoulder drawing anchors are adjusted to lengthen the jersey; textures rasterize at four times the original resolution. A generated sprite contact sheet was visually inspected; type check, lint and the WSL production build pass. In-match/phone visual review is still pending.
+
 **Phase 2 (ball, dribbling, pass, shoot, goals, match flow) is done** and verified in a local preview with scripted scenarios. It still needs a real-phone playtest in Reddit. **Phase 3 (5v5 with AI) is in progress: steps 1-5 of 6 (away team, AI hand-over, shared outfield AI, AI carriers + tackles, keepers + difficulty) are done. Step 6 (regression and phone playtest) is in progress: the code audit and its fixes are done (no automated gameplay testing, user request: only type check, lint, build and logic checks); the phone playtest is the user's.** **After the audit, an AI overhaul (user request: "every AI player marks our player, it feels robotic"; ideas taken from reading the Soccer-Unity (FStudio match engine) and openFIFA repos, no code copied): zonal defence with at most 2 markers, smarter chasing, shot placement and chips, through balls, give-and-go, showing for the ball, rest defence, pressure by closing time, smoother dribbling round defenders, front-only AI tackles, switching to the AI's chosen player, positioning error and keeper dive error by level, chance-based keeper catches. Not playtested yet (user: no automated testing; the user tests).** The user picked plan v3 (one shared AI for both teams, opponents first) plus v2's tackle rules, steering, debug overlay and regression matrix. Build order: 1 away team + resets, 2 released players hand over to AI, 3 shared outfield AI (support, recover, chase/intercept, one presser, mark/cover), 4 AI carriers (pass/shoot/dribble) + tackles (human B1 too), 5 keepers + Easy/Normal/Hard, 6 phone playtest. Keeper control stays for now (the plans assume the keeper is AI-only; the user hasn't decided).
 
 What works now:
@@ -18,7 +40,7 @@ What works now:
   - textured ground, the far wall with graffiti and an apartment facade, thick end walls with the goals in the gaps;
   - 3D goals with nets, a see-through fence on the near touchline, a crowd behind it;
   - a basketball court and a car park beyond the goal lines.
-- **Teams (5v5):** home 4 outfield players in a 2-1-1 shape (red) plus a keeper (green); away (CPU) 4 outfield players in the mirrored shape (blue, `MatchScene.away`) plus a keeper (yellow). All 10 are in `everyone` (collisions, possession, rendering) and both outfield teams are constrained and stepped. Outfielders the human isn't controlling are driven by the **shared outfield AI** (below). Kickoff: the kicking side's forward stands next to the ball and the other side's forward waits outside the centre circle (`FORMATION.defendKickoffX` 1020, mirrored). `opponentsOf` now includes the opposing outfielders, which affects shot/pass pressure and chips over a blocked pass lane. The away keeper throws to the away outfielders.
+- **Teams (5v5):** home 4 outfield players in a 2-1-1 shape (pink) plus a keeper (green); away (CPU) 4 outfield players in the mirrored shape (blue, `MatchScene.away`) plus a keeper (yellow). All 10 are in `everyone` (collisions, possession, rendering) and both outfield teams are constrained and stepped. Outfielders the human isn't controlling are driven by the **shared outfield AI** (below). Kickoff: the kicking side's forward stands next to the ball and the other side's forward waits outside the centre circle (`FORMATION.defendKickoffX` 1020, mirrored). `opponentsOf` now includes the opposing outfielders, which affects shot/pass pressure and chips over a blocked pass lane. The away keeper throws to the away outfielders.
 - **Outfield AI (`systems/ai.ts`, `AI` in tuning):** one `TeamBrain` per side, the same code for both. It re-assigns roles every `LEVELS.thinkSec`: 0.3 / 0.2 / 0.12 s for the CPU by difficulty, 0.2 s (normal) for our teammates. Every step each AI player steers to its role's target through the normal `stepPlayer` (same speeds, turning, stamina, no teleports); standing still, it faces the ball. Only runs while live (not during freezes or celebrations).
   - **Loose ball:** one **chaser** per team: whoever reaches the ball first at a sprint along its predicted roll (`interceptPoint`); an intended receiver of ours always goes. If our human is quickest, no AI chases. The current chaser keeps the job unless someone is 0.25 s quicker. **How it chases (`chaseOrder`):** no opponent (their keeper included) can get there within 0.5 s of it -> it **jogs** (`relax`, saves stamina); an opponent gets there 0.2 s+ sooner and that is in our half -> it runs to a spot 70 px **goal-side** of where the opponent will take it (`goalSide`) instead of arriving behind him; a pass's receiver always goes for the ball. Others **cover** formation spots.
   - **Opponent on the ball (zonal defence, user complaint: "every AI player marks our player"):** one **presser contains, it doesn't shadow** (user feedback: it followed the carrier like a shadow and cut out every pass back; `pressPoint`): its spot is worked out when its team thinks (it reacts instead of mirroring every step) **from the carrier as it saw it `LEVELS.readSec` ago** (0.35 / 0.25 / 0.15 s; ours 0.25; `Player.seenAgo`: feints and sharp turns wrong-foot it), goal-side of where the carrier will be in 0.4 s but not following a carrier that retreats toward its own goal, 85 px off a slow carrier and 95 px off one on the move, growing to 170 px the deeper the carrier is in its own half (from 1200 to 1700 px from the presser's goal line: room to play out); it goes in for tackles (see Tackles). **A carrier standing idle on the ball gets attacked** (user request; `carrierIdle`): slower than 40 px/s for 1.5 s, the presser goes to the ball in front of it (30 px beyond the ball) with double the tackle chance (at most 0.95); after 2.5 s a second presser closes in from behind; moving off faster than 120 px/s ends it. The main presser keeps the job between thinks (`mainPresser`). If our human is within 130 px of the carrier, they are our presser and no AI presses. **Markers (`assignDefence`):** only opponents within 900 px of our goal line (a marked one keeps his marker to 1020 px) get one, nearest our goal first, **at most 2 and never everyone** (at least one player always holds a zone); a marker keeps its man between thinks (no swapping), else the nearest free player takes him. A marker stands goal-side, leaning toward the ball, 50 px off plus 0.12 px per px the man is from the ball (up to 170: tight near the ball, loose away from it). **Everyone else holds a zone** (`zoneSpot`): the dropped-back formation spot pulled 20% toward the line from the ball to our goal centre; in the CPU's balanced plan **the forward stays up** instead (not dropped or pulled in: an outlet, and one body fewer round the ball); in our attacking plan it tracks back too.
@@ -35,7 +57,7 @@ What works now:
   - **pass** to a teammate 100-750 px away: 0.15 + 0.5 x progress + 0.3 x open + 0.3 x lane safety, -0.2 over 500 px, +0.3 x pressure (progress weighs 0.7 in our attacking plan, 0.5 for the CPU); the normal `kickPass` (auto weight, lead, chip over a blocked lane). **Through ball** to a teammate running upfield (150+ px/s): aimed where it will be when the ball gets there plus 50 px beyond (`actions.throughSpot`, refined with the pass travel time), only if it gets there before any opponent by the plan's margin (ours 0.08 s, the CPU 0.15 s); 0.2 + 0.6 x progress + 0.3 x margin + 0.15 x lane, +0.3 x pressure; struck by `actions.kickThroughPass` (pace fitted to the spot, same error and chip rule);
   - **dribble** (not keepers) 200 px ahead: **straight upfield until 45% of the pitch, cutting in toward goal fully from 80%** (keeps the width); **turned away from opponents** within 200 px ahead or beside (summed, nearer and more ahead = stronger, at most 50 degrees; the other way at a side wall); **eased** 55% per think toward the new direction (no zig-zag); 0.45 + 0.5 x space ahead - 0.4 x pressure; sprints with 220 px of space; **counter-attack:** for 3 s after winning the ball from the other side (`turnoverAt`), it heads straight at goal, +0.35 with nobody within 250 px ahead (user request: "get the ball and go through on goal");
   - **clear**: a lofted kick upfield (`kickShot` at 0.6 with swipe-up 0.7): 0.05 + 0.5 x pressure in our half, 0.35 for a keeper, else 0.05.
-  Passes and shots wait for the first touch to settle (0.3 s after gaining it).
+    Passes and shots wait for the first touch to settle (0.3 s after gaining it).
 - **Tackles (`systems/tackle.ts`, `TACKLE` in tuning), the human and the AI alike:** start-up 0.10 s (slows), lunge 0.15 s (70 px), recovery 0.35 s. Contact = an opposing carrier's ball within 48 px and within 70 degrees of the lunge, during the lunge (one per tackle). Success chance 55%, +15% from the carrier's front/side (within 110 degrees of its facing) or -30% from behind, -15% if the carrier sprints, +10% if the tackler went in at a sprint. **Juke:** the carrier's stick (or AI direction, `Player.wantDir`) turned more than 90 degrees since the tackle started = always fails (was 120: too hard to fake). **AI tackles are judged on the carrier as seen `readSec` ago** (where it was, faced and moved), so a late cut makes the lunge miss. **Won:** the ball is knocked loose at 110 px/s toward a point 40 px ahead on the lunge line, where the sliding tackler collects it (first touch is the tackler's for 0.35 s, `Ball.priority`); the carrier staggers 0.5 s (no moving or touching the ball); the tackler is up after 0.1 s. **Failed:** the tackler stumbles 0.6 s (drawn on its side). Deviation from the plan's 300 px/s pop: popping along the lunge sent the ball away from the tackler to the carrier's teammates; a random-side nudge often took it out of reach. Now every won tackle in tests ended with the tackler on the ball.
   - **Human:** B1 (TACKLE) without the ball lunges along the stick (the facing with it centred); not at a teammate's ball.
   - **AI:** only the presser, when the ball (predicted 0.17 s ahead) is within lunge reach and **only from the carrier's front or side** (from behind it runs goal-side first): a chance per think of 0.25 / 0.45 / 0.65 (easy / normal / hard; ours normal), doubled against a carrier idle on the ball (at most 0.95); 1 s cooldown; none in the first 0.5 s after the kickoff pass (`liveSince`). A shielding carrier is reached by the idle attack (it goes to the ball after 1.5 s standing), no longer by a presser glued at 40 px.
@@ -100,7 +122,7 @@ The server still has the template's demo endpoints (`/api/state`, `/api/score`, 
 | 0     | Replace GameMaker template with Phaser, scene skeleton, landscape, pixel style                                                                                             | Done                                                  |
 | 1     | Fixed 60 Hz loop, 2.5D (x, y, z) model, pitch 2400x1300, camera, floating joystick, keyboard fallback, one player with walk/sprint/stamina                                 | Done, plus the broadcast camera                       |
 | 2     | Ball physics, possession and dribble touches, context buttons (+ J/K keys), pass (target ring), shoot (charge), goals and match flow (clock, kickoff, golden goal, Result) | Done (awaiting phone playtest); switch included early |
-| 3     | Away 5v5 team, tackle, AI state machine (Chase/Support/Mark/Carry), real goalkeepers, difficulty levels, fairness helpers, switch boost                                    | In progress (steps 1-5/6)                                 |
+| 3     | Away 5v5 team, tackle, AI state machine (Chase/Support/Mark/Carry), real goalkeepers, difficulty levels, fairness helpers, switch boost                                    | In progress (steps 1-5/6)                             |
 | 4     | HUD polish (crests, name tags, minimap), sprites and animation states, juice (shake, particles, celebrations), audio, haptics, performance pass                            |                                                       |
 | 5     | Server `/api/init` + `/api/challenge`, challenge posts, splash challenge banner, cleanup, deploy and launch                                                                |                                                       |
 
@@ -226,6 +248,26 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Replacement shot/carry sheets retain the established six-frame layouts and timing. Recompute live-ball hand anchors for the new open-glove poses, drawing the ball behind the gloves while carrying.
+- Latest dive sheet has six poses in row order, stored in three source columns. Keep hurt artwork in its separate two-column layout. Scale five dive frames over the actual dive duration and hold frame six through recovery; mirror the new left-reaching source for rightward dives.
+- Shot deformation is a brief six-frame sequence rather than continuous pulsing throughout flight. Use uniform source scaling and 96x96 cells around a 64 px round-ball reference so tall/wide poses preserve their intended deformation. Center the shot frames at the normal ball centre and leave `renderTrail` unchanged.
+- Carrying is a six-frame 12 FPS half-second stride scaled by speed; stationary holding stays at 4 FPS. Keep ball pixels separate from character art, with measured per-pose glove anchors. Authored ball frames are 64x64, but display scale derives from the original logical `BALL_W = 6` and `PX`, preserving size/shadow/trail calculations.
+- Replacement dive sheet retains the existing four-frame two-column asset layout and simulation timing. Extract top row left/right then bottom row left/right, use one uniform scale and shared baseline within each supplied row; keep all gloves and boots intact.
+- Getting tackled uses a distinct hurt sequence on the ball carrier, triggered only by successful tackle/smother events. Four supplied fall frames occupy the first 75% of the existing stagger duration; tackle get-up frames cover the final 25% because no dedicated hurt recovery sheet was supplied. Rendering uses simulation time and preserves facing.
+- Use the supplied four poses as a 4 FPS keeper holding loop. Keep the ball as its own game entity and expose screen-space hand anchors from Player to Ball; this preserves release physics and avoids painting a duplicate ball into the character sheet. Throw release poses still need a separate sheet.
+- Record keeper `diveAt` so the authored sequence follows actual shortened dive duration and simulation pauses. Hold the landed frame until `recoverUntil`; a separate get-up sequence is not supplied. Wide gloves need 224 px game frames; the 16-column kit atlas is 3584x384 and the two-column source dive sheet is 2304x1448.
+- Tackle frames are selected by simulation time rather than a free-running animation so hit-stop and shortened success/longer failure recovery stay synchronized. Wider 192 px frames use a 16-column atlas (3072x384). Eight-frame source run/tackle sheets use two rows to stay within 4096 px texture width.
+- Downward diagonals use the supplied front three-quarter sheet as drawn for right and mirrored for left. Preserve one common source baseline across the sheet; apply the existing diagonal hysteresis and half-second stride duration. The full kit atlas is 3840x128, within a 4096 px texture limit.
+- Upward diagonals use the supplied rear three-quarter sheet, right-facing as supplied and mirrored for left. Direction selection uses hysteresis both at vertical boundaries and near horizontal. Preserve the common source y=684 baseline across the four poses so raised feet do not pull the entire character down.
+- Up uses the back sheet (negative world y); down uses the front sheet (positive world y). Four directional frames at 8 FPS preserve the side cycle duration. Switch into vertical views at |sin(heading)| > 0.82, out below 0.72, to avoid diagonal flicker. Keep idle/shoot direction handling until those views are supplied.
+- Latest combined run sheet replaces the two earlier sources. Read top row left-to-right, then bottom row. Normalize with one uniform scale (no per-pose stretching), center within existing source cells and retain the shared foot baseline.
+- Run 1 and Run 2 form one eight-frame loop at 16 FPS. Shooting retains its four-frame/14 FPS duration. Wide action sheets use 640x724 source cells, normalized to a shared foot baseline; the game frame width is 120 px to prevent clipping. Extract connected silhouettes when adjacent source poses overlap in x, rather than cutting equal quarters.
+- Supplied Run 1 sheet is a four-frame loop at 8 FPS, preserving the old eight-frame/16 FPS stride duration and movement-speed scaling. Wide poses use 528x724 aligned source cells with a shared foot baseline; source silhouettes were separated by actual gaps rather than equal input quarters to avoid cutting the first boot.
+
+- **Authored sprites replace procedural anatomy once the base is accepted:** use the supplied four idle poses directly. Normalize horizontal frame alignment and preserve the shared foot baseline. Idle is now integrated; running/shooting and face variants need compatible artwork. Clothing recoloring is restricted to the source pink pixels, retaining skin/hair/trim/boots.
+
+- **Character details before animation work (2026-10-14):** rasterize the existing pose skeleton at four times the original resolution, using `PLAYER_PX` independently of texture detail (user now chose `3.0 / 4`, 96 px world height) and retaining the foot origin. Keep code-generated textures, with named warm skin/hair and muted kit ramps added to the shared palette to match the supplied reference. Home wears pink; other kits stay distinct. Animation refinements and separate dive poses are deferred.
+
 - **Phaser 3 only, no GameMaker.** The project was generated from the GameMaker Devvit template; all GameMaker runner files were removed. Only Phaser.js (Three.js optional later) is allowed.
 - **Server stays Hono** (the template's framework), not Express as the plan says. Same `/api/*` endpoints.
 - **Broadcast camera (perspective) instead of a top-down view** (user request, FIFA-like screenshots).
@@ -236,7 +278,7 @@ public/ball.svg             pixel ball shown on the splash
   - **Camera focus clamps** (x 400..2000, y 400..960) keep the view on the court.
 - **Forced landscape via CSS rotation, not the Screen Orientation API.** `screen.orientation.lock` needs fullscreen, which the Reddit webview doesn't give. So `ui/landscape.ts` scales/rotates the fixed 1280x720 `#game` box; Phaser runs in `Scale.NONE`; `input.transformPointer` is wrapped to map touches back through the rotation; the layout is re-checked every frame.
 - **Retro pixel art style.**
-  - Crisp textures via `antialias: false` (nearest filtering) with `roundPixels: false`. Do NOT use `pixelArt: true`: it forces roundPixels, and rounding each sprite and ground vertex separately under the moving perspective camera made everything step and shimmer against each other. One art pixel = `PX` = 4 world px; only colours from `PAL`. Don't snap HUD or overlay positions to the PX grid either: that made the stamina bar and joystick knob move in 4 px steps.
+  - Crisp textures via `antialias: false` (nearest filtering) with `roundPixels: false`. Do NOT use `pixelArt: true`: it forces roundPixels, and rounding each sprite and ground vertex separately under the moving perspective camera made everything step and shimmer against each other. One art pixel = `PX` = 4 world px; only named colours from `PAL` (base PICO-8 plus character ramps added for the supplied reference). Don't snap HUD or overlay positions to the PX grid either: that made the stamina bar and joystick knob move in 4 px steps.
   - Text uses the generated bitmap font. Only capitals exist: **`setText()` does not upper-case, so do it yourself.**
   - Everything is generated in code (placeholder art until real atlases exist).
 - **HUD is a separate scene** (`Hud`, registered last), fed by a plain `MatchHudState` object.
@@ -306,6 +348,28 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Review the latest shot-ball sheet and open-glove keeper carrying poses on localhost, especially held-ball alignment in both facing directions.
+- Review the six-pose keeper dive, both directions and short AI dives, especially landing/recovery. Physics, shot trails and camera/player scale remain unchanged.
+- Review the new shot-ball squash/stretch sequence at strike, the transition back to rolling, and the existing trails during shots/curl/chips.
+- Review moving/stationary keeper holding transitions and glove/ball alignment in both directions, plus the new rolling ball during dribbling, shots and release. Explicit keeper throw-release artwork remains pending.
+- Review the latest side-profile dive art for both keeper directions and landing/recovery transitions on localhost.
+- Review successful tackles/keeper smothers for the carrier reaction and return to play. The hurt-to-get-up transition uses existing recovery art; dedicated matching get-up frames can replace that fallback later.
+- Review keeper catches, held ball alignment while facing both ways, and throw/kick release. Supply explicit throw wind-up/release/follow-through frames to animate throwing; the latest sheet depicts holding.
+- Review human and AI keeper dives in both directions, short saves, recovery/holding and kit colors. Supply get-up/ball-holding views later if desired.
+- Review human/AI tackle wind-up, full slide, missed tackle recovery and failed tackle stumble. The supplied low slide/get-up frames are the current failure fallback; a distinct fall/stumble and carrier recoil can improve feedback later.
+- Review all eight movement directions, especially down-left/down-right transitions to front/horizontal, and kit colors. Idle/shoot still use the supplied side-view frames.
+- Review upward diagonal running in both directions and transitions to pure up/horizontal. Downward diagonals continue to use the side art until matching artwork is supplied.
+- Review up/down movement, diagonal direction transitions, stride timing and kit colors in-game. Direction-specific idle/shoot artwork is not yet supplied.
+- Review the replacement eight-frame running loop on localhost. Idle/shoot, kit logic, animation rate, camera and player-size settings are retained.
+- Review the complete eight-frame run cycle and authored shooting in-game, including grounding, transitions and clothing colors. Idle/run/shoot now all use supplied art; separate keeper dives/tackles and face variants remain future work.
+- Review the supplied Run 1 cycle in-game, including idle/run size, grounding, loop and jersey colors. Authored shooting and any second running cycle remain pending.
+
+- Review the user-selected `3.0 / DETAIL` player scale on localhost after refreshing.
+
+- Refresh localhost and review the authored idle in a match, including pink/blue/keeper kit colors and idle-to-run transition. Next prepare compatible authored run/shoot frames; current running/shooting still use the generated artwork. The standalone idle review remains available.
+
+- Review the updated characters in an actual match at near/far camera distances and on a phone. Compare the revised adult proportions, beard, pink fabric folds and boots to the latest full-body reference before refining animations. Refresh http://127.0.0.1:4173/ after the latest build. Work stays on `assests` until approved for merging into `main`.
+
 **Step 6, phone playtest (the user; `npm run dev` in WSL, then open the post on a phone).** Checklist (plan v3 phase 6 + the v2 regression matrix), on easy, normal and hard:
 
 1. Match start: menu -> each difficulty; 10 players; tap the FPS readout and note FPS and the `SIM` line during busy play.
@@ -320,8 +384,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
    **AI overhaul (new, check with `?debug` role labels):** (a) the CPU no longer shadows every one of your players: in your own half you should find free teammates (at most 2 CPU MARK labels, only near their goal; the rest COVER zones); (b) loose balls: a chaser that will clearly lose the race drops goal-side instead, and one clearly first jogs; (c) CPU shots go for the open side of the goal, through on goal it shoots, and it chips a keeper who has rushed out; (d) CPU through balls to runners, one-twos (RUN after passing), a teammate coming to SHOW when the carrier is pressed (yours too), one REST player staying back when attacking; (e) CPU dribbling goes up the wing then cuts in, bends round defenders without zig-zagging; (f) the CPU only tackles you from the front or side; (g) SWITCH lands on the AI's presser / chaser first; (h) keepers sometimes parry (rebounds) instead of catching, and easy keepers sometimes dive short or past. Report anything too strong / too weak (knobs: `AI.markZone`, `maxMarkers`, `markSag`, `zoneCompact`, `showPress`, `giveGoChance`, `throughMargin`, `pressureFarSec`, `chipKeeperOut`, `KEEPER.catchSureBelow / catchNoneAbove`, `LEVELS.posError / keeperDiveError`).
 9. Keepers: corners beat them, central shots don't; they claim loose balls, rush out 1v1 and smother if you dribble too close; their throws and punts. Our keeper under your control (open decision below).
 10. Restarts: over the bar / out -> goal kick; goal -> celebration -> reset; full time level -> GOLDEN GOAL pause, then a kickoff with 30 s on the clock; TACKLES on the result screen counts your won tackles.
-   **Newest:** our teammates push up (defenders to about halfway) when we have the ball and all track back when we don't; our forward always runs ahead; more one-twos and through balls from our side; feints and sharp turns now wrong-foot the CPU presser and its tackles miss more (it reacts 0.35 / 0.25 / 0.15 s late by level), and a 90 degree cut dodges a tackle.
-   **Also new:** sprinting lasts ~30% longer; keepers stand better and side-step toward shots (corners should still go in, middle shots less); CPU players sometimes shoot from distance (especially when crowded or pressed) and sometimes walk it into the box when they have space.
+    **Newest:** our teammates push up (defenders to about halfway) when we have the ball and all track back when we don't; our forward always runs ahead; more one-twos and through balls from our side; feints and sharp turns now wrong-foot the CPU presser and its tackles miss more (it reacts 0.35 / 0.25 / 0.15 s late by level), and a 90 degree cut dodges a tackle.
+    **Also new:** sprinting lasts ~30% longer; keepers stand better and side-step toward shots (corners should still go in, middle shots less); CPU players sometimes shoot from distance (especially when crowded or pressed) and sometimes walk it into the box when they have space.
 11. Anything that feels wrong (with the difficulty and roughly when), and FPS / SIM numbers.
 
 Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `src/shared/tuning.ts`) and ask for the keeper-control decision.
@@ -334,7 +398,134 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 
 ## Changelog
 
+### 2026-10-14: Latest shot-ball and keeper carrying sheets
+
+- Replaced the authored shot-ball and keeper carrying assets with the latest supplied six-pose sheets; inspected both extracted previews.
+- Updated all six carry hand anchors for the open-glove poses. Retained live-ball rendering behind gloves, shot trails, animation timing and physics. Type check, lint, production build and existing logic checks verified; user visual playtest pending.
+
+### 2026-10-14: Six-pose goalkeeper dive replacement
+
+- Replaced `public/art/player-dive-authored.png` with the latest six supplied poses in a three-column/two-row sheet; inspected `art-previews/dive-preview.png`. Uniform scale and common per-row ground references preserve raised hands and extended legs.
+- Added dive5/dive6 atlas frames, updated source-column/recolor indexing without changing the two-column hurt layout, and spread five frames across the actual dive time with frame six held through recovery. New source reaches left, so rightward dives mirror it.
+- Existing save reach, movement/recovery timing, ball trails and user tuning retained. Type check, lint, WSL build and existing logic checks run; user visual review pending.
+
+### 2026-10-14: Shot-ball squash/stretch sequence, trails preserved
+
+- Added `public/art/ball-shot-authored.png`, six isolated poses in row order; connected-component extraction avoids neighboring ball fragments. Inspected `art-previews/shot-ball-preview.png`.
+- Boot preloads the sheet and ballArt registers 96x96 shot frames alongside the regular 64x64 rolling frames. `kickShot` and human keeper kicks reset a visual timer; Ball plays the six-frame sequence at 18 FPS, centered on the normal ball position, then returns to rolling.
+- Existing ball trails/shadows, base size, shot physics and tuning are unchanged. Type check, lint, WSL build and existing logic checks run; user visual review pending.
+
+### 2026-10-14: Gloved keeper carrying cycle and six-frame ball
+
+- Added `public/art/player-carry-authored.png`, six aligned poses in a three-column/two-row source sheet; inspected `art-previews/keeper-carry-preview.png`. Kit atlases register a 12 FPS carry cycle, scaled with movement speed; stationary keepers keep the existing hold loop.
+- Measured glove anchors per carry frame; Player publishes them and Ball draws behind the gloves while carrying, restoring normal ball rendering on release.
+- Added `public/art/ball-authored.png`, six consistently sized 64x64 frames; inspected `art-previews/ball-preview.png`. Boot preloads it and ballArt registers all frames. Rolling advances by traveled distance, with display size, shadows, trails, possession and physics preserved.
+- Type check, lint, WSL build and existing logic checks run; user visual playtest pending.
+
+### 2026-10-14: Replacement side-profile keeper dive sheet
+
+- Replaced `public/art/player-dive-authored.png` with the user's newest four poses, ordered across the top row then bottom row. Preserved transparent edges, common scale and per-row ground references; inspected `art-previews/dive-preview.png`.
+- Existing left/right mirroring, save physics, shortened dive handling and landed recovery pose retained. No gameplay source changes. WSL build run for localhost.
+
+### 2026-10-14: Ball-carrier recoil/fall on successful tackles
+
+- Added transparent `public/art/player-hurt-authored.png` from the supplied four poses; inspected `art-previews/hurt-preview.png`. Boot preloads it and kit atlases include recolored hurt frames in two-column source layout.
+- Successful tackles and keeper smothers call `Player.playHurt`. Rendering prioritizes the simulation-timed reaction, mirrors by the carrier's facing, and finishes with existing tackle get-up frames within the current stagger lock. No physics/contact/timing changes.
+- Updated the existing logic-check player stub for the reaction method. Type check, lint, WSL build and existing logic checks run; user gameplay review pending.
+
+### 2026-10-14: Keeper holding cycle and hand-aligned ball
+
+- Added `public/art/player-hold-authored.png` from the supplied four poses and inspected `art-previews/keeper-hold-preview.png`. Boot preloads it and all kit atlases include the holding cycle.
+- Keeper holding overrides idle/run with a 4 FPS loop after dive/tackle/action handling. Player publishes per-frame mirrored hand anchors; Ball renders centered between the hands with a holding-specific scale and hidden ground shadow, restoring its normal origin/scale/shadow on release.
+- Holding/distribution/save physics and player/camera tuning are unchanged. The source shows no throw release poses, so throw behavior is retained pending actual throw artwork.
+- Type check, lint, WSL build and existing logic checks run; user visual review pending.
+
+### 2026-10-14: Authored goalkeeper dive
+
+- Added transparent `public/art/player-dive-authored.png` with four extracted poses; inspected them in `art-previews/dive-preview.png`. Source poses separated by connected silhouettes to preserve overlapping feet/gloves, with a shared ground reference.
+- Boot preloads the sheet and kit atlases include recolored dive poses. `startDive` records its simulation start and calls `Player.playDive`; rendering selects readiness/launch/flight during the actual dive and holds the landed pose for recovery, mirrored left. Removed the old rotation for authored dives; collision/save mechanics are unchanged.
+- Expanded frame width to 224 px for outstretched gloves, retaining player world height/camera values and texture widths under 4096 px. Updated the existing logic-check player stub for `playDive`.
+- Type check, lint, WSL build and existing logic checks run. User in-game review pending.
+
+### 2026-10-14: Dedicated authored sliding tackle
+
+- Added `public/art/player-tackle-authored.png` and inspected all eight poses in `art-previews/tackle-preview.png`. Wide frames preserve hands/boots and common row baselines.
+- `startTackle` now calls `Player.playTackle`; rendering selects wind-up/slide/get-up frames from the actual simulation clock, holding the low pose longer after failure and suppressing the old sideways rotation during tackles. MatchScene supplies simulation time alongside visual time. Shooting retains its own completion listener.
+- Expanded frame canvas to 192x128 without changing world height; packed kit atlases into 16 columns and run/tackle source sheets into two rows to remain within 4096 px widths. Updated the existing logic-check player stub for the new tackle method.
+- Type check, lint, WSL build and 14 existing logic checks pass. User gameplay review pending; no automated browser gameplay testing.
+
+### 2026-10-14: Downward diagonal running
+
+- Added `public/art/player-run-down-diagonal-authored.png` from the supplied four poses, with a common vertical baseline. Inspected `art-previews/down-diagonal-run-preview.png`.
+- Boot preloads the sheet, kit atlases recolor clothing and register an 8 FPS down-diagonal cycle. `Player.render` selects it for downward diagonals and mirrors for down-left, retaining direction hysteresis and the other movement views.
+- Type check, lint and WSL build checked; user visual playtest pending. Player/camera values retained.
+
+### 2026-10-14: Upward diagonal running
+
+- Added `public/art/player-run-up-diagonal-authored.png` from the supplied four poses, preserving their common vertical reference and airborne foot positions. Prepared `art-previews/diagonal-run-preview.png` for inspection.
+- Boot loads the new sheet; each kit atlas registers an 8 FPS upward-diagonal loop. `Player.render` selects it for upward diagonal headings and mirrors it for up-left, while front/back vertical runs stay unmirrored. Existing player/camera settings retained.
+- Type check, lint and WSL production build checked; user in-game review pending.
+
+### 2026-10-14: Back/front running for up/down movement
+
+- Added aligned transparent `player-run-up-authored.png` and `player-run-down-authored.png`, each four frames at a common foot baseline. Inspected all eight in `art-previews/vertical-run-preview.png`.
+- Boot loads the sheets; player atlases recolor clothing for every kit and register 8 FPS vertical animations. `Player.render` selects front/back/side by heading with hysteresis and disables horizontal flipping for vertical runs. Texture generation is skipped when a kit atlas already exists on match restart.
+- Type check, lint and WSL build run. User in-game visual review remains pending; idle/shoot still use existing side artwork.
+
+### 2026-10-14: Combined run sheet replaces Run 1 and Run 2
+
+- Replaced `public/art/player-run-authored.png` with all eight poses from the user's latest two-row sheet. Kept common 640x724 cells, a uniform scale, transparent background and shared foot baseline; row split includes the complete first-row boot.
+- Inspected all eight extracted frames in `art-previews/run-cycle-preview.png`. Existing 16 FPS run loop, kit recoloring, idle/shoot and user-selected camera/player scale retained. WSL build run for localhost.
+
+### 2026-10-14: Run 2 and shooting artwork integrated
+
+- Extended `public/art/player-run-authored.png` to eight frames using the supplied Run 2 poses. Added the four-frame `player-shoot-authored.png`; connected silhouettes were separated without clipping the overlapping contact/follow-through poses.
+- Boot preloads shooting, and player atlases composite authored idle/run/shoot for every kit. Eight run frames at 16 FPS preserve the half-second stride; shooting remains 14 FPS. Expanded frame width to 120 px for extended limbs, preserving world height and the user's camera settings.
+- Visually inspected idle/Run 2/shoot in `art-previews/actions-preview.png`. Type check, lint and WSL production build checked; user gameplay review pending.
+
+### 2026-10-14: Supplied Run 1 animation integrated
+
+- Added `public/art/player-run-authored.png`, four aligned transparent poses. Boot loads it and player atlases use it for the active running loop with clothing recoloring per kit.
+- Kept user-selected player scale and camera values. Four frames at 8 FPS retain the earlier stride duration; speed scaling still comes from `Player.render`. Idle retains the supplied artwork and shooting is unchanged.
+- Type check, lint and WSL build run; user gameplay review remains pending.
+
+### 2026-10-14: Rebuilt user-selected character size
+
+- User set `PLAYER_PX = 3.0 / DETAIL`, giving 96 px world height, about 9% larger than before. Preserved the user's source values.
+- `npm run build` passed in WSL; localhost serves the rebuilt files. Existing Phaser bundle-size warning remains.
+
+### 2026-10-14: Authored idle sprites integrated into the game
+
+- `BootScene` preloads the supplied idle PNG before the menu. `playerArt` composites the four aligned source frames into each kit atlas, preserving sprite scale and ground origin; idle loops at the existing 4 FPS and includes the blink frame.
+- Home retains the original pink pixels; away/keeper sheets recolor clothing highlights/shadows while retaining skin, hair, boots and trim. Run/shoot frames remain generated until compatible authored frames are supplied.
+- Type check, lint and WSL production build verified; the PNG is included in `dist/client/art`. In-game visual playtest is the user's.
+
+### 2026-10-14: User-supplied idle sheet prepared for review
+
+- Preserved the supplied transparent artwork; extracted and horizontally centered four frames while keeping their common y=695 foot baseline. Added `public/art/player-idle-authored.png` and frame metadata, plus an idle PNG in `art-previews/`.
+- Added `/player-idle-review.html` and external preview JavaScript with an enlarged view, adjustable gameplay-size view, animation and pause. Copied the review assets to the current localhost build. JavaScript syntax check passes.
+- Existing in-game generated art remains active until this idle base is reviewed; no gameplay changes or automated gameplay testing.
+
+### 2026-10-14: Detailed full-body sprite reference
+
+- `art/playerArt.ts`: 96x128 textures, newly drawn procedural head with swept hair clusters, ear inset, white eyes/dark pupils, nose and short beard. Broader shoulders, longer jersey, clipped fabric folds, shorts seams, cuff/armband badge, sock stripes and layered boots. Preserves world size and animation counts/rates; visual neck/shoulder anchors change for adult proportions.
+- Polygon rasterization is bounded to each shape and supports masks for clothing folds. Exported the transparent 96x128 idle sprite and enlarged review image in `art-previews/`; gameplay still uses generated textures.
+- Generated frame sheets inspected; type check, lint and WSL build verified. Localhost uses rebuilt `dist/client`; user visual playtest pending.
+
+### 2026-10-14: Closer match to the supplied character sprite sheet
+
+- `art/playerArt.ts`: three-quarter face with two eyes, warm skin/jaw shading, swept brown hair, angular jersey, sponsor stripe/chest marks, dark armband, pink home kit and muted away/keeper kits. Existing poses, animation rates and player world size retained.
+- `ui/palette.ts`: named character-specific skin, hair and kit ramps; existing scenery/HUD colors retained.
+- All 15 home frames inspected in a generated contact sheet, plus representative frames from all four kits. Type check, lint and WSL production build checked; localhost serves the rebuilt `dist/client` for the user's visual playtest.
+
+### 2026-10-14: Reference-inspired character detail pass on `assests`
+
+- `art/playerArt.ts`: 48x64 frames with the existing poses and world size; redesigned hair/face, narrower torso and limbs, shaded skin, collar/crest/folds, kit highlights, sock trim and layered boots. Uses the existing palette and four team/role kits.
+- Idle/run/shoot frame counts and rates, movement, projection and controls are unchanged. No animation refinement or gameplay changes.
+- Visually inspected generated sprite previews. Type check and lint pass. Production build passes in WSL (Windows dependencies lack the native Rolldown binding); existing bundle-size warning remains. No automated gameplay test; user playtest pending.
+
 ### 2026-10-13: Attacking plan for our team, late AI reactions (feints work) (user requests; not playtested)
+
 - User: "make our teammates more attacking, the whole plan should be more aggressive"; "add delay to opponent reaction when we make an action, it is too difficult to fake them"; "attackers go ahead when we have possession and track back otherwise, defenders and the midfielder likewise".
 - **Team plans** (`TACTICS` in tuning, `TeamStyle` + `TeamBrain.style`, third constructor argument, default balanced): `pushAttack` / `dropDefend` per formation slot replace `AI.attackPush` / `defendDrop`; `outletForward`, `runAhead` (was `AI.runAhead`), `giveGoChance` / `giveGoFrom` (were in `AI`), `throughMargin` (was `AI.throughMargin`), `passProgress` (was a fixed 0.5), `pressHigh` (skips `pressGapDeep`), `pressGapScale`. MatchScene: home `TACTICS.attacking`, away `TACTICS.balanced` (= the old numbers).
 - **Runner:** the forward slot is the runner whenever it is free (else the furthest upfield), at its pushed-up spot or `runAhead` ahead of the ball, whichever is further.
@@ -342,6 +533,7 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - Checks: type check, lint, build and the 14 logic checks pass (the juke check's label now says 90). No gameplay testing (user request).
 
 ### 2026-10-13: More stamina, better keepers, situational AI shooting, golden-goal restart (user requests; not playtested)
+
 - **Stamina +30%:** `STAMINA.drainPerSec` 16 -> 12.3.
 - **Keepers** (`keeper.keeperStick`): angle-bisector positioning (the bisector of the ball-post-post angle meets the goal line where it splits the mouth in the ratio of the ball's distances to the posts); during a shot it side-steps along its line toward the crossing point at `KEEPER.shuffleStick` 0.5 (was: stood still) until `cpuKeeperReact` dives. Reaction, dive, reach and catch chances unchanged.
 - **AI shooting** (`ai.ts` `decideCarry`, new `shotQuality`, `TeamBrain.appetite`): replaces the fixed "closer = better" shoot score (and the one-on-one bonus, `AI.oneOnOneRange / oneOnOneBonus` removed) with chance quality vs the quality the moment asks for (`AI.shotPatience` 0.55 .. `shotHurry` 0.12 by hurry: pressure, a crowd within `crowdDist` 160, someone in the way within `shotWayAhead` 140), x a random appetite per possession (`appetiteMin` 0.7 .. `appetiteMax` 1.3). `AI.shootRange` 560 -> 760. New `shotNearDist` 150, `shotFarDist` 800, `shotBlockedFactor` 0.3, `shotBlockedHurry` 0.5, `shotWeight` 1.1, `shotScoreCap` 1.6.
@@ -349,6 +541,7 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - Checks: type check, lint, build and the 14 logic checks pass. No gameplay testing (user request).
 
 ### 2026-10-13: Less crowding, calmer AI movement, wider camera (user request; not playtested)
+
 - User: "how to make this game more smooth, it feels so overcrowded at times"; then "fix them" for the proposed list.
 - **Less drift to the ball:** `AI.shiftX` 0.5 -> 0.35, `shiftY` 0.35 -> 0.2.
 - **Our ball stretches the play:** attacking spots 1.6x further out from the middle (`AI.attackWidth`, `TeamBrain.spot`), `supportMinDist` 170 -> 240, `openDist` 100 -> 140, `spaceDist` 90 -> 150 (and it now applies to spot jobs only, not to markers).
@@ -358,6 +551,7 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - Checks: type check, lint, build and the 14 logic checks pass. No gameplay testing (user request).
 
 ### 2026-10-13: Presser contains instead of shadowing; idle carriers attacked; counter-attacks; kickoff waits for the pass (user requests; not playtested)
+
 - User: "when our player has the ball the opponent AI follows it like a shadow, which leaves no room to pass to the player behind"; "when play is idle make the opponent attack your player, get the ball and go through on goal"; "unless I click pass the game shouldn't start (neither AI nor time clock)".
 - **Presser** (`ai.ts` `pressPoint`, `steer`): its spot is computed when its team thinks (was: every step, mirroring the carrier), no longer follows a retreating carrier back into him, and keeps more distance: `AI.pressGapClose` 40 -> 85, `pressGap` 70 -> 95, plus `pressGapDeep` 170 deep in the carrier's own half (`pressDeepFrom` 1200 / `pressDeepFull` 1700). Causes found: at 40 px the presser stood almost on the ball (the ball sits in front of the carrier), so a pass back was cut out at once (within the 22 px intercept radius) or chipped over it.
 - **Pass chips** (`actions.strikePass`): only over an opponent the ball still has to pass (`PASS.chipFromAhead` 30), not one beside or behind the passer.
@@ -367,6 +561,7 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - Checks: type check, lint, build and the 14 logic checks pass. No gameplay testing (user request).
 
 ### 2026-10-13: Easier passing to your own players (user request; not playtested, the user tests)
+
 - User: "make passing more easy to own teammates, AI can easily intercept it or it does not even reach the intended player".
 - **Receive assist** (`MatchScene.humanSteer` / `startReceiveAssist`, `PASS.receiveAssist`, `assistTakeoverDeg` 40): the cause of "it doesn't reach him": control moves to the receiver at release while the stick is still pushed the way you passed, so he ran away from the ball. Now he comes to meet it (`interceptPoint`, sprinting when contested) until a new stick input. Also for keeper throws (yours and auto-distributed ones).
 - **Quicker passes:** `PASS.arriveSpeed` 170 -> 230, `maxSpeed` 950 -> 1100 (less time to cut them out).
@@ -378,6 +573,7 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - Checks: type check, lint, build and the 14 logic checks pass. No gameplay testing (user request).
 
 ### 2026-10-13: AI overhaul from two reference repos (user request; not playtested, the user tests)
+
 - User: "our game seems so robotic, every AI player marks our respective player, which makes the game unplayable"; asked to implement ideas 1-9 from reading HTANV/Soccer-Unity and tshrjn/openFIFA (no code copied; see Decisions).
 - **Zonal defence** (`ai.ts` `assignDefence` / `zoneSpot` / `markPoint`): replaces "everyone marks the most dangerous opponents". At most 2 markers (`AI.maxMarkers`), only for opponents within 900 px of our goal line (`markZone`, +120 to keep one), never everyone; markers keep their man; mark gap 50 + 0.12 x the man's distance from the ball (max 170); everyone else holds a zone pulled 35% toward the ball-to-goal line.
 - **1. Chasing:** `chaseOrder`: jogs when clearly first (0.5 s), goal-side spot when an opponent is 0.2 s quicker in our half; `arrive` gained a relaxed (never sprint) mode.
@@ -392,6 +588,7 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - Checks: type check, lint, build and the 14 existing logic checks pass. No gameplay testing (user request).
 
 ### 2026-10-13: Phase 3 step 6 - code audit for the regression checks (no automated gameplay testing, user request)
+
 - Reviewed the Phase 3 code against the plan's regression list (kickoff / reset, control ownership, switching, tackles, keepers, restarts, per-step cost). Fixes:
   - **Keeper reaction carried over between threats:** a keeper setting itself to smother a carrier in its box kept the same countdown when the carrier shot, so close-range shots got a shortened reaction. The timer now restarts when the threat changes kind (`Player.reactSmother`).
   - **Queued AI actions survived a kickoff:** a CPU pass / shot queued before a goal could fire instantly if the same player got the ball at the restart (no first touch). `TeamBrain.reset()` at every kickoff clears orders, queued tackles and actions.
@@ -403,9 +600,11 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - Checks: type check, lint, build, test:logic all pass. No browser / gameplay runs.
 
 ### 2026-10-13: Status file refreshed for the hand-off
+
 - Removed stale Phase 2 statements (teammates never running by themselves, no AI / tackles, the aim assist, the separate aim arrow, the away kickoff with no away team, the old "no commits" git note) and rewrote the fixed-step order for Phase 3. Added the fast-forward testing technique and the batch tests used in Phase 3 to "How to run and verify", and a hand-off note at the top of "Next up". No code changes.
 
 ### 2026-10-13: Phase 3 step 5 - goalkeepers and difficulty
+
 - `keeper.ts` reworked (shared by both keepers): `keeperStick` (positioning moved from `MatchScene.keeperPositionStick`, plus claiming and rushing out), `cpuKeeperReact(k, ball, time, reactSec, rand)` (shot dives with a per-level reaction and +-0.04 s jitter, plus smother dives), `stepKeeperHands` (was `stepDummyKeeper`; adds the smother and the throw-or-punt distribution). New `KeeperEvent`s 'smothered' and 'punted'. `KEEPER.reactSec` moved to `LEVELS.keeperReactSec`.
 - New `LEVELS` table (easy / normal / hard): think rate, tackle chance, shot charge noise, decision noise, pass error scale, shot aim spread, marking distance scale, keeper reaction. `AI.thinkSec`, `tackleChance`, `shotChargeNoise`, `decisionNoise` and the mate* values were folded into it; `BrainSkill` is a row. `kickPass` takes an `errorScale`.
 - Fairness: `STAMINA.trailingRegen` 1.15 (`stepPlayer(..., regenScale)`). Result screen: TACKLES now counts tackles won by the human's player (was always 0).
@@ -414,6 +613,7 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - Verified (preview): shot tables per level; claims 8/8; 1v1 table; distribution throws to the open midfielder; AI-vs-AI matches (our side driven by the home brain through the controls): easy 0-1 (CPU 12 shots, our keeper 8 saves), normal 0-1 (CPU 18 shots, 9 saves), hard 0-4 (CPU 10 shots). No errors, nothing stuck.
 
 ### 2026-10-13: Phase 3 step 4 - AI carriers and tackles
+
 - New `systems/tackle.ts` (phases, lunge, contact, chance with modifiers, juke, stagger / stumble / first-touch priority) and `TACKLE` tuning. Player fields: `tackleAt`, `tackleUntil`, `tackleDir`, `tackleSprint`, `tackleDone`, `stumbling`, `jukeRef`, `staggerUntil`, `tackleReadyAt`, `wantDir`. Ball: `priority` / `priorityUntil` (possession skips everyone else meanwhile).
 - `ai.ts`: carriers score shoot / pass / dribble / clear (`decideCarry`); passes and shots are handed to `MatchScene.stepAiCarriers` (`takeAction`); the presser decides tackles (`wantsTackle`, `tackles` queue). `BrainSkill` per team (think rate, tackle chance, shot charge noise). `TeamView` gains `oppKeeper`, `canTackle`, `rand`.
 - `MatchScene`: lunges move bodies, start-up / recovery / stumble / stagger stop the player; tackles resolve before the ball moves; B1 = TACKLE for the human. The away stand-in (`stepAwayCarrier`, `AWAY_CLEAR_SEC`) is gone.
@@ -422,27 +622,32 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - Verified (fast-forwarded matches in the preview, idle human): no errors, nothing stuck. Normal: 33 passes, 4 shots, 52 tackles (22 won), 0-3. Hard: 48 passes, 6 shots, 62 tackles, 0-3. Easy: 12 passes, 0 shots. Human tackling an AI carrier (40 runs, varied angles): 19 won (all ended with the tackler on the ball), 11 failed, 9 times the AI passed first. Human dribbling straight at the press: tackled in 0.4-3.6 s; reversing the stick as a tackle starts (juke) beat every tackle.
 
 ### 2026-10-13: Phase 3 steps 2-3 - AI hand-over and shared outfield AI
+
 - New `systems/ai.ts`: `TeamBrain` (think = role assignment at a team-level cadence; steer = per-step stick + sprint toward the role target), `interceptPoint`, roles chase / press / mark / cover / support / run / carry. New `AI` tuning block. `MatchScene`: `teamView()`, both brains think then steer every live step; `outfieldStick` removed; `setControlled` wakes the brains; ?debug role labels.
 - The Phase 2 rule 'nobody runs toward the ball by themselves' is replaced by the AI (the user asked for AI teammates in Phase 3).
 - Tuning after testing: `pressGap` 40 -> 70 and `pressLeadSec` 0.4 (the presser was standing on the carrier, blocking the dribble; now it jockeys at about 73 px, backing off).
 - Verified (scripted, preview): at most one chaser per team at any time; our AI midfielder won a loose ball and control moved to him, with the old human player becoming the runner; with the away team on the ball our human counted as presser and the AI teammates marked; the away clearance was won by our chaser; our kickoff ball was kept. Whole sim step with AI: 0.056 ms.
 
 ### 2026-10-13: Phase 3 step 1 - away team on the pitch (5v5)
+
 - Plan chosen: v3 plus parts of v2 (see Current state). `MatchScene.away`: 4 CPU outfielders mirrored from `FORMATION.outfield`. They're in `everyone`, possession, separation, constraints and `clearReceivers`. `opponentsOf` covers both whole teams; the away keeper throws to them.
 - Kickoff: the conceding side kicks off with its forward next to the ball; the other side's forward waits outside the centre circle (`FORMATION.defendKickoffX`).
 - `outfieldStick(p)` is the AI hook for non-human outfielders (NO_MOVE for now). `stepAwayCarrier` is a stand-in that clears the ball for an away carrier (chipped `kickShot` toward our goal after 0.7 s) until AI carriers and tackles exist.
 - Verified (scripted, preview): 10 players at kickoff and after home and away goals, both kickoffs correct, the away kickoff lofted over our forward and play continued; the away goal kick was thrown to an away outfielder, who cleared.
 
 ### 2026-10-13: Pointer stretches into the charge arrow; weighted passes (user request)
+
 - **One arrow, not two:** the separate aim arrow drawn from the ball while charging is gone (`updateAimArrow`/`drawGroundArrow`/`aimArrow` removed; the label part is now `updateShotText`). Instead the ring's own pointer stretches: while SHOOT / KICK / a weighted PASS charges, its head slides outward along the strike direction (up to `POINTER_STRETCH` 190 world px, ease-in `POINTER_EASE` 1.6 so it speeds up as the charge builds) with a tapering shaft behind it, in the charge colours. The pointer now always sits just outside the gauge (`POINTER_GAP` 19), so nothing jumps when charging starts. `SHOOT.aimArrow` false keeps the pointer short.
 - **Weighted pass:** PASS is now press-and-release. A tap (<= `PASS.weightTapSec` 0.12 s) is exactly the old pass (pace fitted to the distance). Held, the charge fills from the tap time to `weightChargeSec` 0.9 s (`actions.passWeight`) and picks how far the ball rolls before slowing to `arriveSpeed`: `weightMinDist` 100 to `weightMaxDist` 1300 as charge^`weightCurve` 1.5 (finer control of short passes; a 340 px pass is weighed right at about 0.33 s), struck at up to `weightMaxSpeed` 1150. Target choice (on release), lead, aim error, chip-over-a-blocked-lane, wind-up and control-to-receiver are unchanged (`kickPass(..., weight)`; `actions.idealPassWeight`). While charging, the ring gauge fills, the segments that would weigh it right glow green, and the pointer/gauge are white (under-hit), green (within `weightGoodBand` 0.09) or red (over-hit), pointing at the target. PASS and SHOOT charges exclude each other. Keeper throws are not weighted.
 - Verified in the preview (340 px pass back): tap = old pass, received; 0.2 s hold = under-hit, stopped about 70 px short; 0.3-0.38 s = green, received; 0.5-0.75 s = red, struck at 760-1090 px/s. **Note:** an over-hit pass is still trapped, because the receiver keeps its guaranteed first touch (unchanged on purpose: "do not mess with fundamental passing logic"). Over-hitting only matters once heavy passes can bounce off, which would be a later decision.
 
 ### 2026-10-13: After a shot, control follows the player closest to the ball (user fix request)
+
 - Replaced the one-off switch 0.35 s after a shot (to the nearest teammate other than the shooter, which could pick someone who was not actually the closest) with continuous following: `followShotUntil` (sim time), checked at the top of `stepActions`. Each step the closest outfielder to the loose ball takes control if it is 30 px closer than the current one (`SHOOT.followShotMargin`; always from the keeper). Ends on possession, a dead ball (after a last pick), a manual SWITCH (`switchPlayer` clears it), kickoff reset, or `SHOOT.followShotMaxSec` 4. `SHOOT.afterShotSwitchSec` removed.
 - Verified with a scripted shot through the team: control went shooter -> the teammate the ball passed (when 250 vs 198 px) -> the player near the landing spot, who then gained the ball.
 
 ### 2026-10-13: Player sprites reworked from a style reference (user request)
+
 - The user supplied an 8-bit-football style sheet (big bearded head, side-on, idle x3, run x8, shoot wind-up/contact/follow-through/recovery). It is another artist's work showing a recognisable footballer, so the sprites are **original art in that style**, not traced: generic face, our kits.
 - `art/playerArt.ts` rewritten: frames are **posed skeletons** (hip, neck, knees, ankles, toes, shoulders, elbows, hands) rasterised into a 24x32 char grid (`Grid`: pixel capsules, back limbs in shade colours, near limbs with a darker rim where they cross the body, the back of the shirt shaded, one silhouette outline), then painted with the kit palette. The run is a procedural 8-frame gait (`runLeg` / `runArm`: thigh +-40 deg, knee folds on the forward swing, arms opposite); idle and shot poses are explicit joint lists. Each pose is grounded so its lowest boot touches row 29; a soft alpha shadow sits under the feet. Kits gained shade colours (`shirtShade`, `shortsShade`, `sockShade`).
 - Sprites are drawn at `PLAYER_PX` 2.75 world px per art pixel (finer than PX 4) so a 32-row frame is 88 world px tall, a bit under the crossbar; `PLAYER_HEIGHT` and `PLAYER_ORIGIN_Y` (30/32, the boot line) replace `PLAYER_H * PX` / origin 1 in `Player` and the shot label.
@@ -450,21 +655,25 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - Iterations, found by reading frames back from the texture and by in-game close-ups (camera zoom 3): per-limb outlines blacked out the narrow torso (now one silhouette outline + rims); the head had a double outline and read as long hair (now fill-only, short hair, bigger face); idle arms sat over the chest (moved to the sides); the shirt shading covered half the shirt (narrowed).
 
 ### 2026-10-12: New player sprites (user-supplied art)
+
 - `art/playerArt.ts` replaced with the user's 18x26 sprites (was 10x16): 8 frames per kit (`idle1`, `idle2`, `run1`, `run2`, `shoot_windup`, `shoot_contact`, `shoot_follow`, `shoot_recover`). Kits gained socks, an accent (armband) colour and white boots. New anims `idleAnim` (2 frames, 3 fps loop), `runAnim` (run1, idle1, run2, idle1 at 10 fps), `shootAnim` (4 frames at 12 fps, once). Added `IDLE_FRAME`.
 - Fixes needed to integrate it: the old `'idle'` frame no longer exists (`Player` now starts on `IDLE_FRAME` and loops the idle anim when standing); `FRAME_MAPS[frame] ?? []` for the strict index check; the unused palette key `o` dropped. All rows verified 18 wide and 26 tall.
 - `Player.playShoot()` plays the strike once (a `shooting` flag holds off run/idle until `ANIMATION_COMPLETE`); called on shots and on keeper kicks.
 - Players are now 26 art px tall (104 world px, was 64), so they look about 1.6x bigger. The overhead arrow and stamina bar follow `PLAYER_H`; the shot label was at a fixed height of 70 (inside the taller sprite) and now sits at `PLAYER_H * PX + 48`.
 
 ### 2026-10-12: FIFA-style ring with pointer and gauge; control moves after a shot (user request, reference screenshot)
+
 - The full-length facing arrow was replaced by a ground ring with a short pointer (like the reference): `MatchScene.updateGroundMarker`, `marker` Graphics, `RING_RADIUS` 44. While SHOOT / KICK charges a segmented gauge (`GAUGE_SEGMENTS` 24) fills round the ring in the aim arrow's colours and the pointer follows the strike direction; helpers `currentCharge()`, `strikeDirection()`, `chargeColor()` are shared with the aim arrow. `FACING_ARROW_*` constants removed. (An earlier 26 px ring sat under the player's sprite and was invisible.)
 - **After a shot control moves** to the teammate nearest the ball (shooter excluded): `pendingShotSwitch`, `SHOOT.afterShotSwitchSec` 0.35, `nearestOutfielder(x, y, except?)`. Verified: shooter at x 1176, ball 1753 after 0.7 s, control passed to the player at x 840 (nearest to the ball).
 - Testing note: the preview's emulated 1280x720 viewport screenshots the game as a tiny corner; zoom with `scene.cameras.main.setZoom(3).centerOn(...)` to inspect small markers.
 
 ### 2026-10-12: Facing arrow replaces the ring under the player (user request)
+
 - Removed the yellow ring under the controlled player (`Player.ring`, `MARKER_RING`). In its place `MatchScene.updateAimArrow` draws a persistent white arrow on the ground along the player's `heading`; the existing arrow drawing was extracted into `drawGroundArrow()` (also used by the charging aim arrow). Hidden while SHOOT / KICK is pressed with the ball (the charging arrow, with its white / green / red logic, shows instead) and back on release. Not drawn at full time.
 - The pass-target ring (blue) and the overhead yellow arrow are unchanged.
 
 ### 2026-10-12: Analog swipes, shot label, CPU keeper dives (user feedback: shots lacked control, too easy to score, swipes not working properly)
+
 - Checked with real pointer events (portrait, rotated layout): swipes registered correctly. The problems were the design: all-or-nothing types, a thumb hiding the feedback, and a keeper that never dived.
 - **Analog swipe:** `Controls.swipe` is now a vector `SwipeVec` (each axis -1..1, from the press point; `SHOOT.swipeDeadPx` 10, `swipeFullPx` 70). `actions.shotShape()` turns it into chip / power / curl amounts that scale each effect and mix. `kickShot(..., swipe)` blends the driven strike toward a lob by `chip`. `SHOT_FOR_SWIPE` / `ShotType` were removed. The keeper KICK uses the same amounts (punt / drive / curl, no launch offset any more; `KEEPER.curlKickDeg` removed).
 - **Shot label above the shooter** while charging (`MatchScene.shotText`, `actions.shotLabel`). The ActionButtons arrows grow with the amount.
@@ -472,6 +681,7 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - Testing note: when batch-testing shots, clear `controls.move` right after the shot and stop the trial at the keeper's first touch; otherwise the scripted shooter dribbles parried rebounds into the net and they count as goals.
 
 ### 2026-10-12: Skill-based shooting, no assist (user request; same 4-swipe layout)
+
 - `kickShot` rewritten: the ball leaves exactly along the stick (or facing). Removed `shotTargetY` (goal snapping), `launchForCurl`/`simulateCrossing`/`curlSpin` (auto-curl onto a target), the chip's auto-ranging `kickChip`, the automatic 6° curve on normal shots, random lift variance and distance-based error.
 - Accuracy is now timing: green band (`SHOOT.perfectBand` below `sweetSpot`) = perfect strike (0.5° max), otherwise 2°, over-hit +5°; body factors (sprint 3°, across 5°, pressure 3°). Type scales: chip 0.7, curl 0.8, power 1.4.
 - CHIP: charge sets pace (450-900) and lift (450-750); CURL: fixed `curlSpin` 1.1 rad/s; POWER unchanged (dip).
@@ -479,6 +689,7 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - SHOOT keys removed: `assistRange`, `awayFromGoalDeg`, `farSideAim`, `postInset`, `curveDeg`, `baseErrorDeg`, `powerErrorDeg`, `distanceErrorDeg`, `liftVariance`, `chipMin/MaxFlightSec`, `chipLandBehind`, `chipRangeError`, `chipOverHitRange`, `curlDeg`, `curlMaxSpin`.
 
 ### 2026-10-12: Better shooting, more stamina, keeper KICK swipes (user request)
+
 - **Shot aim rework:** in range (1100 px) every shot goes at the goal and the stick picks the spot (`actions.shotTargetY`); it used to follow the facing unless the stick was within 25° of the goal, so shots while running across went sideways. `SHOOT.aimAssistDeg` replaced by `assistRange`, `awayFromGoalDeg`, `farSideAim`.
 - **POWER dips:** new `Ball.dip` (extra gravity until first landing, reset wherever spin is reset and on landing), power lift 1.1 -> 1.3x, error 1.5 -> 1.4x.
 - **Ball trail** (`Ball.renderTrail`) above 650 px/s, so curl, dip and loft are visible.
@@ -488,11 +699,13 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Stamina:** drain 35 -> 16/s (about 6 s of sprint), regen 20 -> 30/s, delay 0.8 -> 0.4 s, unlock 30 -> 20.
 
 ### 2026-10-12: Swipe map changed (user request: up chip, down power, left/right curl)
+
 - `SHOT_FOR_SWIPE`: up `chip`, down `power`, left `curlLeft`, right `curlRight`. LOW and the far-post-only FINESSE removed; `ShotType` is 'normal' | 'chip' | 'power' | 'curlLeft' | 'curlRight'.
 - Curl direction comes from the swipe (positive spin = bends to the shooter's right); a neutral stick aims at the corner on the bend side. SHOOT `finesse*`/`low*` replaced by `curl*` (curlDeg 22 -> 26, max spin 1.4 -> 1.6) and `powerOverHit` 1.3.
 - Button labels: CHIP up, POWER down, CURL left and right.
 
 ### 2026-10-12: Swipe shots on the SHOOT button (user request: PES-mobile style)
+
 - `Controls.swipe` ('none' | 'up' | 'down' | 'left' | 'right'), reset on each SHOOT press; `setSwipe()`. Keyboard T / G / F / H press SHOOT with a swipe.
 - `ActionButtons`: tracks the SHOOT pointer's slide from its press point (`POINTER_MOVE`, also checked on release for quick flicks); arrows and labels around the button; the chosen type's name replaces SHOOT while held.
 - `actions.kickShot(..., type)` with `ShotType` 'normal' | 'chip' | 'low' | 'finesse' | 'power' and `SHOT_FOR_SWIPE`; new `kickChip()`, `curlSpin()` and `launchForCurl()`/`simulateCrossing()` (a 2D copy of the stepFreeBall rules, secant steps on the miss). The first version used a closed-form launch offset that bent too little (a curl aimed at the far post finished at the keeper).
@@ -501,6 +714,7 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - `MatchScene.stepActions` passes `SHOT_FOR_SWIPE[controls.swipe]`. Keeper KICK ignores swipes.
 
 ### 2026-10-12: No automatic runs; markings always visible (user feedback)
+
 - **Removed the receiver auto-run** (`MatchScene.interceptMove` deleted). Only the controlled player moves, by the stick. Audit of other automatic movement:
   - uncontrolled keepers still walk back to their goal-line spot (`returnToSpot`); that's not toward the ball;
   - keepers only turn to face the ball (no movement);
@@ -510,6 +724,7 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - Verified in a local preview: after a pass (received, control moved) and after a dead pass, every outfielder moved 0 px on its own; mid-pan screenshot shows all markings solid.
 
 ### 2026-10-12: Keeper can leave the box (user request)
+
 - New `Player.holding` (ball in the keeper's hands). `keeper.inOwnBox()` was added. `keepInBox()` now applies only while holding; otherwise keepers use `constrainMove` like outfielders.
 - `stepDummyKeeper` catches and parries only when the keeper is inside its own box, sets/clears `holding`, and ignores feet possession.
 - `stepPossession` now gets the keepers too: it skips a keeper inside its box (hands rules) and treats one outside like an outfielder; a keeper owner is "held" only while `holding`.
@@ -525,6 +740,7 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
   - switched away while stranded at (700, 500), it runs back toward its spot.
 
 ### 2026-10-12: Pass target, dead passes, keeper switching and controls (user feedback)
+
 1. **Pass target = the nearest teammate in the stick direction.** `choosePassTarget(passer, teammates, move)` (the opponents parameter was dropped) uses widening cones (`PASS.coneStepsDeg`). The weighted angle/closeness/space scoring and its PASS fields were removed.
 2. **No auto-run after a pass dies:** `MatchScene.step` clears receivers once the loose ball is slower than `PASS.receiverStopBelow`.
 3. **Keeper switching:**
@@ -534,6 +750,7 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
    - smart dive with the stick centred (`diveTarget`, toward the predicted crossing on the keeper's line); `startDive(..., distance)` shortens the dive so it doesn't overshoot;
    - KICK is held to charge (`KEEPER.kickMinSpeed`/`kickMinLift` up to `kickSpeed`/`kickLift`); the charge ring's `sweetSpot` flag gives plain colours for kicks;
    - keepers face the ball when standing.
+
 - Verified in a local preview:
   - stick right picks the nearest teammate that way (not a farther one dead ahead); stick up picks the one above;
   - a dying pass: the receiver stops (speed 0, no longer receiving);

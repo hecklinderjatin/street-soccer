@@ -118,7 +118,17 @@ export function kickPass(
   const travel = dist / speed;
   const tx = receiver.x + receiver.vx * travel * PASS.leadFactor;
   const ty = receiver.y + receiver.vy * travel * PASS.leadFactor;
-  strikePass(ball, passer, receiver, tx, ty, speed, opponents, rand, errorScale);
+  strikePass(
+    ball,
+    passer,
+    receiver,
+    tx,
+    ty,
+    speed,
+    opponents,
+    rand,
+    errorScale
+  );
 }
 
 // A through ball (AI): into the path of a teammate running forward, struck
@@ -260,6 +270,7 @@ export function kickShot(
   rand: () => number,
   swipe: SwipeVec = { x: 0, y: 0 }
 ) {
+  ball.shotAnimationAge = 0;
   const shape = shotShape(swipe);
   const aim = shotDirection(shooter, move);
   const overHit = Math.max(

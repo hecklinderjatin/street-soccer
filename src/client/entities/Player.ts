@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { AI, SIM, STAMINA } from '../../shared/tuning';
+import { AI, SIM, STAMINA, TACKLE } from '../../shared/tuning';
 import type { Team } from '../../shared/types';
 import { newProjected, type Projector } from '../render/Projector';
 import { PAL, PX } from '../ui/palette';
@@ -11,10 +11,12 @@ import {
   PLAYER_ORIGIN_Y,
   PLAYER_PX,
   idleAnim,
+  holdAnim,
   playerTexture,
   runAnim,
   shootAnim,
   type Kit,
+  type RunView,
 } from '../art/playerArt';
 
 export type Role = 'outfield' | 'keeper';
@@ -62,7 +64,15 @@ export class Player {
   receiving = false; // the intended receiver of the pass in flight
   holdTimer = 0; // keeper: how long the ball has been held
   holding = false; // keeper: has the ball in its hands (only possible inside its box)
+  readonly heldBallScreen = {
+    x: 0,
+    y: 0,
+    scale: 1,
+    visible: false,
+    behindHands: false,
+  };
   diveUntil = 0; // keeper: diving until this sim time ...
+  diveAt = -Infinity; // actual dive start, including shortened AI dives
   recoverUntil = 0; // ... then down until this one
   diveDir = 0; // keeper: dive direction (radians)
   lying = false; // keeper: diving or down after a dive (drawn on its side)
@@ -78,6 +88,8 @@ export class Player {
   stumbling = false; // a failed tackle: down (drawn on its side) until tackleUntil
   jukeRef: number | null = null; // the carrier's stick direction when the tackle started
   staggerUntil = -Infinity; // tackled: can't move or touch the ball until then
+  private hurtAt = -Infinity;
+  private hurtDir = 0;
   tackleReadyAt = 0; // AI: no new tackle before this
   wantDir = 0; // the direction last asked for by stick or AI (the juke check)
 
@@ -100,6 +112,10 @@ export class Player {
   private readonly barFill: Phaser.GameObjects.Rectangle;
   private readonly kit: Kit;
   private shooting = false; // the strike animation is playing
+  private readonly finishShoot = () => {
+    this.shooting = false;
+  };
+  private runView: RunView = 'side';
 
   constructor(
     scene: Phaser.Scene,
@@ -156,11 +172,13 @@ export class Player {
     this.holdTimer = 0;
     this.holding = false;
     this.diveUntil = 0;
+    this.diveAt = -Infinity;
     this.recoverUntil = 0;
     this.lying = false;
     this.reactAt = -1;
     this.reactSmother = false;
     this.tackleAt = this.tackleUntil = this.staggerUntil = -Infinity;
+    this.hurtAt = -Infinity;
     this.tackleDone = false;
     this.stumbling = false;
     this.jukeRef = null;
@@ -208,9 +226,46 @@ export class Player {
     this.shooting = true;
     this.sprite.anims.timeScale = 1;
     this.sprite.play(shootAnim(this.kit));
-    this.sprite.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
-      this.shooting = false;
-    });
+    this.sprite.off(
+      Phaser.Animations.Events.ANIMATION_COMPLETE,
+      this.finishShoot
+    );
+    this.sprite.once(
+      Phaser.Animations.Events.ANIMATION_COMPLETE,
+      this.finishShoot
+    );
+  }
+
+  playTackle() {
+    this.sprite.off(
+      Phaser.Animations.Events.ANIMATION_COMPLETE,
+      this.finishShoot
+    );
+    this.shooting = false;
+    this.sprite.anims.stop();
+    this.sprite.setTexture(playerTexture(this.kit), 'tackle1');
+  }
+
+  playDive() {
+    this.sprite.off(
+      Phaser.Animations.Events.ANIMATION_COMPLETE,
+      this.finishShoot
+    );
+    this.shooting = false;
+    this.sprite.anims.stop();
+    this.sprite.setTexture(playerTexture(this.kit), 'dive1');
+  }
+
+  playHurt(time: number, direction: number) {
+    this.hurtAt = time;
+    this.hurtDir = direction;
+    this.sprite.off(
+      Phaser.Animations.Events.ANIMATION_COMPLETE,
+      this.finishShoot
+    );
+    this.shooting = false;
+    this.sprite.anims.stop();
+    this.sprite.setTexture(playerTexture(this.kit), 'hurt1');
   }
 
   // Call at the start of every simulation step.
@@ -225,7 +280,7 @@ export class Player {
     this.renderY = this.prevY + (this.y - this.prevY) * alpha;
   }
 
-  render(projector: Projector, timeSec: number) {
+  render(projector: Projector, timeSec: number, simTime = timeSec) {
     const x = this.renderX;
     const y = this.renderY;
     projector.project(x, y, this.z, feet);
@@ -235,14 +290,108 @@ export class Player {
       .setPosition(feet.x, feet.y)
       .setScale(PLAYER_PX * feet.scale)
       .setDepth(y);
+    const tackling = simTime >= this.tackleAt && simTime < this.tackleUntil;
+    const hurting = simTime >= this.hurtAt && simTime < this.staggerUntil;
+    const diving =
+      this.role === 'keeper' &&
+      simTime >= this.diveAt &&
+      simTime < this.recoverUntil;
     this.sprite.setAngle(
-      this.lying ? (Math.cos(this.diveDir) < 0 ? -80 : 80) : 0
+      this.lying && !tackling && !diving && !hurting
+        ? Math.cos(this.diveDir) < 0
+          ? -80
+          : 80
+        : 0
     );
     // A shot / kick animation plays out; otherwise run or stand.
-    if (this.shooting) {
+    if (hurting) {
+      const progress = Math.max(
+        0,
+        Math.min(
+          1,
+          (simTime - this.hurtAt) /
+            Math.max(0.001, this.staggerUntil - this.hurtAt)
+        )
+      );
+      const frame =
+        progress < 0.75
+          ? `hurt${Math.min(3, Math.floor((progress / 0.75) * 4)) + 1}`
+          : `tackle${6 + Math.min(2, Math.floor(((progress - 0.75) / 0.25) * 3))}`;
+      this.sprite.setTexture(playerTexture(this.kit), frame);
+    } else if (diving) {
+      const progress = Math.max(
+        0,
+        (simTime - this.diveAt) / Math.max(0.001, this.diveUntil - this.diveAt)
+      );
+      const frame =
+        simTime >= this.diveUntil ? 5 : Math.min(4, Math.floor(progress * 5));
+      this.sprite.setTexture(playerTexture(this.kit), `dive${frame + 1}`);
+    } else if (tackling) {
+      const since = simTime - this.tackleAt;
+      let frame: number;
+      if (!this.tackleDone && since < TACKLE.windupSec) {
+        frame = Math.min(1, Math.floor((since / TACKLE.windupSec) * 2));
+      } else if (
+        !this.tackleDone &&
+        since < TACKLE.windupSec + TACKLE.activeSec
+      ) {
+        frame =
+          2 +
+          Math.min(
+            2,
+            Math.floor(((since - TACKLE.windupSec) / TACKLE.activeSec) * 3)
+          );
+      } else {
+        const recoverStart = this.tackleDone
+          ? this.tackleUntil -
+            (this.stumbling ? TACKLE.stumbleSec : TACKLE.winRecoverSec)
+          : this.tackleAt + TACKLE.windupSec + TACKLE.activeSec;
+        const progress = Math.max(
+          0,
+          Math.min(
+            1,
+            (simTime - recoverStart) /
+              Math.max(0.001, this.tackleUntil - recoverStart)
+          )
+        );
+        frame =
+          this.stumbling && progress < 0.55
+            ? 4
+            : 5 +
+              Math.min(
+                2,
+                Math.floor(
+                  (this.stumbling ? (progress - 0.55) / 0.45 : progress) * 3
+                )
+              );
+      }
+      this.sprite.setTexture(playerTexture(this.kit), `tackle${frame + 1}`);
+    } else if (this.shooting) {
       // left alone until it completes
+    } else if (this.role === 'keeper' && this.holding) {
+      const moving = this.speed > 10;
+      this.sprite.play(holdAnim(this.kit, moving), true);
+      this.sprite.anims.timeScale = moving ? this.speed / 220 : 1;
     } else if (this.speed > 10) {
-      this.sprite.play(runAnim(this.kit), true);
+      const vertical = Math.sin(this.heading);
+      // Separate enter/exit thresholds avoid flicker around diagonal headings.
+      const threshold =
+        this.runView === 'up' || this.runView === 'down' ? 0.72 : 0.82;
+      const diagonalThreshold =
+        this.runView === 'up-diagonal' || this.runView === 'down-diagonal'
+          ? 0.28
+          : 0.38;
+      this.runView =
+        Math.abs(vertical) > threshold
+          ? vertical < 0
+            ? 'up'
+            : 'down'
+          : vertical < -diagonalThreshold
+            ? 'up-diagonal'
+            : vertical > diagonalThreshold
+              ? 'down-diagonal'
+              : 'side';
+      this.sprite.play(runAnim(this.kit, this.runView), true);
       // Leg cycle speeds up with running speed (sprint ~1.5x).
       this.sprite.anims.timeScale = this.speed / 220;
     } else {
@@ -250,7 +399,41 @@ export class Player {
       this.sprite.anims.timeScale = 1;
     }
     const cos = Math.cos(this.heading);
-    if (Math.abs(cos) > 0.2) this.sprite.setFlipX(cos < 0);
+    if (hurting) {
+      this.sprite.setFlipX(Math.cos(this.hurtDir) < 0);
+    } else if (diving) {
+      // The supplied six-pose sheet reaches left; mirror for rightward dives.
+      this.sprite.setFlipX(Math.cos(this.diveDir) >= 0);
+    } else if (tackling) {
+      this.sprite.setFlipX(Math.cos(this.tackleDir) < 0);
+    } else if (
+      !this.shooting &&
+      !this.holding &&
+      this.speed > 10 &&
+      (this.runView === 'up' || this.runView === 'down')
+    ) {
+      this.sprite.setFlipX(false);
+    } else if (Math.abs(cos) > 0.2) this.sprite.setFlipX(cos < 0);
+
+    const carrying = this.sprite.frame.name.startsWith('carry');
+    this.heldBallScreen.visible =
+      this.holding && (carrying || this.sprite.frame.name.startsWith('hold'));
+    this.heldBallScreen.behindHands = carrying;
+    if (this.heldBallScreen.visible) {
+      const frame = Number(this.sprite.frame.name.slice(carrying ? 5 : 4)) - 1;
+      const handX = carrying
+        ? ([495, 459, 485, 500, 441, 455][frame] ?? 495)
+        : ([335, 345, 334, 339][frame] ?? 335);
+      const handY = carrying
+        ? ([321, 324, 323, 314, 314, 311][frame] ?? 321)
+        : ([376, 345, 376, 376][frame] ?? 376);
+      const sign = this.sprite.flipX ? -1 : 1;
+      this.heldBallScreen.x =
+        feet.x + sign * ((handX - 320) / 724) * PLAYER_HEIGHT * feet.scale;
+      this.heldBallScreen.y =
+        feet.y + ((handY - 681) / 724) * PLAYER_HEIGHT * feet.scale;
+      this.heldBallScreen.scale = feet.scale;
+    }
 
     // The pass-target ring (a perspective-squashed circle) and overhead
     // markers, which keep a fixed screen size and sit just above the sprite.

@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Character preview</title>
+    <style>
+      * { box-sizing: border-box; }
+      body { margin: 0; padding: 28px; background: #202920; color: #f5eee6; font: 16px system-ui, sans-serif; }
+      main { max-width: 980px; margin: auto; }
+      h1 { font-size: 28px; margin: 0 0 10px; }
+      p { color: #c3ccbd; line-height: 1.6; }
+      canvas { display: block; width: 100%; height: auto; background: #465839; border-radius: 12px; }
+      .controls { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin: 20px 0; }
+      button { padding: 9px 16px; background: #ef94aa; color: #202920; border: 0; border-radius: 6px; cursor: pointer; }
+      a { color: #ef94aa; }
+      input { accent-color: #ef94aa; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Character preview</h1>
+      <p>Your supplied artwork, with the four idle frames aligned. Compare the enlarged character on the left with the smaller character at gameplay size on the right.</p>
+      <div class="controls">
+        <button id="toggle" type="button">Pause</button>
+        <label for="height">Small character height</label>
+        <input id="height" type="range" min="48" max="120" value="67" />
+        <output id="size" for="height">67 px</output>
+      </div>
+      <canvas id="preview" width="980" height="560" aria-label="Animated idle character, enlarged and at gameplay size"></canvas>
+      <p id="state">Loading artwork…</p>
+      <p><a href="/">Back to the game</a> · <a href="/art/player-idle-authored.png" download>Download aligned sheet</a></p>
+    </main>
+    <script type="module" src="/player-idle-review.js"></script>
+  </body>
+</html>

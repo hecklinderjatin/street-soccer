@@ -9,29 +9,30 @@ import {
   paintRing,
 } from './pixelArt';
 
-// Player sprites in a chunky "8-bit football" style: big bearded head,
-// side-on (facing right; flipped to face left), dark outline and a soft
+// Detailed pixel footballers: swept hair, shaded jaw, tailored kits,
+// three-quarter face (facing right; flipped to face left), dark outline and a soft
 // shadow under the feet. Original art, posed rather than hand-typed: each
 // frame is a small skeleton (hip, neck, knees, ankles, toes, shoulders,
 // elbows, hands) drawn as outlined pixel capsules, back limbs first.
 // Frames: 3 idle, an 8-frame run cycle and a 4-frame shot (wind-up,
 // contact, follow-through, recovery).
-export const PLAYER_W = 24; // art px per frame
-export const PLAYER_H = 32;
+const DETAIL = 4; // Pose coordinates stay small; detailed textures are 96x128.
+export const PLAYER_W = 56 * DETAIL; // Include extended slides and keeper gloves.
+export const PLAYER_H = 32 * DETAIL;
 // World px per sprite pixel. Finer than the rest of the art (PX) so the
 // player can carry more detail at about 88 world px tall (a little under
 // the 104 px crossbar).
-export const PLAYER_PX = 2.75;
+export const PLAYER_PX = 3.0 / DETAIL;
 export const PLAYER_HEIGHT = PLAYER_H * PLAYER_PX;
 // Sprite origin (fraction of the frame height) where the boots meet the
 // ground; the rows below hold the shadow.
 export const PLAYER_ORIGIN_Y = 30 / 32;
 
-const GROUND = 29; // lowest row a boot reaches; the shadow sits below it
+const GROUND = 29; // pose coordinates; the shadow sits below the boots
 
 // Palette keys painted into the frame grid:
-// k outline, h hair / beard, s skin, t shirt, T shirt shade, w shorts,
-// W shorts shade, c socks, C sock shade, f boots, a armband.
+// k outline, h/H/j hair, s/b/d/u skin, e eye, m mouth, t/T/l shirt tones,
+// w/W shorts, c/C socks, f boots, a kit trim.
 type Pt = readonly [number, number];
 type Leg = { knee: Pt; ankle: Pt; toe: Pt };
 type Arm = { elbow: Pt; hand: Pt };
@@ -44,21 +45,6 @@ type Pose = {
   frontArm: Arm;
 };
 
-// Head, 10x9, facing right: short hair over the top and back, a big face
-// with the eye toward the front, nose, short beard.
-// No outline of its own; the silhouette outline goes round it.
-const HEAD = [
-  '..hhhhhh..',
-  '.hhhhhhhhh',
-  '.hhhssssss',
-  '.hhssskss.',
-  '.hsssssss.',
-  '.hssssssss',
-  '..sshhhhs.',
-  '..hhhhhhh.',
-  '...hhhhh..',
-];
-
 class Grid {
   readonly cells: string[] = new Array<string>(PLAYER_W * PLAYER_H).fill('.');
 
@@ -68,13 +54,54 @@ class Grid {
   }
 
   get(x: number, y: number) {
+    if (x < 0 || y < 0 || x >= PLAYER_W || y >= PLAYER_H) return '.';
     return this.cells[y * PLAYER_W + x] ?? '.';
+  }
+
+  // Tailored clothing uses angular silhouettes rather than rounded capsules.
+  polygon(points: readonly Pt[], ch: string, onlyOn?: readonly string[]) {
+    const minX = Math.max(
+      0,
+      Math.floor(Math.min(...points.map((p) => p[0])) * DETAIL)
+    );
+    const maxX = Math.min(
+      PLAYER_W,
+      Math.ceil(Math.max(...points.map((p) => p[0])) * DETAIL)
+    );
+    const minY = Math.max(
+      0,
+      Math.floor(Math.min(...points.map((p) => p[1])) * DETAIL)
+    );
+    const maxY = Math.min(
+      PLAYER_H,
+      Math.ceil(Math.max(...points.map((p) => p[1])) * DETAIL)
+    );
+    for (let y = minY; y < maxY; y++) {
+      for (let x = minX; x < maxX; x++) {
+        const px = (x + 0.5) / DETAIL;
+        const py = (y + 0.5) / DETAIL;
+        let inside = false;
+        for (let i = 0; i < points.length; i++) {
+          const a = points[i];
+          const b = points[(i + 1) % points.length];
+          if (!a || !b) continue;
+          if (
+            a[1] > py !== b[1] > py &&
+            px < ((b[0] - a[0]) * (py - a[1])) / (b[1] - a[1]) + a[0]
+          )
+            inside = !inside;
+        }
+        if (inside && (!onlyOn || onlyOn.includes(this.get(x, y))))
+          this.set(x, y, ch);
+      }
+    }
   }
 
   // Every pixel whose centre is within r of the segment a-b.
   capsule(a: Pt, b: Pt, r: number, ch: string) {
-    const [ax, ay] = a;
-    const [bx, by] = b;
+    const [ax, ay] = [a[0] * DETAIL, a[1] * DETAIL];
+    const [bx, by] = [b[0] * DETAIL, b[1] * DETAIL];
+    r *= DETAIL;
     const minX = Math.floor(Math.min(ax, bx) - r - 1);
     const maxX = Math.ceil(Math.max(ax, bx) + r + 1);
     const minY = Math.floor(Math.min(ay, by) - r - 1);
@@ -103,7 +130,7 @@ class Grid {
   // in a darker shade of whatever it covers (so it separates from the body
   // without a heavy black line), then the fill.
   front(a: Pt, b: Pt, r: number, ch: string) {
-    this.forEachIn(a, b, r + 1, (x, y) => {
+    this.forEachIn(a, b, r + 1 / DETAIL, (x, y) => {
       const under = this.get(x, y);
       if (under !== '.') this.set(x, y, DARKER[under] ?? 'k');
     });
@@ -116,8 +143,9 @@ class Grid {
     r: number,
     visit: (x: number, y: number) => void
   ) {
-    const [ax, ay] = a;
-    const [bx, by] = b;
+    const [ax, ay] = [a[0] * DETAIL, a[1] * DETAIL];
+    const [bx, by] = [b[0] * DETAIL, b[1] * DETAIL];
+    r *= DETAIL;
     const dx = bx - ax;
     const dy = by - ay;
     const len2 = dx * dx + dy * dy;
@@ -146,7 +174,7 @@ class Grid {
     }
   }
 
-  // One black outline round the whole silhouette (every empty pixel that
+  // One dark outline round the whole silhouette (every empty pixel that
   // touches a filled one, edges only).
   outline() {
     const filled = (x: number, y: number) =>
@@ -172,7 +200,12 @@ class Grid {
   stamp(rows: readonly string[], ox: number, oy: number) {
     rows.forEach((row, y) =>
       [...row].forEach((ch, x) => {
-        if (ch !== '.') this.set(ox + x, oy + y, ch);
+        if (ch !== '.')
+          this.set(
+            Math.round(ox * DETAIL) + x,
+            Math.round(oy * DETAIL) + y,
+            ch
+          );
       })
     );
   }
@@ -189,7 +222,11 @@ class Grid {
 const DARKER: Record<string, string> = {
   t: 'T',
   w: 'W',
-  s: 'h',
+  s: 'b',
+  b: 'b',
+  d: 'd',
+  u: 's',
+  l: 't',
   c: 'C',
 };
 
@@ -199,6 +236,249 @@ const lerp = (a: Pt, b: Pt, t: number): Pt => [
 ];
 const add = (a: Pt, dx: number, dy: number): Pt => [a[0] + dx, a[1] + dy];
 
+// Smaller adult head, drawn in clustered pixels rather than enlarging the old
+// face stamp. Coordinates are local to the head; all features travel with neck.
+function drawHead(g: Grid, neck: Pt) {
+  const at = (x: number, y: number): Pt => add(neck, x - 3.2, y - 7.7);
+  const poly = (points: readonly Pt[], ch: string) =>
+    g.polygon(
+      points.map(([x, y]) => at(x, y)),
+      ch
+    );
+  const line = (a: Pt, b: Pt, r: number, ch: string) =>
+    g.capsule(at(...a), at(...b), r, ch);
+  // Temple, forehead, cheek and jaw.
+  poly(
+    [
+      [0.8, 2.1],
+      [5.5, 1.8],
+      [6.1, 2.6],
+      [6.2, 4.2],
+      [6.55, 4.65],
+      [6.1, 5.05],
+      [6.1, 6.5],
+      [5.4, 7.45],
+      [3.5, 7.65],
+      [1.4, 6.35],
+      [0.8, 4.5],
+    ],
+    'b'
+  );
+  poly(
+    [
+      [2, 2.3],
+      [5.5, 2.1],
+      [5.9, 3],
+      [5.9, 5.55],
+      [5.2, 6.2],
+      [3.6, 6.4],
+      [2, 5.2],
+    ],
+    's'
+  );
+  poly(
+    [
+      [2.6, 2.6],
+      [4.7, 2.45],
+      [5.4, 3.15],
+      [5.1, 3.7],
+      [3, 3.5],
+    ],
+    'u'
+  );
+  poly(
+    [
+      [2, 4.65],
+      [3.3, 4.55],
+      [3.1, 5.4],
+      [2.45, 5.6],
+    ],
+    'u'
+  );
+  // Visible ear with its inset and lower lobe.
+  poly(
+    [
+      [0.4, 4],
+      [1.35, 4],
+      [1.75, 4.8],
+      [1.4, 5.7],
+      [0.5, 5.4],
+    ],
+    's'
+  );
+  poly(
+    [
+      [0.75, 4.35],
+      [1.2, 4.3],
+      [1.35, 5.15],
+      [0.9, 5.1],
+    ],
+    'd'
+  );
+  line([0.8, 4.2], [1.15, 4.2], 0.12, 'u');
+  // Swept hair: a dark undercut, brown masses and copper highlight clusters.
+  poly(
+    [
+      [0.2, 4.1],
+      [0, 2.4],
+      [0.6, 1.7],
+      [1.5, 1],
+      [2.1, 0.65],
+      [3.7, 0.4],
+      [4.3, 0],
+      [5.7, 0.15],
+      [6.5, 0.55],
+      [6.2, 1.3],
+      [5.6, 1.8],
+      [3, 2],
+      [2.2, 2.65],
+      [1.6, 3.3],
+      [1.4, 4.2],
+    ],
+    'H'
+  );
+  poly(
+    [
+      [0.5, 2.2],
+      [1.5, 1.4],
+      [3, 0.8],
+      [5.3, 0.55],
+      [6.15, 0.8],
+      [5.7, 1.25],
+      [3.3, 1.35],
+      [2.2, 1.9],
+      [1.2, 2.9],
+      [0.4, 3.2],
+    ],
+    'h'
+  );
+  poly(
+    [
+      [1.2, 1.8],
+      [2.4, 1.15],
+      [3.9, 0.8],
+      [5.4, 0.8],
+      [4.9, 1.1],
+      [3.2, 1.15],
+      [2.4, 1.55],
+    ],
+    'j'
+  );
+  poly(
+    [
+      [0.6, 3.1],
+      [1.2, 2.55],
+      [1.8, 2.65],
+      [1.4, 3.6],
+      [0.7, 3.9],
+    ],
+    'h'
+  );
+  // Brows and white eyes with dark pupils (three-quarter view).
+  line([2.7, 3.9], [3.65, 3.85], 0.18, 'd');
+  line([5.1, 3.85], [5.8, 3.85], 0.18, 'd');
+  poly(
+    [
+      [2.8, 4.05],
+      [3.65, 4.05],
+      [3.65, 4.6],
+      [2.8, 4.6],
+    ],
+    'f'
+  );
+  poly(
+    [
+      [3.1, 4.05],
+      [3.65, 4.05],
+      [3.65, 4.6],
+      [3.1, 4.6],
+    ],
+    'e'
+  );
+  poly(
+    [
+      [5.2, 4],
+      [5.9, 4],
+      [5.9, 4.5],
+      [5.2, 4.5],
+    ],
+    'f'
+  );
+  poly(
+    [
+      [5.5, 4],
+      [5.9, 4],
+      [5.9, 4.5],
+      [5.5, 4.5],
+    ],
+    'e'
+  );
+  // Nose bridge, bright tip, nostril and cheek shadow.
+  poly(
+    [
+      [4.65, 4.15],
+      [4.9, 4.25],
+      [4.9, 5],
+      [5.3, 5.2],
+      [4.85, 5.45],
+      [4.5, 5.15],
+    ],
+    'b'
+  );
+  poly(
+    [
+      [4.9, 4.6],
+      [5.25, 4.6],
+      [5.55, 5.05],
+      [5.2, 5.15],
+      [4.9, 4.95],
+    ],
+    'u'
+  );
+  line([4.8, 5.3], [5.25, 5.3], 0.12, 'd');
+  // Short beard around the cheek, jaw and chin; mouth stays readable inside it.
+  poly(
+    [
+      [1.6, 5.2],
+      [2.2, 5.7],
+      [3.2, 6.3],
+      [4.2, 5.95],
+      [5.8, 5.65],
+      [6, 6.5],
+      [5.25, 7.4],
+      [3.65, 7.55],
+      [2.4, 6.8],
+      [1.65, 6],
+    ],
+    'd'
+  );
+  poly(
+    [
+      [2.4, 6.15],
+      [3.3, 6.65],
+      [4, 6.35],
+      [5.55, 6.2],
+      [5.5, 7],
+      [4.9, 7.25],
+      [3.8, 7.2],
+      [2.8, 6.7],
+    ],
+    'h'
+  );
+  poly(
+    [
+      [4.1, 6.2],
+      [5.55, 6.05],
+      [5.55, 6.65],
+      [4.3, 6.85],
+      [3.95, 6.6],
+    ],
+    's'
+  );
+  line([4.55, 6.45], [5.1, 6.45], 0.12, 'm');
+  line([4.3, 7.1], [5.1, 7], 0.12, 'j');
+}
+
 // Shorts at the top of the thigh, skin to the knee, socks down the shin,
 // a boot along the foot. The far leg uses the shade colours; the near one
 // gets a rim where it crosses the body.
@@ -207,13 +487,40 @@ function drawLeg(g: Grid, hip: Pt, leg: Leg, back: boolean) {
   const socks = back ? 'C' : 'c';
   const draw = (a: Pt, b: Pt, r: number, ch: string) =>
     back ? g.capsule(a, b, r, ch) : g.front(a, b, r, ch);
-  const thighMid = lerp(hip, leg.knee, 0.55);
+  const thighMid = lerp(hip, leg.knee, 0.68);
   const sockTop = lerp(leg.knee, leg.ankle, 0.3);
   draw(hip, thighMid, 1.8, shorts);
-  draw(thighMid, leg.knee, 1.4, 's');
-  g.capsule(leg.knee, sockTop, 1.3, 's');
-  g.capsule(sockTop, leg.ankle, 1.3, socks);
-  g.capsule(leg.ankle, leg.toe, 1.3, 'f');
+  g.capsule(add(hip, 0.4, 0), add(thighMid, 0.4, -0.1), 0.65, back ? 'w' : 'l');
+  g.capsule(add(thighMid, -0.6, 0), add(thighMid, 0.6, 0), 0.2, 'W');
+  draw(thighMid, leg.knee, 1.15, 'b');
+  g.capsule(
+    add(thighMid, 0.35, 0),
+    add(leg.knee, 0.35, 0),
+    0.7,
+    back ? 'b' : 's'
+  );
+  g.capsule(leg.knee, sockTop, 1.05, 'b');
+  g.capsule(
+    add(leg.knee, 0.3, 0),
+    add(sockTop, 0.3, 0),
+    0.65,
+    back ? 'b' : 's'
+  );
+  g.capsule(sockTop, leg.ankle, 1.2, 'C');
+  g.capsule(add(sockTop, 0.3, 0), add(leg.ankle, 0.3, 0), 0.8, socks);
+  const band = lerp(sockTop, leg.ankle, 0.08);
+  g.capsule(band, lerp(sockTop, leg.ankle, 0.15), 1.2, back ? 'C' : 'l');
+  g.capsule(
+    lerp(sockTop, leg.ankle, 0.23),
+    lerp(sockTop, leg.ankle, 0.28),
+    1.2,
+    'T'
+  );
+  g.capsule(leg.ankle, leg.toe, 1.3, 'k');
+  g.capsule(add(leg.ankle, 0, -0.35), add(leg.toe, 0, -0.35), 1, 'q');
+  g.capsule(add(leg.ankle, 0, -0.5), add(leg.toe, 0, -0.5), 0.65, 'f');
+  const lace = lerp(leg.ankle, leg.toe, 0.45);
+  g.capsule(lace, add(lace, 0.45, 0), 0.3, 'q');
 }
 
 // Short sleeve, then skin to the hand; the near arm wears the armband.
@@ -221,37 +528,186 @@ function drawArm(g: Grid, shoulder: Pt, arm: Arm, back: boolean) {
   const draw = (a: Pt, b: Pt, r: number, ch: string) =>
     back ? g.capsule(a, b, r, ch) : g.front(a, b, r, ch);
   const sleeveEnd = lerp(shoulder, arm.elbow, 0.45);
-  draw(shoulder, sleeveEnd, 1.4, back ? 'T' : 't');
-  draw(sleeveEnd, arm.elbow, 1.1, 's');
-  draw(arm.elbow, arm.hand, 1.1, 's');
+  draw(shoulder, sleeveEnd, 1.5, back ? 'T' : 't');
+  draw(sleeveEnd, arm.elbow, 1.1, 'b');
+  draw(arm.elbow, arm.hand, 1, 'b');
+  g.capsule(
+    add(sleeveEnd, 0.3, -0.15),
+    add(arm.elbow, 0.3, -0.15),
+    0.75,
+    back ? 'b' : 's'
+  );
+  g.capsule(
+    add(arm.elbow, 0.3, -0.15),
+    add(arm.hand, 0.3, -0.15),
+    0.7,
+    back ? 'b' : 's'
+  );
+  g.capsule(arm.hand, add(arm.hand, 0.4, 0.5), 1, back ? 'b' : 's');
+  // Sleeve highlight and a small wrist/knuckle shadow.
+  g.capsule(
+    add(shoulder, 0.2, -0.35),
+    add(sleeveEnd, 0.2, -0.35),
+    0.4,
+    back ? 't' : 'l'
+  );
+  g.capsule(add(arm.hand, -0.3, 0.5), add(arm.hand, 0.4, 0.5), 0.3, 'd');
+  g.capsule(add(arm.hand, 0.2, -0.2), add(arm.hand, 0.2, 0.65), 0.12, 'b');
+  g.capsule(
+    lerp(shoulder, arm.elbow, 0.5),
+    lerp(shoulder, arm.elbow, 0.55),
+    1.1,
+    'a'
+  );
   if (!back) {
     const band = lerp(shoulder, arm.elbow, 0.4);
-    g.set(Math.floor(band[0]), Math.floor(band[1]), 'a');
+    g.capsule(band, lerp(shoulder, arm.elbow, 0.5), 1.1, 'a');
+    const badge = lerp(shoulder, arm.elbow, 0.45);
+    g.capsule(add(badge, 0.6, -0.1), add(badge, 0.6, 0.35), 0.22, 'f');
   }
 }
 
 // Back to front: far arm and leg, shorts, shirt (shaded at the back), near
 // leg, neck, head, near arm; then one outline round the silhouette.
 function drawPose(p: Pose) {
+  // Visual proportions only: lengthen the jersey and reduce the head, while
+  // feet, movement and the animation skeleton's leg/arm endpoints stay put.
+  p = { ...p, neck: add(p.neck, 0, -1.2) };
   const g = new Grid();
-  const shoulderBack = add(p.neck, -1.5, 1.5);
-  const shoulderFront = add(p.neck, 1.5, 1.5);
+  const shoulderBack = add(p.neck, -2.8, 2);
+  const shoulderFront = add(p.neck, 2.8, 2);
   drawArm(g, shoulderBack, p.backArm, true);
   drawLeg(g, p.hip, p.backLeg, true);
-  g.capsule(add(p.hip, 0, -1), add(p.hip, 0, 1.5), 3.6, 'w');
+  g.polygon(
+    [
+      add(p.hip, -3.4, -1),
+      add(p.hip, 3.4, -1),
+      add(p.hip, 3.7, 2.2),
+      add(p.hip, 0.5, 2.2),
+      add(p.hip, 0, 1),
+      add(p.hip, -0.6, 2.2),
+      add(p.hip, -3.5, 2.2),
+    ],
+    'W'
+  );
+  g.polygon(
+    [
+      add(p.hip, -2.8, -0.7),
+      add(p.hip, 3, -0.7),
+      add(p.hip, 3.2, 1.9),
+      add(p.hip, 0.7, 1.9),
+      add(p.hip, 0, 0.4),
+      add(p.hip, -1, 1.8),
+      add(p.hip, -2.9, 1.9),
+    ],
+    'w'
+  );
   const chest = add(p.neck, 0, 2);
-  g.capsule(chest, add(p.hip, 0, -1), 3.8, 't');
+  g.polygon(
+    [
+      add(p.neck, -1.7, 0.6),
+      add(p.neck, 1.7, 0.6),
+      add(chest, 4, -0.3),
+      add(chest, 3.6, 1.6),
+      add(p.hip, 3, -0.5),
+      add(p.hip, -3.1, -0.5),
+      add(chest, -3.7, 1.6),
+      add(chest, -4, -0.3),
+    ],
+    't'
+  );
   // Shade the back of the shirt (the light comes from the front).
   for (let y = 0; y < PLAYER_H; y++) {
-    const t = (y - chest[1]) / (p.hip[1] - 1 - chest[1]);
+    const t = (y / DETAIL - chest[1]) / (p.hip[1] - 1 - chest[1]);
     if (t < -0.4 || t > 1.3) continue;
     const axis = chest[0] + (p.hip[0] - chest[0]) * Math.max(0, Math.min(1, t));
     for (let x = 0; x < PLAYER_W; x++)
-      if (g.get(x, y) === 't' && x + 0.5 < axis - 2.4) g.set(x, y, 'T');
+      if (g.get(x, y) === 't') {
+        const across = (x + 0.5) / DETAIL - axis;
+        if (across < -2.3) g.set(x, y, 'T');
+        else if (across > -1.3 && across < 1.7 && t < 0.85) g.set(x, y, 'l');
+      }
   }
+  // Reference kit: dark piping, chest mark, sponsor bar and straight hem.
+  g.capsule(add(p.neck, -1.5, 0.7), add(p.neck, 0, 1.7), 0.3, 'a');
+  g.capsule(add(p.neck, 0, 1.7), add(p.neck, 1.5, 0.7), 0.3, 'a');
+  const cloth = ['t', 'T', 'l'];
+  const fold = (points: readonly Pt[], ch: string) =>
+    g.polygon(
+      points.map(([x, y]) => add(chest, x, y)),
+      ch,
+      cloth
+    );
+  fold(
+    [
+      [-2.9, 0.3],
+      [-1.8, 0.8],
+      [-2.5, 1.5],
+      [-1.5, 2.4],
+      [-2.3, 2.1],
+      [-3, 1.1],
+    ],
+    't'
+  );
+  fold(
+    [
+      [-1.7, 1.6],
+      [-1.1, 1.2],
+      [-0.5, 0.5],
+      [-0.8, 1.7],
+      [-1.4, 2.2],
+    ],
+    't'
+  );
+  fold(
+    [
+      [2.2, 1],
+      [2.9, 1.5],
+      [2.5, 2.5],
+      [1.9, 2.8],
+      [2.4, 1.8],
+    ],
+    't'
+  );
+  fold(
+    [
+      [-2.4, 3],
+      [-2.1, 4.1],
+      [-0.5, 5],
+      [-1.5, 4.8],
+      [-2.7, 4],
+    ],
+    'T'
+  );
+  fold(
+    [
+      [2.6, 3.4],
+      [2.2, 4.5],
+      [1, 5.1],
+      [0.2, 5.1],
+      [1.6, 4.3],
+      [2.3, 3],
+    ],
+    'T'
+  );
+  fold(
+    [
+      [-1.6, 4.6],
+      [-0.5, 5.3],
+      [1, 5.4],
+      [1.9, 5.1],
+      [1.1, 5.8],
+      [-0.7, 5.6],
+    ],
+    't'
+  );
+  g.capsule(add(chest, -0.5, 2.6), add(chest, 1.9, 2.6), 0.3, 'a');
+  g.stamp(['aa', 'a.'], chest[0] + 1.8, chest[1] + 0.8);
+  g.capsule(add(p.hip, -1.7, -2), add(p.hip, -0.2, -2.5), 0.25, 'T');
+  g.capsule(add(p.hip, -1.6, -0.5), add(p.hip, 1.8, -0.5), 0.3, 'T');
   drawLeg(g, p.hip, p.frontLeg, false);
-  g.capsule(p.neck, add(p.neck, 0, 1.5), 1.3, 's');
-  g.stamp(HEAD, Math.round(p.neck[0]) - 5, Math.round(p.neck[1]) - 9);
+  g.capsule(p.neck, add(p.neck, 0, 1), 1, 'b');
+  drawHead(g, p.neck);
   drawArm(g, shoulderFront, p.frontArm, false);
   g.outline();
   return g.rows();
@@ -400,11 +856,62 @@ const POSES: Record<string, Pose> = {
     frontArm: { elbow: [10, 15], hand: [11, 18.5] },
   }),
 };
-const FRAMES = Object.keys(POSES);
-const RUN_FRAMES = FRAMES.filter((f) => f.startsWith('run'));
+const UP_FRAMES = Array.from({ length: 4 }, (_, i) => `run_up${i + 1}`);
+const DOWN_FRAMES = Array.from({ length: 4 }, (_, i) => `run_down${i + 1}`);
+const UP_DIAGONAL_FRAMES = Array.from(
+  { length: 4 },
+  (_, i) => `run_up_diagonal${i + 1}`
+);
+const DOWN_DIAGONAL_FRAMES = Array.from(
+  { length: 4 },
+  (_, i) => `run_down_diagonal${i + 1}`
+);
+const TACKLE_FRAMES = Array.from({ length: 8 }, (_, i) => `tackle${i + 1}`);
+const DIVE_FRAMES = Array.from({ length: 6 }, (_, i) => `dive${i + 1}`);
+const HOLD_FRAMES = Array.from({ length: 4 }, (_, i) => `hold${i + 1}`);
+const HURT_FRAMES = Array.from({ length: 4 }, (_, i) => `hurt${i + 1}`);
+const CARRY_FRAMES = Array.from({ length: 6 }, (_, i) => `carry${i + 1}`);
+const ATLAS_COLUMNS = 16;
+const FRAMES = [
+  ...Object.keys(POSES),
+  'idle4',
+  ...UP_FRAMES,
+  ...DOWN_FRAMES,
+  ...UP_DIAGONAL_FRAMES,
+  ...DOWN_DIAGONAL_FRAMES,
+  ...TACKLE_FRAMES,
+  ...DIVE_FRAMES,
+  ...HOLD_FRAMES,
+  ...HURT_FRAMES,
+  ...CARRY_FRAMES,
+];
+const RUN_FRAMES = Array.from({ length: 8 }, (_, i) => `run${i + 1}`);
+const SHOOT_FRAMES = [
+  'shoot_windup',
+  'shoot_contact',
+  'shoot_follow',
+  'shoot_recover',
+];
 
 // The standing frame (also what a stopped animation falls back to).
 export const IDLE_FRAME = 'idle1';
+export const AUTHORED_IDLE_TEXTURE = 'player-idle-authored-source';
+export const AUTHORED_RUN_TEXTURE = 'player-run-authored-source';
+export const AUTHORED_SHOOT_TEXTURE = 'player-shoot-authored-source';
+export const AUTHORED_RUN_UP_TEXTURE = 'player-run-up-authored-source';
+export const AUTHORED_RUN_DOWN_TEXTURE = 'player-run-down-authored-source';
+export const AUTHORED_RUN_UP_DIAGONAL_TEXTURE =
+  'player-run-up-diagonal-authored-source';
+export const AUTHORED_RUN_DOWN_DIAGONAL_TEXTURE =
+  'player-run-down-diagonal-authored-source';
+export const AUTHORED_TACKLE_TEXTURE = 'player-tackle-authored-source';
+export const AUTHORED_DIVE_TEXTURE = 'player-dive-authored-source';
+export const AUTHORED_HOLD_TEXTURE = 'player-hold-authored-source';
+export const AUTHORED_HURT_TEXTURE = 'player-hurt-authored-source';
+export const AUTHORED_CARRY_TEXTURE = 'player-carry-authored-source';
+const IDLE_SOURCE_W = 352;
+const IDLE_SOURCE_H = 724;
+const IDLE_SOURCE_GROUND = 695;
 
 // Outfield kits per team, plus distinct goalkeeper kits. Shades are the
 // colours of the far-side limbs and the back of the shirt.
@@ -412,6 +919,7 @@ export type Kit = Team | 'homeKeeper' | 'awayKeeper';
 type KitColors = {
   shirt: number;
   shirtShade: number;
+  shirtHighlight: number;
   shorts: number;
   shortsShade: number;
   socks: number;
@@ -420,50 +928,58 @@ type KitColors = {
 };
 const KITS: Record<Kit, KitColors> = {
   home: {
-    shirt: PAL.red,
-    shirtShade: PAL.plum,
-    shorts: PAL.white,
-    shortsShade: PAL.lightGray,
-    socks: PAL.red,
-    sockShade: PAL.plum,
-    accent: PAL.black,
+    shirt: PAL.kitPink,
+    shirtShade: PAL.kitPinkShade,
+    shirtHighlight: PAL.kitPinkLight,
+    shorts: PAL.kitPink,
+    shortsShade: PAL.kitPinkShade,
+    socks: PAL.kitPink,
+    sockShade: PAL.kitPinkShade,
+    accent: PAL.ink,
   },
   away: {
-    shirt: PAL.blue,
-    shirtShade: PAL.navy,
-    shorts: PAL.navy,
-    shortsShade: PAL.black,
-    socks: PAL.blue,
-    sockShade: PAL.navy,
-    accent: PAL.white,
+    shirt: PAL.kitBlue,
+    shirtShade: PAL.kitBlueShade,
+    shirtHighlight: PAL.kitBlueLight,
+    shorts: PAL.kitBlueShade,
+    shortsShade: PAL.ink,
+    socks: PAL.kitBlue,
+    sockShade: PAL.kitBlueShade,
+    accent: PAL.ink,
   },
   homeKeeper: {
-    shirt: PAL.green,
-    shirtShade: PAL.darkGreen,
-    shorts: PAL.black,
-    shortsShade: PAL.darkGray,
-    socks: PAL.green,
-    sockShade: PAL.darkGreen,
-    accent: PAL.yellow,
+    shirt: PAL.kitGreen,
+    shirtShade: PAL.kitGreenShade,
+    shirtHighlight: PAL.kitGreenLight,
+    shorts: PAL.ink,
+    shortsShade: PAL.black,
+    socks: PAL.kitGreen,
+    sockShade: PAL.kitGreenShade,
+    accent: PAL.ink,
   },
   awayKeeper: {
-    shirt: PAL.yellow,
-    shirtShade: PAL.orange,
-    shorts: PAL.black,
-    shortsShade: PAL.darkGray,
-    socks: PAL.yellow,
-    sockShade: PAL.orange,
-    accent: PAL.black,
+    shirt: PAL.kitGold,
+    shirtShade: PAL.kitGoldShade,
+    shirtHighlight: PAL.kitGoldLight,
+    shorts: PAL.ink,
+    shortsShade: PAL.black,
+    socks: PAL.kitGold,
+    sockShade: PAL.kitGoldShade,
+    accent: PAL.ink,
   },
 };
 const KIT_NAMES: readonly Kit[] = ['home', 'away', 'homeKeeper', 'awayKeeper'];
 
 export const playerTexture = (kit: Kit) => `player-${kit}`;
-export const runAnim = (kit: Kit) => `player-${kit}-run`;
+export type RunView = 'side' | 'up' | 'down' | 'up-diagonal' | 'down-diagonal';
+export const runAnim = (kit: Kit, view: RunView = 'side') =>
+  `player-${kit}-run${view === 'side' ? '' : `-${view}`}`;
 export const shootAnim = (kit: Kit) => `player-${kit}-shoot`;
 export const idleAnim = (kit: Kit) => `player-${kit}-idle`;
+export const holdAnim = (kit: Kit, moving = false) =>
+  `player-${kit}-${moving ? 'carry' : 'hold'}`;
 // Run frames per second at walking pace (Player scales it with speed).
-export const RUN_FPS = 16;
+export const RUN_FPS = 16; // Eight authored poses in the half-second stride.
 
 export const MARKER_TARGET = 'marker-target';
 export const MARKER_ARROW = 'marker-arrow';
@@ -471,13 +987,158 @@ export const MARKER_ARROW = 'marker-arrow';
 // Soft oval shadow on the ground under the feet, in every frame.
 function paintShadow(ctx: CanvasRenderingContext2D, ox: number) {
   const cx = ox + PLAYER_W / 2;
-  const cy = GROUND + 1;
-  for (let y = GROUND; y < PLAYER_H; y++)
+  const cy = (GROUND + 1) * DETAIL;
+  for (let y = GROUND * DETAIL; y < PLAYER_H; y++)
     for (let x = ox; x < ox + PLAYER_W; x++) {
-      const nx = (x + 0.5 - cx) / 7;
-      const ny = (y + 0.5 - cy) / 1.6;
+      const nx = (x + 0.5 - cx) / (7 * DETAIL);
+      const ny = (y + 0.5 - cy) / (1.6 * DETAIL);
       if (nx * nx + ny * ny <= 1) fill(ctx, x, y, 1, 1, PAL.black, 0.3);
     }
+}
+
+// Use the supplied pixels for idle. Recolor only the pink clothing; skin,
+// hair, dark trim and white boots retain the original shading and colors.
+function authoredIdleSheet(
+  scene: Phaser.Scene,
+  kitName: Kit,
+  action:
+    | 'idle'
+    | 'run'
+    | 'shoot'
+    | 'up'
+    | 'down'
+    | 'up-diagonal'
+    | 'down-diagonal'
+    | 'tackle'
+    | 'dive'
+    | 'hold'
+    | 'hurt'
+    | 'carry' = 'idle'
+) {
+  const running = action === 'run';
+  const shooting = action === 'shoot';
+  const tackling = action === 'tackle';
+  const carrying = action === 'carry';
+  const diving = action === 'dive' || action === 'hurt';
+  const textureKeys = {
+    idle: AUTHORED_IDLE_TEXTURE,
+    run: AUTHORED_RUN_TEXTURE,
+    shoot: AUTHORED_SHOOT_TEXTURE,
+    up: AUTHORED_RUN_UP_TEXTURE,
+    down: AUTHORED_RUN_DOWN_TEXTURE,
+    'up-diagonal': AUTHORED_RUN_UP_DIAGONAL_TEXTURE,
+    'down-diagonal': AUTHORED_RUN_DOWN_DIAGONAL_TEXTURE,
+    tackle: AUTHORED_TACKLE_TEXTURE,
+    dive: AUTHORED_DIVE_TEXTURE,
+    hold: AUTHORED_HOLD_TEXTURE,
+    hurt: AUTHORED_HURT_TEXTURE,
+    carry: AUTHORED_CARRY_TEXTURE,
+  };
+  const textureKey = textureKeys[action];
+  const frameWidth = diving
+    ? 1152
+    : tackling
+      ? 1024
+      : action === 'idle'
+        ? IDLE_SOURCE_W
+        : 640;
+  if (!scene.textures.exists(textureKey))
+    throw new Error('Authored idle artwork was not loaded by BootScene');
+  const source = scene.textures.get(textureKey).getSourceImage();
+  if (!(
+    source instanceof HTMLImageElement || source instanceof HTMLCanvasElement
+  ))
+    throw new Error('Authored idle artwork must be an image or canvas');
+  const canvas = document.createElement('canvas');
+  const sourceColumns = carrying || action === 'dive' ? 3 : diving ? 2 : 4;
+  canvas.width = frameWidth * sourceColumns;
+  canvas.height =
+    IDLE_SOURCE_H * (tackling || running || diving || carrying ? 2 : 1);
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Could not prepare the authored idle artwork');
+  ctx.drawImage(source, 0, 0);
+  if (kitName === 'home') return canvas;
+  const kit = KITS[kitName];
+  const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const vertical =
+    action === 'up' ||
+    action === 'down' ||
+    action === 'up-diagonal' ||
+    action === 'down-diagonal';
+  const waist = carrying
+    ? [375, 365, 375, 368, 360, 368]
+    : diving
+      ? action === 'dive'
+        ? [450, 490, 520, 535, 545, 590]
+        : [427, 422, 500, 586]
+      : tackling
+        ? [395, 450, 540, 555, 535, 455, 445, 400]
+        : vertical
+          ? [376, 379, 376, 379]
+          : running
+            ? [399, 388, 389, 388, 392, 379, 395, 377]
+            : shooting
+              ? [391, 405, 443, 396]
+              : [446, 430, 449, 449];
+  const shortsEnd = carrying
+    ? [499, 490, 499, 491, 493, 493]
+    : diving
+      ? action === 'dive'
+        ? [550, 595, 625, 630, 640, 665]
+        : [544, 539, 608, 655]
+      : tackling
+        ? [520, 565, 630, 640, 635, 605, 580, 540]
+        : vertical
+          ? [480, 489, 480, 489]
+          : running
+            ? [510, 494, 508, 494, 513, 492, 513, 495]
+            : shooting
+              ? [517, 529, 486, 517]
+              : [552, 536, 555, 555];
+  for (let i = 0; i < pixels.data.length; i += 4) {
+    const r = pixels.data[i] ?? 0;
+    const g = pixels.data[i + 1] ?? 0;
+    const b = pixels.data[i + 2] ?? 0;
+    if (
+      !pixels.data[i + 3] ||
+      r < 70 ||
+      r < g * 1.25 ||
+      b < g * 1.08 ||
+      b < r * 0.55
+    )
+      continue;
+    const sourceY = Math.floor(i / 4 / canvas.width);
+    const y = sourceY % IDLE_SOURCE_H;
+    const frame =
+      Math.floor(((i / 4) % canvas.width) / frameWidth) +
+      (tackling || running || diving || carrying
+        ? Math.floor(sourceY / IDLE_SOURCE_H) * sourceColumns
+        : 0);
+    const isShirt = y < (waist[frame] ?? 446);
+    const isShorts = !isShirt && y < (shortsEnd[frame] ?? 552);
+    const base = isShirt ? kit.shirt : isShorts ? kit.shorts : kit.socks;
+    const shade = isShirt
+      ? kit.shirtShade
+      : isShorts
+        ? kit.shortsShade
+        : kit.sockShade;
+    const highlight = isShorts ? kit.shorts : kit.shirtHighlight;
+    const light = Math.max(
+      0,
+      Math.min(1, (0.2126 * r + 0.7152 * g + 0.0722 * b - 85) / 145)
+    );
+    const low = light < 0.6 ? shade : base;
+    const high = light < 0.6 ? base : highlight;
+    const mix = light < 0.6 ? light / 0.6 : (light - 0.6) / 0.4;
+    for (let channel = 0; channel < 3; channel++) {
+      const shift = 16 - channel * 8;
+      const a = (low >> shift) & 255;
+      const z = (high >> shift) & 255;
+      pixels.data[i + channel] = Math.round(a + (z - a) * mix);
+    }
+  }
+  ctx.putImageData(pixels, 0, 0);
+  return canvas;
 }
 
 export function createPlayerTextures(scene: Phaser.Scene) {
@@ -486,12 +1147,38 @@ export function createPlayerTextures(scene: Phaser.Scene) {
     return pose ? drawPose(pose) : [];
   });
   for (const kitName of KIT_NAMES) {
+    if (scene.textures.exists(playerTexture(kitName))) continue;
+    const idleSheet = authoredIdleSheet(scene, kitName);
+    const tackleSheet = authoredIdleSheet(scene, kitName, 'tackle');
+    const diveSheet = authoredIdleSheet(scene, kitName, 'dive');
+    const holdSheet = authoredIdleSheet(scene, kitName, 'hold');
+    const hurtSheet = authoredIdleSheet(scene, kitName, 'hurt');
+    const carrySheet = authoredIdleSheet(scene, kitName, 'carry');
+    const runSheet = authoredIdleSheet(scene, kitName, 'run');
+    const shootSheet = authoredIdleSheet(scene, kitName, 'shoot');
+    const upSheet = authoredIdleSheet(scene, kitName, 'up');
+    const downSheet = authoredIdleSheet(scene, kitName, 'down');
+    const upDiagonalSheet = authoredIdleSheet(scene, kitName, 'up-diagonal');
+    const downDiagonalSheet = authoredIdleSheet(
+      scene,
+      kitName,
+      'down-diagonal'
+    );
     const kit = KITS[kitName];
     const palette = {
-      k: PAL.black,
-      h: PAL.brown,
-      s: PAL.peach,
+      k: PAL.ink,
+      h: PAL.hairMid,
+      H: PAL.hairDark,
+      j: PAL.hairLight,
+      s: PAL.skinLight,
+      b: PAL.skinMid,
+      d: PAL.skinDark,
+      u: PAL.skinHighlight,
+      e: PAL.hairDark,
+      m: PAL.hairDark,
+      q: PAL.lightGray,
       t: kit.shirt,
+      l: kit.shirtHighlight,
       T: kit.shirtShade,
       w: kit.shorts,
       W: kit.shortsShade,
@@ -504,28 +1191,147 @@ export function createPlayerTextures(scene: Phaser.Scene) {
     const created = makeTexture(
       scene,
       key,
-      PLAYER_W * FRAMES.length,
-      PLAYER_H,
+      PLAYER_W * ATLAS_COLUMNS,
+      PLAYER_H * Math.ceil(FRAMES.length / ATLAS_COLUMNS),
       (ctx) => {
         frameRows.forEach((rows, i) => {
-          paintShadow(ctx, i * PLAYER_W);
-          paintRows(ctx, rows, palette, i * PLAYER_W, 0);
+          ctx.save();
+          ctx.translate(
+            (i % ATLAS_COLUMNS) * PLAYER_W,
+            Math.floor(i / ATLAS_COLUMNS) * PLAYER_H
+          );
+          paintShadow(ctx, 0);
+          const tackling = TACKLE_FRAMES.includes(FRAMES[i] ?? '');
+          const hurting = HURT_FRAMES.includes(FRAMES[i] ?? '');
+          const diving = DIVE_FRAMES.includes(FRAMES[i] ?? '') || hurting;
+          const carrying = CARRY_FRAMES.includes(FRAMES[i] ?? '');
+          const holding = HOLD_FRAMES.includes(FRAMES[i] ?? '') || carrying;
+          const running = RUN_FRAMES.includes(FRAMES[i] ?? '');
+          const shooting = SHOOT_FRAMES.includes(FRAMES[i] ?? '');
+          const up = UP_FRAMES.includes(FRAMES[i] ?? '');
+          const down = DOWN_FRAMES.includes(FRAMES[i] ?? '');
+          const upDiagonal = UP_DIAGONAL_FRAMES.includes(FRAMES[i] ?? '');
+          const downDiagonal = DOWN_DIAGONAL_FRAMES.includes(FRAMES[i] ?? '');
+          const vertical = up || down || upDiagonal || downDiagonal;
+          if (
+            FRAMES[i]?.startsWith('idle') ||
+            running ||
+            shooting ||
+            vertical ||
+            tackling ||
+            diving ||
+            holding
+          ) {
+            const sourceFrame = carrying
+              ? CARRY_FRAMES.indexOf(FRAMES[i] ?? '')
+              : hurting
+                ? HURT_FRAMES.indexOf(FRAMES[i] ?? '')
+                : holding
+                  ? HOLD_FRAMES.indexOf(FRAMES[i] ?? '')
+                  : diving
+                    ? DIVE_FRAMES.indexOf(FRAMES[i] ?? '')
+                    : tackling
+                      ? TACKLE_FRAMES.indexOf(FRAMES[i] ?? '')
+                      : downDiagonal
+                        ? DOWN_DIAGONAL_FRAMES.indexOf(FRAMES[i] ?? '')
+                        : upDiagonal
+                          ? UP_DIAGONAL_FRAMES.indexOf(FRAMES[i] ?? '')
+                          : up
+                            ? UP_FRAMES.indexOf(FRAMES[i] ?? '')
+                            : down
+                              ? DOWN_FRAMES.indexOf(FRAMES[i] ?? '')
+                              : shooting
+                                ? SHOOT_FRAMES.indexOf(FRAMES[i] ?? '')
+                                : Number(FRAMES[i]?.slice(running ? 3 : 4)) - 1;
+            const sourceWidth = diving
+              ? 1152
+              : tackling
+                ? 1024
+                : running || shooting || vertical || holding
+                  ? 640
+                  : IDLE_SOURCE_W;
+            const height = PLAYER_H;
+            const width = (sourceWidth / IDLE_SOURCE_H) * height;
+            const sourceColumns =
+              carrying || (diving && !hurting) ? 3 : diving ? 2 : 4;
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(
+              carrying
+                ? carrySheet
+                : hurting
+                  ? hurtSheet
+                  : holding
+                    ? holdSheet
+                    : diving
+                      ? diveSheet
+                      : tackling
+                        ? tackleSheet
+                        : downDiagonal
+                          ? downDiagonalSheet
+                          : upDiagonal
+                            ? upDiagonalSheet
+                            : up
+                              ? upSheet
+                              : down
+                                ? downSheet
+                                : running
+                                  ? runSheet
+                                  : shooting
+                                    ? shootSheet
+                                    : idleSheet,
+              (sourceFrame % sourceColumns) * sourceWidth,
+              tackling || running || diving || carrying
+                ? Math.floor(sourceFrame / sourceColumns) * IDLE_SOURCE_H
+                : 0,
+              sourceWidth,
+              IDLE_SOURCE_H,
+              (PLAYER_W - width) / 2,
+              PLAYER_H * PLAYER_ORIGIN_Y -
+                ((running ||
+                shooting ||
+                vertical ||
+                tackling ||
+                diving ||
+                holding
+                  ? 681
+                  : IDLE_SOURCE_GROUND) /
+                  IDLE_SOURCE_H) *
+                  height,
+              width,
+              height
+            );
+          } else {
+            paintRows(ctx, rows, palette, 0, 0);
+          }
+          ctx.restore();
         });
       },
       FRAMES.map((name, i) => ({
         name,
-        x: i * PLAYER_W,
-        y: 0,
+        x: (i % ATLAS_COLUMNS) * PLAYER_W,
+        y: Math.floor(i / ATLAS_COLUMNS) * PLAYER_H,
         w: PLAYER_W,
         h: PLAYER_H,
       }))
     );
     if (!created) continue;
     const frames = (names: string[]) => names.map((frame) => ({ key, frame }));
+    scene.anims.create({
+      key: holdAnim(kitName, true),
+      frames: frames(CARRY_FRAMES),
+      frameRate: 12,
+      repeat: -1,
+    });
+    scene.anims.create({
+      key: holdAnim(kitName),
+      frames: frames(HOLD_FRAMES),
+      frameRate: 4,
+      repeat: -1,
+    });
     // Standing: a slow weight shift.
     scene.anims.create({
       key: idleAnim(kitName),
-      frames: frames(['idle1', 'idle2', 'idle3', 'idle2']),
+      frames: frames(['idle1', 'idle2', 'idle3', 'idle4']),
       frameRate: 4,
       repeat: -1,
     });
@@ -536,6 +1342,28 @@ export function createPlayerTextures(scene: Phaser.Scene) {
       frameRate: RUN_FPS,
       repeat: -1,
     });
+    const verticalViews: readonly RunView[] = [
+      'up',
+      'down',
+      'up-diagonal',
+      'down-diagonal',
+    ];
+    for (const view of verticalViews) {
+      scene.anims.create({
+        key: runAnim(kitName, view),
+        frames: frames(
+          view === 'up'
+            ? UP_FRAMES
+            : view === 'down'
+              ? DOWN_FRAMES
+              : view === 'up-diagonal'
+                ? UP_DIAGONAL_FRAMES
+                : DOWN_DIAGONAL_FRAMES
+        ),
+        frameRate: RUN_FPS / 2,
+        repeat: -1,
+      });
+    }
     // Shooting (and keeper kicks): played once when the ball is struck.
     scene.anims.create({
       key: shootAnim(kitName),

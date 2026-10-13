@@ -293,7 +293,7 @@ export class MatchScene extends Phaser.Scene {
 
     const t = time / 1000;
     this.court.update(this.projector, t);
-    for (const p of this.everyone) p.render(this.projector, t);
+    for (const p of this.everyone) p.render(this.projector, t, this.simTime);
     b.render(this.projector, realDt * timeScale);
     this.updateHud();
   }
@@ -777,6 +777,7 @@ export class MatchScene extends Phaser.Scene {
         liftScale;
       ball.spin = shape.curl * KEEPER.curlKickSpin;
       k.playShoot();
+      ball.shotAnimationAge = 0;
       ball.dip = 0;
       release();
       const reach = 300 + 500 * charge;
@@ -1024,8 +1025,7 @@ export class MatchScene extends Phaser.Scene {
       const dir = Math.atan2(move.y, move.x);
       if (
         assist.stickDir === null ||
-        Math.abs(angleDiff(dir, assist.stickDir)) >
-          PASS.assistTakeoverDeg * DEG
+        Math.abs(angleDiff(dir, assist.stickDir)) > PASS.assistTakeoverDeg * DEG
       ) {
         this.receiveAssist = null;
         return manual;

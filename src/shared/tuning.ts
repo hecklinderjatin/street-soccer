@@ -619,7 +619,7 @@ export const CAMERA = {
   lookAheadFullSpeed: 300, // ball speed (px/s) at which the full look-ahead applies
   followSec: 0.35, // the focus eases onto its target in about this long (smooth, no steps)
   lookAheadSmoothSec: 0.45, // look-ahead is filtered over about this long, so taps and turns cannot jolt it
-  zoom: 0.9, // default zoom (was 1: zoomed out a little, less crowded on screen)
+  zoom: 1, // default zoom (was 1: zoomed out a little, less crowded on screen)
   airZoom: 0.84, // zoom while the ball is in the air on a long pass or shot (Phase 2)
   zoomReturnSec: 0.6, // time to ease back to the default zoom
 } as const;

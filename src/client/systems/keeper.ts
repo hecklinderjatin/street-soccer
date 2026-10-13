@@ -223,6 +223,7 @@ export function stepKeeperHands(
     )
       return null;
     carrier.staggerUntil = time + TACKLE.staggerSec;
+    carrier.playHurt(time, carrier.heading);
     carrier.lockUntil = time + TACKLE.staggerSec;
     carrier.receiving = false;
     take(ball, keeper);
@@ -437,8 +438,10 @@ export function startDive(
       ? KEEPER.diveSec
       : (Math.min(full, Math.max(0, distance)) / full) * KEEPER.diveSec;
   keeper.diveDir = direction;
+  keeper.diveAt = time;
   keeper.diveUntil = time + Math.max(0.08, sec);
   keeper.recoverUntil = keeper.diveUntil + KEEPER.diveRecoverSec;
+  keeper.playDive();
 }
 
 // While diving or down, the dive overrides normal movement. Returns true if
