@@ -56,7 +56,8 @@ export class Player {
   recoverUntil = 0; // ... then down until this one
   diveDir = 0; // keeper: dive direction (radians)
   lying = false; // keeper: diving or down after a dive (drawn on its side)
-  reactAt = -1; // CPU keeper: sim time it reacts to the shot it has seen (-1 = none)
+  reactAt = -1; // AI keeper: sim time it reacts to the threat it has seen (-1 = none) ...
+  reactSmother = false; // ... which is a carrier to smother (else a shot)
   passTarget = false; // drawn with the blue ring: where a pass would go now
   // Tackles (systems/tackle.ts; sim times in seconds).
   tackleAt = -Infinity; // the current / last tackle started
@@ -136,6 +137,7 @@ export class Player {
     this.recoverUntil = 0;
     this.lying = false;
     this.reactAt = -1;
+    this.reactSmother = false;
     this.tackleAt = this.tackleUntil = this.staggerUntil = -Infinity;
     this.tackleDone = false;
     this.stumbling = false;

@@ -83,7 +83,7 @@ const SHAFT_HALF_END = 7; // ... and at the head
 // order: input -> (AI) -> move players -> move ball -> possession ->
 // actions (pass, shoot, switch) -> match flow. Per frame: camera, then draw.
 //
-// Phase 3 (in progress): 5v5, each side 4 outfield (2-1-1) plus a keeper;
+// Phase 3: 5v5, each side 4 outfield (2-1-1) plus a keeper;
 // the away team mirrors the home formation. Outfielders the human isn't
 // controlling are driven by the shared outfield AI (systems/ai.ts, one
 // TeamBrain per side): positioning, pressing and tackles, and AI carriers
@@ -98,6 +98,7 @@ export class MatchScene extends Phaser.Scene {
   private ball!: Ball;
   private home: Player[] = []; // outfield players
   private away: Player[] = []; // CPU outfield players
+  private outfield: Player[] = []; // home then away outfielders (one list, no per-step copies)
   private homeBrain!: TeamBrain; // AI for our players the human isn't controlling
   private awayBrain!: TeamBrain;
   private roleText: Phaser.GameObjects.BitmapText[] = []; // ?debug: AI role over each outfielder
@@ -129,6 +130,10 @@ export class MatchScene extends Phaser.Scene {
   private switchIndex = 0;
   private switchHoldArmed = false; // a SWITCH press that, held on, jumps to the keeper
   private resultShown = false;
+  // Cost of the simulation per rendered frame (ms), for the debug overlay
+  // (tap the FPS readout): a smoothed average and a slowly decaying peak.
+  private simMsAvg = 0;
+  private simMsPeak = 0;
 
   constructor() {
     super('Match');
@@ -140,7 +145,10 @@ export class MatchScene extends Phaser.Scene {
     this.fixed.reset();
     this.home = [];
     this.away = [];
+    this.outfield = [];
     this.liveSince = Infinity;
+    this.simMsAvg = 0;
+    this.simMsPeak = 0;
     this.everyone = [];
     this.simTime = 0;
     this.stats = { shots: 0, passes: 0, tacklesWon: 0 };
@@ -176,12 +184,8 @@ export class MatchScene extends Phaser.Scene {
     this.away = FORMATION.outfield.map(
       (s) => new Player(this, 'away', 'outfield', PITCH.width - s.x, s.y)
     );
-    this.everyone = [
-      ...this.home,
-      ...this.away,
-      this.homeKeeper,
-      this.awayKeeper,
-    ];
+    this.outfield = [...this.home, ...this.away];
+    this.everyone = [...this.outfield, this.homeKeeper, this.awayKeeper];
     this.ball = new Ball(this);
     this.marker = this.add.graphics();
     this.shotText = pixelText(this, 0, 0, '', 0.6 * PX, PAL.white)
@@ -194,7 +198,7 @@ export class MatchScene extends Phaser.Scene {
     this.homeBrain = new TeamBrain('home', LEVELS.normal);
     this.awayBrain = new TeamBrain('away', LEVELS[this.config.difficulty]);
     this.roleText = DEBUG
-      ? [...this.home, ...this.away].map((p) =>
+      ? this.outfield.map((p) =>
           pixelText(
             this,
             0,
@@ -248,7 +252,11 @@ export class MatchScene extends Phaser.Scene {
     }
 
     const timeScale = this.flow.timeScale;
+    const simStart = performance.now();
     const alpha = this.fixed.advance(delta * timeScale, (dt) => this.step(dt));
+    const simMs = performance.now() - simStart;
+    this.simMsAvg += (simMs - this.simMsAvg) * 0.05;
+    this.simMsPeak = Math.max(simMs, this.simMsPeak * 0.995);
 
     for (const p of this.everyone) p.interpolate(alpha);
     this.ball.interpolate(alpha);
@@ -313,7 +321,7 @@ export class MatchScene extends Phaser.Scene {
         brain.tackles.length = 0;
       }
     }
-    for (const p of [...this.home, ...this.away]) {
+    for (const p of this.outfield) {
       const human = p === this.controlled && !frozen;
       // A lunge moves the body itself; start-up, recovery, a stumble or
       // being tackled (stagger) stop the player.
@@ -372,7 +380,7 @@ export class MatchScene extends Phaser.Scene {
 
     // Bodies can't overlap; then everyone back inside their limits.
     separatePlayers(this.everyone);
-    for (const p of [...this.home, ...this.away])
+    for (const p of this.outfield)
       [p.x, p.y] = constrainMove(p.prevY, p.x, p.y);
     // Keepers may leave their box (playing with their feet), but not while
     // holding the ball in their hands.
@@ -386,7 +394,7 @@ export class MatchScene extends Phaser.Scene {
 
     // Lunges that reach an opposing carrier's ball (tackle.ts decides).
     if (this.flow.phase === 'live')
-      for (const p of [...this.home, ...this.away]) {
+      for (const p of this.outfield) {
         const result = resolveTackle(p, ball, t, Math.random);
         if (result === 'won' && p === this.controlled)
           this.stats.tacklesWon += 1;
@@ -846,7 +854,7 @@ export class MatchScene extends Phaser.Scene {
 
   // ?debug: each outfielder's AI role over its head (HUMAN for ours).
   private updateRoleText() {
-    [...this.home, ...this.away].forEach((p, i) => {
+    this.outfield.forEach((p, i) => {
       const text = this.roleText[i];
       if (!text) return;
       const brain = p.team === 'home' ? this.homeBrain : this.awayBrain;
@@ -920,7 +928,7 @@ export class MatchScene extends Phaser.Scene {
   }
 
   private clearReceivers() {
-    for (const p of [...this.home, ...this.away]) p.receiving = false;
+    for (const p of this.outfield) p.receiving = false;
   }
 
   private opponentsOf(p: Player) {
@@ -964,6 +972,9 @@ export class MatchScene extends Phaser.Scene {
     this.outRestart = null;
     this.chargeSince = null;
     this.passChargeSince = null;
+    // Nothing the AI had queued (a pass, a shot, a tackle) survives a restart.
+    this.homeBrain.reset();
+    this.awayBrain.reset();
     this.setControlled(this.forward);
   }
 
@@ -1224,6 +1235,7 @@ export class MatchScene extends Phaser.Scene {
       `STAMINA ${Math.round(p.stamina)}${p.sprintLocked ? ' LOCKED' : ''}`,
       `BALL ${Math.round(b.x)},${Math.round(b.y)},${Math.round(b.z)} V ${Math.round(b.speed)} ${owner}`,
       `CAM ${Math.round(f.x)},${Math.round(f.y)} ZOOM ${this.rig.currentZoom.toFixed(2)}`,
+      `SIM ${this.simMsAvg.toFixed(2)} MS/FRAME PEAK ${this.simMsPeak.toFixed(2)}`,
     ].join('\n');
   }
 }

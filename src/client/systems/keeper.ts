@@ -77,7 +77,12 @@ export function keeperStick(
   const gx = k.team === 'home' ? 0 : PITCH.width;
   const gy = PITCH.height / 2;
 
-  if (!ball.owner && ball.inNet === 0 && ball.speed < KEEPER.setAbove) {
+  if (
+    !ball.owner &&
+    ball.inNet === 0 &&
+    ball.out === 0 &&
+    ball.speed < KEEPER.setAbove
+  ) {
     const meet = interceptPoint(k, ball);
     if (inBox(k, meet.x, meet.y, KEEPER.claimBoxMargin)) {
       const beats = (ps: readonly Player[], margin: number) =>
@@ -307,7 +312,11 @@ export function cpuKeeperReact(
     keeper.reactAt = -1;
     return;
   }
-  if (keeper.reactAt < 0) {
+  // A new threat, or a different kind (the carrier it was setting itself
+  // to smother shoots): the reaction time starts again, so a close-range
+  // shot doesn't inherit a half-run smother countdown.
+  if (keeper.reactAt < 0 || keeper.reactSmother !== target.smother) {
+    keeper.reactSmother = target.smother;
     keeper.reactAt = time + reactSec + (rand() * 2 - 1) * KEEPER.reactJitter;
     return;
   }
@@ -328,7 +337,11 @@ function keeperThreat(keeper: Player, ball: Ball, time: number) {
     const by = ball.y + ball.vy * 0.15;
     const d = Math.hypot(bx - keeper.x, by - keeper.y);
     if (d > KEEPER.smotherRange) return null;
-    return { dir: Math.atan2(by - keeper.y, bx - keeper.x), dist: d };
+    return {
+      dir: Math.atan2(by - keeper.y, bx - keeper.x),
+      dist: d,
+      smother: true,
+    };
   }
   const goalX = keeper.team === 'home' ? 0 : PITCH.width;
   const t =
@@ -354,6 +367,7 @@ function keeperThreat(keeper: Player, ball: Ball, time: number) {
   return {
     dir: offset < 0 ? -Math.PI / 2 : Math.PI / 2,
     dist: Math.abs(offset) - KEEPER.diveReach / 2,
+    smother: false,
   };
 }
 

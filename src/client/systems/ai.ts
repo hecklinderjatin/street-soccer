@@ -98,8 +98,19 @@ export class TeamBrain {
     this.goalX = team === 'home' ? 0 : PITCH.width;
   }
 
-  // Think again on the next step (control changed, kickoff, ...).
+  // Think again on the next step (control changed, ...).
   wake() {
+    this.nextThinkAt = 0;
+  }
+
+  // Forget everything (kickoff): orders, queued tackles, and a pass or shot
+  // still waiting to be made (it must not fire after the restart).
+  reset() {
+    this.orders.clear();
+    this.tackles.length = 0;
+    this.action = null;
+    this.lastOwner = null;
+    this.ownerSince = 0;
     this.nextThinkAt = 0;
   }
 
@@ -116,8 +127,14 @@ export class TeamBrain {
     const prev = new Map(this.orders);
     this.orders.clear();
     if (this.action && this.action.p !== owner) this.action = null;
-    // Our AI carrier (a keeper with the ball at its feet too) decides.
-    if (owner && owner.team === this.team && owner !== human && !owner.holding)
+    // Our AI carrier (a keeper with the ball at its feet too) decides; never
+    // for a player the human controls (our keeper included).
+    if (
+      owner &&
+      owner.team === this.team &&
+      !owner.controlled &&
+      !owner.holding
+    )
       this.carry(view, owner, time);
 
     const phase: 'attack' | 'defend' | 'loose' = !owner
@@ -132,7 +149,9 @@ export class TeamBrain {
     }
 
     let free = ai;
-    if (phase === 'loose') {
+    // (No chaser while the ball is out behind a goal, waiting for the goal
+    // kick.)
+    if (phase === 'loose' && ball.out === 0) {
       const chaser = this.pickChaser(view, prev);
       if (chaser) {
         this.set(chaser, 'chase');
