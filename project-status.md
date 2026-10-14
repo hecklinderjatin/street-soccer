@@ -8,9 +8,11 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
-**Local branch integration (2026-10-15):** all authored sprites, player/ball animation work, court and goal updates, celebrations, and Reddit build optimization from `assests` are committed and fast-forward merged into local `main` at `af66544`. Type check, lint, production build and all 14 logic checks passed before the merge. `origin/main` has not been pushed; in-game and phone visual review is still pending.
+**Smaller player sheets for playtest (2026-10-15, `assests`):** release player animation WebP sheets now use quality 98, while both ball sheets remain lossless and editable source PNGs remain unchanged. `scripts/optimize_art.py` verifies identical alpha and bounds visible per-channel color error for every player sheet. The 17 release sheets fell from 9.41 to 5.50 MiB; the complete `dist/client` fell from 10.69 to 6.77 MiB (36.7% further reduction). Production build passed. A side-by-side run frame looked nearly identical, but the small color changes can affect alternate-kit recoloring; test home, away and keeper animations in Reddit playtest before merging this trial to `main` or publishing.
 
-**Reddit client build optimization (2026-10-15, `assests`):** release assets live in `public-release/art` as lossless WebP; the editable PNG originals remain in `public/art`. `scripts/optimize_art.py` regenerates all release sheets and verifies exact alpha/visible colors. Devvit client/server source maps are disabled, and the release public directory excludes development review pages and source PNGs. Boot loads the lossless sheets. Home-kit atlas generation reads its source images directly; after first-match atlas creation, Phaser releases all authored source textures. Ball atlas creation skips source reads on later matches. Production client size fell from 25.11 to 10.69 MiB (57.4%); sprites from 13.62 to 9.41 MiB (30.9%). Type check, lint, build and 14 existing logic checks passed; all 17 referenced sheets are present in release output. User mobile visual/playtest pending.
+**Local branch integration (2026-10-15):** all authored sprites, player/ball animation work, court and goal updates, celebrations, and the first Reddit build optimization from `assests` were merged into `main` at `af66544`; handoff notes followed at `73da3c0`. Type check, lint, production build and all 14 logic checks passed before that merge. `origin/main` now matches `73da3c0`; the smaller quality-98 trial is only on `assests`.
+
+**First Reddit client build optimization (2026-10-15):** the merged baseline uses lossless WebP in `public-release/art`; the editable PNG originals remain in `public/art`. Devvit client/server source maps are disabled, and the release public directory excludes development review pages and source PNGs. Boot loads the release sheets. Home-kit atlas generation reads its source images directly; after first-match atlas creation, Phaser releases all authored source textures. Ball atlas creation skips source reads on later matches. Production client size fell from 25.11 to 10.69 MiB (57.4%); sprites from 13.62 to 9.41 MiB (30.9%). Type check, lint, build and 14 existing logic checks passed; all 17 referenced sheets are present in release output.
 
 **Warm street asphalt revision (2026-10-15, `assests`):** user preferred the older field to the blue-gray version. Code painter now restores warm gray/brown asphalt with exposed aggregate and dark pits, four darker/lighter resurfacing patches and stronger tar seams, dusty edges, scuffed goal wear, twelve short sealed cracks and broken faint basketball key/arc paint. Current football markings stay bright and unchanged. Goal recess floor matches the warm base; geometry, goals and surrounding scenery retained. Texture preview inspected; user gameplay review pending.
 
@@ -270,6 +272,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Trial quality-98 WebP on player release sheets in `assests` to reduce Reddit download size while keeping exact alpha and lossless ball art. Preserve the editable PNG originals. The slight RGB changes make an alternate-kit visual playtest necessary before integrating this trial into `main`.
+
 - Commit the tested `assests` working tree before merging, then fast-forward local `main`. Keep `assests` available for reference and leave remote publication for a separate request.
 
 - Preserve the original sprite PNGs for editing and package pixel-identical lossless WebP copies for Reddit delivery. Keep release art in a separate public directory so development review files and originals are not copied into `dist/client`. Disable Devvit build source maps through its supported client/server options. Release source textures after atlas generation to avoid retaining duplicate images during matches; keep generated atlases across match restarts.
@@ -384,7 +388,9 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
-- Review the merged build in-game and on a phone, then decide when to push local `main` to `origin/main`.
+- Push `assests` if the smaller build should be available remotely, run `npm run dev` from this checkout, and visually check all kits (especially recolored away/keeper sprites), celebrations, dives, tackle/hurt, carrying and shooting before merging the compression trial into `main`.
+
+- Review the merged `main` build in-game and on a phone; the smaller `assests` trial must be checked separately before another release.
 
 - Test a fresh match and a second match on localhost/Reddit mobile to confirm lossless sheet loading and atlas reuse after source textures are released. Record cold start time and memory on a phone before considering smaller source dimensions or build-time atlas generation.
 
@@ -454,6 +460,10 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+### 2026-10-15: Smaller player sheets prepared on `assests`
+
+- Re-encoded the 15 player animation sheets as quality-98 WebP while preserving exact transparency. The two ball sheets remain lossless and all original PNGs remain editable. The regeneration script now checks alpha identity and visible color error. Production client reduced from 10.69 to 6.77 MiB; production build passed. Reddit visual playtest remains to be done before merging.
 
 ### 2026-10-15: Merge `assests` into local `main`
 
