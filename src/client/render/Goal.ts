@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
-import { PITCH } from '../../shared/tuning';
-import { PAL, PX } from '../ui/palette';
+import { BALL, PITCH } from '../../shared/tuning';
+import { PAL } from '../ui/palette';
 import { newProjected, type Projector } from './Projector';
 import { bilinear, type PlaneCorners, type Vec3 } from './ProjectedPlane';
 
@@ -126,7 +126,7 @@ export class Goal {
   ) {
     projector.project(from.x, from.y, from.z, a);
     projector.project(to.x, to.y, to.z, b);
-    const width = Math.max(3, Math.round((1.5 * PX * (a.scale + b.scale)) / 2));
+    const width = Math.max(3, (BALL.postRadius * (a.scale + b.scale)) / 2);
     g.lineStyle(width + 4, PAL.black, 1).lineBetween(a.x, a.y, b.x, b.y);
     g.lineStyle(width, PAL.white, 1).lineBetween(a.x, a.y, b.x, b.y);
   }

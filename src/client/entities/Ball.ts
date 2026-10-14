@@ -42,7 +42,8 @@ export class Ball {
   priorityUntil = 0; // ... until this sim time (a won tackle)
   inNet: -1 | 0 | 1 = 0; // which net the ball is in (-1 left, 1 right)
   out: -1 | 0 | 1 = 0; // went out over the bar / end wall behind this goal (until the restart)
-  private rolled = 0; // distance rolled, drives the spinning frames
+  private rolled = 0; // signed distance rolled, drives the spinning frames
+  private rollDir = 1; // +1 rolling right (frames forward), -1 left (reversed)
   shotAnimationAge = Infinity; // seconds since strike; brief squash/stretch effect
 
   private readonly sprite: Phaser.GameObjects.Image;
@@ -119,7 +120,12 @@ export class Ball {
     projector.project(this.renderX, this.renderY, this.renderZ, at);
     // Height also reads from a slight scale-up as the ball rises.
     const lift = 1 + this.renderZ / 400;
-    this.rolled += this.speed * dtSec;
+    // Rolling left plays the frames backwards; a straight up / down roll
+    // keeps the last direction.
+    if (Math.abs(this.vx) > 1) this.rollDir = this.vx < 0 ? -1 : 1;
+    this.rolled += this.speed * dtSec * this.rollDir;
+    const n = BALL_FRAMES.length;
+    const rollFrame = ((Math.floor(this.rolled / 14) % n) + n) % n;
     const shotFrame = Math.floor(this.shotAnimationAge * 18);
     const shotVisual = shotFrame < BALL_SHOT_FRAMES.length;
     this.shotAnimationAge += dtSec;
@@ -128,8 +134,7 @@ export class Ball {
       .setFrame(
         shotVisual
           ? (BALL_SHOT_FRAMES[shotFrame] ?? 'shot1')
-          : (BALL_FRAMES[Math.floor(this.rolled / 14) % BALL_FRAMES.length] ??
-              'a')
+          : (BALL_FRAMES[rollFrame] ?? 'a')
       )
       .setPosition(
         at.x,

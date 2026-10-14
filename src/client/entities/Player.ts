@@ -7,17 +7,24 @@ import {
   MARKER_ARROW,
   MARKER_TARGET,
   IDLE_FRAME,
+  LOOKS,
+  PLAYER_HAIR_TEXTURE,
+  PLAYER_SKIN_TEXTURE,
   PLAYER_HEIGHT,
   PLAYER_ORIGIN_Y,
   PLAYER_PX,
+  celebrateAnim,
   idleAnim,
   holdAnim,
   playerTexture,
   runAnim,
   shootAnim,
   type Kit,
+  type Look,
   type RunView,
 } from '../art/playerArt';
+
+const DEFAULT_LOOK: Look = LOOKS[0] ?? { skin: 0xffffff, hair: 0xffffff };
 
 export type Role = 'outfield' | 'keeper';
 
@@ -90,6 +97,8 @@ export class Player {
   staggerUntil = -Infinity; // tackled: can't move or touch the ball until then
   private hurtAt = -Infinity;
   private hurtDir = 0;
+  celebrating = false; // the scorer, during the goal celebration
+  private celebrationStyle = 0; // which of the celebrations it plays
   tackleReadyAt = 0; // AI: no new tackle before this
   wantDir = 0; // the direction last asked for by stick or AI (the juke check)
 
@@ -106,6 +115,8 @@ export class Player {
   private seenCount = 0;
 
   private readonly sprite: Phaser.GameObjects.Sprite;
+  private readonly skinLayer: Phaser.GameObjects.Sprite;
+  private readonly hairLayer: Phaser.GameObjects.Sprite;
   private readonly targetRing: Phaser.GameObjects.Image;
   private readonly arrow: Phaser.GameObjects.Image;
   private readonly barBg: Phaser.GameObjects.Rectangle;
@@ -122,7 +133,8 @@ export class Player {
     readonly team: Team,
     readonly role: Role,
     x: number,
-    y: number
+    y: number,
+    look: Look = DEFAULT_LOOK
   ) {
     this.x = this.prevX = this.renderX = x;
     this.y = this.prevY = this.renderY = y;
@@ -138,6 +150,15 @@ export class Player {
     this.sprite = scene.add
       .sprite(0, 0, playerTexture(this.kit), IDLE_FRAME)
       .setOrigin(0.5, PLAYER_ORIGIN_Y);
+    // Added right after the body, so at the same depth they draw on top.
+    this.skinLayer = scene.add
+      .sprite(0, 0, PLAYER_SKIN_TEXTURE, IDLE_FRAME)
+      .setOrigin(0.5, PLAYER_ORIGIN_Y)
+      .setTint(look.skin);
+    this.hairLayer = scene.add
+      .sprite(0, 0, PLAYER_HAIR_TEXTURE, IDLE_FRAME)
+      .setOrigin(0.5, PLAYER_ORIGIN_Y)
+      .setTint(look.hair);
     this.arrow = scene.add
       .image(0, 0, MARKER_ARROW)
       .setScale(PX)
@@ -179,6 +200,7 @@ export class Player {
     this.reactSmother = false;
     this.tackleAt = this.tackleUntil = this.staggerUntil = -Infinity;
     this.hurtAt = -Infinity;
+    this.celebrating = false;
     this.tackleDone = false;
     this.stumbling = false;
     this.jukeRef = null;
@@ -268,6 +290,17 @@ export class Player {
     this.sprite.setTexture(playerTexture(this.kit), 'hurt1');
   }
 
+  // The scorer celebrates until the next kickoff reset (placeAt).
+  celebrate(style: number) {
+    this.celebrating = true;
+    this.celebrationStyle = style;
+    this.sprite.off(
+      Phaser.Animations.Events.ANIMATION_COMPLETE,
+      this.finishShoot
+    );
+    this.shooting = false;
+  }
+
   // Call at the start of every simulation step.
   savePrevious() {
     this.prevX = this.x;
@@ -297,14 +330,17 @@ export class Player {
       simTime >= this.diveAt &&
       simTime < this.recoverUntil;
     this.sprite.setAngle(
-      this.lying && !tackling && !diving && !hurting
+      this.lying && !tackling && !diving && !hurting && !this.celebrating
         ? Math.cos(this.diveDir) < 0
           ? -80
           : 80
         : 0
     );
     // A shot / kick animation plays out; otherwise run or stand.
-    if (hurting) {
+    if (this.celebrating) {
+      this.sprite.play(celebrateAnim(this.kit, this.celebrationStyle), true);
+      this.sprite.anims.timeScale = 1;
+    } else if (hurting) {
       const progress = Math.max(
         0,
         Math.min(
@@ -399,7 +435,9 @@ export class Player {
       this.sprite.anims.timeScale = 1;
     }
     const cos = Math.cos(this.heading);
-    if (hurting) {
+    if (this.celebrating) {
+      if (Math.abs(cos) > 0.2) this.sprite.setFlipX(cos < 0);
+    } else if (hurting) {
       this.sprite.setFlipX(Math.cos(this.hurtDir) < 0);
     } else if (diving) {
       // The supplied six-pose sheet reaches left; mirror for rightward dives.
@@ -434,6 +472,16 @@ export class Player {
         feet.y + ((handY - 681) / 724) * PLAYER_HEIGHT * feet.scale;
       this.heldBallScreen.scale = feet.scale;
     }
+
+    // Skin and hair layers copy the body's final pose for this frame.
+    for (const layer of [this.skinLayer, this.hairLayer])
+      layer
+        .setFrame(this.sprite.frame.name)
+        .setPosition(this.sprite.x, this.sprite.y)
+        .setScale(this.sprite.scaleX, this.sprite.scaleY)
+        .setAngle(this.sprite.angle)
+        .setFlipX(this.sprite.flipX)
+        .setDepth(this.sprite.depth);
 
     // The pass-target ring (a perspective-squashed circle) and overhead
     // markers, which keep a fixed screen size and sit just above the sprite.

@@ -16,8 +16,30 @@ import {
   TACTICS,
 } from '../../shared/tuning';
 import type { MatchConfig, MatchResult, Team } from '../../shared/types';
-import { createBallTexture } from '../art/ballArt';
-import { PLAYER_HEIGHT, createPlayerTextures } from '../art/playerArt';
+import {
+  AUTHORED_BALL_TEXTURE,
+  AUTHORED_SHOT_BALL_TEXTURE,
+  createBallTexture,
+} from '../art/ballArt';
+import {
+  LOOKS,
+  CELEBRATIONS,
+  PLAYER_HEIGHT,
+  AUTHORED_IDLE_TEXTURE,
+  AUTHORED_RUN_TEXTURE,
+  AUTHORED_SHOOT_TEXTURE,
+  AUTHORED_RUN_UP_TEXTURE,
+  AUTHORED_RUN_DOWN_TEXTURE,
+  AUTHORED_RUN_UP_DIAGONAL_TEXTURE,
+  AUTHORED_RUN_DOWN_DIAGONAL_TEXTURE,
+  AUTHORED_TACKLE_TEXTURE,
+  AUTHORED_DIVE_TEXTURE,
+  AUTHORED_HOLD_TEXTURE,
+  AUTHORED_HURT_TEXTURE,
+  AUTHORED_CARRY_TEXTURE,
+  createPlayerTextures,
+  type Look,
+} from '../art/playerArt';
 import { Ball } from '../entities/Ball';
 import { Player } from '../entities/Player';
 import { Court } from '../render/Court';
@@ -175,22 +197,63 @@ export class MatchScene extends Phaser.Scene {
   create() {
     createPlayerTextures(this);
     createBallTexture(this);
+    // The generated atlases persist across matches; keep no duplicate source
+    // sheets in Phaser's texture manager after the first match is prepared.
+    for (const key of [
+      AUTHORED_BALL_TEXTURE,
+      AUTHORED_SHOT_BALL_TEXTURE,
+      AUTHORED_IDLE_TEXTURE,
+      AUTHORED_RUN_TEXTURE,
+      AUTHORED_SHOOT_TEXTURE,
+      AUTHORED_RUN_UP_TEXTURE,
+      AUTHORED_RUN_DOWN_TEXTURE,
+      AUTHORED_RUN_UP_DIAGONAL_TEXTURE,
+      AUTHORED_RUN_DOWN_DIAGONAL_TEXTURE,
+      AUTHORED_TACKLE_TEXTURE,
+      AUTHORED_DIVE_TEXTURE,
+      AUTHORED_HOLD_TEXTURE,
+      AUTHORED_HURT_TEXTURE,
+      AUTHORED_CARRY_TEXTURE,
+      ...CELEBRATIONS.map((c) => c.key),
+    ])
+      if (this.textures.exists(key)) this.textures.remove(key);
     this.court = new Court(this);
 
+    // Different skin / hair per player: home takes looks 0-4, away starts
+    // three along, so nobody in a team shares a look.
+    const look = (i: number): Look =>
+      LOOKS[i % LOOKS.length] ?? { skin: 0xffffff, hair: 0xffffff };
+    const keeperLook = FORMATION.outfield.length;
     this.home = FORMATION.outfield.map(
-      (s) => new Player(this, 'home', 'outfield', s.x, s.y)
+      (s, i) => new Player(this, 'home', 'outfield', s.x, s.y, look(i))
     );
     const k = FORMATION.keeper;
-    this.homeKeeper = new Player(this, 'home', 'keeper', k.x, k.y);
+    this.homeKeeper = new Player(
+      this,
+      'home',
+      'keeper',
+      k.x,
+      k.y,
+      look(keeperLook)
+    );
     this.awayKeeper = new Player(
       this,
       'away',
       'keeper',
       PITCH.width - k.x,
-      k.y
+      k.y,
+      look(keeperLook + 3)
     );
     this.away = FORMATION.outfield.map(
-      (s) => new Player(this, 'away', 'outfield', PITCH.width - s.x, s.y)
+      (s, i) =>
+        new Player(
+          this,
+          'away',
+          'outfield',
+          PITCH.width - s.x,
+          s.y,
+          look(i + 3)
+        )
     );
     this.outfield = [...this.home, ...this.away];
     this.everyone = [...this.outfield, this.homeKeeper, this.awayKeeper];
@@ -289,6 +352,7 @@ export class MatchScene extends Phaser.Scene {
       ballVy: b.vy,
       playerX: this.controlled.renderX,
       playerY: this.controlled.renderY,
+      celebrant: this.celebrantFocus(),
     });
 
     const t = time / 1000;
@@ -477,7 +541,12 @@ export class MatchScene extends Phaser.Scene {
       this.passChargeSince = null;
       this.clearReceivers();
       // Ball in the right net = home scores (home attacks right).
-      this.flow.onGoal(contact.goal > 0 ? 'home' : 'away');
+      const scoring = contact.goal > 0 ? 'home' : 'away';
+      // One of the celebrations at random, chosen once per goal.
+      const scorer = this.scorer(scoring, ball.lastTouch);
+      if (scorer && !scorer.celebrating)
+        scorer.celebrate(Math.floor(Math.random() * CELEBRATIONS.length));
+      this.flow.onGoal(scoring);
     }
     if (contact.out !== 0 && this.flow.phase === 'live') {
       // Over the bar (or over the end wall): the defending keeper restarts.
@@ -1122,6 +1191,29 @@ export class MatchScene extends Phaser.Scene {
 
   // Players to their spots, ball on the centre spot. The kicking team's
   // forward stands next to the ball; the away side mirrors ours.
+  // Ground point of the celebrating scorer, for the camera (null otherwise).
+  private celebrantFocus() {
+    const p = this.everyone.find((q) => q.celebrating);
+    return p ? { x: p.renderX, y: p.renderY } : null;
+  }
+
+  // Who celebrates a goal: the last toucher if they are on the scoring
+  // team, else (an own goal) the scoring team's outfielder nearest the ball.
+  private scorer(team: Team, last: Player | null) {
+    if (last && last.team === team) return last;
+    const side = team === 'home' ? this.home : this.away;
+    let best: Player | null = null;
+    let bestD = Infinity;
+    for (const p of side) {
+      const d = Math.hypot(p.x - this.ball.x, p.y - this.ball.y);
+      if (d < bestD) {
+        bestD = d;
+        best = p;
+      }
+    }
+    return best;
+  }
+
   private resetForKickoff() {
     this.ball.placeAt(PITCH.width / 2, PITCH.height / 2);
     FORMATION.outfield.forEach((s, i) => {

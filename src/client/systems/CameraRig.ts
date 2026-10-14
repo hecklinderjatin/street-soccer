@@ -1,4 +1,4 @@
-import { CAMERA } from '../../shared/tuning';
+import { CAMERA, PITCH } from '../../shared/tuning';
 import type { Projector } from '../render/Projector';
 
 export type CameraFocus = {
@@ -8,6 +8,8 @@ export type CameraFocus = {
   ballVy: number;
   playerX: number;
   playerY: number;
+  // The goal scorer while celebrating: the camera centres and zooms on it.
+  celebrant: { x: number; y: number } | null;
 };
 
 // The broadcast camera's focus point on the ground, following the plan's
@@ -69,15 +71,22 @@ export class CameraRig {
     this.aheadX += (wantX - this.aheadX) * k;
     this.aheadY += (wantY - this.aheadY) * k;
 
-    const tx = clampX(
-      CAMERA.ballWeight * f.ballX +
-        (1 - CAMERA.ballWeight) * f.playerX +
-        this.aheadX
-    );
+    const c = f.celebrant;
+    // Celebrating: on the scorer, allowed right up to the goal lines (the
+    // close zoom keeps the view on the court).
+    const tx = c
+      ? Math.max(0, Math.min(PITCH.width, c.x))
+      : clampX(
+          CAMERA.ballWeight * f.ballX +
+            (1 - CAMERA.ballWeight) * f.playerX +
+            this.aheadX
+        );
     const ty = clampY(
-      CAMERA.ballWeight * f.ballY +
-        (1 - CAMERA.ballWeight) * f.playerY +
-        this.aheadY
+      c
+        ? c.y - CAMERA.celebrateLift
+        : CAMERA.ballWeight * f.ballY +
+            (1 - CAMERA.ballWeight) * f.playerY +
+            this.aheadY
     );
     [this.fx, this.velX] = smoothDamp(
       this.fx,
@@ -96,7 +105,8 @@ export class CameraRig {
 
     // Exponential ease that is ~95% done after zoomReturnSec.
     const zk = 1 - Math.exp((-3 * dtSec) / CAMERA.zoomReturnSec);
-    this.zoom += (this.targetZoom - this.zoom) * zk;
+    const zoomTo = c ? CAMERA.celebrateZoom : this.targetZoom;
+    this.zoom += (zoomTo - this.zoom) * zk;
 
     this.projector.setFocus(this.fx, this.fy, this.zoom);
   }

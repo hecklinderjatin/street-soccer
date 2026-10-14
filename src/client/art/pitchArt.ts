@@ -4,6 +4,7 @@ import { seededRandom } from '../ui/backdrop';
 import { PAL, PX } from '../ui/palette';
 import { paintPixelText } from '../ui/pixelFont';
 import { fill, hex, makeTexture, paintRing } from './pixelArt';
+import { paintStreetAsphalt } from './streetAsphalt';
 
 // Textures for the 3D street court, painted at art-pixel resolution
 // (1 texel = PX world px). The Match scene maps them onto ProjectedPlanes.
@@ -42,8 +43,8 @@ export const GROUND_EXTENT = {
 export const BASKETBALL = { x0: -660, x1: -160, y0: 180, y1: 1120 };
 export const PARKING = {
   rows: [
-    [2520, 2720],
-    [2880, 3080],
+    [PITCH.width + 120, PITCH.width + 320],
+    [PITCH.width + 480, PITCH.width + 680],
   ] as const, // x extents of the two rows of bays
   y0: 80, // first bay line
   bay: 100, // bay width along y
@@ -78,53 +79,14 @@ function paintGround(ctx: CanvasRenderingContext2D) {
   for (let x = 0; x < GROUND_W; x += 24)
     fill(ctx, x, H + 60, 12, 1, PAL.white, 0.7);
 
-  // Court asphalt with broad worn bands (they read like mowing stripes in perspective).
-  fill(ctx, ox, 0, W, H, PAL.darkGray);
-  const band = 50;
-  for (let bx = 0; bx < W; bx += band) {
-    const dense = Math.floor(bx / band) % 2 === 0;
-    const count = dense ? 2600 : 900;
-    for (let i = 0; i < count; i++) {
-      fill(ctx, ox + bx + rand() * band, rand() * H, 1, 1, PAL.lavender, 0.45);
-    }
-  }
-  for (let i = 0; i < 4000; i++)
-    fill(ctx, ox + rand() * W, rand() * H, 1, 1, PAL.black, 0.4);
-
-  // Cracks: short random walks.
-  for (let c = 0; c < 30; c++) {
-    let x = ox + rand() * W;
-    let y = rand() * H;
-    const len = 8 + Math.floor(rand() * 18);
-    const dirX = rand() < 0.5 ? -1 : 1;
-    for (let s = 0; s < len; s++) {
-      fill(ctx, x, y, 1, 1, PAL.black, 0.7);
-      x += rand() < 0.7 ? dirX : 0;
-      y += rand() < 0.5 ? (rand() < 0.5 ? -1 : 1) : 0;
-    }
-  }
-
-  // Puddles.
-  for (let p = 0; p < 5; p++) {
-    const cx = ox + 30 + rand() * (W - 60);
-    const cy = 20 + rand() * (H - 40);
-    const rx = 6 + rand() * 8;
-    const ry = 3 + rand() * 4;
-    for (let y = -ry; y <= ry; y++) {
-      for (let x = -rx; x <= rx; x++) {
-        if ((x * x) / (rx * rx) + (y * y) / (ry * ry) <= 1)
-          fill(ctx, cx + x, cy + y, 1, 1, PAL.navy, 0.85);
-      }
-    }
-    fill(ctx, cx - rx / 2, cy - ry / 2, 3, 1, PAL.blue, 0.8);
-  }
+  paintStreetAsphalt(ctx, ox, W, H, rand);
 
   // Goal recesses: asphalt floor inside each net, in shadow.
   const m = PITCH.goalMouth / PX;
   const d = PITCH.goalDepth / PX;
   const gTop = Math.floor((H - m) / 2);
   for (const x of [ox - d, ox + W]) {
-    fill(ctx, x, gTop, d, m, PAL.darkGray);
+    fill(ctx, x, gTop, d, m, 0x5f5852);
     fill(ctx, x, gTop, d, m, PAL.black, 0.45);
   }
 

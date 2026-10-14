@@ -1,6 +1,13 @@
 import { defineConfig } from 'vite';
 import { devvit } from '@devvit/start/vite';
+import { resolve } from 'node:path';
 
 export default defineConfig({
-  plugins: [devvit()],
+  publicDir: resolve('public-release'),
+  plugins: [
+    devvit({
+      client: { build: { sourcemap: false } },
+      server: { build: { sourcemap: false } },
+    }),
+  ],
 });

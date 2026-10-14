@@ -8,6 +8,26 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Reddit client build optimization (2026-10-15, `assests`):** release assets live in `public-release/art` as lossless WebP; the editable PNG originals remain in `public/art`. `scripts/optimize_art.py` regenerates all release sheets and verifies exact alpha/visible colors. Devvit client/server source maps are disabled, and the release public directory excludes development review pages and source PNGs. Boot loads the lossless sheets. Home-kit atlas generation reads its source images directly; after first-match atlas creation, Phaser releases all authored source textures. Ball atlas creation skips source reads on later matches. Production client size fell from 25.11 to 10.69 MiB (57.4%); sprites from 13.62 to 9.41 MiB (30.9%). Type check, lint, build and 14 existing logic checks passed; all 17 referenced sheets are present in release output. User mobile visual/playtest pending.
+
+**Warm street asphalt revision (2026-10-15, `assests`):** user preferred the older field to the blue-gray version. Code painter now restores warm gray/brown asphalt with exposed aggregate and dark pits, four darker/lighter resurfacing patches and stronger tar seams, dusty edges, scuffed goal wear, twelve short sealed cracks and broken faint basketball key/arc paint. Current football markings stay bright and unchanged. Goal recess floor matches the warm base; geometry, goals and surrounding scenery retained. Texture preview inspected; user gameplay review pending.
+
+**Goal celebrations (2026-10-15):** the scorer plays one of three user celebrations, picked at random once per goal (`CELEBRATIONS` in playerArt.ts; `Player.celebrate(style)`), each 6 poses looped at 6 fps through the goal phase: (0) fists, fists up, arms-up hop, jump, flex, one arm up (`player-celebrate-authored.png`, scale 1.45); (1) run in, knee slide arms out, fists, fist up hand on heart (`player-celebrate2-authored.png`, 1.37); (2) dance: hips, flexes, swing, pointing up (`player-celebrate3-authored.png`, 1.35). Sheets: 3x2 cells of 720x724 (wide for outstretched arms), poses scaled 1.45x (nearest) to the idle size, centred on the legs, feet on the 681 ground line, the jump lifted ~104 px. Kit split by rows per pose (`CELEBRATION_WAIST` / `CELEBRATION_SHORTS_END`); deeper pink matched with the 0.4 blue limit like the dive. Scorer = `ball.lastTouch` if on the scoring team, else (own goal) the scoring team's outfielder nearest the ball (`MatchScene.scorer`). `Player.celebrate()` sets `celebrating` until the kickoff reset (`placeAt`). Atlas now 78 frames (5 rows of 16). Skin/hair look layers apply. User visual review pending.
+
+**Tackle stagger 1.0 s (2026-10-15):** `TACKLE.staggerSec` 0.5 -> 1.0 (user choice) so the coming 8-pose tackled-player fall animation reads; also applies to a keeper smother. The fall art itself is still to come (the image arrived mid-task and was not saved as a file; asked the user to resend).
+
+**Court surface character (2026-10-15):** `paintGround` (pitchArt.ts) now runs a one-off pixel pass over the court after the speckle: slow light/dark grain (value noise, 44 and 14 art px cells, +-6-9%), polished wear (+10% lighter, fewer grit specks) in the centre circle and in front of each goal (`courtWear`), a dark dusty strip ~22 art px along the walls and fence with a ragged edge (`edgeDust`, -16% and 30% towards a dust brown; skipped in the goal mouths), and 7 hard-edged resurfacing patches (0.9x or 1.07x) with dark seams and chipped light pixels. Baked into the ground texture at startup, no runtime cost. Cracks, puddles and lines unchanged. User visual review pending.
+
+**New keeper dive (2026-10-15):** `public/art/player-dive-authored.png` is rebuilt from the user's 4-pose dive (crouch, launch, full stretch, landed; 1536x1024 WebP with alpha). Poses scaled 1.25x (nearest, to match the old dive's size) into the same 3x2 grid of 1152x724 cells, centred, bottoms on the 681 ground line (launch lifted 40 px, stretch 20 px). Cells: crouch, launch, launch, stretch, stretch, landed, so Player.ts timing is unchanged (crouch 0-20% of the flight, launch to 60%, stretch to the end, landed until recovery). Keeper kits split shirt / shorts / socks with slanted lines per pose (`DIVE_KIT_SPLITS`, playerArt.ts) since the body is diagonal or flat; the dive's deeper shaded pink is matched with a lower blue limit (0.4 vs 0.55). User visual review pending.
+
+**New rolling ball (2026-10-15):** `public/art/ball-authored.png` is now the user-supplied four-view ball (2000x667 WebP with alpha, cut into a 4 x 64 px strip, ball filling the frame like the old one). `BALL_FRAMES` is `a`-`d`; the roll advances a frame every 14 px, forwards when the ball moves right and backwards when it moves left (Ball.rollDir; a straight up/down roll keeps the last direction). The shot squash/stretch frames (`ball-shot-authored.png`) are unchanged, drawn from the older ball. User visual review pending.
+
+**Player looks (2026-10-15):** every player has their own skin tone and hair/beard colour, from one set of authored art. At startup `createLookLayers` (playerArt.ts) reads the home atlas, classifies skin and hair pixels (warm tones; hair = darker, less blue; a neighbour vote cleans copper hair highlights and specks) and builds two grey atlases, `player-skin` and `player-hair`. Each Player draws them as two tinted sprites over the kit sprite, copying its frame, position, scale, angle, flip and depth every render. 6 looks in `LOOKS` (original, olive/black, brown/black, fair/blond, dark/black, light/red); home players take looks 0-4, away starts 3 along, so nobody in a team shares one. Memory is fixed: two extra atlases whatever the number of looks. User visual review pending.
+
+**Pitch resize rendering correction (2026-10-15):** car park coordinates now follow the right goal line, preventing parking bays/cars from overlapping the enlarged playing field and goal recess. Camera follow limits derive from pitch dimensions. Goal frame thickness now follows the 10% larger post radius, shared with collision. Pitch/goal geometry retains the requested 10% increase; camera zoom/player scale remain unchanged. User visual review pending.
+
+**Larger pitch and goals (2026-10-15, branch `assests`):** pitch dimensions increased by 10% to 2640x1430; goal opening 286, height 114.4 and net depth 66. Centre circle, penalty/goal areas and formation positions scale with the field; kickoff retains the 24 px ball gap. Player size, camera settings and movement/save tuning retained. User visual review pending.
+
 **Shot and keeper carry replacements (2026-10-14):** latest supplied six-pose ball sheet replaces shot artwork; latest open-glove running sheet replaces keeper carrying artwork. Live held-ball anchors have been remeasured for all six poses. Existing shot trails, animation rates, stationary holding, physics and user scale/camera settings remain unchanged; visual review on localhost pending.
 
 **Shot-ball deformation (2026-10-14):** supplied six-pose squash/stretch ball plays once at 18 FPS on shots (and human keeper kicks), then returns to the rolling sheet. Shape changes preserve the sprite centre and base ball diameter. Existing trail rendering, shadow, ball physics and shot tuning are unchanged.
@@ -248,6 +268,18 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Preserve the original sprite PNGs for editing and package pixel-identical lossless WebP copies for Reddit delivery. Keep release art in a separate public directory so development review files and originals are not copied into `dist/client`. Disable Devvit build source maps through its supported client/server options. Release source textures after atlas generation to avoid retaining duplicate images during matches; keep generated atlases across match restarts.
+
+- User rejected the smooth blue-gray look. Restore the older warm asphalt palette and stronger grit, adding street history through faded basketball paint and tar repairs. Old paint remains faint and broken beneath current football markings; all surface details are cosmetic and baked once in code.
+
+- Field artwork uses a seeded startup raster pass, with no imported image assets or per-frame texture work. Keep repairs/cracks near the perimeter and variation quiet at midfield to improve player/ball readability; preserve existing projected markings and goal art.
+
+- Player variety by tinted skin/hair layers instead of baked copies per look: copies of the 3584x512 atlas per kit x look would multiply GPU memory, the layers cost two atlases total. The face shape and hairstyle stay the same; hairstyles and beards drawn by code over a plain-faced base sheet are the planned next step (needs art with a plain face).
+
+- Anchor parking rows to `PITCH.width` and derive camera focus limits from field proportions so resizing the court updates surrounding scenery and follow coverage. Render goal tubes using the collision post radius, including the 10% increase, without rounding away small thickness changes.
+
+- Interpret the 10% playing-area increase as 10% in both ground dimensions, and the goal increase as 10% in width, height and depth. Scale markings and formation positions proportionally, but keep kickoff ball clearance and player/ball sizes unchanged. Keeper reaction fixture now uses pitch-relative positions.
+
 - Replacement shot/carry sheets retain the established six-frame layouts and timing. Recompute live-ball hand anchors for the new open-glove poses, drawing the ball behind the gloves while carrying.
 - Latest dive sheet has six poses in row order, stored in three source columns. Keep hurt artwork in its separate two-column layout. Scale five dive frames over the actual dive duration and hold frame six through recovery; mirror the new left-reaching source for rightward dives.
 - Shot deformation is a brief six-frame sequence rather than continuous pulsing throughout flight. Use uniform source scaling and 96x96 cells around a 64 px round-ball reference so tall/wide poses preserve their intended deformation. Center the shot frames at the normal ball centre and leave `renderTrail` unchanged.
@@ -348,6 +380,27 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Test a fresh match and a second match on localhost/Reddit mobile to confirm lossless sheet loading and atlas reuse after source textures are released. Record cold start time and memory on a phone before considering smaller source dimensions or build-time atlas generation.
+
+- Review the warmer asphalt revision at gameplay scale: visible grit, worn older-court paint, repair seams and boot scuffs should convey street character while the ball and football lines remain readable.
+
+- Review the new blue-gray asphalt in a fresh localhost match at gameplay scale, especially ball visibility, subtle goal wear and perimeter repairs.
+
+- Tackled-player fall: waiting for the user's 8-pose image as a file (stumble, fall, crawl, lying, clutch knee, sitting, kneel, getting up). Plan: replace `player-hurt-authored.png` with an 8-frame sheet, slanted kit splits for the lying poses, and play all 8 over the 1.0 s stagger (fast fall, longer lying / get-up) instead of borrowing the tackle get-up frames.
+- Review the goal celebration: scale vs other players, the loop speed (6 fps), own goals.
+
+- Review the court surface: grain strength, wear brightness, dust strip and patch count/contrast (numbers inline in `paintGround` / `courtWear` / `edgeDust`). Further ground ideas offered: wall shadow + vignette, painted/chipped lines, street props (manhole, drains, stains, weeds), kerb, dust puffs/scuffs.
+
+- Review the new keeper dive both ways (mirrored for right dives), with both keeper kits; check the pose timing and that the landed pose sits on the ground.
+
+- Review the new ball while rolling (frame order / spin read) and next to the older shot-stretch frames; if they clash, supply a matching shot sheet.
+
+- Review the player looks in game: skin/hair colours, no orange streaks left in dark hair, layers staying locked to the body in tackles, dives and the keeper hold. Tune colours in `LOOKS` and the reference lumas (`SKIN_REF_LUMA`, `HAIR_REF_LUMA`) in playerArt.ts.
+
+- Review the corrected goal areas on both ends: parking must remain outside the right wall, camera should follow to the enlarged boundaries, and post thickness should match the larger opening.
+
+- Playtest the 10% larger pitch and goals on `assests`, checking kickoff, camera coverage and saves near the taller crossbar.
+
 - Review the latest shot-ball sheet and open-glove keeper carrying poses on localhost, especially held-ball alignment in both facing directions.
 - Review the six-pose keeper dive, both directions and short AI dives, especially landing/recovery. Physics, shot trails and camera/player scale remain unchanged.
 - Review the new shot-ball squash/stretch sequence at strike, the transition back to rolling, and the existing trails during shots/curl/chips.
@@ -397,6 +450,67 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+### 2026-10-15: Smaller Reddit release build
+
+- Added a reproducible lossless WebP conversion script and a release-only public directory; changed Boot to load these exact-pixel sheets. Disabled Devvit source maps and excluded sprite source PNGs/review pages from client output.
+- Avoided home-kit source canvas copies, released authored source textures after atlases are built, and made ball atlas creation reusable on match restart. Output: 25.11 to 10.69 MiB; visible sprite colors and alpha were checked pixel-for-pixel. Type check, lint, production build and all 14 existing logic checks passed; static release references verified.
+
+### 2026-10-15: Warmer, rougher street field revision
+
+- Reworked the rejected blue-gray surface toward the older warm asphalt look, with stronger stone/pit grain, four repaired sections, tar seams, goal scuffs and more visible boundary cracks.
+- Added faded, chipped basketball keys/arcs beneath the football markings, entirely through code. Inspected the painter preview; type check, lint and rebuild passed. User visual review pending.
+
+### 2026-10-15: Code-painted blue-gray street field
+
+- Added a deterministic asphalt painter with broad fading, restrained grain, three jagged repairs and subtle goal wear. Removed dense bright speckles, random central repairs and bright puddles from the playing field; retained surrounding pavement/parking/basketball artwork and projected football markings.
+- Inspected a raster preview of the actual painter. Type check, lint and production rebuild passed; user in-game review pending. No image assets added.
+
+### 2026-10-15: Three goal celebrations, picked at random
+
+- Added the user's knee-slide and dance celebrations next to the first one; the scorer picks one at random per goal. All three sheets rebuilt on 720 px cells.
+- Type check, lint, production build and logic checks run; offline kit-split previews checked; no gameplay test (user review pending).
+
+### 2026-10-15: Goal celebration; tackle stagger 1.0 s
+
+- The scorer loops the user's 6-pose celebration during the goal phase (new sheet, `celebrateAnim`, `Player.celebrate`, `MatchScene.scorer`).
+- `TACKLE.staggerSec` 0.5 -> 1.0 for the upcoming tackled-player fall animation.
+- Type check, lint, production build and logic checks run; offline kit-split preview checked; no gameplay test (user review pending).
+
+### 2026-10-15: Court surface with character
+
+- Grain, polished wear (centre circle, goal mouths), dusty strip along walls/fence and resurfacing patches with seams, baked into the ground texture.
+- No gameplay test (user review pending).
+
+### 2026-10-15: Ball spins backwards when rolling left
+
+- Ball.ts keeps a signed roll distance: moving left plays the 4 roll frames in reverse, so the spin matches the direction (user: the right-moving roll was perfect, left looked wrong).
+- Type check, lint, production build and all 14 logic checks passed; no gameplay test.
+
+### 2026-10-15: New goalkeeper dive
+
+- Replaced the 6-frame dive with the user's 4 poses laid out as 6 cells (crouch, launch x2, stretch x2, landed). Slanted per-pose kit split lines for the keeper kits and a wider pink match for this sheet.
+- Type check, lint, production build and all 14 logic checks passed; offline kit-split preview checked; no gameplay test (user review pending).
+
+### 2026-10-15: New ball sprite
+
+- Replaced the 6-frame rolling ball with the user's 4-view ball sheet (transparent, 64 px frames, same on-pitch size). `BALL_FRAMES` cut to 4.
+- Type check, lint, production build and logic checks run; no gameplay test (user review pending).
+
+### 2026-10-15: Different skin tone and hair colour per player
+
+- New grey skin and hair layer atlases built at startup from the home atlas; each Player draws them tinted over its kit sprite. 6 looks, no repeats within a team (MatchScene). `Player` takes an optional `look`.
+- Type check, lint, production build and all 14 logic checks passed; offline colour preview of the idle frame checked; no gameplay test (user review pending).
+
+### 2026-10-15: Correct scenery, camera and post scaling after pitch enlargement
+
+- Fixed hard-coded parking coordinates that placed cars and parking paint inside the enlarged right goal area. Parking rows now move with the goal line.
+- Made camera follow limits proportional to the pitch and increased collision/render post radius by 10%. Goal frame rendering shares that radius and retains fractional thickness. Type check, lint, production build and all 14 logic checks passed; user visual playtest pending.
+
+### 2026-10-15: Pitch and goals enlarged by 10%
+
+- Increased pitch length/depth, goal opening/crossbar/net depth and pitch markings by 10%; adjusted formations and kickoff positions for the larger field.
+- Changed keeper reaction fixture to pitch-relative coordinates so its smother/shot scenario remains at the goal. Existing player size, camera and physics tuning retained. Type check, lint, production build and all 14 existing logic checks passed; user visual playtest pending.
 
 ### 2026-10-14: Latest shot-ball and keeper carrying sheets
 

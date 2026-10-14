@@ -15,11 +15,11 @@ export const SIM = {
 // World units are px on the ground plane: x along the pitch, y across it
 // (0 = far touchline, height = near touchline), z up.
 export const PITCH = {
-  width: 2400, // playing area width, goals at left and right ends
-  height: 1300, // playing area depth, wall along the far side, fence along the near side
-  goalMouth: 260, // goal opening
-  goalDepth: 60, // how far the net reaches behind the goal line
-  goalHeight: 104, // crossbar height (about 1.35x a player once perspective is applied)
+  width: 2640, // playing area width, goals at left and right ends
+  height: 1430, // playing area depth, wall along the far side, fence along the near side
+  goalMouth: 286, // goal opening
+  goalDepth: 66, // how far the net reaches behind the goal line
+  goalHeight: 114.4, // crossbar height; goal dimensions increased by 10%
   wallHeight: 160, // brick wall standing on the far touchline
   backdropHeight: 440, // wall plus the apartment facade above it
   endWallHeight: 120, // walls on each goal line, either side of the goal
@@ -27,11 +27,11 @@ export const PITCH = {
   fenceHeight: 96, // chain-link fence on the near touchline (see-through)
   groundPadX: 720, // street ground drawn beyond each goal line
   groundPadNear: 320, // pavement drawn beyond the near touchline
-  centerCircle: 160, // centre circle radius
-  boxDepth: 300, // big chalk box, depth from the goal line
-  boxHeight: 600, // big chalk box, height
-  goalAreaDepth: 100, // goalkeeper zone depth
-  goalAreaHeight: 360, // goalkeeper zone height
+  centerCircle: 176, // centre circle radius
+  boxDepth: 330, // big chalk box, depth from the goal line
+  boxHeight: 660, // big chalk box, height
+  goalAreaDepth: 110, // goalkeeper zone depth
+  goalAreaHeight: 396, // goalkeeper zone height
 } as const;
 
 export const MATCH = {
@@ -51,18 +51,18 @@ export const MATCH = {
   goldenBreakSec: 2, // level at full time: the game pauses this long (GOLDEN GOAL banner), then a kickoff with a fresh goldenGoalSec clock
 } as const;
 
-// Formation spots for the home team (attacking right, x toward 2400),
+// Formation spots for the home team (attacking right, x toward PITCH.width),
 // a 2-1-1 shape plus the keeper. The away team mirrors these in Phase 3.
 export const FORMATION = {
-  keeper: { x: 40, y: 650 },
+  keeper: { x: 44, y: 715 },
   outfield: [
-    { x: 520, y: 420 }, // left back
-    { x: 520, y: 880 }, // right back
-    { x: 840, y: 650 }, // midfielder
-    { x: 1120, y: 650 }, // forward
+    { x: 572, y: 462 }, // left back
+    { x: 572, y: 968 }, // right back
+    { x: 924, y: 715 }, // midfielder
+    { x: 1232, y: 715 }, // forward
   ],
-  kickoffSpot: { x: 1176, y: 650 }, // kicker's spot next to the ball when kicking off
-  defendKickoffX: 1020, // the forward of the team NOT kicking off waits here (outside the centre circle; mirrored for away)
+  kickoffSpot: { x: 1296, y: 715 }, // kicker stays 24 px from the centred kickoff ball
+  defendKickoffX: 1122, // defending forward waits outside the centre circle; mirrored for away
 } as const;
 
 export const BALL = {
@@ -76,7 +76,7 @@ export const BALL = {
   wallBounce: 0.5, // speed kept off walls, fence and posts
   netBounce: 0.15, // the net soaks up a goal
   stopSpeed: 12, // a rolling ball slower than this stops
-  postRadius: 6, // goal posts as circles on the ground plane
+  postRadius: 6.6, // goal posts as circles on the ground plane; scaled with the goal
   spinMinSpeed: 300, // only fast balls curve
   spinDecay: 0.3, // spin kept per second
   maxSpin: 0.3, // rad/s; with a typical shot this curves up to ~6 degrees
@@ -544,7 +544,7 @@ export const TACKLE = {
   jukeDeg: 90, // carrier's stick turned this much since the tackle started = dodged (was 120: hard to fake, user feedback)
   popSpeed: 110, // won: the ball is knocked loose at this speed ...
   popAhead: 40, // ... toward the point this far ahead of the tackler on its lunge line
-  staggerSec: 0.5, // ... the carrier staggers (can't move or touch the ball) ...
+  staggerSec: 1.0, // ... the carrier falls and gets up (cannot move or touch the ball); was 0.5, raised so the 8-pose fall reads (user choice)
   priorityTackleSec: 0.35, // ... and the tackler has first touch this long
   winRecoverSec: 0.1, // won: back on its feet this soon
   stumbleSec: 0.6, // failed: down this long
@@ -610,10 +610,10 @@ export const CAMERA = {
   fovDeg: 40, // vertical field of view
   focusScale: 0.85, // screen px per world px at the focus point (sets camera distance)
   nearClip: 60, // world px; anything closer to the camera is clamped
-  focusMinX: 400, // focus point limits, so the view stays on the court
-  focusMaxX: 2000,
-  focusMinY: 400,
-  focusMaxY: 960, // near touchline sits ~80% down the screen at this limit
+  focusMinX: PITCH.width / 6, // follow limits proportional to pitch dimensions
+  focusMaxX: (PITCH.width * 5) / 6,
+  focusMinY: (PITCH.height * 4) / 13,
+  focusMaxY: (PITCH.height * 48) / 65, // preserve the near-touchline framing on resized pitches
   ballWeight: 0.6, // follow point = ballWeight * ball + (1 - ballWeight) * controlled player
   lookAhead: 120, // world px ahead of the ball in its direction of travel
   lookAheadFullSpeed: 300, // ball speed (px/s) at which the full look-ahead applies
@@ -622,4 +622,6 @@ export const CAMERA = {
   zoom: 1, // default zoom (was 1: zoomed out a little, less crowded on screen)
   airZoom: 0.84, // zoom while the ball is in the air on a long pass or shot (Phase 2)
   zoomReturnSec: 0.6, // time to ease back to the default zoom
+  celebrateZoom: 1.6, // goal celebration: the camera closes in on the scorer ...
+  celebrateLift: 80, // ... aiming this far beyond its feet (world px), so the whole body is centred
 } as const;

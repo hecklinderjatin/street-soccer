@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12" shape-rendering="crispEdges">
+  <!-- 12x12 pixel-art football (palette: black, white, light gray) -->
+  <path fill="#000000" d="M4 0h4v1H4zM2 1h2v1H2zM8 1h2v1H8zM1 2h1v2H1zM10 2h1v2h-1zM0 4h1v4H0zM11 4h1v4h-1zM1 8h1v2H1zM10 8h1v2h-1zM2 10h2v1H2zM8 10h2v1H8zM4 11h4v1H4z"/>
+  <path fill="#fff1e8" d="M4 1h4v1H4zM2 2h8v2H2zM1 4h10v4H1zM2 8h8v2H2zM4 10h4v1H4z"/>
+  <path fill="#c2c3c7" d="M2 8h8v2H2zM4 10h4v1H4zM10 4h1v4h-1z"/>
+  <path fill="#000000" d="M5 4h2v1H5zM4 5h4v2H4zM5 7h2v1H5zM1 5h1v2H1zM10 5h1v2h-1zM3 2h1v1H3zM8 2h1v1H8zM3 9h2v1H3zM7 9h2v1H7z"/>
+</svg>

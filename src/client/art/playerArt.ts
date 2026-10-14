@@ -871,6 +871,10 @@ const DIVE_FRAMES = Array.from({ length: 6 }, (_, i) => `dive${i + 1}`);
 const HOLD_FRAMES = Array.from({ length: 4 }, (_, i) => `hold${i + 1}`);
 const HURT_FRAMES = Array.from({ length: 4 }, (_, i) => `hurt${i + 1}`);
 const CARRY_FRAMES = Array.from({ length: 6 }, (_, i) => `carry${i + 1}`);
+// Goal celebrations (see CELEBRATIONS): six poses each.
+const CELEBRATION_FRAMES = ['a', 'b', 'c'].map((set) =>
+  Array.from({ length: 6 }, (_, i) => `celebrate_${set}${i + 1}`)
+);
 const ATLAS_COLUMNS = 16;
 const FRAMES = [
   ...Object.keys(POSES),
@@ -884,6 +888,7 @@ const FRAMES = [
   ...HOLD_FRAMES,
   ...HURT_FRAMES,
   ...CARRY_FRAMES,
+  ...CELEBRATION_FRAMES.flat(),
 ];
 const RUN_FRAMES = Array.from({ length: 8 }, (_, i) => `run${i + 1}`);
 const SHOOT_FRAMES = [
@@ -909,6 +914,25 @@ export const AUTHORED_DIVE_TEXTURE = 'player-dive-authored-source';
 export const AUTHORED_HOLD_TEXTURE = 'player-hold-authored-source';
 export const AUTHORED_HURT_TEXTURE = 'player-hurt-authored-source';
 export const AUTHORED_CARRY_TEXTURE = 'player-carry-authored-source';
+// Goal celebrations: fists and jump, knee slide, dance. Each a 3 x 2
+// sheet of 720 x 724 cells (wide for outstretched arms), ground 681.
+export const CELEBRATIONS = [
+  { file: 'player-celebrate-authored.webp', key: 'player-celebrate-a-source' },
+  { file: 'player-celebrate2-authored.webp', key: 'player-celebrate-b-source' },
+  { file: 'player-celebrate3-authored.webp', key: 'player-celebrate-c-source' },
+] as const;
+const CELEBRATE_SOURCE_W = 720;
+// Shirt hem / shorts hem (cell y) per pose, for the kit recolour.
+const CELEBRATION_WAIST = [
+  [448, 440, 385, 350, 446, 418],
+  [400, 508, 525, 505, 518, 515],
+  [414, 410, 400, 405, 399, 405],
+];
+const CELEBRATION_SHORTS_END = [
+  [525, 520, 478, 428, 522, 503],
+  [470, 600, 603, 600, 605, 605],
+  [497, 491, 486, 491, 486, 491],
+];
 const IDLE_SOURCE_W = 352;
 const IDLE_SOURCE_H = 724;
 const IDLE_SOURCE_GROUND = 695;
@@ -970,11 +994,33 @@ const KITS: Record<Kit, KitColors> = {
 };
 const KIT_NAMES: readonly Kit[] = ['home', 'away', 'homeKeeper', 'awayKeeper'];
 
+// Player looks: skin and hair (beard included) are separate grey layers
+// over the kit sprite, tinted per player, so every look shares the same two
+// textures. Each tint is the colour the brightest skin / hair pixel gets;
+// darker pixels keep their shading below it.
+export type Look = { skin: number; hair: number };
+export const LOOKS: readonly Look[] = [
+  { skin: 0xf8b078, hair: 0xa05a2c }, // the original: tanned, brown hair
+  { skin: 0xd8945c, hair: 0x3a3430 }, // olive, black hair
+  { skin: 0xa86c44, hair: 0x2c2826 }, // brown, black hair
+  { skin: 0xfcc89c, hair: 0xf0c878 }, // fair, blond hair
+  { skin: 0x7c4c30, hair: 0x262220 }, // dark, black hair
+  { skin: 0xf4b88c, hair: 0xd0582c }, // light, red hair
+];
+export const PLAYER_SKIN_TEXTURE = 'player-skin';
+export const PLAYER_HAIR_TEXTURE = 'player-hair';
+// Brightness (0-255 luma) that maps to the full tint: about the lightest
+// common skin / hair tone in the authored art. Brighter pixels clamp.
+const SKIN_REF_LUMA = 187;
+const HAIR_REF_LUMA = 80;
+
 export const playerTexture = (kit: Kit) => `player-${kit}`;
 export type RunView = 'side' | 'up' | 'down' | 'up-diagonal' | 'down-diagonal';
 export const runAnim = (kit: Kit, view: RunView = 'side') =>
   `player-${kit}-run${view === 'side' ? '' : `-${view}`}`;
 export const shootAnim = (kit: Kit) => `player-${kit}-shoot`;
+export const celebrateAnim = (kit: Kit, style: number) =>
+  `player-${kit}-celebrate-${style}`;
 export const idleAnim = (kit: Kit) => `player-${kit}-idle`;
 export const holdAnim = (kit: Kit, moving = false) =>
   `player-${kit}-${moving ? 'carry' : 'hold'}`;
@@ -996,6 +1042,42 @@ function paintShadow(ctx: CanvasRenderingContext2D, ox: number) {
     }
 }
 
+// The dive poses lie diagonal or flat, so shirt / shorts / socks are split
+// by slanted lines (cell px of the 1152 x 724 dive cells) instead of rows.
+// A line runs from (x1, y1) to (x2, y2); the feet side is on the right of
+// that direction (screen y down).
+type SplitLine = readonly [number, number, number, number];
+type KitSplit = { waist: SplitLine; shortsEnd: SplitLine };
+const DIVE_CROUCH: KitSplit = {
+  waist: [430, 460, 710, 410],
+  shortsEnd: [450, 530, 790, 500],
+};
+const DIVE_LAUNCH: KitSplit = {
+  waist: [590, 400, 700, 285],
+  shortsEnd: [690, 500, 810, 340],
+};
+const DIVE_STRETCH: KitSplit = {
+  waist: [610, 600, 655, 415],
+  shortsEnd: [790, 600, 815, 420],
+};
+const DIVE_LANDED: KitSplit = {
+  waist: [540, 670, 575, 450],
+  shortsEnd: [660, 670, 660, 470],
+};
+// Per dive frame: crouch, launch x2, full stretch x2, landed.
+const DIVE_KIT_SPLITS: readonly KitSplit[] = [
+  DIVE_CROUCH,
+  DIVE_LAUNCH,
+  DIVE_LAUNCH,
+  DIVE_STRETCH,
+  DIVE_STRETCH,
+  DIVE_LANDED,
+];
+function pastLine(l: SplitLine, x: number, y: number) {
+  const [x1, y1, x2, y2] = l;
+  return (x2 - x1) * (y - y1) - (y2 - y1) * (x - x1) > 0;
+}
+
 // Use the supplied pixels for idle. Recolor only the pink clothing; skin,
 // hair, dark trim and white boots retain the original shading and colors.
 function authoredIdleSheet(
@@ -1013,12 +1095,24 @@ function authoredIdleSheet(
     | 'dive'
     | 'hold'
     | 'hurt'
-    | 'carry' = 'idle'
+    | 'carry'
+    | 'celebrate0'
+    | 'celebrate1'
+    | 'celebrate2' = 'idle'
 ) {
   const running = action === 'run';
   const shooting = action === 'shoot';
   const tackling = action === 'tackle';
   const carrying = action === 'carry';
+  const celebration =
+    action === 'celebrate0'
+      ? 0
+      : action === 'celebrate1'
+        ? 1
+        : action === 'celebrate2'
+          ? 2
+          : -1;
+  const celebrating = celebration >= 0;
   const diving = action === 'dive' || action === 'hurt';
   const textureKeys = {
     idle: AUTHORED_IDLE_TEXTURE,
@@ -1033,15 +1127,20 @@ function authoredIdleSheet(
     hold: AUTHORED_HOLD_TEXTURE,
     hurt: AUTHORED_HURT_TEXTURE,
     carry: AUTHORED_CARRY_TEXTURE,
+    celebrate0: CELEBRATIONS[0].key,
+    celebrate1: CELEBRATIONS[1].key,
+    celebrate2: CELEBRATIONS[2].key,
   };
   const textureKey = textureKeys[action];
   const frameWidth = diving
     ? 1152
     : tackling
       ? 1024
-      : action === 'idle'
-        ? IDLE_SOURCE_W
-        : 640;
+      : celebrating
+        ? CELEBRATE_SOURCE_W
+        : action === 'idle'
+          ? IDLE_SOURCE_W
+          : 640;
   if (!scene.textures.exists(textureKey))
     throw new Error('Authored idle artwork was not loaded by BootScene');
   const source = scene.textures.get(textureKey).getSourceImage();
@@ -1049,15 +1148,18 @@ function authoredIdleSheet(
     source instanceof HTMLImageElement || source instanceof HTMLCanvasElement
   ))
     throw new Error('Authored idle artwork must be an image or canvas');
+  // Home uses the source pixels directly; only alternate kits need a copy.
+  if (kitName === 'home') return source;
   const canvas = document.createElement('canvas');
-  const sourceColumns = carrying || action === 'dive' ? 3 : diving ? 2 : 4;
+  const sourceColumns =
+    carrying || celebrating || action === 'dive' ? 3 : diving ? 2 : 4;
   canvas.width = frameWidth * sourceColumns;
   canvas.height =
-    IDLE_SOURCE_H * (tackling || running || diving || carrying ? 2 : 1);
+    IDLE_SOURCE_H *
+    (tackling || running || diving || carrying || celebrating ? 2 : 1);
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Could not prepare the authored idle artwork');
   ctx.drawImage(source, 0, 0);
-  if (kitName === 'home') return canvas;
   const kit = KITS[kitName];
   const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const vertical =
@@ -1065,57 +1167,68 @@ function authoredIdleSheet(
     action === 'down' ||
     action === 'up-diagonal' ||
     action === 'down-diagonal';
-  const waist = carrying
-    ? [375, 365, 375, 368, 360, 368]
-    : diving
-      ? action === 'dive'
-        ? [450, 490, 520, 535, 545, 590]
-        : [427, 422, 500, 586]
-      : tackling
-        ? [395, 450, 540, 555, 535, 455, 445, 400]
-        : vertical
-          ? [376, 379, 376, 379]
-          : running
-            ? [399, 388, 389, 388, 392, 379, 395, 377]
-            : shooting
-              ? [391, 405, 443, 396]
-              : [446, 430, 449, 449];
-  const shortsEnd = carrying
-    ? [499, 490, 499, 491, 493, 493]
-    : diving
-      ? action === 'dive'
-        ? [550, 595, 625, 630, 640, 665]
-        : [544, 539, 608, 655]
-      : tackling
-        ? [520, 565, 630, 640, 635, 605, 580, 540]
-        : vertical
-          ? [480, 489, 480, 489]
-          : running
-            ? [510, 494, 508, 494, 513, 492, 513, 495]
-            : shooting
-              ? [517, 529, 486, 517]
-              : [552, 536, 555, 555];
+  const waist = celebrating
+    ? (CELEBRATION_WAIST[celebration] ?? [])
+    : carrying
+      ? [375, 365, 375, 368, 360, 368]
+      : diving
+        ? [427, 422, 500, 586] // hurt; the dive uses DIVE_KIT_SPLITS
+        : tackling
+          ? [395, 450, 540, 555, 535, 455, 445, 400]
+          : vertical
+            ? [376, 379, 376, 379]
+            : running
+              ? [399, 388, 389, 388, 392, 379, 395, 377]
+              : shooting
+                ? [391, 405, 443, 396]
+                : [446, 430, 449, 449];
+  const shortsEnd = celebrating
+    ? (CELEBRATION_SHORTS_END[celebration] ?? [])
+    : carrying
+      ? [499, 490, 499, 491, 493, 493]
+      : diving
+        ? [544, 539, 608, 655]
+        : tackling
+          ? [520, 565, 630, 640, 635, 605, 580, 540]
+          : vertical
+            ? [480, 489, 480, 489]
+            : running
+              ? [510, 494, 508, 494, 513, 492, 513, 495]
+              : shooting
+                ? [517, 529, 486, 517]
+                : [552, 536, 555, 555];
   for (let i = 0; i < pixels.data.length; i += 4) {
     const r = pixels.data[i] ?? 0;
     const g = pixels.data[i + 1] ?? 0;
     const b = pixels.data[i + 2] ?? 0;
+    // The dive sheet's shaded pink is deeper (less blue); skin never passes
+    // since its blue stays below its green.
+    const minBlue = action === 'dive' || celebrating ? 0.4 : 0.55;
     if (
       !pixels.data[i + 3] ||
       r < 70 ||
       r < g * 1.25 ||
       b < g * 1.08 ||
-      b < r * 0.55
+      b < r * minBlue
     )
       continue;
     const sourceY = Math.floor(i / 4 / canvas.width);
     const y = sourceY % IDLE_SOURCE_H;
     const frame =
       Math.floor(((i / 4) % canvas.width) / frameWidth) +
-      (tackling || running || diving || carrying
+      (tackling || running || diving || carrying || celebrating
         ? Math.floor(sourceY / IDLE_SOURCE_H) * sourceColumns
         : 0);
-    const isShirt = y < (waist[frame] ?? 446);
-    const isShorts = !isShirt && y < (shortsEnd[frame] ?? 552);
+    const diveCell = action === 'dive' ? DIVE_KIT_SPLITS[frame] : undefined;
+    const x = ((i / 4) % canvas.width) % frameWidth;
+    const isShirt = diveCell
+      ? !pastLine(diveCell.waist, x, y)
+      : y < (waist[frame] ?? 446);
+    const isShorts =
+      !isShirt &&
+      (diveCell
+        ? !pastLine(diveCell.shortsEnd, x, y)
+        : y < (shortsEnd[frame] ?? 552));
     const base = isShirt ? kit.shirt : isShorts ? kit.shorts : kit.socks;
     const shade = isShirt
       ? kit.shirtShade
@@ -1141,6 +1254,96 @@ function authoredIdleSheet(
   return canvas;
 }
 
+// Frame rects of the player atlas (shared by every kit and the look layers).
+function atlasFrames() {
+  return FRAMES.map((name, i) => ({
+    name,
+    x: (i % ATLAS_COLUMNS) * PLAYER_W,
+    y: Math.floor(i / ATLAS_COLUMNS) * PLAYER_H,
+    w: PLAYER_W,
+    h: PLAYER_H,
+  }));
+}
+
+// 1 = skin, 2 = hair or beard, 0 = anything else. Skin and hair are the
+// warm tones (red > green > blue); kit pink has more blue than green and the
+// dark outline is too dark. Hair is the darker, less blue part of them.
+function lookPart(r: number, g: number, b: number, a: number) {
+  if (a < 128 || r < 80 || r < g * 1.2 || g < b * 1.05) return 0;
+  return r >= 150 && b >= r * 0.22 ? 1 : 2;
+}
+
+// Grey skin and hair layers built from the home atlas: each part pixel
+// keeps its brightness relative to the reference, ready to be tinted.
+// A pixel goes with the part most of its neighbours belong to, so copper
+// highlights in the hair stay hair and stray dark specks on skin stay skin.
+function createLookLayers(scene: Phaser.Scene) {
+  if (scene.textures.exists(PLAYER_SKIN_TEXTURE)) return;
+  const source = scene.textures.get(playerTexture('home')).getSourceImage();
+  if (!(source instanceof HTMLCanvasElement))
+    throw new Error('The player atlas must be a canvas');
+  const ctx = source.getContext('2d');
+  if (!ctx) throw new Error('Could not read the player atlas');
+  const w = source.width;
+  const h = source.height;
+  const data = ctx.getImageData(0, 0, w, h).data;
+  const parts = new Uint8Array(w * h);
+  for (let i = 0; i < parts.length; i++)
+    parts[i] = lookPart(
+      data[i * 4] ?? 0,
+      data[i * 4 + 1] ?? 0,
+      data[i * 4 + 2] ?? 0,
+      data[i * 4 + 3] ?? 0
+    );
+  const skin = new ImageData(w, h);
+  const hair = new ImageData(w, h);
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      const i = y * w + x;
+      let part = parts[i] ?? 0;
+      if (!part) continue;
+      let skinNear = 0;
+      let hairNear = 0;
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          if ((!dx && !dy) || x + dx < 0 || x + dx >= w) continue;
+          if (y + dy < 0 || y + dy >= h) continue;
+          const near = parts[i + dy * w + dx];
+          if (near === 1) skinNear++;
+          else if (near === 2) hairNear++;
+        }
+      if (part === 1 && hairNear > skinNear) part = 2;
+      else if (part === 2 && skinNear > hairNear && hairNear <= 1) part = 1;
+      const r = data[i * 4] ?? 0;
+      const g = data[i * 4 + 1] ?? 0;
+      const b = data[i * 4 + 2] ?? 0;
+      const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      const ref = part === 1 ? SKIN_REF_LUMA : HAIR_REF_LUMA;
+      const grey = Math.round(Math.min(1, luma / ref) * 255);
+      const out = (part === 1 ? skin : hair).data;
+      out[i * 4] = grey;
+      out[i * 4 + 1] = grey;
+      out[i * 4 + 2] = grey;
+      out[i * 4 + 3] = data[i * 4 + 3] ?? 0;
+    }
+  makeTexture(
+    scene,
+    PLAYER_SKIN_TEXTURE,
+    w,
+    h,
+    (layer) => layer.putImageData(skin, 0, 0),
+    atlasFrames()
+  );
+  makeTexture(
+    scene,
+    PLAYER_HAIR_TEXTURE,
+    w,
+    h,
+    (layer) => layer.putImageData(hair, 0, 0),
+    atlasFrames()
+  );
+}
+
 export function createPlayerTextures(scene: Phaser.Scene) {
   const frameRows = FRAMES.map((f) => {
     const pose = POSES[f];
@@ -1154,6 +1357,11 @@ export function createPlayerTextures(scene: Phaser.Scene) {
     const holdSheet = authoredIdleSheet(scene, kitName, 'hold');
     const hurtSheet = authoredIdleSheet(scene, kitName, 'hurt');
     const carrySheet = authoredIdleSheet(scene, kitName, 'carry');
+    const celebrateSheets = [
+      authoredIdleSheet(scene, kitName, 'celebrate0'),
+      authoredIdleSheet(scene, kitName, 'celebrate1'),
+      authoredIdleSheet(scene, kitName, 'celebrate2'),
+    ];
     const runSheet = authoredIdleSheet(scene, kitName, 'run');
     const shootSheet = authoredIdleSheet(scene, kitName, 'shoot');
     const upSheet = authoredIdleSheet(scene, kitName, 'up');
@@ -1205,6 +1413,10 @@ export function createPlayerTextures(scene: Phaser.Scene) {
           const hurting = HURT_FRAMES.includes(FRAMES[i] ?? '');
           const diving = DIVE_FRAMES.includes(FRAMES[i] ?? '') || hurting;
           const carrying = CARRY_FRAMES.includes(FRAMES[i] ?? '');
+          const celebration = CELEBRATION_FRAMES.findIndex((set) =>
+            set.includes(FRAMES[i] ?? '')
+          );
+          const celebrating = celebration >= 0;
           const holding = HOLD_FRAMES.includes(FRAMES[i] ?? '') || carrying;
           const running = RUN_FRAMES.includes(FRAMES[i] ?? '');
           const shooting = SHOOT_FRAMES.includes(FRAMES[i] ?? '');
@@ -1220,67 +1432,79 @@ export function createPlayerTextures(scene: Phaser.Scene) {
             vertical ||
             tackling ||
             diving ||
-            holding
+            holding ||
+            celebrating
           ) {
-            const sourceFrame = carrying
-              ? CARRY_FRAMES.indexOf(FRAMES[i] ?? '')
-              : hurting
-                ? HURT_FRAMES.indexOf(FRAMES[i] ?? '')
-                : holding
-                  ? HOLD_FRAMES.indexOf(FRAMES[i] ?? '')
-                  : diving
-                    ? DIVE_FRAMES.indexOf(FRAMES[i] ?? '')
-                    : tackling
-                      ? TACKLE_FRAMES.indexOf(FRAMES[i] ?? '')
-                      : downDiagonal
-                        ? DOWN_DIAGONAL_FRAMES.indexOf(FRAMES[i] ?? '')
-                        : upDiagonal
-                          ? UP_DIAGONAL_FRAMES.indexOf(FRAMES[i] ?? '')
-                          : up
-                            ? UP_FRAMES.indexOf(FRAMES[i] ?? '')
-                            : down
-                              ? DOWN_FRAMES.indexOf(FRAMES[i] ?? '')
-                              : shooting
-                                ? SHOOT_FRAMES.indexOf(FRAMES[i] ?? '')
-                                : Number(FRAMES[i]?.slice(running ? 3 : 4)) - 1;
+            const sourceFrame = celebrating
+              ? (CELEBRATION_FRAMES[celebration]?.indexOf(FRAMES[i] ?? '') ?? 0)
+              : carrying
+                ? CARRY_FRAMES.indexOf(FRAMES[i] ?? '')
+                : hurting
+                  ? HURT_FRAMES.indexOf(FRAMES[i] ?? '')
+                  : holding
+                    ? HOLD_FRAMES.indexOf(FRAMES[i] ?? '')
+                    : diving
+                      ? DIVE_FRAMES.indexOf(FRAMES[i] ?? '')
+                      : tackling
+                        ? TACKLE_FRAMES.indexOf(FRAMES[i] ?? '')
+                        : downDiagonal
+                          ? DOWN_DIAGONAL_FRAMES.indexOf(FRAMES[i] ?? '')
+                          : upDiagonal
+                            ? UP_DIAGONAL_FRAMES.indexOf(FRAMES[i] ?? '')
+                            : up
+                              ? UP_FRAMES.indexOf(FRAMES[i] ?? '')
+                              : down
+                                ? DOWN_FRAMES.indexOf(FRAMES[i] ?? '')
+                                : shooting
+                                  ? SHOOT_FRAMES.indexOf(FRAMES[i] ?? '')
+                                  : Number(FRAMES[i]?.slice(running ? 3 : 4)) -
+                                    1;
             const sourceWidth = diving
               ? 1152
               : tackling
                 ? 1024
-                : running || shooting || vertical || holding
-                  ? 640
-                  : IDLE_SOURCE_W;
+                : celebrating
+                  ? CELEBRATE_SOURCE_W
+                  : running || shooting || vertical || holding
+                    ? 640
+                    : IDLE_SOURCE_W;
             const height = PLAYER_H;
             const width = (sourceWidth / IDLE_SOURCE_H) * height;
             const sourceColumns =
-              carrying || (diving && !hurting) ? 3 : diving ? 2 : 4;
+              carrying || celebrating || (diving && !hurting)
+                ? 3
+                : diving
+                  ? 2
+                  : 4;
             ctx.imageSmoothingEnabled = false;
             ctx.drawImage(
-              carrying
-                ? carrySheet
-                : hurting
-                  ? hurtSheet
-                  : holding
-                    ? holdSheet
-                    : diving
-                      ? diveSheet
-                      : tackling
-                        ? tackleSheet
-                        : downDiagonal
-                          ? downDiagonalSheet
-                          : upDiagonal
-                            ? upDiagonalSheet
-                            : up
-                              ? upSheet
-                              : down
-                                ? downSheet
-                                : running
-                                  ? runSheet
-                                  : shooting
-                                    ? shootSheet
-                                    : idleSheet,
+              celebrating
+                ? (celebrateSheets[celebration] ?? idleSheet)
+                : carrying
+                  ? carrySheet
+                  : hurting
+                    ? hurtSheet
+                    : holding
+                      ? holdSheet
+                      : diving
+                        ? diveSheet
+                        : tackling
+                          ? tackleSheet
+                          : downDiagonal
+                            ? downDiagonalSheet
+                            : upDiagonal
+                              ? upDiagonalSheet
+                              : up
+                                ? upSheet
+                                : down
+                                  ? downSheet
+                                  : running
+                                    ? runSheet
+                                    : shooting
+                                      ? shootSheet
+                                      : idleSheet,
               (sourceFrame % sourceColumns) * sourceWidth,
-              tackling || running || diving || carrying
+              tackling || running || diving || carrying || celebrating
                 ? Math.floor(sourceFrame / sourceColumns) * IDLE_SOURCE_H
                 : 0,
               sourceWidth,
@@ -1292,7 +1516,8 @@ export function createPlayerTextures(scene: Phaser.Scene) {
                 vertical ||
                 tackling ||
                 diving ||
-                holding
+                holding ||
+                celebrating
                   ? 681
                   : IDLE_SOURCE_GROUND) /
                   IDLE_SOURCE_H) *
@@ -1306,13 +1531,7 @@ export function createPlayerTextures(scene: Phaser.Scene) {
           ctx.restore();
         });
       },
-      FRAMES.map((name, i) => ({
-        name,
-        x: (i % ATLAS_COLUMNS) * PLAYER_W,
-        y: Math.floor(i / ATLAS_COLUMNS) * PLAYER_H,
-        w: PLAYER_W,
-        h: PLAYER_H,
-      }))
+      atlasFrames()
     );
     if (!created) continue;
     const frames = (names: string[]) => names.map((frame) => ({ key, frame }));
@@ -1376,7 +1595,17 @@ export function createPlayerTextures(scene: Phaser.Scene) {
       frameRate: 14,
       repeat: 0,
     });
+    // Goal celebrations by the scorer: six poses each, on a loop.
+    CELEBRATION_FRAMES.forEach((set, style) =>
+      scene.anims.create({
+        key: celebrateAnim(kitName, style),
+        frames: frames(set),
+        frameRate: 6,
+        repeat: -1,
+      })
+    );
   }
+  createLookLayers(scene);
 
   // Controlled-player marker: an arrow overhead (the ring with a pointer on
   // the ground is drawn by the Match scene).

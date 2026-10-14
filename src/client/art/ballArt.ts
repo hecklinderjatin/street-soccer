@@ -6,7 +6,7 @@ import { makeTexture, paintRows } from './pixelArt';
 export const BALL_KEY = 'ball';
 export const BALL_W = 6;
 export const BALL_TEXTURE_W = 64;
-export const BALL_FRAMES = ['a', 'b', 'c', 'd', 'e', 'f'];
+export const BALL_FRAMES = ['a', 'b', 'c', 'd']; // four supplied rolling views
 export const AUTHORED_BALL_TEXTURE = 'ball-authored-source';
 export const AUTHORED_SHOT_BALL_TEXTURE = 'ball-shot-authored-source';
 export const BALL_SHOT_TEXTURE_W = 96;
@@ -23,6 +23,7 @@ export function createBallTexture(scene: Phaser.Scene) {
   makeTexture(scene, BALL_SHADOW_KEY, BALL_W, 3, (ctx) => {
     paintRows(ctx, ['.kkkk.', 'kkkkkk', '.kkkk.'], { k: PAL.black });
   });
+  if (scene.textures.exists(BALL_KEY)) return;
   const source = scene.textures.get(AUTHORED_BALL_TEXTURE).getSourceImage();
   const shotSource = scene.textures
     .get(AUTHORED_SHOT_BALL_TEXTURE)

@@ -12,7 +12,7 @@ import {
 import { cpuKeeperReact } from '../src/client/systems/keeper';
 import { TeamBrain, interceptPoint } from '../src/client/systems/ai';
 import { idealPassWeight, passWeight } from '../src/client/systems/actions';
-import { LEVELS, PASS, TACKLE } from '../src/shared/tuning';
+import { LEVELS, PASS, PITCH, TACKLE } from '../src/shared/tuning';
 
 let passed = 0;
 function check(name: string, fn: () => void) {
@@ -177,9 +177,18 @@ check(
   'keeper: a shot after a smother threat restarts the reaction time',
   () => {
     // Away keeper on its line; a home carrier close in its box.
-    const k = player({ team: 'away', role: 'keeper', x: 2350, y: 650 });
-    const carrier = player({ x: 2280, y: 650 });
-    const b = ball({ x: 2290, y: 650, owner: carrier });
+    const k = player({
+      team: 'away',
+      role: 'keeper',
+      x: PITCH.width - 50,
+      y: PITCH.height / 2,
+    });
+    const carrier = player({ x: PITCH.width - 120, y: PITCH.height / 2 });
+    const b = ball({
+      x: PITCH.width - 110,
+      y: PITCH.height / 2,
+      owner: carrier,
+    });
     const react = LEVELS.normal.keeperReactSec;
     cpuKeeperReact(k, b, 10, react, () => 0.5); // jitter 0
     assert.equal(k.reactSmother, true);
