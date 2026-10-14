@@ -8,9 +8,9 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
-**Smaller player sheets for playtest (2026-10-15, `assests`):** release player animation WebP sheets now use quality 98, while both ball sheets remain lossless and editable source PNGs remain unchanged. `scripts/optimize_art.py` verifies identical alpha and bounds visible per-channel color error for every player sheet. The 17 release sheets fell from 9.41 to 5.50 MiB; the complete `dist/client` fell from 10.69 to 6.77 MiB (36.7% further reduction). Production build passed. A side-by-side run frame looked nearly identical, but the small color changes can affect alternate-kit recoloring; test home, away and keeper animations in Reddit playtest before merging this trial to `main` or publishing.
+**Smaller player sheets (2026-10-15, `main`):** release player animation WebP sheets now use quality 98, while both ball sheets remain lossless and editable source PNGs remain unchanged. `scripts/optimize_art.py` verifies identical alpha and bounds visible per-channel color error for every player sheet. The 17 release sheets fell from 9.41 to 5.50 MiB; the complete `dist/client` fell from 10.69 to 6.77 MiB (36.7% further reduction). Production build passed on `main`. A side-by-side run frame looked nearly identical, but the small color changes can affect alternate-kit recoloring; test home, away and keeper animations in Reddit playtest before publishing.
 
-**Local branch integration (2026-10-15):** all authored sprites, player/ball animation work, court and goal updates, celebrations, and the first Reddit build optimization from `assests` were merged into `main` at `af66544`; handoff notes followed at `73da3c0`. Type check, lint, production build and all 14 logic checks passed before that merge. `origin/main` now matches `73da3c0`; the smaller quality-98 trial is only on `assests`.
+**Local branch integration (2026-10-15):** all authored sprites, player/ball animation work, court and goal updates, celebrations, and the first Reddit build optimization from `assests` were merged into `main` at `af66544`; handoff notes followed at `73da3c0`. Type check, lint, production build and all 14 logic checks passed before that merge. The subsequent quality-98 size reduction was merged from `assests` to local `main` at `579faf6` and passed a fresh production build.
 
 **First Reddit client build optimization (2026-10-15):** the merged baseline uses lossless WebP in `public-release/art`; the editable PNG originals remain in `public/art`. Devvit client/server source maps are disabled, and the release public directory excludes development review pages and source PNGs. Boot loads the release sheets. Home-kit atlas generation reads its source images directly; after first-match atlas creation, Phaser releases all authored source textures. Ball atlas creation skips source reads on later matches. Production client size fell from 25.11 to 10.69 MiB (57.4%); sprites from 13.62 to 9.41 MiB (30.9%). Type check, lint, build and 14 existing logic checks passed; all 17 referenced sheets are present in release output.
 
@@ -272,7 +272,9 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
-- Trial quality-98 WebP on player release sheets in `assests` to reduce Reddit download size while keeping exact alpha and lossless ball art. Preserve the editable PNG originals. The slight RGB changes make an alternate-kit visual playtest necessary before integrating this trial into `main`.
+- Fast-forward the tested size-reduction commit from `assests` to `main` as requested. Keep the source PNGs and lossless ball sheets; playtest alternate-kit recoloring before publishing the new Reddit version.
+
+- Trial quality-98 WebP on player release sheets to reduce Reddit download size while keeping exact alpha and lossless ball art. Preserve the editable PNG originals. The slight RGB changes make an alternate-kit visual playtest necessary before publishing.
 
 - Commit the tested `assests` working tree before merging, then fast-forward local `main`. Keep `assests` available for reference and leave remote publication for a separate request.
 
@@ -388,11 +390,9 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
-- Push `assests` if the smaller build should be available remotely, run `npm run dev` from this checkout, and visually check all kits (especially recolored away/keeper sprites), celebrations, dives, tackle/hurt, carrying and shooting before merging the compression trial into `main`.
+- Run `npm run dev` from `main` and visually check all kits (especially recolored away/keeper sprites), celebrations, dives, tackle/hurt, carrying and shooting on Reddit mobile before publishing the new version.
 
-- Review the merged `main` build in-game and on a phone; the smaller `assests` trial must be checked separately before another release.
-
-- Test a fresh match and a second match on localhost/Reddit mobile to confirm lossless sheet loading and atlas reuse after source textures are released. Record cold start time and memory on a phone before considering smaller source dimensions or build-time atlas generation.
+- Test a fresh match and a second match on localhost/Reddit mobile to confirm release sheet loading and atlas reuse after source textures are released. Record cold start time and memory on a phone before considering smaller source dimensions or build-time atlas generation.
 
 - Review the warmer asphalt revision at gameplay scale: visible grit, worn older-court paint, repair seams and boot scuffs should convey street character while the ball and football lines remain readable.
 
@@ -460,6 +460,10 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+### 2026-10-15: Merge smaller release build into `main`
+
+- Fast-forward merged `assests` commit `579faf6` into `main` as requested. Rebuilt on `main`: client output remains 6.77 MiB, down from the prior 10.69 MiB. Reddit visual playtest remains pending before publication.
 
 ### 2026-10-15: Smaller player sheets prepared on `assests`
 
