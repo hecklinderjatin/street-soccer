@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Local branch integration (2026-10-15):** all authored sprites, player/ball animation work, court and goal updates, celebrations, and Reddit build optimization from `assests` are committed and fast-forward merged into local `main` at `af66544`. Type check, lint, production build and all 14 logic checks passed before the merge. `origin/main` has not been pushed; in-game and phone visual review is still pending.
+
 **Reddit client build optimization (2026-10-15, `assests`):** release assets live in `public-release/art` as lossless WebP; the editable PNG originals remain in `public/art`. `scripts/optimize_art.py` regenerates all release sheets and verifies exact alpha/visible colors. Devvit client/server source maps are disabled, and the release public directory excludes development review pages and source PNGs. Boot loads the lossless sheets. Home-kit atlas generation reads its source images directly; after first-match atlas creation, Phaser releases all authored source textures. Ball atlas creation skips source reads on later matches. Production client size fell from 25.11 to 10.69 MiB (57.4%); sprites from 13.62 to 9.41 MiB (30.9%). Type check, lint, build and 14 existing logic checks passed; all 17 referenced sheets are present in release output. User mobile visual/playtest pending.
 
 **Warm street asphalt revision (2026-10-15, `assests`):** user preferred the older field to the blue-gray version. Code painter now restores warm gray/brown asphalt with exposed aggregate and dark pits, four darker/lighter resurfacing patches and stronger tar seams, dusty edges, scuffed goal wear, twelve short sealed cracks and broken faint basketball key/arc paint. Current football markings stay bright and unchanged. Goal recess floor matches the warm base; geometry, goals and surrounding scenery retained. Texture preview inspected; user gameplay review pending.
@@ -268,6 +270,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Commit the tested `assests` working tree before merging, then fast-forward local `main`. Keep `assests` available for reference and leave remote publication for a separate request.
+
 - Preserve the original sprite PNGs for editing and package pixel-identical lossless WebP copies for Reddit delivery. Keep release art in a separate public directory so development review files and originals are not copied into `dist/client`. Disable Devvit build source maps through its supported client/server options. Release source textures after atlas generation to avoid retaining duplicate images during matches; keep generated atlases across match restarts.
 
 - User rejected the smooth blue-gray look. Restore the older warm asphalt palette and stronger grit, adding street history through faded basketball paint and tar repairs. Old paint remains faint and broken beneath current football markings; all surface details are cosmetic and baked once in code.
@@ -380,11 +384,11 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Review the merged build in-game and on a phone, then decide when to push local `main` to `origin/main`.
+
 - Test a fresh match and a second match on localhost/Reddit mobile to confirm lossless sheet loading and atlas reuse after source textures are released. Record cold start time and memory on a phone before considering smaller source dimensions or build-time atlas generation.
 
 - Review the warmer asphalt revision at gameplay scale: visible grit, worn older-court paint, repair seams and boot scuffs should convey street character while the ball and football lines remain readable.
-
-- Review the new blue-gray asphalt in a fresh localhost match at gameplay scale, especially ball visibility, subtle goal wear and perimeter repairs.
 
 - Tackled-player fall: waiting for the user's 8-pose image as a file (stumble, fall, crawl, lying, clutch knee, sitting, kneel, getting up). Plan: replace `player-hurt-authored.png` with an 8-frame sheet, slanted kit splits for the lying poses, and play all 8 over the 1.0 s stagger (fast fall, longer lying / get-up) instead of borrowing the tackle get-up frames.
 - Review the goal celebration: scale vs other players, the loop speed (6 fps), own goals.
@@ -450,6 +454,10 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+### 2026-10-15: Merge `assests` into local `main`
+
+- Committed the tested asset, field and build-size changes on `assests` (`af66544`) and fast-forward merged them into local `main`. Type check, lint, production build and 14 logic checks passed before merge. Remote main remains at the previous commit pending a push.
 
 ### 2026-10-15: Smaller Reddit release build
 
