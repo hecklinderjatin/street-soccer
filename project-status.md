@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**First-Play loading fix (2026-10-15, `main`):** pressing Play now shows a match-preparation screen while player artwork is processed one source sheet per rendered frame and skin/hair layers are processed in 64-row steps. Alternate-kit temporary canvases are released after each sheet is copied into its atlas, reducing peak decoded memory. Player atlases use 8 columns (1792x1280) instead of 16 (3584x640), staying within a 2048 px texture dimension common on older phones. The local built game reached the match on first Play with no browser errors. Type check, lint, and production build passed; Reddit mobile timing remains unmeasured.
+
 **Smaller player sheets (2026-10-15, `main`):** release player animation WebP sheets now use quality 98, while both ball sheets remain lossless and editable source PNGs remain unchanged. `scripts/optimize_art.py` verifies identical alpha and bounds visible per-channel color error for every player sheet. The 17 release sheets fell from 9.41 to 5.50 MiB; the complete `dist/client` fell from 10.69 to 6.77 MiB (36.7% further reduction). Production build passed on `main`. A side-by-side run frame looked nearly identical, but the small color changes can affect alternate-kit recoloring; test home, away and keeper animations in Reddit playtest before publishing.
 
 **Local branch integration (2026-10-15):** all authored sprites, player/ball animation work, court and goal updates, celebrations, and the first Reddit build optimization from `assests` were merged into `main` at `af66544`; handoff notes followed at `73da3c0`. Type check, lint, production build and all 14 logic checks passed before that merge. The subsequent quality-98 size reduction was merged from `assests` to local `main` at `579faf6` and passed a fresh production build.
@@ -272,6 +274,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Prepare authored player atlases incrementally on the first match. Yield after each source sheet and each 64 rows of skin/hair processing so the loading screen renders and input no longer looks frozen; release recolored temporary canvases promptly to lower memory pressure. Keep atlas width below 2048 px for older mobile GPUs without changing sprite frame size or appearance.
+
 - Fast-forward the tested size-reduction commit from `assests` to `main` as requested. Keep the source PNGs and lossless ball sheets; playtest alternate-kit recoloring before publishing the new Reddit version.
 
 - Trial quality-98 WebP on player release sheets to reduce Reddit download size while keeping exact alpha and lossless ball art. Preserve the editable PNG originals. The slight RGB changes make an alternate-kit visual playtest necessary before publishing.
@@ -390,6 +394,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Test first Play on Reddit mobile and record cold-start time and whether the loading message advances smoothly; compare a second match, which should reuse the generated atlases. If preparation remains slow, move atlas generation into build-time assets or reduce source-sheet resolution.
+
 - Run `npm run dev` from `main` and visually check all kits (especially recolored away/keeper sprites), celebrations, dives, tackle/hurt, carrying and shooting on Reddit mobile before publishing the new version.
 
 - Test a fresh match and a second match on localhost/Reddit mobile to confirm release sheet loading and atlas reuse after source textures are released. Record cold start time and memory on a phone before considering smaller source dimensions or build-time atlas generation.
@@ -460,6 +466,10 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+### 2026-10-15: Prevent first-Play apparent hang
+
+- Split first-match player atlas preparation into one authored action sheet per frame and skin/hair layers into 64-row steps; display a preparation message and release each temporary recolored canvas before continuing. Reduced atlas width from 3584 to 1792 px for mobile texture compatibility. Local first Play reached kickoff without browser errors; TypeScript, lint, and production build passed.
 
 ### 2026-10-15: Merge smaller release build into `main`
 

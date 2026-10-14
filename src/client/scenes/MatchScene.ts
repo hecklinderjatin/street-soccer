@@ -14,6 +14,7 @@ import {
   STICK,
   TACKLE,
   TACTICS,
+  VIEW,
 } from '../../shared/tuning';
 import type { MatchConfig, MatchResult, Team } from '../../shared/types';
 import {
@@ -163,6 +164,9 @@ export class MatchScene extends Phaser.Scene {
   // (tap the FPS readout): a smoothed average and a slowly decaying peak.
   private simMsAvg = 0;
   private simMsPeak = 0;
+  private preparing: Generator<string> | null = null;
+  private loadingText: Phaser.GameObjects.BitmapText | null = null;
+  private ready = false;
 
   constructor() {
     super('Match');
@@ -171,6 +175,9 @@ export class MatchScene extends Phaser.Scene {
   // Phaser reuses this scene object on every restart, so reset per-match state here.
   init(data: MatchConfig) {
     this.config = data;
+    this.ready = false;
+    this.preparing = null;
+    this.loadingText = null;
     this.fixed.reset();
     this.home = [];
     this.away = [];
@@ -195,7 +202,18 @@ export class MatchScene extends Phaser.Scene {
   }
 
   create() {
-    createPlayerTextures(this);
+    this.loadingText = pixelText(
+      this,
+      VIEW.width / 2,
+      VIEW.height / 2,
+      'PREPARING MATCH',
+      PX,
+      PAL.white
+    ).setOrigin(0.5);
+    this.preparing = createPlayerTextures(this);
+  }
+
+  private finishCreate() {
     createBallTexture(this);
     // The generated atlases persist across matches; keep no duplicate source
     // sheets in Phaser's texture manager after the first match is prepared.
@@ -319,6 +337,21 @@ export class MatchScene extends Phaser.Scene {
   }
 
   override update(time: number, delta: number) {
+    if (!this.ready) {
+      const step = this.preparing?.next();
+      if (!step || step.done) {
+        this.preparing = null;
+        this.loadingText?.destroy();
+        this.loadingText = null;
+        this.finishCreate();
+        this.ready = true;
+      } else {
+        this.loadingText?.setText(
+          `PREPARING MATCH\n${step.value.toUpperCase()}`
+        );
+      }
+      return;
+    }
     const realDt = delta / 1000;
     this.controls.sample();
     if (this.flow.update(realDt)) this.resetForKickoff();

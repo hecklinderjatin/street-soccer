@@ -875,7 +875,8 @@ const CARRY_FRAMES = Array.from({ length: 6 }, (_, i) => `carry${i + 1}`);
 const CELEBRATION_FRAMES = ['a', 'b', 'c'].map((set) =>
   Array.from({ length: 6 }, (_, i) => `celebrate_${set}${i + 1}`)
 );
-const ATLAS_COLUMNS = 16;
+// Keep the atlas below the 2048 px texture limit on older mobile GPUs.
+const ATLAS_COLUMNS = 8;
 const FRAMES = [
   ...Object.keys(POSES),
   'idle4',
@@ -993,6 +994,43 @@ const KITS: Record<Kit, KitColors> = {
   },
 };
 const KIT_NAMES: readonly Kit[] = ['home', 'away', 'homeKeeper', 'awayKeeper'];
+const AUTHORED_ACTIONS = [
+  'idle',
+  'run',
+  'shoot',
+  'up',
+  'down',
+  'up-diagonal',
+  'down-diagonal',
+  'tackle',
+  'dive',
+  'hold',
+  'hurt',
+  'carry',
+  'celebrate0',
+  'celebrate1',
+  'celebrate2',
+] as const;
+type AuthoredAction = (typeof AUTHORED_ACTIONS)[number];
+
+function frameAction(frame: string): AuthoredAction | null {
+  if (frame.startsWith('idle')) return 'idle';
+  if (RUN_FRAMES.includes(frame)) return 'run';
+  if (SHOOT_FRAMES.includes(frame)) return 'shoot';
+  if (UP_FRAMES.includes(frame)) return 'up';
+  if (DOWN_FRAMES.includes(frame)) return 'down';
+  if (UP_DIAGONAL_FRAMES.includes(frame)) return 'up-diagonal';
+  if (DOWN_DIAGONAL_FRAMES.includes(frame)) return 'down-diagonal';
+  if (TACKLE_FRAMES.includes(frame)) return 'tackle';
+  if (DIVE_FRAMES.includes(frame)) return 'dive';
+  if (HOLD_FRAMES.includes(frame)) return 'hold';
+  if (HURT_FRAMES.includes(frame)) return 'hurt';
+  if (CARRY_FRAMES.includes(frame)) return 'carry';
+  for (let i = 0; i < CELEBRATION_FRAMES.length; i++)
+    if (CELEBRATION_FRAMES[i]?.includes(frame))
+      return AUTHORED_ACTIONS[12 + i] ?? null;
+  return null;
+}
 
 // Player looks: skin and hair (beard included) are separate grey layers
 // over the kit sprite, tinted per player, so every look shares the same two
@@ -1083,22 +1121,7 @@ function pastLine(l: SplitLine, x: number, y: number) {
 function authoredIdleSheet(
   scene: Phaser.Scene,
   kitName: Kit,
-  action:
-    | 'idle'
-    | 'run'
-    | 'shoot'
-    | 'up'
-    | 'down'
-    | 'up-diagonal'
-    | 'down-diagonal'
-    | 'tackle'
-    | 'dive'
-    | 'hold'
-    | 'hurt'
-    | 'carry'
-    | 'celebrate0'
-    | 'celebrate1'
-    | 'celebrate2' = 'idle'
+  action: AuthoredAction = 'idle'
 ) {
   const running = action === 'run';
   const shooting = action === 'shoot';
@@ -1277,7 +1300,7 @@ function lookPart(r: number, g: number, b: number, a: number) {
 // keeps its brightness relative to the reference, ready to be tinted.
 // A pixel goes with the part most of its neighbours belong to, so copper
 // highlights in the hair stay hair and stray dark specks on skin stay skin.
-function createLookLayers(scene: Phaser.Scene) {
+function* createLookLayers(scene: Phaser.Scene): Generator<string> {
   if (scene.textures.exists(PLAYER_SKIN_TEXTURE)) return;
   const source = scene.textures.get(playerTexture('home')).getSourceImage();
   if (!(source instanceof HTMLCanvasElement))
@@ -1297,7 +1320,7 @@ function createLookLayers(scene: Phaser.Scene) {
     );
   const skin = new ImageData(w, h);
   const hair = new ImageData(w, h);
-  for (let y = 0; y < h; y++)
+  for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const i = y * w + x;
       let part = parts[i] ?? 0;
@@ -1326,6 +1349,9 @@ function createLookLayers(scene: Phaser.Scene) {
       out[i * 4 + 2] = grey;
       out[i * 4 + 3] = data[i * 4 + 3] ?? 0;
     }
+    if ((y + 1) % 64 === 0)
+      yield `player looks ${Math.round(((y + 1) / h) * 100)}%`;
+  }
   makeTexture(
     scene,
     PLAYER_SKIN_TEXTURE,
@@ -1344,34 +1370,16 @@ function createLookLayers(scene: Phaser.Scene) {
   );
 }
 
-export function createPlayerTextures(scene: Phaser.Scene) {
+// One authored sheet per step: the first Play can render progress between
+// recolors, and alternate-kit canvases never accumulate in memory.
+export function* createPlayerTextures(scene: Phaser.Scene): Generator<string> {
+  yield 'starting';
   const frameRows = FRAMES.map((f) => {
     const pose = POSES[f];
     return pose ? drawPose(pose) : [];
   });
   for (const kitName of KIT_NAMES) {
     if (scene.textures.exists(playerTexture(kitName))) continue;
-    const idleSheet = authoredIdleSheet(scene, kitName);
-    const tackleSheet = authoredIdleSheet(scene, kitName, 'tackle');
-    const diveSheet = authoredIdleSheet(scene, kitName, 'dive');
-    const holdSheet = authoredIdleSheet(scene, kitName, 'hold');
-    const hurtSheet = authoredIdleSheet(scene, kitName, 'hurt');
-    const carrySheet = authoredIdleSheet(scene, kitName, 'carry');
-    const celebrateSheets = [
-      authoredIdleSheet(scene, kitName, 'celebrate0'),
-      authoredIdleSheet(scene, kitName, 'celebrate1'),
-      authoredIdleSheet(scene, kitName, 'celebrate2'),
-    ];
-    const runSheet = authoredIdleSheet(scene, kitName, 'run');
-    const shootSheet = authoredIdleSheet(scene, kitName, 'shoot');
-    const upSheet = authoredIdleSheet(scene, kitName, 'up');
-    const downSheet = authoredIdleSheet(scene, kitName, 'down');
-    const upDiagonalSheet = authoredIdleSheet(scene, kitName, 'up-diagonal');
-    const downDiagonalSheet = authoredIdleSheet(
-      scene,
-      kitName,
-      'down-diagonal'
-    );
     const kit = KITS[kitName];
     const palette = {
       k: PAL.ink,
@@ -1396,144 +1404,130 @@ export function createPlayerTextures(scene: Phaser.Scene) {
       a: kit.accent,
     };
     const key = playerTexture(kitName);
-    const created = makeTexture(
-      scene,
+    const texture = scene.textures.createCanvas(
       key,
       PLAYER_W * ATLAS_COLUMNS,
-      PLAYER_H * Math.ceil(FRAMES.length / ATLAS_COLUMNS),
-      (ctx) => {
-        frameRows.forEach((rows, i) => {
-          ctx.save();
-          ctx.translate(
-            (i % ATLAS_COLUMNS) * PLAYER_W,
-            Math.floor(i / ATLAS_COLUMNS) * PLAYER_H
-          );
-          paintShadow(ctx, 0);
-          const tackling = TACKLE_FRAMES.includes(FRAMES[i] ?? '');
-          const hurting = HURT_FRAMES.includes(FRAMES[i] ?? '');
-          const diving = DIVE_FRAMES.includes(FRAMES[i] ?? '') || hurting;
-          const carrying = CARRY_FRAMES.includes(FRAMES[i] ?? '');
-          const celebration = CELEBRATION_FRAMES.findIndex((set) =>
-            set.includes(FRAMES[i] ?? '')
-          );
-          const celebrating = celebration >= 0;
-          const holding = HOLD_FRAMES.includes(FRAMES[i] ?? '') || carrying;
-          const running = RUN_FRAMES.includes(FRAMES[i] ?? '');
-          const shooting = SHOOT_FRAMES.includes(FRAMES[i] ?? '');
-          const up = UP_FRAMES.includes(FRAMES[i] ?? '');
-          const down = DOWN_FRAMES.includes(FRAMES[i] ?? '');
-          const upDiagonal = UP_DIAGONAL_FRAMES.includes(FRAMES[i] ?? '');
-          const downDiagonal = DOWN_DIAGONAL_FRAMES.includes(FRAMES[i] ?? '');
-          const vertical = up || down || upDiagonal || downDiagonal;
-          if (
-            FRAMES[i]?.startsWith('idle') ||
-            running ||
-            shooting ||
-            vertical ||
-            tackling ||
-            diving ||
-            holding ||
-            celebrating
-          ) {
-            const sourceFrame = celebrating
-              ? (CELEBRATION_FRAMES[celebration]?.indexOf(FRAMES[i] ?? '') ?? 0)
-              : carrying
-                ? CARRY_FRAMES.indexOf(FRAMES[i] ?? '')
-                : hurting
-                  ? HURT_FRAMES.indexOf(FRAMES[i] ?? '')
-                  : holding
-                    ? HOLD_FRAMES.indexOf(FRAMES[i] ?? '')
-                    : diving
-                      ? DIVE_FRAMES.indexOf(FRAMES[i] ?? '')
-                      : tackling
-                        ? TACKLE_FRAMES.indexOf(FRAMES[i] ?? '')
-                        : downDiagonal
-                          ? DOWN_DIAGONAL_FRAMES.indexOf(FRAMES[i] ?? '')
-                          : upDiagonal
-                            ? UP_DIAGONAL_FRAMES.indexOf(FRAMES[i] ?? '')
-                            : up
-                              ? UP_FRAMES.indexOf(FRAMES[i] ?? '')
-                              : down
-                                ? DOWN_FRAMES.indexOf(FRAMES[i] ?? '')
-                                : shooting
-                                  ? SHOOT_FRAMES.indexOf(FRAMES[i] ?? '')
-                                  : Number(FRAMES[i]?.slice(running ? 3 : 4)) -
-                                    1;
-            const sourceWidth = diving
-              ? 1152
-              : tackling
-                ? 1024
-                : celebrating
-                  ? CELEBRATE_SOURCE_W
-                  : running || shooting || vertical || holding
-                    ? 640
-                    : IDLE_SOURCE_W;
-            const height = PLAYER_H;
-            const width = (sourceWidth / IDLE_SOURCE_H) * height;
-            const sourceColumns =
-              carrying || celebrating || (diving && !hurting)
-                ? 3
-                : diving
-                  ? 2
-                  : 4;
-            ctx.imageSmoothingEnabled = false;
-            ctx.drawImage(
-              celebrating
-                ? (celebrateSheets[celebration] ?? idleSheet)
-                : carrying
-                  ? carrySheet
-                  : hurting
-                    ? hurtSheet
-                    : holding
-                      ? holdSheet
-                      : diving
-                        ? diveSheet
-                        : tackling
-                          ? tackleSheet
-                          : downDiagonal
-                            ? downDiagonalSheet
-                            : upDiagonal
-                              ? upDiagonalSheet
-                              : up
-                                ? upSheet
-                                : down
-                                  ? downSheet
-                                  : running
-                                    ? runSheet
-                                    : shooting
-                                      ? shootSheet
-                                      : idleSheet,
-              (sourceFrame % sourceColumns) * sourceWidth,
-              tackling || running || diving || carrying || celebrating
-                ? Math.floor(sourceFrame / sourceColumns) * IDLE_SOURCE_H
-                : 0,
-              sourceWidth,
-              IDLE_SOURCE_H,
-              (PLAYER_W - width) / 2,
-              PLAYER_H * PLAYER_ORIGIN_Y -
-                ((running ||
-                shooting ||
-                vertical ||
-                tackling ||
-                diving ||
-                holding ||
-                celebrating
-                  ? 681
-                  : IDLE_SOURCE_GROUND) /
-                  IDLE_SOURCE_H) *
-                  height,
-              width,
-              height
-            );
-          } else {
-            paintRows(ctx, rows, palette, 0, 0);
-          }
-          ctx.restore();
-        });
-      },
-      atlasFrames()
+      PLAYER_H * Math.ceil(FRAMES.length / ATLAS_COLUMNS)
     );
-    if (!created) continue;
+    if (!texture) continue;
+    const ctx = texture.getContext();
+    for (const action of AUTHORED_ACTIONS) {
+      const sheet = authoredIdleSheet(scene, kitName, action);
+      frameRows.forEach((rows, i) => {
+        if (frameAction(FRAMES[i] ?? '') !== action) return;
+        ctx.save();
+        ctx.translate(
+          (i % ATLAS_COLUMNS) * PLAYER_W,
+          Math.floor(i / ATLAS_COLUMNS) * PLAYER_H
+        );
+        paintShadow(ctx, 0);
+        const tackling = TACKLE_FRAMES.includes(FRAMES[i] ?? '');
+        const hurting = HURT_FRAMES.includes(FRAMES[i] ?? '');
+        const diving = DIVE_FRAMES.includes(FRAMES[i] ?? '') || hurting;
+        const carrying = CARRY_FRAMES.includes(FRAMES[i] ?? '');
+        const celebration = CELEBRATION_FRAMES.findIndex((set) =>
+          set.includes(FRAMES[i] ?? '')
+        );
+        const celebrating = celebration >= 0;
+        const holding = HOLD_FRAMES.includes(FRAMES[i] ?? '') || carrying;
+        const running = RUN_FRAMES.includes(FRAMES[i] ?? '');
+        const shooting = SHOOT_FRAMES.includes(FRAMES[i] ?? '');
+        const up = UP_FRAMES.includes(FRAMES[i] ?? '');
+        const down = DOWN_FRAMES.includes(FRAMES[i] ?? '');
+        const upDiagonal = UP_DIAGONAL_FRAMES.includes(FRAMES[i] ?? '');
+        const downDiagonal = DOWN_DIAGONAL_FRAMES.includes(FRAMES[i] ?? '');
+        const vertical = up || down || upDiagonal || downDiagonal;
+        if (
+          FRAMES[i]?.startsWith('idle') ||
+          running ||
+          shooting ||
+          vertical ||
+          tackling ||
+          diving ||
+          holding ||
+          celebrating
+        ) {
+          const sourceFrame = celebrating
+            ? (CELEBRATION_FRAMES[celebration]?.indexOf(FRAMES[i] ?? '') ?? 0)
+            : carrying
+              ? CARRY_FRAMES.indexOf(FRAMES[i] ?? '')
+              : hurting
+                ? HURT_FRAMES.indexOf(FRAMES[i] ?? '')
+                : holding
+                  ? HOLD_FRAMES.indexOf(FRAMES[i] ?? '')
+                  : diving
+                    ? DIVE_FRAMES.indexOf(FRAMES[i] ?? '')
+                    : tackling
+                      ? TACKLE_FRAMES.indexOf(FRAMES[i] ?? '')
+                      : downDiagonal
+                        ? DOWN_DIAGONAL_FRAMES.indexOf(FRAMES[i] ?? '')
+                        : upDiagonal
+                          ? UP_DIAGONAL_FRAMES.indexOf(FRAMES[i] ?? '')
+                          : up
+                            ? UP_FRAMES.indexOf(FRAMES[i] ?? '')
+                            : down
+                              ? DOWN_FRAMES.indexOf(FRAMES[i] ?? '')
+                              : shooting
+                                ? SHOOT_FRAMES.indexOf(FRAMES[i] ?? '')
+                                : Number(FRAMES[i]?.slice(running ? 3 : 4)) - 1;
+          const sourceWidth = diving
+            ? 1152
+            : tackling
+              ? 1024
+              : celebrating
+                ? CELEBRATE_SOURCE_W
+                : running || shooting || vertical || holding
+                  ? 640
+                  : IDLE_SOURCE_W;
+          const height = PLAYER_H;
+          const width = (sourceWidth / IDLE_SOURCE_H) * height;
+          const sourceColumns =
+            carrying || celebrating || (diving && !hurting)
+              ? 3
+              : diving
+                ? 2
+                : 4;
+          ctx.imageSmoothingEnabled = false;
+          ctx.drawImage(
+            sheet,
+            (sourceFrame % sourceColumns) * sourceWidth,
+            tackling || running || diving || carrying || celebrating
+              ? Math.floor(sourceFrame / sourceColumns) * IDLE_SOURCE_H
+              : 0,
+            sourceWidth,
+            IDLE_SOURCE_H,
+            (PLAYER_W - width) / 2,
+            PLAYER_H * PLAYER_ORIGIN_Y -
+              ((running ||
+              shooting ||
+              vertical ||
+              tackling ||
+              diving ||
+              holding ||
+              celebrating
+                ? 681
+                : IDLE_SOURCE_GROUND) /
+                IDLE_SOURCE_H) *
+                height,
+            width,
+            height
+          );
+        } else {
+          paintRows(ctx, rows, palette, 0, 0);
+        }
+        ctx.restore();
+      });
+      // Resizing releases the temporary decoded pixels immediately. The home
+      // sheet is Phaser's source image and must remain intact for other kits.
+      if (kitName !== 'home' && sheet instanceof HTMLCanvasElement) {
+        sheet.width = 0;
+        sheet.height = 0;
+      }
+      yield `${kitName} ${action}`;
+    }
+    for (const frame of atlasFrames())
+      texture.add(frame.name, 0, frame.x, frame.y, frame.w, frame.h);
+    texture.refresh();
     const frames = (names: string[]) => names.map((frame) => ({ key, frame }));
     scene.anims.create({
       key: holdAnim(kitName, true),
@@ -1605,7 +1599,8 @@ export function createPlayerTextures(scene: Phaser.Scene) {
       })
     );
   }
-  createLookLayers(scene);
+  yield* createLookLayers(scene);
+  yield 'court';
 
   // Controlled-player marker: an arrow overhead (the ring with a pointer on
   // the ground is drawn by the Match scene).
