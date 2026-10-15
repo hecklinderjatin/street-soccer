@@ -17,12 +17,12 @@ export const SIM = {
 export const PITCH = {
   width: 2640, // playing area width, goals at left and right ends
   height: 1430, // playing area depth, wall along the far side, fence along the near side
-  goalMouth: 286, // goal opening
-  goalDepth: 66, // how far the net reaches behind the goal line
-  goalHeight: 114.4, // crossbar height; goal dimensions increased by 10%
+  goalMouth: 300.3, // goal opening (+5% on 286, user request)
+  goalDepth: 69.3, // how far the net reaches behind the goal line (+5%)
+  goalHeight: 120.12, // crossbar height (+10%, then +5%)
   wallHeight: 160, // brick wall standing on the far touchline
   backdropHeight: 440, // wall plus the apartment facade above it
-  endWallHeight: 120, // walls on each goal line, either side of the goal
+  endWallHeight: 138.6, // walls on each goal line, either side of the goal; scaled with the goal (+10%, +5%) so they stay ~15% above the crossbar
   wallThickness: 32, // depth of the solid walls (far wall and end walls), outward from the court
   fenceHeight: 96, // chain-link fence on the near touchline (see-through)
   groundPadX: 720, // street ground drawn beyond each goal line
@@ -76,7 +76,7 @@ export const BALL = {
   wallBounce: 0.5, // speed kept off walls, fence and posts
   netBounce: 0.15, // the net soaks up a goal
   stopSpeed: 12, // a rolling ball slower than this stops
-  postRadius: 6.6, // goal posts as circles on the ground plane; scaled with the goal
+  postRadius: 6.93, // goal posts as circles on the ground plane; scaled with the goal (+5%)
   spinMinSpeed: 300, // only fast balls curve
   spinDecay: 0.3, // spin kept per second
   maxSpin: 0.3, // rad/s; with a typical shot this curves up to ~6 degrees
@@ -133,6 +133,13 @@ export const PASS = {
   // held when you passed.
   receiveAssist: true,
   assistTakeoverDeg: 40,
+  // Receiver hold (user request): after a normal pass (not a through ball,
+  // which is played into space to run onto), its intended receiver, of
+  // either team and the human's player too, moves at most this fast until
+  // the ball reaches it or this long has passed, so it waits for the ball
+  // instead of running away from it. Small steps to meet it still work.
+  receiveHoldSec: 1,
+  receiveHoldSpeed: 80, // px/s, about a quarter of sprint speed
   chipLane: 60, // an opponent this close to the pass line turns it into a chip ...
   chipFromAhead: 30, // ... if the ball still has to pass it (this far along the line or more; not one beside or behind the passer)
   chipVz: 380, // vertical speed of a chip
@@ -157,7 +164,7 @@ export const SHOOT = {
   chargeSec: 0.6, // hold time for a full charge
   tapMaxSec: 0.12, // released faster than this = tap shot
   tapLift: 120, // vertical speed of a tap shot
-  fullLift: 420, // vertical speed of a full charge (about 46 high by 450 px, standing)
+  fullLift: 600, // vertical speed of a full charge (was 420: only an inaccurate over-hit got high; now a green-zone strike from 350-450 px arrives ~50-87 high, the top corner; an over-hit goes over)
   // SKILL-BASED (user request: no help from the game). The ball leaves
   // exactly along the stick (the facing with the stick centred): no aim
   // assist, no snapping to the goal, no auto-ranging. Power = charge.
@@ -219,6 +226,7 @@ export const SHOOT = {
 export const KEEPER = {
   reach: 40, // ground distance at which the keeper gets to the ball
   reachHeight: 120, // highest ball it can reach while diving ...
+  stretchReachHeight: 95, // ... down to this at a full-stretch dive (lower in between): top corners beat a long dive
   standReachHeight: 96, // ... and standing (just under the bar: a dropping chip can beat it)
   // Catch or parry: a ball slower than catchSureBelow is always caught;
   // faster, the catch chance falls to none at catchNoneAbove (parried

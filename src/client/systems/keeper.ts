@@ -231,7 +231,9 @@ export function stepKeeperHands(
   }
 
   const reach = diving ? KEEPER.diveReach : KEEPER.reach;
-  const reachHeight = diving ? KEEPER.reachHeight : KEEPER.standReachHeight;
+  const reachHeight = diving
+    ? diveReachHeight(keeper, time)
+    : KEEPER.standReachHeight;
   if (dist > reach || ball.z > reachHeight) return null;
 
   // Slow balls are always caught; faster, the catch gets less likely (and
@@ -419,6 +421,17 @@ function keeperThreat(keeper: Player, ball: Ball, time: number) {
     dist: Math.abs(offset) - KEEPER.diveReach / 2,
     smother: false,
   };
+}
+
+// How high a diving keeper reaches: KEEPER.reachHeight on a short dive,
+// down to KEEPER.stretchReachHeight at full stretch (a full-length dive), so
+// a ball into the top corner beats a keeper who has to go all the way across.
+function diveReachHeight(keeper: Player, time: number) {
+  const stretch = clamp((time - keeper.diveAt) / KEEPER.diveSec, 0, 1);
+  return (
+    KEEPER.reachHeight +
+    (KEEPER.stretchReachHeight - KEEPER.reachHeight) * stretch
+  );
 }
 
 // Starts a dive: a short lunge (with extended reach), then a moment down on

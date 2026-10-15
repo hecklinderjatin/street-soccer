@@ -260,28 +260,7 @@ function paintBackdrop(ctx: CanvasRenderingContext2D) {
     }
   }
   fill(ctx, 0, wallTop, GROUND_W, 2, PAL.lightGray);
-
-  // Graffiti tags along the court (original art only, no real brands).
-  const tags: [string, number, number][] = [
-    ['ZONE', 70, PAL.blue],
-    ['STREET', 200, PAL.yellow],
-    ['5V5', 330, PAL.pink],
-    ['KICK IT', 420, PAL.green],
-    ['GOAL!', 560, PAL.blue],
-    ['NO RULES', 660, PAL.orange],
-    ['PLAY', 840, PAL.pink],
-  ];
-  for (const [text, x, color] of tags) {
-    paintPixelText(
-      ctx,
-      text,
-      x,
-      wallTop + 12 + Math.floor(rand() * 10),
-      2,
-      hex(color),
-      hex(PAL.black)
-    );
-  }
+  // (No graffiti text on the wall: removed on user request.)
 }
 
 function paintEndWall(ctx: CanvasRenderingContext2D) {

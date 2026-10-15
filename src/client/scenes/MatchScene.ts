@@ -143,6 +143,9 @@ export class MatchScene extends Phaser.Scene {
   // comes to meet the ball until the human steers it; `stickDir` is how the
   // stick was held when the pass left (null = centred since).
   private receiveAssist: { p: Player; stickDir: number | null } | null = null;
+  // Receiver hold: when each intended receiver of a normal pass was first
+  // seen receiving (PASS.receiveHoldSec).
+  private readonly receivingSince = new Map<Player, number>();
   private outRestart: { keeper: Player; at: number } | null = null; // goal kick after the ball went out
   private chargeSince: number | null = null; // real time the shot charge started
   private lastSwitchAt = -Infinity;
@@ -182,6 +185,7 @@ export class MatchScene extends Phaser.Scene {
     this.chargeSince = null;
     this.passChargeSince = null;
     this.receiveAssist = null;
+    this.receivingSince.clear();
     this.lastSwitchAt = -Infinity;
     this.switchCycle = [];
     this.switchIndex = 0;
@@ -433,7 +437,16 @@ export class MatchScene extends Phaser.Scene {
       // The direction asked for (a sharp change dodges a tackle: juke).
       if (steer.move.r > STICK.deadZone)
         p.wantDir = Math.atan2(steer.move.y, steer.move.x);
-      stepPlayer(p, steer.move, steer.sprint, dt, ball.owner === p, regen(p));
+      const held = this.receiverHeld(p, t);
+      stepPlayer(
+        p,
+        steer.move,
+        steer.sprint && !held,
+        dt,
+        ball.owner === p,
+        regen(p),
+        held ? PASS.receiveHoldSpeed : Infinity
+      );
       // An AI player standing still keeps its eyes on the ball.
       if (!human && !busy && steer.move.r <= STICK.deadZone && p.speed < 5)
         p.heading = Math.atan2(ball.y - p.y, ball.x - p.x);
@@ -1185,6 +1198,22 @@ export class MatchScene extends Phaser.Scene {
   private passReaction(team: Team, t: number) {
     const other = team === 'home' ? this.awayBrain : this.homeBrain;
     other.delay(t, other.skill.passReactSec);
+  }
+
+  // Receiver hold (PASS.receiveHoldSec): the intended receiver of a normal
+  // pass still travelling, during the first second of it. Ends as soon as
+  // anyone has the ball or the pass is no longer his (deflected, cut out).
+  private receiverHeld(p: Player, t: number) {
+    if (!p.receiving || p.receivingThrough || this.ball.owner) {
+      this.receivingSince.delete(p);
+      return false;
+    }
+    const since = this.receivingSince.get(p);
+    if (since === undefined) {
+      this.receivingSince.set(p, t);
+      return true;
+    }
+    return t - since < PASS.receiveHoldSec;
   }
 
   private clearReceivers() {

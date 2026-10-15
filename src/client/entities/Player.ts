@@ -69,6 +69,7 @@ export class Player {
   dribbleAngle = 0; // where the ball sits around the carrier (radians) ...
   dribbleDist = 0; // ... and how far from the feet
   receiving = false; // the intended receiver of the pass in flight
+  receivingThrough = false; // ... and that pass is a through ball (no receiver hold)
   holdTimer = 0; // keeper: how long the ball has been held
   holding = false; // keeper: has the ball in its hands (only possible inside its box)
   readonly heldBallScreen = {
@@ -188,6 +189,7 @@ export class Player {
     this.speed = 0;
     this.heading = this.team === 'home' ? 0 : Math.PI;
     this.receiving = false;
+    this.receivingThrough = false;
     this.lockUntil = 0;
     this.touchTimer = 0;
     this.holdTimer = 0;

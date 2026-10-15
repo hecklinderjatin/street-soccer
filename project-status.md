@@ -8,6 +8,14 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Top-corner shots (2026-10-16):** user: hard to shoot top corner. Cause (simulated with the game's flight numbers): height comes only from the charge, and the accurate green band (0.6-0.8) arrived at most ~15-45 px high (bar 120) from 250-450 px, so a high shot needed an over-hit (up to +5 deg stray, a ~0.05-charge window before going over); and a diving keeper reached 120, the whole goal height. Fix: `SHOOT.fullLift` 420 -> 600 (green-band strikes from 350-450 px now arrive ~50-87 high; over-hits go over the bar), and `KEEPER.stretchReachHeight` 95: a diving keeper's reach height falls from 120 to 95 with how far into a full-length dive it is (`diveReachHeight` in keeper.ts), so top corners beat a full-stretch dive while shots near it are still saved. AI shots (charge 0.7 +- level noise) now arrive ~55-70 high from 250-450 px; Easy will sky a few more close shots. Type check, lint, build and 14 logic checks pass; no gameplay test.
+
+**End walls fit the bigger goals; wall text removed (2026-10-15):** user: the walls were not adjusted to the larger goal. The end-wall gap already follows `goalMouth`, but `PITCH.endWallHeight` was still 120 while the crossbar reached 120.12, so the goal poked above the walls. Now 138.6 (scaled with the goal, +10% then +5%, keeping the original ~15% margin over the crossbar; also the height a ball must clear to go out over them, ballPhysics). The graffiti tags on the far wall (ZONE, STREET, 5V5, KICK IT, GOAL!, NO RULES, PLAY) are removed (user request). Type check, lint, build and 14 logic checks pass; no gameplay test.
+
+**Receiver hold (2026-10-15):** user request: after a pass the receiver should not run off before the ball arrives. The intended receiver of a normal pass (both teams, keeper throws included, the human's player too) is capped at `PASS.receiveHoldSpeed` 80 px/s (~25% of sprint, no sprint) from the pass until it has the ball, the pass stops being its (deflected / cut out: `receiving` cleared), or `PASS.receiveHoldSec` 1 s has passed. It can still step toward the ball (receive assist / AI chase). Through balls are excluded (`Player.receivingThrough`, set by kickThroughPass). Implemented as an optional `maxSpeed` on `stepPlayer` and `MatchScene.receiverHeld` (first time seen receiving, per player). Type check, lint, build and 14 logic checks pass; no gameplay test.
+
+**Goals 5% bigger (2026-10-15):** user tested the load-time work ("good for now") and asked for a 5% larger goal: `PITCH.goalMouth` 286 -> 300.3, `goalHeight` 114.4 -> 120.12, `goalDepth` 66 -> 69.3, `BALL.postRadius` 6.6 -> 6.93 (render and collision share it). Pitch, boxes and player sizes unchanged; everything reads these values from tuning.ts. Type check and 14 logic checks pass; user review pending.
+
 **Shorter first screen, prepared first PLAY (2026-10-15, `main`):** (1) Trimmed Phaser: vite.config.ts aliases `phaser` to `tools/phaser-trim.cjs` (based on Phaser's own src/phaser-core.js; TypeScript still uses Phaser's types) and the `phaserFlags` plugin replaces Phaser's `typeof FLAG` build switches (WebGL only, Canvas renderer off, sound on). Kept: core, WebGL renderer, scenes, 2D cameras, input (touch/mouse/keyboard), loader incl. audio files, textures, animations, Sprite/Image/Graphics/Container/Rectangle/BitmapText+RetroFont/Mesh, scale, events, sound, tweens, timers. Dropped: Arcade/Matter physics, tilemaps, particles, video, DOM elements, canvas Text, lights, unused game objects, gamepad, Canvas renderer (to add one back: require it and its Factory in phaser-trim.cjs). game.js 1.31 MB -> 0.78 MB (355 -> 213 KB gzip). (2) Boot loads nothing before the menu: it opens the menu at once, then keeps running invisibly (`src/client/art/gameAssets.ts`): downloads the outfield kits + skin/hair first, then keepers + ball sheets, then prepares one step per frame (player frames/animations, ball atlas, court textures, scenery textures) and stops. Match only waits ("LOADING PLAYERS n/8") for downloads still missing (and fetches them itself if Boot finished without them); every preparation call is a no-op when already done. A GPU warm-up was not needed: Phaser uploads textures when loaded/painted and compiles shaders at boot. New timing marks: kits and looks, keepers and ball, match prepared. dist/client 2.6 -> 2.1 MB. Type check, lint, build and 14 logic checks pass; NOT run in a browser (no gameplay tests): the trimmed Phaser can only fail at runtime, so a full match must be played to confirm.
 
 **Load-time optimisation (2026-10-15, `main`):** player art is baked at build time instead of on the device. `npm run art:release` = `art:bake` (scripts/bake-player-atlases.ts, Node, no new dependencies: own PNG codec in scripts/png.ts) turns the 15 editable sheets in public/art into 4 kit atlases + grey skin/hair look layers (1792x1280, 78 frames of 224x128) in art-baked/ (gitignored), then scripts/optimize_art.py (needs Python Pillow) writes the shipped WebP: kit atlases as a 256-colour palette stored lossless (lossy WebP shifted colours ~9 levels via chroma subsampling; the palette keeps mean error < 4, alpha exact), look layers and balls lossless, stale release files removed. All bake data/logic (frame tables, kit colours, waist/shorts lines, dive split lines, recolour, shadow, nearest-neighbour scaling, look layers) lives in the pure module `src/client/art/playerSheets.ts`, shared by the game and the bake; playerArt.ts now only registers frames/animations and draws UI textures (the dead code-drawn poses were removed). One pink rule for every sheet (blue >= 0.4 of red), which also removed old pink streaks on the away/keeper shorts in the back/front running frames. Release art 5.6 -> 1.28 MiB (8 files), dist/client 6.9 -> 2.6 MiB, no per-pixel work or 162 MB of decoded source sheets on the device. Flow unchanged (Boot -> Menu -> Match): Boot loads only the ball sheets, opens the menu at once, stays running invisibly to download the 6 atlases, then stops itself; Match shows LOADING PLAYERS only if they are not in yet (and fetches any a failed download missed). index.html shows a CSS loading screen until Boot runs. The splash prefetches game.js/css and the art once the card has been at least half on screen for 1.5 s (never with data saver). Timing marks (`ui/timing.ts`) log `[timing] game code / boot / menu / player art / match ready` in ms to the console and appear in the ?debug overlay. Type check (now also covering scripts/), lint, production build and all 14 logic checks pass; baked atlases inspected as images; no gameplay test; the splash prefetch is unverified on Reddit (depends on its cache headers).
@@ -400,6 +408,12 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Playtest top-corner shooting: green-zone strikes from the edge of the box should rise to the top corner; check low shots still come from a light hold, the keeper still saves high shots near him, and whether AI high shots now score too often (tune `SHOOT.fullLift`, `KEEPER.stretchReachHeight`).
+
+- Playtest the receiver hold: passes should now reach the receiver; check it does not feel sluggish (tune `PASS.receiveHoldSpeed` / `receiveHoldSec`), and that through balls still let the runner go.
+
+- Playtest the 5% larger goals: scoring feel, keeper saves near the posts / crossbar, recess and net drawing.
+
 - Play a full match on `npm run dev` with the trimmed Phaser (menu, match, goal + celebration zoom, pause, result, play again) and compare the `[timing]` lines with before; any "not a function" / undefined Phaser error means a needed part was trimmed (add it back in tools/phaser-trim.cjs).
 
 - Measure on a phone: open the post, read the `[timing]` console lines (or the ?debug overlay) for game code, boot, menu, player art, match ready; compare with and without the feed prefetch. Then consider: direct-to-match start (user will want it at launch; load idle/run/shoot first), tint-layer kits (one base atlas + grey kit layers, ~1 MB less), a trimmed Phaser build, a pre-rendered court texture.
@@ -479,6 +493,26 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+### 2026-10-16: Top-corner shots possible
+
+- `SHOOT.fullLift` 420 -> 600; keeper dive reach height 120 -> 95 at full stretch (`KEEPER.stretchReachHeight`, `diveReachHeight`).
+- Type check, lint, build and logic checks pass; no gameplay test.
+
+### 2026-10-15: End walls scaled with the goals; no wall text
+
+- `PITCH.endWallHeight` 120 -> 138.6; far-wall graffiti text removed.
+- Type check, lint, build and logic checks pass; no gameplay test.
+
+### 2026-10-15: Receiver hold on passes
+
+- The intended receiver of a normal pass moves at most 80 px/s for up to 1 s or until it gets the ball (both teams; through balls excluded).
+- Type check, lint, build and logic checks pass; no gameplay test.
+
+### 2026-10-15: Goals 5% bigger
+
+- Goal opening, crossbar height, net depth and post radius +5% (tuning.ts).
+- Type check and logic checks pass; no gameplay test.
 
 ### 2026-10-15: Trimmed Phaser; match prepared during the menu
 

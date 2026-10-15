@@ -16,7 +16,8 @@ export function stepPlayer(
   wantsSprint: boolean,
   dt: number,
   hasBall: boolean,
-  regenScale = 1
+  regenScale = 1,
+  maxSpeed = Infinity // a cap on top (receiver hold); faster players slow down to it
 ) {
   const active = move.r > STICK.deadZone;
 
@@ -69,6 +70,7 @@ export function stepPlayer(
     targetSpeed *= ease;
   }
 
+  targetSpeed = Math.min(targetSpeed, maxSpeed);
   const accel = hasBall ? PLAYER.accelWithBall : PLAYER.accel;
   player.speed =
     targetSpeed >= player.speed

@@ -155,6 +155,7 @@ export function kickThroughPass(
     rand,
     errorScale
   );
+  receiver.receivingThrough = true; // runs onto it: no receiver hold
 }
 
 // Where a through ball to `q` goes: where it will be on its run when the
@@ -241,6 +242,7 @@ function strikePass(
   ball.dip = 0;
   ball.lastTouch = passer;
   receiver.receiving = true;
+  receiver.receivingThrough = false;
 }
 
 // Shot (skill-based, user request: no help from the game). The ball leaves
