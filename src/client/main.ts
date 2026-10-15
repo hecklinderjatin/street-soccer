@@ -7,6 +7,9 @@ import { ResultScene } from './scenes/ResultScene';
 import { HudScene } from './scenes/HudScene';
 import { forceLandscape } from './ui/landscape';
 import { PAL } from './ui/palette';
+import { markTiming } from './ui/timing';
+
+markTiming('game code');
 
 const box = document.getElementById('game');
 if (!box) throw new Error('#game container missing');

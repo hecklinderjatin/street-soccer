@@ -10,6 +10,7 @@ import { addStreetBackdrop } from '../ui/backdrop';
 import { PAL, PX } from '../ui/palette';
 import { pixelText } from '../ui/pixelFont';
 import { TextButton } from '../ui/TextButton';
+import { markTiming } from '../ui/timing';
 
 export class MenuScene extends Phaser.Scene {
   private difficulty: Difficulty = 'normal';
@@ -19,6 +20,7 @@ export class MenuScene extends Phaser.Scene {
   }
 
   create() {
+    markTiming('menu');
     const cx = VIEW.width / 2;
     addStreetBackdrop(this);
 

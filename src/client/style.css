@@ -31,3 +31,36 @@ body {
   image-rendering: crisp-edges;
   image-rendering: pixelated;
 }
+
+/* Loading screen in the page itself (index.html), before any game code runs. */
+#boot-loading {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  background: #1d2b53;
+  color: #ffec27;
+  font: bold 28px monospace;
+  letter-spacing: 4px;
+}
+
+#boot-loading .boot-bar {
+  width: 160px;
+  height: 8px;
+  background: linear-gradient(90deg, #ffec27 0 40%, #5f574f 40% 100%);
+  background-size: 200% 100%;
+  animation: boot-slide 1s linear infinite;
+}
+
+@keyframes boot-slide {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
+}

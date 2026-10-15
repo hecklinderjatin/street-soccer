@@ -23,24 +23,15 @@ import {
   createBallTexture,
 } from '../art/ballArt';
 import {
+  CELEBRATION_STYLES,
   LOOKS,
-  CELEBRATIONS,
   PLAYER_HEIGHT,
-  AUTHORED_IDLE_TEXTURE,
-  AUTHORED_RUN_TEXTURE,
-  AUTHORED_SHOOT_TEXTURE,
-  AUTHORED_RUN_UP_TEXTURE,
-  AUTHORED_RUN_DOWN_TEXTURE,
-  AUTHORED_RUN_UP_DIAGONAL_TEXTURE,
-  AUTHORED_RUN_DOWN_DIAGONAL_TEXTURE,
-  AUTHORED_TACKLE_TEXTURE,
-  AUTHORED_DIVE_TEXTURE,
-  AUTHORED_HOLD_TEXTURE,
-  AUTHORED_HURT_TEXTURE,
-  AUTHORED_CARRY_TEXTURE,
-  createPlayerTextures,
+  playerAtlasesLoaded,
+  queuePlayerAtlases,
+  registerPlayerAtlases,
   type Look,
 } from '../art/playerArt';
+import { markTiming, timingSummary } from '../ui/timing';
 import { Ball } from '../entities/Ball';
 import { Player } from '../entities/Player';
 import { Court } from '../render/Court';
@@ -164,7 +155,6 @@ export class MatchScene extends Phaser.Scene {
   // (tap the FPS readout): a smoothed average and a slowly decaying peak.
   private simMsAvg = 0;
   private simMsPeak = 0;
-  private preparing: Generator<string> | null = null;
   private loadingText: Phaser.GameObjects.BitmapText | null = null;
   private ready = false;
 
@@ -176,7 +166,6 @@ export class MatchScene extends Phaser.Scene {
   init(data: MatchConfig) {
     this.config = data;
     this.ready = false;
-    this.preparing = null;
     this.loadingText = null;
     this.fixed.reset();
     this.home = [];
@@ -206,34 +195,31 @@ export class MatchScene extends Phaser.Scene {
       this,
       VIEW.width / 2,
       VIEW.height / 2,
-      'PREPARING MATCH',
+      'LOADING PLAYERS',
       PX,
       PAL.white
     ).setOrigin(0.5);
-    this.preparing = createPlayerTextures(this);
+  }
+
+  // Until the player atlases are in (Boot downloads them while the menu is
+  // up), show progress; if Boot has finished without them (a failed
+  // download), fetch the missing ones here.
+  private waitForPlayers() {
+    if (playerAtlasesLoaded(this)) return true;
+    if (
+      !this.scene.isActive('Boot') &&
+      !this.load.isLoading() &&
+      queuePlayerAtlases(this)
+    )
+      this.load.start();
+    return false;
   }
 
   private finishCreate() {
     createBallTexture(this);
-    // The generated atlases persist across matches; keep no duplicate source
-    // sheets in Phaser's texture manager after the first match is prepared.
-    for (const key of [
-      AUTHORED_BALL_TEXTURE,
-      AUTHORED_SHOT_BALL_TEXTURE,
-      AUTHORED_IDLE_TEXTURE,
-      AUTHORED_RUN_TEXTURE,
-      AUTHORED_SHOOT_TEXTURE,
-      AUTHORED_RUN_UP_TEXTURE,
-      AUTHORED_RUN_DOWN_TEXTURE,
-      AUTHORED_RUN_UP_DIAGONAL_TEXTURE,
-      AUTHORED_RUN_DOWN_DIAGONAL_TEXTURE,
-      AUTHORED_TACKLE_TEXTURE,
-      AUTHORED_DIVE_TEXTURE,
-      AUTHORED_HOLD_TEXTURE,
-      AUTHORED_HURT_TEXTURE,
-      AUTHORED_CARRY_TEXTURE,
-      ...CELEBRATIONS.map((c) => c.key),
-    ])
+    registerPlayerAtlases(this);
+    // The ball atlas persists across matches; drop its two source sheets.
+    for (const key of [AUTHORED_BALL_TEXTURE, AUTHORED_SHOT_BALL_TEXTURE])
       if (this.textures.exists(key)) this.textures.remove(key);
     this.court = new Court(this);
 
@@ -338,18 +324,12 @@ export class MatchScene extends Phaser.Scene {
 
   override update(time: number, delta: number) {
     if (!this.ready) {
-      const step = this.preparing?.next();
-      if (!step || step.done) {
-        this.preparing = null;
-        this.loadingText?.destroy();
-        this.loadingText = null;
-        this.finishCreate();
-        this.ready = true;
-      } else {
-        this.loadingText?.setText(
-          `PREPARING MATCH\n${step.value.toUpperCase()}`
-        );
-      }
+      if (!this.waitForPlayers()) return;
+      this.loadingText?.destroy();
+      this.loadingText = null;
+      this.finishCreate();
+      this.ready = true;
+      markTiming('match ready');
       return;
     }
     const realDt = delta / 1000;
@@ -578,7 +558,7 @@ export class MatchScene extends Phaser.Scene {
       // One of the celebrations at random, chosen once per goal.
       const scorer = this.scorer(scoring, ball.lastTouch);
       if (scorer && !scorer.celebrating)
-        scorer.celebrate(Math.floor(Math.random() * CELEBRATIONS.length));
+        scorer.celebrate(Math.floor(Math.random() * CELEBRATION_STYLES));
       this.flow.onGoal(scoring);
     }
     if (contact.out !== 0 && this.flow.phase === 'live') {
@@ -1544,6 +1524,7 @@ export class MatchScene extends Phaser.Scene {
       `BALL ${Math.round(b.x)},${Math.round(b.y)},${Math.round(b.z)} V ${Math.round(b.speed)} ${owner}`,
       `CAM ${Math.round(f.x)},${Math.round(f.y)} ZOOM ${this.rig.currentZoom.toFixed(2)}`,
       `SIM ${this.simMsAvg.toFixed(2)} MS/FRAME PEAK ${this.simMsPeak.toFixed(2)}`,
+      `LOAD MS ${timingSummary()}`,
     ].join('\n');
   }
 }

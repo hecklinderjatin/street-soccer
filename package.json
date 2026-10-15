@@ -14,6 +14,8 @@
     "prettier": "prettier --write .",
     "test:types": "tsc --build",
     "test:unit": "node --experimental-strip-types --no-warnings=ExperimentalWarning --test \"src/**/*.test.ts\"",
+    "art:bake": "rolldown scripts/bake-player-atlases.ts --platform node --format esm -o node_modules/.cache/bake-player-atlases.mjs && node node_modules/.cache/bake-player-atlases.mjs",
+    "art:release": "npm run art:bake && python3 scripts/optimize_art.py",
     "test:logic": "rolldown checks/logic-check.ts --platform node --format esm --external node:assert/strict -o node_modules/.cache/logic-check.mjs && node node_modules/.cache/logic-check.mjs"
   },
   "engines": {

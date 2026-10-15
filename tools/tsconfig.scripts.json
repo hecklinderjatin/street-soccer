@@ -1,0 +1,17 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "../dist/types/scripts",
+    "tsBuildInfoFile": "../dist/types/scripts/tsconfig.tsbuildinfo",
+    "types": ["node"],
+    "lib": ["ES2023"],
+    "rootDir": ".."
+  },
+  "include": [
+    "../scripts/**/*.ts",
+    "../src/client/art/playerSheets.ts",
+    "../src/client/ui/palette.ts",
+    "../src/shared/types.ts"
+  ],
+  "exclude": []
+}

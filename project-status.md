@@ -8,6 +8,10 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Load-time optimisation (2026-10-15, `main`):** player art is baked at build time instead of on the device. `npm run art:release` = `art:bake` (scripts/bake-player-atlases.ts, Node, no new dependencies: own PNG codec in scripts/png.ts) turns the 15 editable sheets in public/art into 4 kit atlases + grey skin/hair look layers (1792x1280, 78 frames of 224x128) in art-baked/ (gitignored), then scripts/optimize_art.py (needs Python Pillow) writes the shipped WebP: kit atlases as a 256-colour palette stored lossless (lossy WebP shifted colours ~9 levels via chroma subsampling; the palette keeps mean error < 4, alpha exact), look layers and balls lossless, stale release files removed. All bake data/logic (frame tables, kit colours, waist/shorts lines, dive split lines, recolour, shadow, nearest-neighbour scaling, look layers) lives in the pure module `src/client/art/playerSheets.ts`, shared by the game and the bake; playerArt.ts now only registers frames/animations and draws UI textures (the dead code-drawn poses were removed). One pink rule for every sheet (blue >= 0.4 of red), which also removed old pink streaks on the away/keeper shorts in the back/front running frames. Release art 5.6 -> 1.28 MiB (8 files), dist/client 6.9 -> 2.6 MiB, no per-pixel work or 162 MB of decoded source sheets on the device. Flow unchanged (Boot -> Menu -> Match): Boot loads only the ball sheets, opens the menu at once, stays running invisibly to download the 6 atlases, then stops itself; Match shows LOADING PLAYERS only if they are not in yet (and fetches any a failed download missed). index.html shows a CSS loading screen until Boot runs. The splash prefetches game.js/css and the art once the card has been at least half on screen for 1.5 s (never with data saver). Timing marks (`ui/timing.ts`) log `[timing] game code / boot / menu / player art / match ready` in ms to the console and appear in the ?debug overlay. Type check (now also covering scripts/), lint, production build and all 14 logic checks pass; baked atlases inspected as images; no gameplay test; the splash prefetch is unverified on Reddit (depends on its cache headers).
+
+**Celebration camera zoom (2026-10-15, `main`):** user feedback: the goal celebration needs focus on the scorer. While a player is `celebrating`, `CameraRig.update` takes `celebrant` (from `MatchScene.celebrantFocus`) and centres on the scorer instead of the ball/controlled-player blend, aiming `CAMERA.celebrateLift` (80 world px) beyond its feet so the whole body is centred, with x allowed right up to the goal lines, and eases the zoom to `CAMERA.celebrateZoom` (1.6) at the normal zoom rate. After the kickoff reset it eases back to the usual follow and zoom. The code landed in commit `80c2c35`. Type check passed; lint, build and logic checks were not run (user stopped them); no gameplay test.
+
 **First-Play loading fix (2026-10-15, `main`):** pressing Play now shows a match-preparation screen while player artwork is processed one source sheet per rendered frame and skin/hair layers are processed in 64-row steps. Alternate-kit temporary canvases are released after each sheet is copied into its atlas, reducing peak decoded memory. Player atlases use 8 columns (1792x1280) instead of 16 (3584x640), staying within a 2048 px texture dimension common on older phones. The local built game reached the match on first Play with no browser errors. Type check, lint, and production build passed; Reddit mobile timing remains unmeasured.
 
 **Smaller player sheets (2026-10-15, `main`):** release player animation WebP sheets now use quality 98, while both ball sheets remain lossless and editable source PNGs remain unchanged. `scripts/optimize_art.py` verifies identical alpha and bounds visible per-channel color error for every player sheet. The 17 release sheets fell from 9.41 to 5.50 MiB; the complete `dist/client` fell from 10.69 to 6.77 MiB (36.7% further reduction). Production build passed on `main`. A side-by-side run frame looked nearly identical, but the small color changes can affect alternate-kit recoloring; test home, away and keeper animations in Reddit playtest before publishing.
@@ -394,6 +398,11 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Measure on a phone: open the post, read the `[timing]` console lines (or the ?debug overlay) for game code, boot, menu, player art, match ready; compare with and without the feed prefetch. Then consider: direct-to-match start (user will want it at launch; load idle/run/shoot first), tint-layer kits (one base atlas + grey kit layers, ~1 MB less), a trimmed Phaser build, a pre-rendered court texture.
+- After changing player art: `npm run art:release` (needs Python Pillow, e.g. `pip install pillow`), commit public-release/art.
+
+- Celebration camera zoom: run lint and logic checks, then review in game (zoom amount 1.6 and lift 80 in `CAMERA`, framing near the goal lines, the ease back after the reset).
+
 - Test first Play on Reddit mobile and record cold-start time and whether the loading message advances smoothly; compare a second match, which should reuse the generated atlases. If preparation remains slow, move atlas generation into build-time assets or reduce source-sheet resolution.
 
 - Run `npm run dev` from `main` and visually check all kits (especially recolored away/keeper sprites), celebrations, dives, tackle/hurt, carrying and shooting on Reddit mobile before publishing the new version.
@@ -466,6 +475,17 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+### 2026-10-15: Faster loading: player atlases baked at build time
+
+- New `playerSheets.ts` (pure layout + bake), `scripts/bake-player-atlases.ts` + `scripts/png.ts`, `npm run art:bake` / `art:release`, `tools/tsconfig.scripts.json`; optimize_art.py ships the baked atlases (palette + lossless) instead of the 15 big sheets. Release art 5.6 -> 1.28 MiB.
+- Boot opens the menu immediately and downloads the atlases in the background; Match waits only if needed. HTML loading screen, gated splash prefetch, load-timing marks. Wider pink match for every sheet.
+- Type check, lint, build and 14 logic checks pass; no gameplay test.
+
+### 2026-10-15: Camera zooms in on the celebrating scorer
+
+- `CameraRig` follows and zooms (1.6x) on the scorer during the goal celebration (`CAMERA.celebrateZoom`, `CAMERA.celebrateLift`, `CameraFocus.celebrant`, `MatchScene.celebrantFocus`).
+- Type check passed; lint, build and logic checks not run; no gameplay test.
 
 ### 2026-10-15: Prevent first-Play apparent hang
 

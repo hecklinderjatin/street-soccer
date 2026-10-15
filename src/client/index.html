@@ -11,6 +11,12 @@
   </head>
   <body>
     <div id="game"></div>
+    <!-- Shown until the game has booted (BootScene removes it), so the
+         screen is never blank while the game code downloads. -->
+    <div id="boot-loading">
+      <div class="boot-title">STREET SOCCER</div>
+      <div class="boot-bar"></div>
+    </div>
     <script type="module" src="main.ts"></script>
   </body>
 </html>
