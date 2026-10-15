@@ -26,11 +26,10 @@ import {
   CELEBRATION_STYLES,
   LOOKS,
   PLAYER_HEIGHT,
-  playerAtlasesLoaded,
-  queuePlayerAtlases,
   registerPlayerAtlases,
   type Look,
 } from '../art/playerArt';
+import { ASSET_COUNT, assetsLoaded, queueAssets } from '../art/gameAssets';
 import { markTiming, timingSummary } from '../ui/timing';
 import { Ball } from '../entities/Ball';
 import { Player } from '../entities/Player';
@@ -201,20 +200,24 @@ export class MatchScene extends Phaser.Scene {
     ).setOrigin(0.5);
   }
 
-  // Until the player atlases are in (Boot downloads them while the menu is
-  // up), show progress; if Boot has finished without them (a failed
-  // download), fetch the missing ones here.
+  // Until the art is in (Boot downloads it while the menu is up), show
+  // progress; if Boot has finished without some of it (a failed download),
+  // fetch the rest here.
   private waitForPlayers() {
-    if (playerAtlasesLoaded(this)) return true;
+    const loaded = assetsLoaded(this);
+    if (loaded === ASSET_COUNT) return true;
+    this.loadingText?.setText(`LOADING PLAYERS ${loaded}/${ASSET_COUNT}`);
     if (
       !this.scene.isActive('Boot') &&
       !this.load.isLoading() &&
-      queuePlayerAtlases(this)
+      queueAssets(this)
     )
       this.load.start();
     return false;
   }
 
+  // Boot has usually prepared all this while the menu was up (each call does
+  // nothing then); after an early PLAY the match does it here.
   private finishCreate() {
     createBallTexture(this);
     registerPlayerAtlases(this);

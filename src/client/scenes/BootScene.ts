@@ -1,24 +1,28 @@
 import Phaser from 'phaser';
+import {
+  FIRST_ASSETS,
+  PREPARE_STEPS,
+  REST_ASSETS,
+  queueAssets,
+  type Asset,
+} from '../art/gameAssets';
 import { createPixelFont } from '../ui/pixelFont';
 import { markTiming } from '../ui/timing';
-import {
-  AUTHORED_BALL_TEXTURE,
-  AUTHORED_SHOT_BALL_TEXTURE,
-} from '../art/ballArt';
-import { queuePlayerAtlases } from '../art/playerArt';
 
-// Loads the small essentials, opens the menu straight away, then stays
-// running in the background (it draws nothing) to download the player
-// atlases while the menu is up; it stops itself when they are in. The match
-// waits only for whatever has not arrived yet.
+type Stage = 'first' | 'rest-next' | 'rest' | 'prepare';
+
+// Opens the menu at once (no downloads first), then keeps running in the
+// background, drawing nothing, to get the match ready while the menu is up:
+// downloads the art (outfield kits and looks first, then keepers and ball),
+// then prepares it one step per frame (player frames and animations, ball,
+// court, scenery) and stops itself. PLAY then only places the players; the
+// match does whatever is still missing if it comes first.
 export class BootScene extends Phaser.Scene {
+  private stage: Stage = 'first';
+  private step = 0;
+
   constructor() {
     super('Boot');
-  }
-
-  preload() {
-    this.load.image(AUTHORED_SHOT_BALL_TEXTURE, '/art/ball-shot-authored.webp');
-    this.load.image(AUTHORED_BALL_TEXTURE, '/art/ball-authored.webp');
   }
 
   create() {
@@ -26,14 +30,37 @@ export class BootScene extends Phaser.Scene {
     markTiming('boot');
     document.getElementById('boot-loading')?.remove();
     this.scene.launch('Menu');
-    if (!queuePlayerAtlases(this)) {
-      this.scene.stop();
+    this.stage = 'first';
+    this.step = 0;
+    this.download(FIRST_ASSETS, 'kits and looks', 'rest-next');
+  }
+
+  // Starts a download; `next` once it is in (or at once if nothing is
+  // missing). A failed file is fetched again by the match.
+  private download(assets: readonly Asset[], name: string, next: Stage) {
+    if (!queueAssets(this, assets)) {
+      this.stage = next;
       return;
     }
     this.load.once(Phaser.Loader.Events.COMPLETE, () => {
-      markTiming('player art');
-      this.scene.stop();
+      markTiming(name);
+      this.stage = next;
     });
     this.load.start();
+  }
+
+  override update() {
+    if (this.stage === 'rest-next') {
+      this.stage = 'rest';
+      this.download(REST_ASSETS, 'keepers and ball', 'prepare');
+    } else if (this.stage === 'prepare') {
+      const step = PREPARE_STEPS[this.step++];
+      if (step) {
+        step[1](this);
+        return;
+      }
+      markTiming('match prepared');
+      this.scene.stop();
+    }
   }
 }

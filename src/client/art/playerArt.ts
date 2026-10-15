@@ -60,33 +60,18 @@ export const RUN_FPS = 16; // Eight authored poses in the half-second stride.
 export const MARKER_TARGET = 'marker-target';
 export const MARKER_ARROW = 'marker-arrow';
 
-// Queues the download of every player atlas not loaded yet on `scene`'s
-// loader (the caller starts it). Returns how many were queued. Safe to call
-// from several scenes: the menu starts it early, the match waits for any
-// that are still missing.
-export function queuePlayerAtlases(scene: Phaser.Scene) {
-  let queued = 0;
-  for (const key of PLAYER_ATLAS_KEYS) {
-    if (scene.textures.exists(key)) continue;
-    scene.load.image(key, `/art/${key}.webp`);
-    queued++;
-  }
-  return queued;
-}
-
-export function playerAtlasesLoaded(scene: Phaser.Scene) {
-  return PLAYER_ATLAS_KEYS.every((key) => scene.textures.exists(key));
-}
-
 // Names the frames of the loaded atlases and creates the animations and
-// marker textures. Once per game; later calls do nothing.
+// marker textures. Once per game; later calls do nothing. Atlases not
+// loaded yet are skipped (and so are their kits' animations).
 export function registerPlayerAtlases(scene: Phaser.Scene) {
   for (const key of PLAYER_ATLAS_KEYS) {
+    if (!scene.textures.exists(key)) continue;
     const texture = scene.textures.get(key);
     if (texture.has(IDLE_FRAME)) continue;
     for (const f of atlasFrames()) texture.add(f.name, 0, f.x, f.y, f.w, f.h);
   }
-  for (const kit of KIT_NAMES) createAnimations(scene, kit);
+  for (const kit of KIT_NAMES)
+    if (scene.textures.exists(playerTexture(kit))) createAnimations(scene, kit);
 
   // Pass target: the teammate a pass would go to right now. Controlled
   // player: an arrow overhead (the ring with a pointer on the ground is
