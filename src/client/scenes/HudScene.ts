@@ -97,12 +97,13 @@ export class HudScene extends Phaser.Scene {
       this,
       VIEW.width - 56,
       48,
-      'II',
+      '',
       () => this.setPaused(true),
       {
         width: 72,
         height: 64,
         fill: PAL.darkGray,
+        icon: 'pause',
       }
     );
     this.input.keyboard?.on('keydown-ESC', () =>
@@ -117,7 +118,19 @@ export class HudScene extends Phaser.Scene {
     this.joystick.update();
     this.actionButtons.update(s.buttons);
 
-    this.scoreText.setText(`YOU ${s.home} - ${s.away} CPU`);
+    this.scoreText.setText(`YOU ${s.home} - ${s.away} OPP`);
+    // Keep the whole label between the colour chips, including multi-digit scores.
+    this.scoreText.setScale(1);
+    const scoreWidth = this.scoreText.displayWidth;
+    if (scoreWidth > 272) this.scoreText.setScale(272 / scoreWidth);
+    // Font cells include one transparent pixel at the right and bottom.
+    // Centre the visible glyphs (including their shadow), not that padding.
+    const scoreBounds = this.scoreText.getTextBounds().local;
+    const fontPixel = this.scoreText.fontSize / this.scoreText.fontData.size;
+    this.scoreText.setDisplayOrigin(
+      (scoreBounds.width - fontPixel) / 2,
+      (scoreBounds.height - fontPixel) / 2
+    );
     const secs = Math.ceil(s.clock);
     this.clockText.setText(
       `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`
@@ -144,19 +157,21 @@ export class HudScene extends Phaser.Scene {
   }
 
   private buildScoreboard() {
-    // Pill: team colour chips either side of the score.
-    const g = this.add.graphics();
-    g.fillStyle(PAL.black, 0.75).fillRect(16, 16, 336, 56);
-    g.fillStyle(PAL.red, 1).fillRect(24, 28, 16, 32);
-    g.fillStyle(PAL.blue, 1).fillRect(328, 28, 16, 32);
-    this.scoreText = pixelText(this, 184, 44, '', PX, PAL.white).setOrigin(0.5);
+    // Use one centre for the box, colour bars and score. Shorter bars leave
+    // equal vertical padding and match the visible height of the lettering.
+    const scoreX = 184;
+    const scoreY = 44;
+    this.add.rectangle(scoreX, scoreY, 336, 56, PAL.black, 0.75);
+    this.add.rectangle(scoreX - 152, scoreY -2, 16, 28, PAL.red);
+    this.add.rectangle(scoreX + 152, scoreY -2, 16, 28, PAL.blue);
+    this.scoreText = pixelText(this, scoreX, scoreY + 2, '', 0.75 * PX, PAL.white).setOrigin(0.5);
 
     const cx = VIEW.width / 2;
     this.add
       .graphics()
       .fillStyle(PAL.black, 0.75)
       .fillRect(cx - 80, 16, 160, 56);
-    this.clockText = pixelText(this, cx, 44, '', PX, PAL.white).setOrigin(0.5);
+    this.clockText = pixelText(this, cx, 50, '', PX, PAL.white).setOrigin(0.5);
     this.goldenText = pixelText(
       this,
       cx,

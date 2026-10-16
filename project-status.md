@@ -8,6 +8,20 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**UI changes prepared for main (2026-10-17):** scoreboard fitting and YOU/OPP labels, solid pause icon and smaller TACKLE label are ready to merge from assests. Preserved user-adjusted score y=46, bar y=42/height=28 and timer y=50. Latest production build passed.
+
+**Smaller TACKLE label (2026-10-17, assests):** reduced only the TACKLE button label to 75 percent of its previous size. Other actions reset to normal label scale when the context changes. Production build and whitespace checks passed; localhost rebuilt. Visual review pending.
+
+**Pause icon (2026-10-17, assests):** replaced the serif-like II text with a centred two-bar pause graphic. Keeps the pixel button bevel, shadow, hit area and press animation. TypeScript, production build and whitespace checks passed; localhost rebuilt. Visual review pending.
+
+**Scoreboard colour bars (2026-10-17, assests):** box, bars and text now share explicit centre coordinates. Bars shortened from 32 to 24 px, with equal 16 px top/bottom padding, matching the lettering height. Production build and whitespace checks passed; localhost rebuilt. Visual review pending.
+
+**Visible scoreboard centring (2026-10-17, assests):** restored the score anchor to (184,44), the box centre. Display origin excludes the retro font's one-pixel transparent right/bottom padding, centring visible lettering and shadow. YOU/OPP and width fitting retained. TypeScript, production build and whitespace checks passed; localhost rebuilt. Visual review pending.
+
+**Scoreboard placement and labels (2026-10-17, assests):** score text centred at y=48; labels now YOU and OPP. Width fitting retained. Production build and diff whitespace check passed; localhost preview rebuilt. Visual review pending.
+
+**Scoreboard text containment (2026-10-17, `assests`):** reduced the score label's pixel size to 3 logical pixels and fitted its measured width within the 272 px space between the team colour chips. Multi-digit scores shrink as needed without changing the scoreboard footprint. Localhost visual review pending.
+
 **Goalkeeper idle, jump save and standing block (2026-10-17):** user supplied 3 keeper sheets (gloved idle x3, jump save: set / take-off / top / land, standing block x3). Cut, scaled (idle and jump 0.875, block 1.08) onto 720 x 724 cells on the 681 ground line (`public/art/player-keeper-{idle,jump,block}-authored.png`), kit split by rows per pose, baked like every other sheet. New `keeperOnly` sheets (also dive, hold, carry) are left out of the outfield kits' atlases (empty cells), and the look layers are baked from a full home atlas so keepers keep their skin/hair: atlas now 88 frames (11 rows, 1792 x 1408); release art 1.28 -> 1.22 MiB despite 10 new frames. Logic: keepers use the gloved idle loop. `keeperThreat` now returns a KeeperMove: `dive` (shot to its side), `jump` (a shot coming at it that crosses above `standReachHeight` 96 and up to `jumpReachHeight` 132; the AI waits until the ball is within `jumpLead` 0.25 s so the top of the jump meets it), `smother` (dive at a carrier within smotherRange) or `tackle` (carrier within `standTackleRange` 60: standing block that takes the ball within `standTackleReach` 50). `startJump`: 0.5 s in the air (reach height rises from 96 to 132 and back, ground reach 48, body drawn up to 18 px high via keeper z), 0.2 s landing, no running. `startBlock`: 0.35 s block pose standing still, after any standing catch/parry and as the standing tackle. Our keeper: dive button with the stick centred jumps when the ball is coming straight at it (else the usual dive to the crossing point). `Player.reactSmother` replaced by `reactKind`. Type check, lint, build and 16 logic checks pass (2 new: jump timing, standing tackle); no gameplay test.
 
 **Ball-free goalkeeper block (2026-10-16):** removed the footballs from the three-frame blocking draft with built-in imagegen. Saved `public/art/player-keeper-block-3frames-no-ball-v1.png`; transparent background and three standing block poses retained. Visually inspected, not applied in-game.
@@ -157,7 +171,7 @@ What works now:
   - goal = 0.3 s hit-stop, 1 s slow motion at 0.4x, 2.5 s celebration, then a reset with the conceding team kicking off;
   - full time: level -> **golden goal** (user request): the game pauses 2 s (GOLDEN GOAL banner, phase `break`, time scale 0), then restarts from a kickoff (players and ball reset; kicked off by the side that didn't take the last kickoff; it waits for the kickoff pass as usual) with a fresh 30 s clock; the next goal wins, still level -> draw; then a FULL TIME banner and the Result screen with goals, shots and passes.
 - **HUD:**
-  - scoreboard pill "YOU x - y CPU" (top left), clock (top centre; red and pulsing in the last 10 s, GOLDEN GOAL label), centre banners;
+  - scoreboard pill "YOU x - y OPP" (top left), clock (top centre; red and pulsing in the last 10 s, GOLDEN GOAL label), centre banners;
   - floating joystick, action buttons, pause; FPS/debug under the scoreboard.
 - Type check, lint and build all pass.
 
@@ -302,6 +316,20 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Preserve the user's manual scoreboard, bar and timer positions when merging UI changes to main.
+
+- Scale only the longer TACKLE label down; retain existing button dimensions and other action label sizes.
+
+- Draw the pause symbol with solid pixel bars inside TextButton's moving face rather than font glyphs.
+
+- Draw scoreboard bars as centre-origin rectangles on the box centreline; use 24 px height for balanced spacing around the lettering.
+
+- Centre scoreboard ink and shadow at the box centre (184,44); compensate for bitmap cell padding rather than shifting the anchor down.
+
+- Use YOU and OPP as scoreboard labels; place the score text at y=48 per user request.
+
+- Keep the scoreboard background and team chips in place; fit score text to the padded interior so longer scores cannot spill outside.
+
 - Use the ball-free three-frame block draft for subsequent integration so the existing game ball can render separately.
 
 - Latest three-frame request is an open-palm block/parry with the ball rebounding, rather than a secure catch. Preserve earlier drafts as alternatives.
@@ -434,6 +462,20 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Continue UI playtesting on main after the local merge.
+
+- Review the smaller TACKLE label and its transition back to PASS on localhost.
+
+- Review the pause symbol and press feedback on localhost.
+
+- Review the shorter, centred scoreboard colour bars on localhost.
+
+- Visually review the corrected scoreboard centring at y=44 on localhost.
+
+- Review scoreboard labels and y=48 placement on localhost.
+
+- Refresh localhost and visually review scoreboard containment at normal and multi-digit scores.
+
 - Playtest the keepers: gloved idle, jump saves on high balls at the keeper (timing, does it look right lifting 18 px), block pose after standing saves, standing tackles on carriers at its feet (not too strong?), our keeper's centred-stick jump. Tune `KEEPER.jump*`, `blockSec`, `standTackleRange/Reach`.
 
 - Review/integrate `player-keeper-block-3frames-no-ball-v1.png` after normalizing frame alignment and defining animation timing.
@@ -533,6 +575,35 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+### 2026-10-17 - Prepare UI changes for main
+
+- Collect scoreboard fit/labels, the pause graphic, smaller TACKLE text and the user's placement adjustments into one commit on assests for a fast-forward merge to main.
+
+### 2026-10-17 - Smaller TACKLE label (assests)
+
+- Reduced TACKLE text by 25 percent while retaining the action button hit area and other labels.
+
+### 2026-10-17 - Pause icon (assests)
+
+- Added an optional pause icon to TextButton and enabled it for the HUD pause control; other buttons retain text.
+
+### 2026-10-17 - Scoreboard colour bar alignment (assests)
+
+- Shared box/bar/text centre coordinates and shortened colour bars to 24 px, giving equal vertical padding.
+
+### 2026-10-17 - Visible scoreboard centring (assests)
+
+- Restored y=44 and excluded transparent bitmap cell padding from the score label's display origin. Preserved YOU/OPP and fitting for multi-digit scores.
+
+### 2026-10-17 - Scoreboard placement and labels (assests)
+
+- Moved the scoreboard text from y=44 to y=48 and replaced CPU with OPP; preserved scores and width fitting.
+
+### 2026-10-17 — Scoreboard text containment (`assests`)
+
+- Reduced the score label size and bounded its measured display width to the space between the colour chips, preserving centred alignment and padding for longer scores.
+- TypeScript, lint and production build passed; localhost preview rebuilt. Visual review pending.
 
 ### 2026-10-17: Goalkeeper idle, jump save and standing block
 

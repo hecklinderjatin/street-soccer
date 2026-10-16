@@ -128,7 +128,7 @@ export class ActionButtons {
           : action;
       if (shown !== b.shown) {
         b.shown = shown;
-        b.label.setText(shown);
+        b.label.setText(shown).setScale(shown === 'TACKLE' ? 0.75 : 1);
       }
       const pressed = b.pointerId !== null || this.controls.isHeld(b.id);
       b.disc.setScale(PX * (pressed ? 0.92 : 1));
