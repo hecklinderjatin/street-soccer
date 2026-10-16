@@ -9,10 +9,10 @@ import {
   startTackle,
   tacklePhase,
 } from '../src/client/systems/tackle';
-import { cpuKeeperReact } from '../src/client/systems/keeper';
+import { cpuKeeperReact, stepKeeperHands } from '../src/client/systems/keeper';
 import { TeamBrain, interceptPoint } from '../src/client/systems/ai';
 import { idealPassWeight, passWeight } from '../src/client/systems/actions';
-import { LEVELS, PASS, PITCH, TACKLE } from '../src/shared/tuning';
+import { KEEPER, LEVELS, PASS, PITCH, TACKLE } from '../src/shared/tuning';
 
 let passed = 0;
 function check(name: string, fn: () => void) {
@@ -54,7 +54,17 @@ function player(o: Record<string, unknown>): any {
     recoverUntil: 0,
     diveDir: 0,
     reactAt: -1,
-    reactSmother: false,
+    reactKind: '',
+    jumpAt: -Infinity,
+    jumpUntil: 0,
+    jumpLandUntil: 0,
+    blockAt: -Infinity,
+    blockUntil: 0,
+    blockTackle: false,
+    diveAt: -Infinity,
+    z: 0,
+    holdTimer: 0,
+    stopShot() {},
     playShoot() {},
     playTackle() {},
     playDive() {},
@@ -174,7 +184,7 @@ check("a teammate's ball is never contested", () => {
 
 // --- Keeper reaction (stage 6 fix) -----------------------------------------
 check(
-  'keeper: a shot after a smother threat restarts the reaction time',
+  'keeper: a shot after a carrier threat restarts the reaction time',
   () => {
     // Away keeper on its line; a home carrier close in its box.
     const k = player({
@@ -191,20 +201,75 @@ check(
     });
     const react = LEVELS.normal.keeperReactSec;
     cpuKeeperReact(k, b, 10, react, () => 0.5); // jitter 0
-    assert.equal(k.reactSmother, true);
+    assert.equal(k.reactKind, 'tackle', 'carrier at its feet: standing tackle');
     assert.ok(Math.abs(k.reactAt - (10 + react)) < 1e-9);
     // 0.3 s later the carrier shoots toward the top corner.
     b.owner = null;
     b.vx = 1100;
     b.vy = -600; // crosses the keeper about 33 px to its side, inside the post
     cpuKeeperReact(k, b, 10.3, react, () => 0.5);
-    assert.equal(k.reactSmother, false, 'now a shot');
+    assert.equal(k.reactKind, 'dive', 'now a shot');
     assert.ok(Math.abs(k.reactAt - (10.3 + react)) < 1e-9, 'timer restarted');
     // Not diving yet at the old smother deadline.
     cpuKeeperReact(k, b, 10 + react + 0.01, react, () => 0.5);
     assert.equal(k.diveUntil, 0);
   }
 );
+
+check('keeper: a high ball straight at it is a jump, timed to meet it', () => {
+  const k = player({
+    team: 'away',
+    role: 'keeper',
+    x: PITCH.width - 40,
+    y: PITCH.height / 2,
+  });
+  // Straight at the keeper, arriving about 110 high (over its standing
+  // reach, under the jump reach), 0.6 s away.
+  const b = ball({
+    x: PITCH.width - 40 - 600,
+    y: PITCH.height / 2,
+    z: 110,
+    vx: 1000,
+    vz: 0.6 * 700,
+  });
+  const react = LEVELS.normal.keeperReactSec;
+  cpuKeeperReact(k, b, 10, react, () => 0.5);
+  assert.equal(k.reactKind, 'jump');
+  // Reaction done but the ball still 0.6 s out: waits for it.
+  cpuKeeperReact(k, b, 10 + react + 0.01, react, () => 0.5);
+  assert.equal(k.jumpAt, -Infinity, 'too early to jump');
+  // 0.2 s out: jumps (straight up, no dive).
+  b.x = PITCH.width - 40 - 200;
+  b.vz = 0.2 * 700;
+  cpuKeeperReact(k, b, 10 + react + 0.02, react, () => 0.5);
+  assert.ok(Math.abs(k.jumpAt - (10 + react + 0.02)) < 1e-9, 'jumped');
+  assert.equal(k.diveUntil, 0, 'no dive');
+});
+check('keeper: a standing tackle takes a carrier ball in reach', () => {
+  const k = player({
+    team: 'away',
+    role: 'keeper',
+    x: PITCH.width - 60,
+    y: PITCH.height / 2,
+    blockAt: 5,
+    blockUntil: 5 + KEEPER.blockSec,
+    blockTackle: true,
+  });
+  const carrier = player({ x: PITCH.width - 110, y: PITCH.height / 2 });
+  const b = ball({ x: PITCH.width - 95, y: PITCH.height / 2, owner: carrier });
+  const event = stepKeeperHands(
+    k,
+    b,
+    [],
+    [carrier],
+    5.1,
+    1 / 60,
+    () => 0.5,
+    false
+  );
+  assert.equal(event, 'smothered');
+  assert.equal(b.owner, k);
+});
 
 // --- Passing helpers --------------------------------------------------------
 check(

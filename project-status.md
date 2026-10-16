@@ -8,6 +8,20 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Goalkeeper idle, jump save and standing block (2026-10-17):** user supplied 3 keeper sheets (gloved idle x3, jump save: set / take-off / top / land, standing block x3). Cut, scaled (idle and jump 0.875, block 1.08) onto 720 x 724 cells on the 681 ground line (`public/art/player-keeper-{idle,jump,block}-authored.png`), kit split by rows per pose, baked like every other sheet. New `keeperOnly` sheets (also dive, hold, carry) are left out of the outfield kits' atlases (empty cells), and the look layers are baked from a full home atlas so keepers keep their skin/hair: atlas now 88 frames (11 rows, 1792 x 1408); release art 1.28 -> 1.22 MiB despite 10 new frames. Logic: keepers use the gloved idle loop. `keeperThreat` now returns a KeeperMove: `dive` (shot to its side), `jump` (a shot coming at it that crosses above `standReachHeight` 96 and up to `jumpReachHeight` 132; the AI waits until the ball is within `jumpLead` 0.25 s so the top of the jump meets it), `smother` (dive at a carrier within smotherRange) or `tackle` (carrier within `standTackleRange` 60: standing block that takes the ball within `standTackleReach` 50). `startJump`: 0.5 s in the air (reach height rises from 96 to 132 and back, ground reach 48, body drawn up to 18 px high via keeper z), 0.2 s landing, no running. `startBlock`: 0.35 s block pose standing still, after any standing catch/parry and as the standing tackle. Our keeper: dive button with the stick centred jumps when the ball is coming straight at it (else the usual dive to the crossing point). `Player.reactSmother` replaced by `reactKind`. Type check, lint, build and 16 logic checks pass (2 new: jump timing, standing tackle); no gameplay test.
+
+**Ball-free goalkeeper block (2026-10-16):** removed the footballs from the three-frame blocking draft with built-in imagegen. Saved `public/art/player-keeper-block-3frames-no-ball-v1.png`; transparent background and three standing block poses retained. Visually inspected, not applied in-game.
+
+**Three-frame goalkeeper block draft (2026-10-16):** clarified blocking rather than catching. Created `public/art/player-keeper-block-3frames-v1.png`: standing ready palms, forward hand block contact, open-palm follow-through with ball rebounding away. Transparent source draft matching keeper idle; visually inspected, runtime unchanged.
+
+**Three-frame normal standing hand save (2026-10-16):** user clarified exactly three frames of a normal standing tackle stopping the ball with hands. Created `public/art/player-keeper-standing-save-3frames-v1.png`: ready hands, contact/catch, secure upright hold. Football included in this visual draft; both feet grounded, no deep crouch. Visually inspected; not integrated into runtime.
+
+**Standing keeper tackle draft (2026-10-16):** user clarified standing tackle instead of vertical dive. Created `public/art/player-keeper-standing-tackle-v1.png`: four transparent poses (ready, step/reach, low gather while on feet, upright recovery). Matches existing keeper draft; visually inspected, not integrated into runtime.
+
+**Goalkeeper tackle art draft (2026-10-16):** generated `public/art/player-keeper-tackle-v1.png`: two transparent poses (low forward lunge, grounded smother), matching the keeper idle draft's pink kit and white gloves. Ball omitted for separate game rendering. Visually inspected; not registered or baked into the live game.
+
+**Goalkeeper standing art draft (2026-10-16):** generated `public/art/player-keeper-idle-v1.png`: three standing ready poses in one transparent horizontal sheet, matching the existing pink player character with white goalkeeper gloves. Visually inspected; saved as a new source draft, not registered in the live game or baked release atlases.
+
 **Top-corner shots (2026-10-16):** user: hard to shoot top corner. Cause (simulated with the game's flight numbers): height comes only from the charge, and the accurate green band (0.6-0.8) arrived at most ~15-45 px high (bar 120) from 250-450 px, so a high shot needed an over-hit (up to +5 deg stray, a ~0.05-charge window before going over); and a diving keeper reached 120, the whole goal height. Fix: `SHOOT.fullLift` 420 -> 600 (green-band strikes from 350-450 px now arrive ~50-87 high; over-hits go over the bar), and `KEEPER.stretchReachHeight` 95: a diving keeper's reach height falls from 120 to 95 with how far into a full-length dive it is (`diveReachHeight` in keeper.ts), so top corners beat a full-stretch dive while shots near it are still saved. AI shots (charge 0.7 +- level noise) now arrive ~55-70 high from 250-450 px; Easy will sky a few more close shots. Type check, lint, build and 14 logic checks pass; no gameplay test.
 
 **End walls fit the bigger goals; wall text removed (2026-10-15):** user: the walls were not adjusted to the larger goal. The end-wall gap already follows `goalMouth`, but `PITCH.endWallHeight` was still 120 while the crossbar reached 120.12, so the goal poked above the walls. Now 138.6 (scaled with the goal, +10% then +5%, keeping the original ~15% margin over the crossbar; also the height a ball must clear to go out over them, ballPhysics). The graffiti tags on the far wall (ZONE, STREET, 5V5, KICK IT, GOAL!, NO RULES, PLAY) are removed (user request). Type check, lint, build and 14 logic checks pass; no gameplay test.
@@ -288,6 +302,18 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Use the ball-free three-frame block draft for subsequent integration so the existing game ball can render separately.
+
+- Latest three-frame request is an open-palm block/parry with the ball rebounding, rather than a secure catch. Preserve earlier drafts as alternatives.
+
+- Latest keeper standing-tackle direction is a simple three-frame standing hand save with the ball visible, superseding the four-frame low-gather draft. Keep drafts versioned and runtime unchanged.
+
+- The requested four-frame keeper animation is a standing tackle: keep feet grounded through the low gather and recovery. The superseded vertical dive generation is not a project asset.
+
+- Keep the two-frame keeper tackle as a separate versioned source draft; omit the ball from the artwork so the game can position its own ball.
+
+- Keep the new three-frame goalkeeper standing sheet as a versioned draft until integrated; preserve existing idle artwork and current runtime animations.
+
 - Prepare authored player atlases incrementally on the first match. Yield after each source sheet and each 64 rows of skin/hair processing so the loading screen renders and input no longer looks frozen; release recolored temporary canvases promptly to lower memory pressure. Keep atlas width below 2048 px for older mobile GPUs without changing sprite frame size or appearance.
 
 - Fast-forward the tested size-reduction commit from `assests` to `main` as requested. Keep the source PNGs and lossless ball sheets; playtest alternate-kit recoloring before publishing the new Reddit version.
@@ -408,6 +434,20 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Playtest the keepers: gloved idle, jump saves on high balls at the keeper (timing, does it look right lifting 18 px), block pose after standing saves, standing tackles on carriers at its feet (not too strong?), our keeper's centred-stick jump. Tune `KEEPER.jump*`, `blockSec`, `standTackleRange/Reach`.
+
+- Review/integrate `player-keeper-block-3frames-no-ball-v1.png` after normalizing frame alignment and defining animation timing.
+
+- Review the three-frame block/parry draft; normalize frames and separate the ball before game integration.
+
+- Review the three-frame standing hand save; separate ball rendering and normalize frame placement before any game integration.
+
+- Review the four-frame standing tackle draft and normalize cell layout and hand anchors before adding it to the game.
+
+- Review the keeper tackle draft; normalize cell bounds, ground alignment and ball hand anchors before runtime integration.
+
+- Review the new goalkeeper standing sheet, then normalize its cells/foot alignment and add a keeper-specific idle animation if requested.
+
 - Playtest top-corner shooting: green-zone strikes from the edge of the box should rise to the top corner; check low shots still come from a light hold, the keeper still saves high shots near him, and whether AI high shots now score too often (tune `SHOOT.fullLift`, `KEEPER.stretchReachHeight`).
 
 - Playtest the receiver hold: passes should now reach the receiver; check it does not feel sluggish (tune `PASS.receiveHoldSpeed` / `receiveHoldSec`), and that through balls still let the runner go.
@@ -493,6 +533,36 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+### 2026-10-17: Goalkeeper idle, jump save and standing block
+
+- 3 new keeper sheets baked into the keeper atlases (outfield atlases skip keeper-only poses; release art 1.22 MiB).
+- Keeper AI: jump save for high balls at it, standing tackle at its feet, block pose after standing saves; our keeper jumps with the stick centred.
+- Type check, lint, build and 16 logic checks pass; no gameplay test.
+
+### 2026-10-16: Remove balls from keeper block sheet
+
+- Created `public/art/player-keeper-block-3frames-no-ball-v1.png` by removing all three footballs from the blocking draft. Visually inspected; original preserved, runtime unchanged.
+
+### 2026-10-16: Three-frame standing ball block
+
+- Created `public/art/player-keeper-block-3frames-v1.png` with built-in imagegen and keeper idle style reference. Three ready/contact/rebound poses on transparency; visually inspected. Not applied in-game.
+
+### 2026-10-16: Three-frame normal standing hand save
+
+- Created `public/art/player-keeper-standing-save-3frames-v1.png` with built-in imagegen using keeper idle reference. Three grounded ready/catch/hold poses with a visible ball on transparency; visually inspected. Runtime unchanged.
+
+### 2026-10-16: Four-frame standing goalkeeper tackle draft
+
+- Created `public/art/player-keeper-standing-tackle-v1.png` using built-in imagegen with the keeper idle as reference. Four grounded tackle/gather poses on transparency. Runtime unchanged.
+
+### 2026-10-16: Two-frame goalkeeper ball-tackle sprite draft
+
+- Created `public/art/player-keeper-tackle-v1.png` with built-in image generation and the keeper idle draft as character/style reference. Low lunge and grounded smother poses; visually inspected. Runtime unchanged.
+
+### 2026-10-16: Three-frame goalkeeper standing sprite draft
+
+- Created `public/art/player-keeper-idle-v1.png` with built-in image generation using the existing player idle sheet as a style reference. Three ready-standing poses, white gloves, pink kit, transparent background; visually inspected. Runtime code unchanged.
 
 ### 2026-10-16: Top-corner shots possible
 

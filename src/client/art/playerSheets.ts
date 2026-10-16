@@ -55,6 +55,17 @@ export const CARRY_FRAMES = Array.from(
 export const CELEBRATION_FRAMES = ['a', 'b', 'c'].map((set) =>
   Array.from({ length: 6 }, (_, i) => `celebrate_${set}${i + 1}`)
 );
+// Goalkeepers only: a gloved stance, the jump save (set, take-off, top,
+// land) and the standing block / tackle (hands up, pushing forward x2).
+export const KEEPER_IDLE_FRAMES = Array.from(
+  { length: 3 },
+  (_, i) => `keeper_idle${i + 1}`
+);
+export const JUMP_FRAMES = Array.from({ length: 4 }, (_, i) => `jump${i + 1}`);
+export const BLOCK_FRAMES = Array.from(
+  { length: 3 },
+  (_, i) => `block${i + 1}`
+);
 
 // Every atlas (each kit and the two look layers) holds these frames in this
 // order, ATLAS_COLUMNS to a row: 8 x 224 = 1792 px wide, within the 2048 px
@@ -77,6 +88,9 @@ const FRAMES = [
   ...HURT_FRAMES,
   ...CARRY_FRAMES,
   ...CELEBRATION_FRAMES.flat(),
+  ...KEEPER_IDLE_FRAMES,
+  ...JUMP_FRAMES,
+  ...BLOCK_FRAMES,
 ];
 export const ATLAS_W = PLAYER_W * ATLAS_COLUMNS;
 export const ATLAS_H = PLAYER_H * Math.ceil(FRAMES.length / ATLAS_COLUMNS);
@@ -218,6 +232,8 @@ type SourceSheet = {
   waist: readonly number[];
   shortsEnd: readonly number[];
   splits?: readonly KitSplit[];
+  // Only keepers use these poses: left out of the outfield kits' atlases.
+  keeperOnly?: boolean;
 };
 const RUN_VIEW_WAIST = [376, 379, 376, 379];
 const RUN_VIEW_SHORTS = [480, 489, 480, 489];
@@ -245,6 +261,23 @@ const celebration = (
   ground: 681,
   waist,
   shortsEnd,
+});
+// Keeper poses: one row of 720 px cells, all on the ground line (the jump
+// is lifted in game by the keeper's height).
+const keeperSheet = (
+  file: string,
+  frames: readonly string[],
+  waist: readonly number[],
+  shortsEnd: readonly number[]
+): SourceSheet => ({
+  file,
+  frames,
+  cellW: 720,
+  columns: frames.length,
+  ground: 681,
+  waist,
+  shortsEnd,
+  keeperOnly: true,
 });
 export const SOURCE_SHEETS: readonly SourceSheet[] = [
   {
@@ -290,6 +323,7 @@ export const SOURCE_SHEETS: readonly SourceSheet[] = [
   {
     // Crouch, launch x2, full stretch x2, landed.
     file: 'player-dive-authored',
+    keeperOnly: true,
     frames: DIVE_FRAMES,
     cellW: 1152,
     columns: 3,
@@ -307,6 +341,7 @@ export const SOURCE_SHEETS: readonly SourceSheet[] = [
   },
   {
     file: 'player-hold-authored',
+    keeperOnly: true,
     frames: HOLD_FRAMES,
     cellW: 640,
     columns: 4,
@@ -325,6 +360,7 @@ export const SOURCE_SHEETS: readonly SourceSheet[] = [
   },
   {
     file: 'player-carry-authored',
+    keeperOnly: true,
     frames: CARRY_FRAMES,
     cellW: 640,
     columns: 3,
@@ -349,6 +385,24 @@ export const SOURCE_SHEETS: readonly SourceSheet[] = [
     CELEBRATION_FRAMES[2] ?? [],
     [414, 410, 400, 405, 399, 405],
     [497, 491, 486, 491, 486, 491]
+  ),
+  keeperSheet(
+    'player-keeper-idle-authored',
+    KEEPER_IDLE_FRAMES,
+    [416, 427, 416],
+    [497, 502, 497]
+  ),
+  keeperSheet(
+    'player-keeper-jump-authored',
+    JUMP_FRAMES,
+    [482, 418, 389, 490],
+    [548, 504, 475, 562]
+  ),
+  keeperSheet(
+    'player-keeper-block-authored',
+    BLOCK_FRAMES,
+    [416, 416, 416],
+    [491, 497, 497]
   ),
 ];
 
@@ -435,9 +489,12 @@ function blend(
 // SOURCE_SHEETS[i]). Each frame: a soft shadow under the feet, then the
 // pose scaled to the frame height with nearest-neighbour sampling, boots on
 // the frame's ground line, pink clothing recoloured for `kitName`.
+// Outfield kits leave the keeper-only poses out (empty cells compress to
+// nothing); `keeperPoses` forces them in (the look layers need every pose).
 export function bakePlayerAtlas(
   kitName: Kit,
-  sources: readonly Pixels[]
+  sources: readonly Pixels[],
+  keeperPoses = kitName === 'homeKeeper' || kitName === 'awayKeeper'
 ): Pixels {
   const atlas = newPixels(ATLAS_W, ATLAS_H);
   const out = atlas.data;
@@ -447,6 +504,7 @@ export function bakePlayerAtlas(
   const shadowX = PLAYER_W / 2;
   const shadowY = SHADOW_ROW + DETAIL;
   SOURCE_SHEETS.forEach((sheet, s) => {
+    if (sheet.keeperOnly && !keeperPoses) return;
     const src = sources[s];
     if (!src) throw new Error(`Missing source sheet ${sheet.file}`);
     const width = (sheet.cellW / SOURCE_H) * PLAYER_H;

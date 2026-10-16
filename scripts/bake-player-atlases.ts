@@ -37,7 +37,8 @@ for (const kit of KIT_NAMES) {
   const atlas = bakePlayerAtlas(kit, sheets);
   save(playerTexture(kit), atlas);
   if (kit === 'home') {
-    const { skin, hair } = bakeLookLayers(atlas);
+    // The looks cover every pose, keepers' included.
+    const { skin, hair } = bakeLookLayers(bakePlayerAtlas(kit, sheets, true));
     save(PLAYER_SKIN_TEXTURE, skin);
     save(PLAYER_HAIR_TEXTURE, hair);
   }

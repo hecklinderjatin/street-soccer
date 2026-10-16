@@ -270,6 +270,22 @@ export const KEEPER = {
   diveSec: 0.35, // dive length in time (~170 px)
   diveRecoverSec: 0.45, // down on the ground after a dive, can't move
   diveReach: 64, // reach while diving (normally `reach`)
+  // Jump save: a ball coming at the keeper too high to reach standing
+  // (standReachHeight) but under jumpReachHeight: it jumps straight up
+  // instead of diving. The AI times it so the top of the jump meets the
+  // ball; ours jumps on the dive button with the stick centred.
+  jumpSec: 0.5, // in the air this long ...
+  jumpLandSec: 0.2, // ... then lands (can't move)
+  jumpHeight: 18, // world px the body rises at the top (drawn)
+  jumpReach: 48, // ground reach during the jump
+  jumpReachHeight: 132, // highest ball it reaches at the top of the jump (bar 120)
+  jumpLead: 0.25, // AI jumps when the ball is this many seconds away or less
+  // Standing block: after a save made standing (catch or parry), and as a
+  // standing tackle on a carrier right at its feet (instead of a smother
+  // dive), the keeper plays its block pose, standing still.
+  blockSec: 0.35,
+  standTackleRange: 60, // a carrier this close (in its box): standing tackle ...
+  standTackleReach: 50, // ... which takes the ball within this
   // Claiming: a loose ball the keeper reaches first, in or near its box.
   claimMargin: 0.15, // s it must beat every opponent by
   claimBoxMargin: 40, // the meeting point may be this far outside the box

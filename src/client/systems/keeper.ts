@@ -28,6 +28,11 @@ export type KeeperEvent =
 
 export type KeeperSteer = { move: StickInput; sprint: boolean };
 
+// What the AI keeper does about a threat: dive at a shot to its side, jump
+// at a high one coming at it, dive at a carrier's feet (smother) or, right
+// at its feet, a standing tackle.
+type KeeperMove = 'dive' | 'jump' | 'smother' | 'tackle';
+
 const STAND: KeeperSteer = { move: { x: 0, y: 0, r: 0 }, sprint: false };
 
 // The keeper's own big box, where it may use its hands. Outside it the
@@ -213,13 +218,16 @@ export function stepKeeperHands(
   const dist = Math.hypot(ball.x - keeper.x, ball.y - keeper.y);
   const diving = time < keeper.diveUntil;
 
+  const jumping = time < keeper.jumpUntil;
+  const standTackle = time < keeper.blockUntil && keeper.blockTackle;
+
   const carrier = ball.owner;
   if (carrier) {
     if (
-      !diving ||
+      !(diving || standTackle) ||
       carrier.team === keeper.team ||
       carrier.holding ||
-      dist > KEEPER.diveReach
+      dist > (diving ? KEEPER.diveReach : KEEPER.standTackleReach)
     )
       return null;
     carrier.staggerUntil = time + TACKLE.staggerSec;
@@ -230,11 +238,19 @@ export function stepKeeperHands(
     return 'smothered';
   }
 
-  const reach = diving ? KEEPER.diveReach : KEEPER.reach;
+  const reach = diving
+    ? KEEPER.diveReach
+    : jumping
+      ? KEEPER.jumpReach
+      : KEEPER.reach;
   const reachHeight = diving
     ? diveReachHeight(keeper, time)
-    : KEEPER.standReachHeight;
+    : jumping
+      ? jumpReachHeight(keeper, time)
+      : KEEPER.standReachHeight;
   if (dist > reach || ball.z > reachHeight) return null;
+  // A save made standing shows the block pose.
+  const standing = !diving && !jumping;
 
   // Slow balls are always caught; faster, the catch gets less likely (and
   // less again in a dive) and the rest are parried: rebounds.
@@ -257,10 +273,12 @@ export function stepKeeperHands(
     ball.dip = 0;
     ball.lastTouch = keeper;
     keeper.lockUntil = time + KEEPER.lockAfterSec;
+    if (standing) startBlock(keeper, time, false);
     return 'parried';
   }
 
   take(ball, keeper);
+  if (standing) startBlock(keeper, time, false);
   return 'caught';
 }
 
@@ -362,24 +380,41 @@ export function cpuKeeperReact(
   // A new threat, or a different kind (the carrier it was setting itself
   // to smother shoots): the reaction time starts again, so a close-range
   // shot doesn't inherit a half-run smother countdown.
-  if (keeper.reactAt < 0 || keeper.reactSmother !== target.smother) {
-    keeper.reactSmother = target.smother;
+  if (keeper.reactAt < 0 || keeper.reactKind !== target.kind) {
+    keeper.reactKind = target.kind;
     keeper.reactAt = time + reactSec + (rand() * 2 - 1) * KEEPER.reactJitter;
     return;
   }
   if (time < keeper.reactAt) return;
+  // Ready to jump: wait until the ball is close enough for the top of the
+  // jump to meet it.
+  if (target.kind === 'jump' && target.t > KEEPER.jumpLead) return;
   keeper.reactAt = -1;
-  startDive(
-    keeper,
-    target.dir,
-    time,
-    target.dist + (rand() * 2 - 1) * diveError
-  );
+  if (target.kind === 'jump') startJump(keeper, time);
+  else if (target.kind === 'tackle') startBlock(keeper, time, true);
+  else
+    startDive(
+      keeper,
+      target.dir,
+      time,
+      target.dist + (rand() * 2 - 1) * diveError
+    );
 }
 
-// What the keeper would dive at now: direction and distance, or null.
-function keeperThreat(keeper: Player, ball: Ball, time: number) {
-  if (time < keeper.recoverUntil || ball.inNet !== 0) return null;
+// What the keeper would do now (KeeperMove), with the dive's direction and
+// distance and the time until the ball arrives, or null.
+function keeperThreat(
+  keeper: Player,
+  ball: Ball,
+  time: number
+): { kind: KeeperMove; dir: number; dist: number; t: number } | null {
+  if (
+    time < keeper.recoverUntil ||
+    time < keeper.jumpLandUntil ||
+    time < keeper.blockUntil ||
+    ball.inNet !== 0
+  )
+    return null;
   const c = ball.owner;
   if (c) {
     if (c.team === keeper.team || c.holding || !inOwnBox(keeper)) return null;
@@ -390,9 +425,10 @@ function keeperThreat(keeper: Player, ball: Ball, time: number) {
     const d = Math.hypot(bx - keeper.x, by - keeper.y);
     if (d > KEEPER.smotherRange) return null;
     return {
+      kind: d <= KEEPER.standTackleRange ? 'tackle' : 'smother',
       dir: Math.atan2(by - keeper.y, bx - keeper.x),
       dist: d,
-      smother: true,
+      t: 0,
     };
   }
   const goalX = keeper.team === 'home' ? 0 : PITCH.width;
@@ -410,16 +446,18 @@ function keeperThreat(keeper: Player, ball: Ball, time: number) {
   const onTarget =
     y > mouthTop - KEEPER.reactMargin && y < mouthBottom + KEEPER.reactMargin;
   const offset = y - keeper.y;
-  if (
-    !onTarget ||
-    z > KEEPER.reachHeight ||
-    Math.abs(offset) < KEEPER.reach * 0.7 // coming at it: no dive needed
-  )
-    return null;
+  if (!onTarget) return null;
+  // Coming at it: no dive needed; a jump if it is too high to reach standing.
+  if (Math.abs(offset) < KEEPER.reach * 0.7) {
+    if (z <= KEEPER.standReachHeight || z > KEEPER.jumpReachHeight) return null;
+    return { kind: 'jump', dir: 0, dist: 0, t };
+  }
+  if (z > KEEPER.reachHeight) return null;
   return {
+    kind: 'dive',
     dir: offset < 0 ? -Math.PI / 2 : Math.PI / 2,
     dist: Math.abs(offset) - KEEPER.diveReach / 2,
-    smother: false,
+    t,
   };
 }
 
@@ -432,6 +470,35 @@ function diveReachHeight(keeper: Player, time: number) {
     KEEPER.reachHeight +
     (KEEPER.stretchReachHeight - KEEPER.reachHeight) * stretch
   );
+}
+
+// How high a jumping keeper reaches: from its standing reach up to
+// KEEPER.jumpReachHeight at the top of the jump and back.
+function jumpReachHeight(keeper: Player, time: number) {
+  const p = clamp((time - keeper.jumpAt) / KEEPER.jumpSec, 0, 1);
+  return (
+    KEEPER.standReachHeight +
+    (KEEPER.jumpReachHeight - KEEPER.standReachHeight) * Math.sin(Math.PI * p)
+  );
+}
+
+// Starts a jump save: straight up (reach above the standing reach), then a
+// short landing. Not while diving, down, or already jumping.
+export function startJump(keeper: Player, time: number) {
+  if (time < keeper.recoverUntil || time < keeper.jumpLandUntil) return;
+  keeper.jumpAt = time;
+  keeper.jumpUntil = time + KEEPER.jumpSec;
+  keeper.jumpLandUntil = keeper.jumpUntil + KEEPER.jumpLandSec;
+  keeper.stopShot();
+}
+
+// The block pose: after a standing save, or as a standing tackle
+// (`tackle`: it takes a carrier's ball in reach, see stepKeeperHands).
+export function startBlock(keeper: Player, time: number, tackle: boolean) {
+  keeper.blockAt = time;
+  keeper.blockUntil = time + KEEPER.blockSec;
+  keeper.blockTackle = tackle;
+  keeper.stopShot();
 }
 
 // Starts a dive: a short lunge (with extended reach), then a moment down on
@@ -460,6 +527,21 @@ export function startDive(
 // While diving or down, the dive overrides normal movement. Returns true if
 // it did (the caller then skips the stick for this keeper).
 export function stepKeeperBody(keeper: Player, time: number, dt: number) {
+  // Jumping (and landing): straight up and down, no running.
+  if (time < keeper.jumpLandUntil) {
+    const p = (time - keeper.jumpAt) / KEEPER.jumpSec;
+    keeper.z = p < 1 ? 4 * KEEPER.jumpHeight * p * (1 - p) : 0;
+    keeper.speed = 0;
+    keeper.lying = false;
+    return true;
+  }
+  keeper.z = 0;
+  // The block pose is made standing still.
+  if (time < keeper.blockUntil) {
+    keeper.speed = 0;
+    keeper.lying = false;
+    return true;
+  }
   keeper.lying = time < keeper.recoverUntil;
   if (!keeper.lying) return false;
   const diving = time < keeper.diveUntil;

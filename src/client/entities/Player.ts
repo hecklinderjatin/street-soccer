@@ -85,7 +85,13 @@ export class Player {
   diveDir = 0; // keeper: dive direction (radians)
   lying = false; // keeper: diving or down after a dive (drawn on its side)
   reactAt = -1; // AI keeper: sim time it reacts to the threat it has seen (-1 = none) ...
-  reactSmother = false; // ... which is a carrier to smother (else a shot)
+  reactKind = ''; // ... and of which kind (keeper.ts KeeperMove)
+  jumpAt = -Infinity; // keeper: jump save started ...
+  jumpUntil = 0; // ... in the air until ...
+  jumpLandUntil = 0; // ... landing until
+  blockAt = -Infinity; // keeper: block pose (standing save / tackle) from ...
+  blockUntil = 0; // ... until
+  blockTackle = false; // ... and it is a standing tackle
   passTarget = false; // drawn with the blue ring: where a pass would go now
   // Tackles (systems/tackle.ts; sim times in seconds).
   tackleAt = -Infinity; // the current / last tackle started
@@ -199,7 +205,11 @@ export class Player {
     this.recoverUntil = 0;
     this.lying = false;
     this.reactAt = -1;
-    this.reactSmother = false;
+    this.reactKind = '';
+    this.jumpAt = this.blockAt = -Infinity;
+    this.jumpUntil = this.jumpLandUntil = this.blockUntil = 0;
+    this.blockTackle = false;
+    this.z = 0;
     this.tackleAt = this.tackleUntil = this.staggerUntil = -Infinity;
     this.hurtAt = -Infinity;
     this.celebrating = false;
@@ -270,6 +280,16 @@ export class Player {
     this.sprite.setTexture(playerTexture(this.kit), 'tackle1');
   }
 
+  // A strike animation stops (a jump or block pose takes over).
+  stopShot() {
+    this.sprite.off(
+      Phaser.Animations.Events.ANIMATION_COMPLETE,
+      this.finishShoot
+    );
+    this.shooting = false;
+    this.sprite.anims.stop();
+  }
+
   playDive() {
     this.sprite.off(
       Phaser.Animations.Events.ANIMATION_COMPLETE,
@@ -331,6 +351,14 @@ export class Player {
       this.role === 'keeper' &&
       simTime >= this.diveAt &&
       simTime < this.recoverUntil;
+    const jumping =
+      this.role === 'keeper' &&
+      simTime >= this.jumpAt &&
+      simTime < this.jumpLandUntil;
+    const blocking =
+      this.role === 'keeper' &&
+      simTime >= this.blockAt &&
+      simTime < this.blockUntil;
     this.sprite.setAngle(
       this.lying && !tackling && !diving && !hurting && !this.celebrating
         ? Math.cos(this.diveDir) < 0
@@ -364,6 +392,28 @@ export class Player {
       const frame =
         simTime >= this.diveUntil ? 5 : Math.min(4, Math.floor(progress * 5));
       this.sprite.setTexture(playerTexture(this.kit), `dive${frame + 1}`);
+    } else if (jumping) {
+      // Set, take-off, top, then the landing pose until it can move.
+      const progress =
+        (simTime - this.jumpAt) / Math.max(0.001, this.jumpUntil - this.jumpAt);
+      const frame =
+        simTime >= this.jumpUntil
+          ? 4
+          : progress < 0.15
+            ? 1
+            : progress < 0.4
+              ? 2
+              : progress < 0.8
+                ? 3
+                : 4;
+      this.sprite.setTexture(playerTexture(this.kit), `jump${frame}`);
+    } else if (blocking) {
+      // Hands up, then pushing forward.
+      const progress =
+        (simTime - this.blockAt) /
+        Math.max(0.001, this.blockUntil - this.blockAt);
+      const frame = progress < 0.3 ? 1 : progress < 0.6 ? 2 : 3;
+      this.sprite.setTexture(playerTexture(this.kit), `block${frame}`);
     } else if (tackling) {
       const since = simTime - this.tackleAt;
       let frame: number;

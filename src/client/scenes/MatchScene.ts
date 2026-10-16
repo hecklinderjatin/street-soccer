@@ -56,6 +56,7 @@ import {
   cpuKeeperReact,
   keepInBox,
   startDive,
+  startJump,
   keeperStick,
   stepKeeperHands,
   stepKeeperBody,
@@ -802,8 +803,12 @@ export class MatchScene extends Phaser.Scene {
         if (controls.move.r > STICK.deadZone) {
           startDive(k, Math.atan2(controls.move.y, controls.move.x), t);
         } else {
+          // Stick centred: dive to where the ball will cross the line, or
+          // jump if it is coming straight at the keeper.
           const target = this.diveTarget(k);
-          startDive(k, target.dir, t, target.dist);
+          if (target.dist < KEEPER.reach * 0.7 - KEEPER.diveReach / 2)
+            startJump(k, t);
+          else startDive(k, target.dir, t, target.dist);
         }
       }
       if (fresh(2)) {

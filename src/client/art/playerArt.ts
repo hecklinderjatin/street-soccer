@@ -13,6 +13,7 @@ import {
   DOWN_FRAMES,
   HOLD_FRAMES,
   IDLE_FRAMES,
+  KEEPER_IDLE_FRAMES,
   KIT_NAMES,
   PLAYER_ATLAS_KEYS,
   RUN_FRAMES,
@@ -107,7 +108,11 @@ function createAnimations(scene: Phaser.Scene, kit: Kit) {
   // Standing: a slow weight shift.
   scene.anims.create({
     key: idleAnim(kit),
-    frames: frames(IDLE_FRAMES),
+    frames: frames(
+      kit === 'homeKeeper' || kit === 'awayKeeper'
+        ? KEEPER_IDLE_FRAMES // gloved goalkeeper stance
+        : IDLE_FRAMES
+    ),
     frameRate: 4,
     repeat: -1,
   });
