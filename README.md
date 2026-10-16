@@ -7,6 +7,7 @@ A fast, 90-second 5v5 arcade street football match against the AI, played inside
 Run these in WSL from this folder:
 
 - `npm install`: install dependencies
+- `npm start`: build and play locally at http://localhost:4173 (as a guest, outside Reddit)
 - `npm run dev`: build and playtest in the dev subreddit (`r/street_soccer_dev`)
 - `npm run deploy`: type-check, lint and upload a new version
 - `npm run launch`: deploy and submit for Reddit review

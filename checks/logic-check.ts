@@ -12,7 +12,7 @@ import {
 import { cpuKeeperReact, stepKeeperHands } from '../src/client/systems/keeper';
 import { TeamBrain, interceptPoint } from '../src/client/systems/ai';
 import { idealPassWeight, passWeight } from '../src/client/systems/actions';
-import { KEEPER, LEVELS, PASS, PITCH, TACKLE } from '../src/shared/tuning';
+import { AI, KEEPER, LEVELS, PASS, PITCH, TACKLE } from '../src/shared/tuning';
 
 let passed = 0;
 function check(name: string, fn: () => void) {
@@ -373,5 +373,96 @@ check(
     assert.ok(TACKLE.baseChance > 0 && TACKLE.baseChance < 1);
   }
 );
+
+// --- Defending (A recovery runs, B cover + hand-over, C show wide) ---------
+// The home brain defends the goal at x = 0; the away carrier stands still
+// (seen as it is: seenAgo returns itself). mates[3] is the outlet forward.
+function carrierAt(x: number, y: number) {
+  const c = player({ team: 'away', x, y, heading: Math.PI });
+  c.seenAgo = () => c;
+  return c;
+}
+function defend(mates: any[], c: any) {
+  const brain = new TeamBrain('home', LEVELS.normal);
+  const opps = [c, ...team('away', [1900, 1900, 1600])];
+  const b = ball({ x: c.x - 20, y: c.y, owner: c });
+  brain.think(view(mates, opps, b), 1);
+  return brain;
+}
+function straightPress(c: any) {
+  const gy = PITCH.height / 2;
+  const len = Math.hypot(0 - c.x, gy - c.y);
+  return {
+    x: c.x + (-c.x / len) * AI.pressGapClose,
+    y: c.y + ((gy - c.y) / len) * AI.pressGapClose,
+  };
+}
+check(
+  'defending C: the presser shows a wide carrier toward the touchline',
+  () => {
+    const gy = PITCH.height / 2;
+    const c = carrierAt(900, gy - 420); // wide, upper side, well out
+    const mates = team('home', [800, 300, 300, 1500]);
+    mates[0].y = c.y + 60;
+    const brain = defend(mates, c);
+    const o = brain.orders.get(mates[0]);
+    assert.equal(o?.role, 'press');
+    const straight = straightPress(c);
+    assert.ok(
+      o!.y - straight.y > 30,
+      `inside shoulder (${o!.y} vs ${straight.y})`
+    );
+    // In the box: straight goal-side again.
+    const c2 = carrierAt(250, gy - 420);
+    const m2 = team('home', [180, 600, 600, 1500]);
+    m2[0].y = c2.y + 40;
+    const o2 = defend(m2, c2).orders.get(m2[0]);
+    assert.equal(o2?.role, 'press');
+    assert.ok(Math.abs(o2!.y - straightPress(c2).y) < 1, 'no shift in the box');
+  }
+);
+check('defending B: a backup covers behind the presser, goal-side', () => {
+  const gy = PITCH.height / 2;
+  const c = carrierAt(1000, gy);
+  const mates = team('home', [900, 500, 500, 1500]);
+  mates[0].y = gy;
+  const brain = defend(mates, c);
+  const press = brain.orders.get(mates[0]);
+  assert.equal(press?.role, 'press');
+  const backups = mates.filter((m) => brain.orders.get(m)?.role === 'backup');
+  assert.equal(backups.length, 1);
+  assert.notEqual(backups[0], mates[3], 'never the outlet forward');
+  const bo = brain.orders.get(backups[0])!;
+  assert.ok(
+    bo.x < press!.x - 100,
+    `behind the presser (${bo.x} vs ${press!.x})`
+  );
+  assert.ok(Math.abs(bo.y - gy) < 1, 'on the line to goal');
+});
+check('defending B+A: a beaten presser hands over and sprints back', () => {
+  const gy = PITCH.height / 2;
+  const c = carrierAt(1000, gy);
+  const mates = team('home', [1080, 800, 400, 1500]);
+  mates[0].y = gy; // got past: 80 px upfield of the carrier, only 80 px away
+  mates[1].y = gy + 40; // goal-side, 200 px away
+  const brain = defend(mates, c);
+  assert.equal(
+    brain.orders.get(mates[1])?.role,
+    'press',
+    'the goal-side one steps up'
+  );
+  const beaten = brain.orders.get(mates[0]);
+  assert.notEqual(beaten?.role, 'press');
+  assert.equal(beaten?.sprint, true, 'recovery run');
+});
+check('defending A: no recovery run for a goal-side defender', () => {
+  const gy = PITCH.height / 2;
+  const c = carrierAt(1000, gy);
+  const mates = team('home', [900, 600, 600, 1500]);
+  mates[0].y = gy;
+  const brain = defend(mates, c);
+  for (const m of mates.slice(1, 3))
+    assert.equal(brain.orders.get(m)?.sprint, false);
+});
 
 console.log(`\n${passed} checks passed`);

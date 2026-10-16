@@ -8,6 +8,12 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**AI defending: recovery runs, cover defender, show wide (2026-10-17):** user picked A, B and C of six proposed defending upgrades (D cut passing lanes, E block shots, F tighter in the box were not built). Shared AI, so our AI teammates defend this way too. (A) **Recovery runs:** with the opponent on the ball, a defender (cover, mark or backup role) caught upfield of the ball by more than `LEVELS.recoverSlack` (150 / 60 / 20 px easy / normal / hard) sprints back (order `sprint`, so no calm glide) if it has the stamina; a zone player aims at least `AI.recoverGoalSide` 40 px goal-side of the ball; never the CPU's outlet forward. (B) **Cover defender** (new role `backup`, `pickBackup`): the nearest free player (not the outlet forward, and only if another is left for the zones) stands behind the presser on the line from the carrier (as seen `readSec` ago) to our goal centre, `AI.pressGap` x the plan's scale + `AI.backupGap` 150 px from the carrier, never within `backupMinFromGoal` 120 px of the goal centre (none if that leaves under `backupMinGap` 120 px: the keeper's job); kept between thinks unless another is `pressKeep` closer; also behind our human when he presses; not while two press an idle carrier. **Hand-over:** `pickPresser` counts a player more than `AI.beatenMargin` 20 px upfield of the carrier as `beatenPenalty` 250 px further away, so once the carrier gets past the presser a goal-side teammate (usually the backup) steps up and the beaten one recovers (A). (C) **Show him wide** (`pressPoint`): the presser shifts `AI.showWide` 0.45 x its gap toward the middle of the pitch (the carrier's inside shoulder), scaled by how wide the carrier is (full from `showWideFull` 260 px off the middle, none in the centre) and faded out near our goal (none within `showWideNear` 330 px of the goal line, full from `showWideFar` 560). Type check, lint and 18 logic checks pass (4 new: show wide, backup, beaten hand-over + recovery, no recovery when goal-side); no gameplay test.
+
+**Faster tap passes (2026-10-17):** user: tap passes felt slow. `PASS.arriveSpeed` 230 -> 360 (the pace a normal pass still has on arrival), `minSpeed` 300 -> 420, `maxSpeed` 1100 -> 1200. Travel times: 150 px 0.48 -> 0.34 s, 400 px 0.95 -> 0.72 s, 600 px 1.20 -> 0.94 s, 800 px 1.49 -> 1.20 s. Shared by everything that uses `passSpeed`: the CPU's and our AI's passes, keeper throws, the weighted pass's roll target and the AI's through-ball / travel-time planning, so CPU passes are quicker and harder to cut out too. Type check passes; no gameplay test.
+
+**Switch after losing the ball (2026-10-17):** user request: when the CPU tackles the ball off the player you control, one SWITCH tap should go to the fastest/closest teammate, who then runs at the ball by himself. A CPU tackle won against our controlled carrier sets `MatchScene.lostBallAt`; for `INPUT.lostBallSwitchSec` 4 s (or until we gain the ball again, or a kickoff reset), a new SWITCH cycle puts the outfielder who can reach the ball soonest first (`interceptPoint`, keeper excluded) instead of the AI's presser pick (`homeBrain.switchTarget`); repeat taps within 1 s still cycle on; the in-our-third threat rule can still put the keeper first. The switched-to outfielder gets a **chase assist** (`INPUT.chaseAssist`, `startChaseAssist`: the receive assist's `kind: 'chase'`): he sprints at the carrier (or to where he can first reach a loose ball) while the ball is the CPU's or loose (not in a keeper's hands, not out), until the human steers him (same takeover rule as the receive assist: push the stick after centring it, or turn it `PASS.assistTakeoverDeg` from how it was held at the switch). TACKLE still works during the chase. Only CPU tackles count as losing the ball (not keeper smothers, not a dribble running away). Type check and lint pass; logic checks and build not run here (the user runs `npm run test:local`); no gameplay test.
+
 **Goalkeeper idle, jump save and standing block (2026-10-17):** user supplied 3 keeper sheets (gloved idle x3, jump save: set / take-off / top / land, standing block x3). Cut, scaled (idle and jump 0.875, block 1.08) onto 720 x 724 cells on the 681 ground line (`public/art/player-keeper-{idle,jump,block}-authored.png`), kit split by rows per pose, baked like every other sheet. New `keeperOnly` sheets (also dive, hold, carry) are left out of the outfield kits' atlases (empty cells), and the look layers are baked from a full home atlas so keepers keep their skin/hair: atlas now 88 frames (11 rows, 1792 x 1408); release art 1.28 -> 1.22 MiB despite 10 new frames. Logic: keepers use the gloved idle loop. `keeperThreat` now returns a KeeperMove: `dive` (shot to its side), `jump` (a shot coming at it that crosses above `standReachHeight` 96 and up to `jumpReachHeight` 132; the AI waits until the ball is within `jumpLead` 0.25 s so the top of the jump meets it), `smother` (dive at a carrier within smotherRange) or `tackle` (carrier within `standTackleRange` 60: standing block that takes the ball within `standTackleReach` 50). `startJump`: 0.5 s in the air (reach height rises from 96 to 132 and back, ground reach 48, body drawn up to 18 px high via keeper z), 0.2 s landing, no running. `startBlock`: 0.35 s block pose standing still, after any standing catch/parry and as the standing tackle. Our keeper: dive button with the stick centred jumps when the ball is coming straight at it (else the usual dive to the crossing point). `Player.reactSmother` replaced by `reactKind`. Type check, lint, build and 16 logic checks pass (2 new: jump timing, standing tackle); no gameplay test.
 
 **Ball-free goalkeeper block (2026-10-16):** removed the footballs from the three-frame blocking draft with built-in imagegen. Saved `public/art/player-keeper-block-3frames-no-ball-v1.png`; transparent background and three standing block poses retained. Visually inspected, not applied in-game.
@@ -392,6 +398,8 @@ public/ball.svg             pixel ball shown on the splash
 - **Zonal defence, not man-to-man** (user complaint: "every AI player marks our respective player, which makes the game unplayable"): one presser, at most 2 markers and only in the 900 px danger zone near goal, everyone else holds a zone pulled toward the middle; markers sag off when their man is far from the ball. This leaves natural space to build play in your own half.
 - **Ideas from reference repos, not code** (user asked to read github.com/HTANV/Soccer-Unity and github.com/tshrjn/openFIFA): Soccer-Unity (the FStudio football-simulator match engine, C#, no license file) gave the ideas: chase caution / relax, most-open-spot shooting and chips over a keeper off its line, pressure by closing time, avoidance steering and zone-based dribble direction, give-and-go, showing for the ball, through balls with a race check, rest defence, switching to the AI's chosen player, positioning error, chance-based catches, front-only AI tackles. openFIFA's AI (nearest chases, others return to formation, always-successful tackles) was simpler than ours: nothing taken. Everything was re-implemented in our own systems (its C# / Unity / 3D / 11v11 code doesn't fit, and Soccer-Unity has no license).
 - **Ball feel tuned by simulation, not the plan's numbers** (user feedback: shots crossed the whole court, rebounds too strong, shots too flat). The plan's 0.55/s drag let a lifted 950 px/s shot travel about 1700 px. The ground/air drag, friction and bounce were picked with a scratch simulator of `stepFreeBall` so a full shot travels about 1000 px while 300-900 px passes still arrive (verified in game).
+- **Switch after losing the ball goes to the soonest, and he chases** (user request): right after a CPU tackle the AI's presser can be a worse pick than whoever is nearest the loose or newly-won ball, and the human then had to steer him there. Limited to a 4 s window after the tackle so normal defending still lands on the AI's presser first. The chase reuses the receive assist's takeover rule so the stick always wins.
+- **Defending upgrades A/B/C, not D/E/F** (user choice from six proposals): recovery runs, a cover defender with presser hand-over, and showing the carrier wide fix what an attacker notices most (free counters, one beaten defender = clear run, runs straight through the middle). Cutting passing lanes, shot blocking and a tighter box press were held back until a playtest. Difficulty only changes `recoverSlack` (how far upfield a defender may be before sprinting back) plus the existing reaction, read delay and positioning error.
 - **Switch was pulled forward from Phase 3** because teammates exist now. The 0.2 s speed boost on switch is still to do.
 - **Debug hook:** `?debug` in the URL sets `window.__game` and shows each outfielder's AI role (or TACKLE / DOWN / STAGGER) over its head. Use `__game.scene.getScene('Match')` to read or set state in tests (ball, home, away, homeKeeper, awayKeeper, controlled, flow, homeBrain/awayBrain.orders, controls.press/release, controls.touchStick, chargeSince).
 - **Devvit `context` may be undefined** outside Reddit (local preview), so read it as `context?.username`.
@@ -402,12 +410,12 @@ The user runs the game commands themselves in WSL (`npm run dev` for the Reddit 
 
 Checks the assistant can run (through WSL, since `node_modules` was installed there):
 
+- `npm run test:local`: runs all of the checks below in order (types, lint, unit, logic, build) and stops at the first failure.
 - `npm run test:types`, `npm run lint`, `npm run build`
 - `npm run test:logic`: `checks/logic-check.ts`, logic checks of the Phase 3 rules (tackle timeline, chances, juke, contact; keeper reaction restart; AI brain: no decisions for the human's ball, no chase when out, reset; pass weight; difficulty table) on hand-made players, no game or browser. It is bundled with rolldown first, because the source imports have no file extensions (which is also why `npm run test:unit` can't import game modules). Not linted or type-checked (outside `src/`).
 - **User preference (stage 6 on):** no automated gameplay testing in the browser preview; check syntax (types, lint, build) and logic (code review, `test:logic`) only. The gameplay testing techniques below are kept for reference.
 - From Git Bash, prefix with `MSYS_NO_PATHCONV=1 wsl --cd "/mnt/f/code ball/street-soccer" -- bash -lc "..."`, or the `/mnt/f` path gets mangled.
-- Local visual check: serve `dist/client` with any static server on port 4173 and open it. The game runs as a guest outside Reddit.
-  - In the Claude desktop app, `F:\code ball\.claude\launch.json` has a `dist-preview` config, which uses a scratchpad `serve.mjs` that may no longer exist.
+- Local visual check: `npm start` (build, then `scripts/serve.mjs` serves `dist/client` at http://localhost:4173, no-store caching, `PORT` to change it; `npm run serve` skips the build). The game runs as a guest outside Reddit. The user starts it themselves (it keeps running until Ctrl+C).
   - **Best way to test gameplay:** open `/?debug` and script scenarios through `window.__game`:
     - teleport with `placeAt`;
     - steer with `controls.touchStick = {x, y, r}`;
@@ -433,6 +441,12 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 - The far wall and near fence are still infinitely tall for the ball; only the end walls have a height (120) for the ball to clear.
 
 ## Next up
+
+- Playtest the defending upgrades with `?debug` (role labels: PRESS, BACKUP, COVER, MARK): (A) after a CPU turnover its defenders sprint back goal-side; (B) a BACKUP sits behind the PRESS, and dribbling past the presser brings the backup out to press while the beaten one runs back; (C) wide carriers are shown toward the touchline, central ones and those in the box are not. Check it's not too hard on easy (knobs: `LEVELS.recoverSlack`, `AI.backupGap`, `beatenMargin` / `beatenPenalty`, `showWide`). Then decide on D (cut passing lanes), E (block shots), F (tighter in the box).
+
+- Playtest faster tap passes: short passes should zip, long ones still be controlled; check the first touch doesn't look jerky and CPU passes aren't now too hard to intercept (tune `PASS.arriveSpeed`).
+
+- Playtest switch after losing the ball: get tackled by the CPU, tap SWITCH once: it should land on the teammate nearest/fastest to the ball (not always the presser) who sprints at it by himself; pushing the stick a new way takes him over; TACKLE works on arrival. Check the 4 s window (`INPUT.lostBallSwitchSec`) and whether the chase should also follow keeper smothers.
 
 - Playtest the keepers: gloved idle, jump saves on high balls at the keeper (timing, does it look right lifting 18 px), block pose after standing saves, standing tackles on carriers at its feet (not too strong?), our keeper's centred-stick jump. Tune `KEEPER.jump*`, `blockSec`, `standTackleRange/Reach`.
 
@@ -533,6 +547,35 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+### 2026-10-17: Merge `ketan` into `main`
+
+- Brought the AI defending upgrades, faster passes, switch-after-losing-the-ball, `npm start` and `test:local` into `main` alongside the goalkeeper idle / jump / block work. Kept both sides' status entries; `logic-check.ts` imports both `AI` and `KEEPER`.
+- `ketan`'s last commit had re-saved most files with CRLF line endings; the merge keeps `main`'s line endings, so only real changes come in.
+- `npm run test:local` passes (types, lint, unit, 20 logic checks, build).
+
+### 2026-10-17: AI defending: recovery runs, cover defender, show wide (user request)
+
+- (A) defenders caught upfield of the ball sprint back (`LEVELS.recoverSlack`); (B) new `backup` role behind the presser, and a beaten presser hands over (`AI.beatenMargin` / `beatenPenalty`); (C) the presser shows wide carriers toward the touchline (`AI.showWide*`).
+- 4 new logic checks (18 in all, all pass); type check and lint pass; no gameplay test.
+
+### 2026-10-17: Faster tap passes (user request)
+
+- `PASS.arriveSpeed` 230 -> 360, `minSpeed` 300 -> 420, `maxSpeed` 1100 -> 1200: passes arrive ~25-30% sooner.
+
+### 2026-10-17: `npm start` local preview
+
+- `npm start` builds and serves `dist/client` at http://localhost:4173 via `scripts/serve.mjs` (Node only, no dependencies); `npm run serve` serves the last build. `lint` glob now double-quoted so it works on Windows too.
+
+### 2026-10-17: Switch after losing the ball (user request)
+
+- After a CPU tackle on our controlled player, SWITCH (for 4 s, `INPUT.lostBallSwitchSec`) picks the outfielder who can reach the ball soonest, and he runs at the ball by himself (`INPUT.chaseAssist`) until steered.
+- Type check and lint pass; no gameplay test.
+
+### 2026-10-17: One-command local test
+
+- Added `npm run test:local`, which chains `test:types`, `lint`, `test:unit`, `test:logic` and `build` (CI's checks plus the logic checks).
+- Quoted the `lint` script's glob with double quotes instead of single quotes, so it also expands on Windows (cmd.exe doesn't strip single quotes, so ESLint was receiving the literal pattern `'src/**/*.{ts,tsx}'` and matching nothing).
 
 ### 2026-10-17: Goalkeeper idle, jump save and standing block
 

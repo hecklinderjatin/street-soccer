@@ -42,6 +42,13 @@ import { canTackle } from './tackle';
 //   leaning toward the ball, sagging off the further he is from the ball.
 //   At most AI.maxMarkers, never everyone: zonal defence, not every
 //   attacker shadowed all over the pitch.
+// - backup: the cover defender, behind the presser (or our human pressing)
+//   on the line from the carrier to our goal, so beating the presser
+//   doesn't mean a clear run; a presser the carrier gets past hands the
+//   job to a goal-side teammate (pickPresser), usually this one.
+// Defenders caught upfield of the ball sprint back goal-side (recovery
+// runs, LEVELS.recoverSlack). The presser shows the carrier wide: it
+// stands on his inside shoulder, pushing him toward the touchline.
 // - cover: a formation spot, shifted with the ball; when defending, dropped
 //   back and pulled toward the middle (a zone, zoneSpot).
 // - support: a formation spot pushed upfield and moved into open space.
@@ -79,6 +86,7 @@ export type AiRole =
   | 'chase'
   | 'press'
   | 'mark'
+  | 'backup'
   | 'cover'
   | 'support'
   | 'run'
@@ -116,6 +124,7 @@ export type BrainSkill = {
   aimSpread: number; // shot placement pulled toward the centre by up to this (px)
   markGapScale: number; // x AI.markGap
   posError: number; // px, each player's positioning error (renewed every AI.posErrorSec)
+  recoverSlack: number; // px a defender may be upfield of the ball before it sprints back goal-side
 };
 
 // A team's game plan: a TACTICS row (ours attacking, the CPU balanced).
@@ -286,6 +295,7 @@ export class TeamBrain {
         free = free.filter((p) => p !== chaser);
       }
     } else if (owner && !owner.holding) {
+      let doubled = false; // a second presser on an idle carrier (no backup then)
       const presser = this.pickPresser(view, free, owner);
       if (presser) {
         const at = this.pressPoint(owner, idleFor, false);
@@ -306,7 +316,13 @@ export class TeamBrain {
           const behind = this.pressPoint(owner, idleFor, true);
           this.set(second, 'press', null, behind.x, behind.y, true);
           free = free.filter((p) => p !== second);
+          doubled = true;
         }
+      }
+      // The next man: cover behind the presser (or our human pressing).
+      if (!doubled) {
+        const backup = this.pickBackup(view, free, owner, prev);
+        if (backup) free = free.filter((p) => p !== backup);
       }
     }
     if (phase === 'defend') {
@@ -342,7 +358,10 @@ export class TeamBrain {
     // there. Positioning jobs (cover, support, run, show, mark, rest) are
     // calm: their spot glides and they don't fidget at it.
     const calm =
-      !urgent && order.role !== 'chase' && order.role !== 'press';
+      !urgent &&
+      order.role !== 'chase' &&
+      order.role !== 'press' &&
+      order.role !== 'backup';
     if (order.role === 'chase') {
       if (!order.goalSide) {
         const meet = interceptPoint(p, ball);
@@ -752,7 +771,10 @@ export class TeamBrain {
 
   // Opponent on the ball: the AI player closest to the carrier presses,
   // unless our human is already close to it. The current (main) presser
-  // keeps the job unless another is AI.pressKeep closer.
+  // keeps the job unless another is AI.pressKeep closer. A player the
+  // carrier has got past (upfield of it) counts as AI.beatenPenalty
+  // further away, so a goal-side teammate (usually the backup) steps up
+  // and the beaten one recovers.
   private pickPresser(view: TeamView, ai: readonly Player[], carrier: Player) {
     const h = view.human;
     if (h && Math.hypot(h.x - carrier.x, h.y - carrier.y) < AI.humanPressDist) {
@@ -764,7 +786,9 @@ export class TeamBrain {
     let current: Player | null = null;
     let currentD = Infinity;
     for (const p of ai) {
-      const d = Math.hypot(p.x - carrier.x, p.y - carrier.y);
+      const d =
+        Math.hypot(p.x - carrier.x, p.y - carrier.y) +
+        ((p.x - carrier.x) * this.dir > AI.beatenMargin ? AI.beatenPenalty : 0);
       if (d < bestD) {
         best = p;
         bestD = d;
@@ -846,7 +870,85 @@ export class TeamBrain {
       lx -= toGoal.x * along;
       ly -= toGoal.y * along;
     }
-    return { x: s.x + lx + toGoal.x * gap, y: s.y + ly + toGoal.y * gap };
+    // Show him wide: on the carrier's inside shoulder (toward the middle),
+    // more the wider he is, none in the centre or near our goal (the box:
+    // straight goal-side).
+    const gy = PITCH.height / 2;
+    const wide = clamp(Math.abs(s.y - gy) / AI.showWideFull, 0, 1);
+    const far = clamp(
+      (Math.abs(s.x - this.goalX) - AI.showWideNear) /
+        (AI.showWideFar - AI.showWideNear),
+      0,
+      1
+    );
+    const inside = Math.sign(gy - s.y) * gap * AI.showWide * wide * far;
+    return {
+      x: s.x + lx + toGoal.x * gap,
+      y: s.y + ly + toGoal.y * gap + inside,
+    };
+  }
+
+  // The cover defender: behind the presser's spot on the line from the
+  // carrier (as seen skill.readSec ago) to our goal centre, AI.backupGap
+  // further back, never closer than AI.backupMinFromGoal to the goal (none
+  // when the carrier is right at our goal). The nearest free player takes
+  // it (the same one as last think unless another is AI.pressKeep closer),
+  // never the plan's outlet forward, and only if someone is left over for
+  // the zones. Sets its order; returns it.
+  private pickBackup(
+    view: TeamView,
+    free: readonly Player[],
+    carrier: Player,
+    prev: Map<Player, AiOrder>
+  ) {
+    const outlet = this.style.outletForward
+      ? view.mates[FORMATION.outfield.length - 1]
+      : undefined;
+    const candidates = free.filter((p) => p !== outlet);
+    if (candidates.length < 2) return null;
+    const s = carrier.seenAgo(this.skill.readSec);
+    const gy = PITCH.height / 2;
+    const toGoal = Math.hypot(this.goalX - s.x, gy - s.y);
+    const dist = Math.min(
+      AI.pressGap * this.style.pressGapScale + AI.backupGap,
+      toGoal - AI.backupMinFromGoal
+    );
+    if (dist < AI.backupMinGap) return null;
+    const g = unit(this.goalX - s.x, gy - s.y);
+    const at = { x: s.x + g.x * dist, y: s.y + g.y * dist };
+    let best: Player | null = null;
+    let bestD = Infinity;
+    let current: Player | null = null;
+    let currentD = Infinity;
+    for (const p of candidates) {
+      const d = Math.hypot(p.x - at.x, p.y - at.y);
+      if (d < bestD) {
+        best = p;
+        bestD = d;
+      }
+      if (prev.get(p)?.role === 'backup') {
+        current = p;
+        currentD = d;
+      }
+    }
+    const pick = current && currentD < bestD + AI.pressKeep ? current : best;
+    if (!pick) return null;
+    const spot = this.withError(pick, at);
+    this.set(pick, 'backup', null, spot.x, spot.y, this.recovering(pick, view));
+    return pick;
+  }
+
+  // Recovery run: caught upfield of the ball (further than the level's
+  // recoverSlack) with the opponent on it, a defender sprints back (if it
+  // has the stamina), never the plan's outlet forward.
+  private recovering(p: Player, view: TeamView) {
+    if (
+      this.style.outletForward &&
+      view.mates.indexOf(p) === FORMATION.outfield.length - 1
+    )
+      return false;
+    if (p.stamina < AI.saveStaminaBelow || p.sprintLocked) return false;
+    return (p.x - view.ball.x) * this.dir > this.skill.recoverSlack;
   }
 
   // Zonal defence with a few markers. Opponents in the danger zone (within
@@ -899,11 +1001,20 @@ export class TeamBrain {
       }
       if (pick < 0) break;
       const p = left.splice(pick, 1)[0];
-      if (p) this.set(p, 'mark', o);
+      // (a marker caught upfield of the ball sprints back to its man)
+      if (p) this.set(p, 'mark', o, p.x, p.y, this.recovering(p, view));
     }
     for (const p of left) {
       const at = this.zoneSpot(view, p);
-      this.set(p, 'cover', null, at.x, at.y);
+      if (this.recovering(p, view)) {
+        // Recovery run: flat out, at least goal-side of the ball.
+        const limit = ball.x - this.dir * AI.recoverGoalSide;
+        if ((at.x - limit) * this.dir > 0)
+          at.x = clamp(limit, AI.edgeMargin, PITCH.width - AI.edgeMargin);
+        this.set(p, 'cover', null, at.x, at.y, true);
+      } else {
+        this.set(p, 'cover', null, at.x, at.y);
+      }
     }
   }
 
