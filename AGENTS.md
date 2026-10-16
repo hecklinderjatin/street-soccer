@@ -42,6 +42,8 @@ You are writing a Devvit web application that will be executed on Reddit.com.
 - `npm run test:types`: Check typescript types
 - `npm run lint`: Check the linter
 - `npm run test:unit`: Run unit tests (`src/**/*.test.ts`)
+- `npm run test:local`: Run every check in one go (types, lint, unit, logic, build), same as CI plus `test:logic`
+- `npm start`: Build, then serve the game locally at http://localhost:4173 (`npm run serve` serves the last build without rebuilding)
 - `npm run dev`: Playtest in the dev subreddit (the user runs this in WSL)
 
 ## Code Style

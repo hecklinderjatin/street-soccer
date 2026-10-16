@@ -115,9 +115,9 @@ export const DRIBBLE = {
 
 export const PASS = {
   windUpSec: 0.08, // between the press and the ball leaving
-  arriveSpeed: 230, // a pass is struck so it still rolls at about this speed on arrival (was 170: slow passes were cut out) ...
-  minSpeed: 300, // ... clamped to this range
-  maxSpeed: 1100,
+  arriveSpeed: 360, // a pass is struck so it still rolls at about this speed on arrival (was 170: slow passes were cut out; 230 -> 360, user: tap passes felt slow) ...
+  minSpeed: 420, // ... clamped to this range (was 300)
+  maxSpeed: 1200, // (was 1100)
   // Target: the NEAREST teammate inside a narrow cone around the stick; if
   // nobody is in it the cone widens step by step (then the whole circle).
   coneStepsDeg: [60, 110, 180, 360], // full cone widths tried in order
@@ -394,6 +394,23 @@ export const AI = {
   counterSec: 3,
   counterSpace: 250, // ... with nobody within this ahead of it ...
   counterBonus: 0.35, // ... dribbling is worth this much more
+  // Defending upgrades (user request, 2026-10-17):
+  // (A) Recovery runs: a defender caught upfield of the ball (further than
+  // LEVELS.recoverSlack) sprints back goal-side instead of walking to his
+  // zone.
+  recoverGoalSide: 40, // a recovering zone player aims at least this far goal-side of the ball
+  // (B) Cover behind the presser, and handing over when he's beaten.
+  beatenMargin: 20, // a player this far upfield of the carrier has been beaten (it got past him) ...
+  beatenPenalty: 250, // ... and counts as this much further away when picking the presser (a goal-side teammate takes over)
+  backupGap: 150, // the cover defender stands this far behind the presser's gap, on the line from the carrier to our goal ...
+  backupMinFromGoal: 120, // ... never closer than this to our goal centre ...
+  backupMinGap: 120, // ... and there is none if that leaves it less than this from the carrier (right at our goal: the keeper's job)
+  // (C) Show him wide: the presser stands on the carrier's inside shoulder,
+  // so the carrier is pushed toward the touchline, away from goal.
+  showWide: 0.45, // the presser shifts this fraction of its gap toward the middle of the pitch ...
+  showWideFull: 260, // ... fully with the carrier this far off the middle (none with him in the centre) ...
+  showWideNear: 330, // ... none with him this close to our goal line (the box: straight goal-side) ...
+  showWideFar: 560, // ... fully from this far
   // Tackles (the presser only, and only from the carrier's front or side:
   // from behind it gets goal-side first), checked each think (chance: LEVELS).
   tackleCooldownSec: 1, // after an attempt, at least this long before the next
@@ -514,6 +531,7 @@ export const LEVELS = {
     aimSpread: 110, // shots aimed up to this much in from the AI.shootInside spot toward the centre (keeper-side misses)
     markGapScale: 1.5, // x AI.markGap: looser marking
     posError: 70, // px each player's spot is off by at most (renewed every AI.posErrorSec): natural gaps
+    recoverSlack: 150, // px a defender may be upfield of the ball before he sprints back goal-side (AI recovery runs)
     keeperReactSec: 0.5, // keeper reaction to a shot / a carrier through on goal (+- KEEPER.reactJitter)
     keeperDiveError: 30, // px a keeper's dive may fall short or overshoot by
   },
@@ -528,6 +546,7 @@ export const LEVELS = {
     aimSpread: 70,
     markGapScale: 1,
     posError: 30,
+    recoverSlack: 60,
     keeperReactSec: 0.4,
     keeperDiveError: 12,
   },
@@ -542,6 +561,7 @@ export const LEVELS = {
     aimSpread: 40,
     markGapScale: 0.85,
     posError: 12,
+    recoverSlack: 20,
     keeperReactSec: 0.32,
     keeperDiveError: 5,
   },
@@ -582,6 +602,8 @@ export const INPUT = {
   switchCooldownSec: 0.12, // ignore switch presses closer together than this
   keeperHoldSec: 0.35, // holding SWITCH this long jumps straight to our keeper
   keeperThreatSpeed: 250, // a ball moving toward our goal this fast (in our third) makes SWITCH pick the keeper first
+  lostBallSwitchSec: 4, // after the CPU tackles the ball off our player: for this long (or until we win it back) SWITCH picks the outfielder who can reach the ball soonest...
+  chaseAssist: true, // ... and that player runs at the ball by himself until the human steers him (as the receive assist)
 } as const;
 
 export const PLAYER = {
