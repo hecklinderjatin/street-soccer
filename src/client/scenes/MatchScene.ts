@@ -74,7 +74,7 @@ import {
 import { MatchFlow } from '../systems/MatchFlow';
 import { constrainMove, stepPlayer } from '../systems/movement';
 import { gainBall, releaseBall, stepPossession } from '../systems/possession';
-import { PAL, PX } from '../ui/palette';
+import { JERSEY_SWATCH, PAL, PX } from '../ui/palette';
 import { pixelText } from '../ui/pixelFont';
 import type { HudData, MatchHudState } from './HudScene';
 
@@ -343,6 +343,22 @@ export class MatchScene extends Phaser.Scene {
       goldenGoal: false,
       banner: '',
       buttons: { b1: 'TACKLE', b2: 'SWITCH', charge: -1, sweetSpot: true },
+      // One dot per player (same order as everyone), moved in updateHud.
+      minimap: {
+        dots: this.everyone.map((p) => ({
+          x: p.x,
+          y: p.y,
+          color:
+            p.role === 'keeper'
+              ? p.team === 'home'
+                ? PAL.kitGreen
+                : PAL.kitGold
+              : JERSEY_SWATCH[this.config[p.team].jersey],
+          controlled: false,
+        })),
+        ballX: this.ball.x,
+        ballY: this.ball.y,
+      },
     };
     const hud: HudData = {
       controls: this.controls,
@@ -1602,6 +1618,15 @@ export class MatchScene extends Phaser.Scene {
     s.clock = this.flow.clock;
     s.goldenGoal = this.flow.goldenGoal;
     s.banner = this.flow.banner;
+    this.everyone.forEach((p, i) => {
+      const dot = s.minimap.dots[i];
+      if (!dot) return;
+      dot.x = p.renderX;
+      dot.y = p.renderY;
+      dot.controlled = p === this.controlled;
+    });
+    s.minimap.ballX = this.ball.renderX;
+    s.minimap.ballY = this.ball.renderY;
     const keeper = this.controlled.role === 'keeper';
     const hands = keeper && hasBall && this.controlled.holding;
     // Keeper: THROW/KICK in hands, DIVE/SWITCH without the ball, and like an

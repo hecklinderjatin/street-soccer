@@ -5,6 +5,7 @@ import type { Controls } from '../systems/Controls';
 import { ActionButtons, type ButtonContext } from '../ui/ActionButtons';
 import { buildHelpLayer } from '../ui/HelpPanel';
 import { Joystick } from '../ui/Joystick';
+import { Minimap, type MinimapState } from '../ui/Minimap';
 import { JERSEY_SWATCH, PAL, PX } from '../ui/palette';
 import { pixelText } from '../ui/pixelFont';
 import { TextButton } from '../ui/TextButton';
@@ -17,6 +18,7 @@ export type MatchHudState = {
   goldenGoal: boolean;
   banner: string; // big centre message, '' for none
   buttons: ButtonContext;
+  minimap: MinimapState;
 };
 
 export type HudData = {
@@ -32,6 +34,7 @@ export class HudScene extends Phaser.Scene {
   private hud!: HudData;
   private joystick!: Joystick;
   private actionButtons!: ActionButtons;
+  private minimap!: Minimap;
   private scoreText!: Phaser.GameObjects.BitmapText;
   private clockText!: Phaser.GameObjects.BitmapText;
   private goldenText!: Phaser.GameObjects.BitmapText;
@@ -67,6 +70,7 @@ export class HudScene extends Phaser.Scene {
     });
 
     this.buildScoreboard();
+    this.minimap = new Minimap(this);
 
     // FPS readout under the scoreboard; tap it (or press the backtick key) for the debug overlay.
     this.debugText = pixelText(this, 16, 84, '', 0.75 * PX, PAL.green)
@@ -142,6 +146,7 @@ export class HudScene extends Phaser.Scene {
     const s = this.hud.state;
     this.joystick.update();
     this.actionButtons.update(s.buttons);
+    this.minimap.update(s.minimap);
 
     const { home, away } = this.hud.teams;
     this.scoreText.setText(`${home.name} ${s.home} - ${s.away} ${away.name}`);
