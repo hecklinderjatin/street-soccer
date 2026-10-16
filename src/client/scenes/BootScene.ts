@@ -6,7 +6,7 @@ import {
   queueAssets,
   type Asset,
 } from '../art/gameAssets';
-import { startingConfig } from '../challenge';
+import { postChallenge, startingConfig } from '../challenge';
 import { createPixelFont } from '../ui/pixelFont';
 import { markTiming } from '../ui/timing';
 
@@ -30,7 +30,11 @@ export class BootScene extends Phaser.Scene {
     createPixelFont(this);
     markTiming('boot');
     document.getElementById('boot-loading')?.remove();
-    this.scene.launch('Menu');
+    // A moderator's locked match was already shown on the feed splash (the
+    // same title screen), so PLAY there goes straight into the match.
+    const challenge = postChallenge();
+    if (challenge?.config.locked) this.scene.launch('Match', challenge.config);
+    else this.scene.launch('Menu');
     this.stage = 'first';
     this.step = 0;
     // The kits this post's match wears (the default ones without settings).

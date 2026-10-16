@@ -20,6 +20,8 @@ export class TextButton extends Phaser.GameObjects.Container {
   private readonly buttonHeight: number;
   private fill: number;
   private pressed = false;
+  private enabled = true; // disabled: no presses, greyed out
+  private readonly label: Phaser.GameObjects.BitmapText | null;
 
   constructor(
     scene: Phaser.Scene,
@@ -74,6 +76,8 @@ export class TextButton extends Phaser.GameObjects.Container {
       content.fillRect(-3 * PX, -3 * PX, 2 * PX, 6 * PX);
       content.fillRect(PX, -3 * PX, 2 * PX, 6 * PX);
     }
+    this.label =
+      content instanceof Phaser.GameObjects.Graphics ? null : content;
     this.face = scene.add.container(0, 0, [this.bg, content]);
     this.add([shadow, this.face]);
     this.draw();
@@ -82,6 +86,7 @@ export class TextButton extends Phaser.GameObjects.Container {
     this.setInteractive({ useHandCursor: true });
 
     this.on('pointerdown', () => {
+      if (!this.enabled) return;
       this.pressed = true;
       this.face.y = PX;
     });
@@ -102,6 +107,19 @@ export class TextButton extends Phaser.GameObjects.Container {
   setFill(color: number) {
     this.fill = color;
     this.draw();
+  }
+
+  setLabel(text: string) {
+    this.label?.setText(text.toUpperCase());
+  }
+
+  // A disabled button ignores presses and is drawn faded.
+  setEnabled(enabled: boolean) {
+    this.enabled = enabled;
+    this.pressed = false;
+    this.face.y = 0;
+    this.setAlpha(enabled ? 1 : 0.6);
+    if (this.input) this.input.cursor = enabled ? 'pointer' : 'default';
   }
 
   private draw() {

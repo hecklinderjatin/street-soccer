@@ -1,23 +1,25 @@
 import Phaser from 'phaser';
 import { context } from '@devvit/web/client';
-import { DEFAULT_MATCH_CONFIG, formatClock } from '../../shared/matchConfig';
+import { DEFAULT_MATCH_CONFIG } from '../../shared/matchConfig';
 import { VIEW } from '../../shared/tuning';
 import {
   DIFFICULTIES,
   type Difficulty,
   type MatchConfig,
-  type TeamSetup,
 } from '../../shared/types';
 import { postChallenge } from '../challenge';
-import { addStreetBackdrop } from '../ui/backdrop';
-import { JERSEY_SWATCH, PAL, PX } from '../ui/palette';
-import { pixelText } from '../ui/pixelFont';
+import { PLAY_BUTTON, paintMenuCard } from '../ui/menuCard';
+import { PAL, PX } from '../ui/palette';
 import { TextButton } from '../ui/TextButton';
 import { markTiming } from '../ui/timing';
 
-// The title screen. A post with a moderator's custom match shows its
-// settings, locked (players can only press PLAY); any other post lets the
-// player pick the difficulty of the default match.
+const CARD = 'menu-card';
+
+// The title screen. Its backdrop, title and match line (or a moderator's
+// locked settings) are painted by menuCard.ts, the same painting the feed
+// splash shows; only the buttons are Phaser objects. A post with a locked
+// custom match normally skips this screen (the splash already showed it,
+// BootScene starts the match); it is still reached by QUIT.
 export class MenuScene extends Phaser.Scene {
   private difficulty: Difficulty = 'normal';
 
@@ -27,28 +29,26 @@ export class MenuScene extends Phaser.Scene {
 
   create() {
     markTiming('menu');
-    const cx = VIEW.width / 2;
-    addStreetBackdrop(this);
-
-    // Title with a hard offset shadow, like spray paint on the wall.
-    pixelText(
-      this,
-      cx + 2 * PX,
-      150 + 2 * PX,
-      'STREET SOCCER',
-      2.5 * PX,
-      PAL.black
-    ).setOrigin(0.5);
-    pixelText(this, cx, 150, 'STREET SOCCER', 2.5 * PX, PAL.yellow).setOrigin(
-      0.5
-    );
-
     const challenge = postChallenge();
+    const locked = challenge?.config.locked ? challenge.config : null;
+
+    // Repainted every time (cheap), so it always matches the current post.
+    if (this.textures.exists(CARD)) this.textures.remove(CARD);
+    const card = this.textures.createCanvas(CARD, VIEW.width, VIEW.height);
+    if (card) {
+      paintMenuCard(card.getContext(), VIEW.width, VIEW.height, 0, 0, {
+        config: locked,
+        durationSec: DEFAULT_MATCH_CONFIG.durationSec,
+        // context is only populated inside Reddit; a local preview has none.
+        username: context?.username,
+      });
+      card.refresh();
+      this.add.image(0, 0, CARD).setOrigin(0);
+    }
+
     let play: () => MatchConfig;
-    if (challenge?.config.locked) {
-      const config = challenge.config;
-      this.showSettings(config);
-      play = () => config;
+    if (locked) {
+      play = () => locked;
     } else {
       this.showDifficultyPicker();
       play = () => ({ ...DEFAULT_MATCH_CONFIG, difficulty: this.difficulty });
@@ -56,31 +56,21 @@ export class MenuScene extends Phaser.Scene {
 
     new TextButton(
       this,
-      cx,
-      540,
+      PLAY_BUTTON.x,
+      PLAY_BUTTON.y,
       'PLAY',
       () => this.scene.start('Match', play()),
-      { width: 320, height: 96, fill: PAL.green, textSize: 2 * PX }
+      {
+        width: PLAY_BUTTON.w,
+        height: PLAY_BUTTON.h,
+        fill: PAL.green,
+        textSize: 2 * PX,
+      }
     );
-  }
-
-  private whoLine(text: string, y: number) {
-    // context is only populated inside Reddit; a local preview has none.
-    const username = context?.username;
-    const who = username ? `u/${username}` : 'guest';
-    pixelText(
-      this,
-      VIEW.width / 2,
-      y,
-      `${text} - ${who}`,
-      PX,
-      PAL.white
-    ).setOrigin(0.5);
   }
 
   private showDifficultyPicker() {
     const cx = VIEW.width / 2;
-    this.whoLine(`5V5 - ${formatClock(DEFAULT_MATCH_CONFIG.durationSec)}`, 260);
     const buttons = DIFFICULTIES.map(
       (difficulty, i) =>
         new TextButton(
@@ -103,47 +93,5 @@ export class MenuScene extends Phaser.Scene {
       );
     };
     refresh();
-  }
-
-  // The moderator's match: both teams (jersey chip, name, formation), then
-  // time, AI level and the starting score. Nothing here can be changed.
-  private showSettings(config: MatchConfig) {
-    const cx = VIEW.width / 2;
-    this.whoLine('CUSTOM MATCH', 236);
-    const team = (setup: TeamSetup, x: number, align: number) => {
-      const chipX = align === 0 ? x : x - 24;
-      this.add
-        .rectangle(chipX + 12, 312, 24, 40, JERSEY_SWATCH[setup.jersey])
-        .setStrokeStyle(2, PAL.black);
-      const textX = align === 0 ? x + 40 : x - 40;
-      pixelText(this, textX, 300, setup.name, PX, PAL.white).setOrigin(
-        align,
-        0.5
-      );
-      pixelText(
-        this,
-        textX,
-        326,
-        setup.formation,
-        0.75 * PX,
-        PAL.lightGray
-      ).setOrigin(align, 0.5);
-    };
-    team(config.home, cx - 400, 0);
-    pixelText(this, cx, 312, 'VS', PX, PAL.yellow).setOrigin(0.5);
-    team(config.away, cx + 400, 1);
-
-    const score =
-      config.startGoalsAgainst > 0
-        ? ` - START 0-${config.startGoalsAgainst}`
-        : '';
-    pixelText(
-      this,
-      cx,
-      400,
-      `${formatClock(config.durationSec)} - ${config.difficulty} AI${score}`,
-      PX,
-      PAL.white
-    ).setOrigin(0.5);
   }
 }

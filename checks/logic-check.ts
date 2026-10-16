@@ -26,6 +26,8 @@ import {
   parseMatchConfig,
 } from '../src/shared/matchConfig';
 import { readChallenge } from '../src/server/core/challengeForm';
+import { postConfig, readStats } from '../src/server/core/matchStats';
+import { scoreComment } from '../src/server/core/scoreComment';
 import { MatchFlow } from '../src/client/systems/MatchFlow';
 
 let passed = 0;
@@ -553,6 +555,55 @@ check('formations: 4 spots in our half, outside the centre circle', () => {
     }
     assert.equal(spots[spots.length - 1]?.line, 'fwd', `${name} forward last`);
   }
+});
+
+// --- Match results (leaderboard) and the POST MY SCORE comment ---
+
+const stats = (o: Record<string, unknown> = {}) => ({
+  difficulty: 'easy',
+  goalsFor: 3,
+  goalsAgainst: 2,
+  shots: 7,
+  passes: 14,
+  tacklesWon: 4,
+  ...o,
+});
+check('results: a locked post forces its difficulty and head start', () => {
+  const locked = readChallenge(formValues(), parseMatchConfig);
+  assert.ok(typeof locked !== 'string');
+  const config = postConfig({ match: locked.config, description: '' });
+  assert.ok(config, 'locked postData reads back');
+  const ok = readStats(stats(), config);
+  assert.ok(typeof ok !== 'string');
+  assert.equal(ok.difficulty, 'hard', "the post's level, not the client's");
+  // The AI started 2 up: fewer than 2 against is impossible.
+  assert.equal(typeof readStats(stats({ goalsAgainst: 1 }), config), 'string');
+  assert.equal(postConfig({ match: DEFAULT_MATCH_CONFIG }), null, 'unlocked');
+  assert.equal(postConfig(undefined), null);
+});
+check('results: junk and out-of-range numbers are rejected', () => {
+  for (const o of [
+    { goalsFor: -1 },
+    { goalsFor: 1.5 },
+    { shots: '7' },
+    { goalsFor: 100 },
+    { passes: 1000 },
+    { difficulty: 'legend' },
+  ])
+    assert.equal(typeof readStats(stats(o), null), 'string', JSON.stringify(o));
+  assert.equal(typeof readStats(null, null), 'string');
+});
+check('POST MY SCORE: comment text with and without stats', () => {
+  const s = readStats(stats(), null);
+  assert.ok(typeof s !== 'string');
+  const both = scoreComment('  gg ', true, s, null);
+  assert.ok(both.startsWith('gg\n\n'), both);
+  assert.match(both, /Won 3-2.*easy AI.*Shots 7.*Passes 14.*Tackles won 4/);
+  assert.equal(scoreComment('gg', false, s, null), 'gg');
+  assert.match(
+    scoreComment('', true, s, null, 'kicker'),
+    /^\*\*u\/kicker:\*\*\n\n/
+  );
 });
 
 console.log(`\n${passed} checks passed`);

@@ -1,13 +1,18 @@
 import { Hono } from 'hono';
 import { context, redis, reddit } from '@devvit/web/server';
 import type {
+  DailyLeadersResponse,
   InitResponse,
+  PostScoreResponse,
   LeaderboardResponse,
   ScoreSubmitRequest,
   ScoreSubmitResponse,
   StateUpsertRequest,
   StoredState,
 } from '../../shared/api';
+import { dailyLeaders, saveResult } from '../core/daily';
+import { postConfig, readStats } from '../core/matchStats';
+import { COMMENT_MAX, scoreComment } from '../core/scoreComment';
 
 type ErrorResponse = {
   status: 'error';
@@ -294,5 +299,100 @@ api.get('/leaderboard', async (c) => {
       { error: 'Failed to fetch leaderboard' },
       500
     );
+  }
+});
+
+// # Match results: today's top 3 per post, and posting a score as a comment
+// ##########################################################################
+
+// A finished match: kept if it is the player's best today; returns the
+// leaderboard. Guests (no Reddit login) only get the leaderboard.
+api.post('/result', async (c) => {
+  const { postId } = context;
+  if (!postId)
+    return c.json<SimpleErrorResponse>({ error: 'Missing postId' }, 400);
+  try {
+    const stats = readStats(await c.req.json(), postConfig(context.postData));
+    if (typeof stats === 'string')
+      return c.json<SimpleErrorResponse>({ error: stats }, 400);
+    const username = await reddit.getCurrentUsername();
+    if (username) await saveResult(postId, username, stats);
+    return c.json<DailyLeadersResponse>(
+      await dailyLeaders(postId, username ?? null)
+    );
+  } catch (error) {
+    console.error('POST /api/result error:', error);
+    return c.json<SimpleErrorResponse>({ error: 'Failed to save result' }, 500);
+  }
+});
+
+api.get('/daily-leaders', async (c) => {
+  const { postId } = context;
+  if (!postId)
+    return c.json<SimpleErrorResponse>({ error: 'Missing postId' }, 400);
+  try {
+    const username = await reddit.getCurrentUsername();
+    return c.json<DailyLeadersResponse>(
+      await dailyLeaders(postId, username ?? null)
+    );
+  } catch (error) {
+    console.error('GET /api/daily-leaders error:', error);
+    return c.json<SimpleErrorResponse>(
+      { error: 'Failed to fetch leaderboard' },
+      500
+    );
+  }
+});
+
+// The player's comment on this post, with their score and stats if they
+// chose to share them. Posted from their account; if Reddit refuses that,
+// from the app account with their name on it.
+api.post('/post-score', async (c) => {
+  const { postId } = context;
+  if (!postId)
+    return c.json<SimpleErrorResponse>({ error: 'Missing postId' }, 400);
+  try {
+    const username = await reddit.getCurrentUsername();
+    if (!username)
+      return c.json<SimpleErrorResponse>({ error: 'Log in to post' }, 401);
+    const body: unknown = await c.req.json();
+    if (typeof body !== 'object' || body === null)
+      return c.json<SimpleErrorResponse>({ error: 'Invalid request' }, 400);
+    const config = postConfig(context.postData);
+    const stats = readStats(Reflect.get(body, 'result'), config);
+    if (typeof stats === 'string')
+      return c.json<SimpleErrorResponse>({ error: stats }, 400);
+    const raw: unknown = Reflect.get(body, 'comment');
+    const comment = typeof raw === 'string' ? raw.trim() : '';
+    const includeStats = Reflect.get(body, 'includeStats') === true;
+    if (comment.length > COMMENT_MAX)
+      return c.json<SimpleErrorResponse>(
+        { error: `Comment: at most ${COMMENT_MAX} characters` },
+        400
+      );
+    if (!comment && !includeStats)
+      return c.json<SimpleErrorResponse>(
+        { error: 'Write a comment or share your score' },
+        400
+      );
+    try {
+      const posted = await reddit.submitComment({
+        id: postId,
+        text: scoreComment(comment, includeStats, stats, config),
+        runAs: 'USER',
+      });
+      return c.json<PostScoreResponse>({ commentId: posted.id, asUser: true });
+    } catch (error) {
+      console.warn('Posting as the user failed, posting as the app:', error);
+      const posted = await reddit.submitComment({
+        id: postId,
+        text: scoreComment(comment, includeStats, stats, config, username),
+        runAs: 'APP',
+      });
+      return c.json<PostScoreResponse>({ commentId: posted.id, asUser: false });
+    }
+  } catch (error) {
+    console.error('POST /api/post-score error:', error);
+    return c.json<SimpleErrorResponse>({ error: 'Failed to post' }, 500);
   }
 });

@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Feed card = title screen; result screen: POST MY SCORE and today's top 3 (2026-10-17, `main`, uncommitted):** (1) The inline splash is now one canvas painted like the game's title screen (user: show the menu scene in the feed, not the old HTML card). `ui/menuCard.ts` (no Phaser) paints the street backdrop, title, match line or a moderator's locked settings, and the PLAY button; MenuScene paints its static part with the same function (a canvas texture, buttons stay Phaser) and the result screen's backdrop too, so all three always match. Font glyphs moved to `ui/glyphs.ts` so the splash can draw them (2 KB + a 31 KB shared chunk, no Phaser). The 1280 x 720 view is scaled to fit the card; the wall and street fill the rest. The challenge text is no longer drawn (it is the canvas tooltip). On a locked post, PLAY goes straight into the match (BootScene launches Match; the menu is still reached by QUIT). (2) Result screen: MENU replaced by **POST MY SCORE**: Devvit's `showForm` popup with a comment box and "Share my score and match stats" (on by default), then `POST /api/post-score` comments on the post as the player (`runAs: 'USER'`, devvit.json now declares `permissions.reddit.scope: "user"` and `redis: true`); if Reddit refuses that, the app account posts it headed with the player's name. Button shows POSTING... / POSTED! (once per result). (3) **Today's top 3** panel: the screen sends the match to `POST /api/result` (`server/core/daily.ts`): kept if it is the player's best of the UTC day on this post (Redis zset `daily:{postId}:{day}` ranked by goal difference then goals, stats hash beside it, kept 8 days); returns the top 3 (rank, u/name, score, W/D/L, shots) and the player's own rank if outside it. Results are checked server-side (`server/core/matchStats.ts`: whole numbers in range; a locked post's difficulty and at least its head-start goals against). Outside Reddit the panel says LEADERBOARD ONLY ON REDDIT and posting says ONLY ON REDDIT. Type check, lint, build and 27 logic checks pass (3 new); splash (locked and default), straight-to-match, result screen and a mocked top 3 checked in headless Chrome; the popup, comment posting and Redis board are not yet run on Reddit.
+
 **Minimap (2026-10-17, `main`, uncommitted):** a top-down pitch at the bottom centre of the HUD (`ui/Minimap.ts`, 264 x 143 = the pitch at 1/10, 16 px above the bottom, between the joystick and the PASS button): lines, boxes and goals drawn once, then every frame a square per player in its jersey colour (keepers green / gold), the human's player bigger with a yellow rim, and the ball as a white square. Positions are the players' interpolated render positions (`MatchHudState.minimap`, filled in place by `MatchScene.updateHud`, no per-frame arrays). Not interactive; hidden under the pause / help overlays. Type check, lint and build pass; checked in a headless Chrome screenshot of the local build (kickoff).
 
 **Custom match posts (2026-10-17, `main`, uncommitted):** the moderator menu item is now **Create Street Soccer match**. It opens a form (`server/core/challengeForm.ts`, registered as `challengeForm` in devvit.json) with: post title, optional challenge text, each team's label (A-Z/0-9/space, max 10), jersey colour and formation, bot difficulty, match length (0:30 to 5:00 in 30 s steps) and goals already conceded at kickoff (0-5, the AI starts that many up). `routes/forms.ts` `/challenge-submit` checks the user is a moderator of the subreddit and validates with `parseMatchConfig` (`shared/matchConfig.ts`, shared with the client); invalid answers reopen the form with the reason in a toast. The post stores `{ match: MatchConfig, description }` as **postData** (no Redis, no request: `client/challenge.ts` reads `context.postData`). A post with settings (`locked: true`) shows them on the menu with no difficulty picker, and PLAY AGAIN replays the same `MatchConfig` (MatchResult now carries `config`). Posts without settings (install post, older posts, local preview) keep the old menu with the default match. **Jerseys:** six outfield kits (pink, blue, red, white, black, purple; keepers stay green / gold): the kit atlases are named by colour (`player-pink` / `player-blue` replace `player-home` / `player-away`, pixel-identical) plus 4 new baked atlases (~235 KiB each). Boot, the match and the splash prefetch download only the two kits the post's match uses. Scoreboard shows the team labels with jersey-coloured chips. **Formations:** `FORMATIONS` in tuning.ts (2-1-1 default, 1-2-1, 2-2, 1-1-2, 3-1); every slot has a line and TACTICS push / drop by line instead of slot index (same numbers for 2-1-1, so the default match plays as before); last slot = forward (kickoff taker, CPU outlet). `TeamBrain` takes its side's formation. `MatchFlow(durationSec, startScore)`. Type check, lint, build and 24 logic checks pass (4 new: form -> config, rejections, start clock/score, formation spots); not run in Reddit or a browser.
@@ -329,6 +331,10 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- The splash paints the real title screen on a canvas with shared Phaser-free code (menuCard.ts) instead of loading Phaser in the feed, so the card stays fast while looking exactly like the game.
+- Daily leaderboard ranks each player's best match of the UTC day by goal difference, then goals scored; results come from the client and are only sanity-checked (no replay validation).
+- Score comments are posted as the player; if that is refused, the app account posts them with the player's name rather than failing.
+
 - Custom match settings live in the post's postData, not Redis: the splash and the game get them from context with no request, and they can't change after posting. `/api/init` was left alone because the client never calls it.
 - Jersey colours are preset baked kits rather than a free colour picker. Recolouring on the device was removed for load time, and a preset palette keeps keepers (green/gold) and both teams distinct.
 - "Goals conceded" means the AI's score at kickoff (a comeback challenge), not a concede limit; a concede-limit win rule would be a new objective.
@@ -485,6 +491,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Playtest on Reddit: feed card on desktop and phone, POST MY SCORE popup and comment (as user vs app fallback), today's top 3 with several accounts.
+
 - Check the minimap on a phone: size and whether it gets in the way of the view near the bottom of the pitch.
 
 - Playtest a custom match post in r/street_soccer_dev (`npm run dev`): create via the mod menu, check the form, locked menu layout, scoreboard labels/chips, each jersey and formation, start score and replay.
@@ -612,6 +620,10 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+### 2026-10-17 - Feed card = title screen, POST MY SCORE, today's top 3
+
+- Splash paints the game's title screen (ui/menuCard.ts); locked posts go straight to the match; result screen: POST MY SCORE popup comment, daily top 3 per post in Redis.
 
 ### 2026-10-17 - Minimap
 

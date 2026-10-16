@@ -13,6 +13,13 @@
       }
     }
   },
+  "permissions": {
+    "redis": true,
+    "reddit": {
+      "enable": true,
+      "scope": "user"
+    }
+  },
   "server": {
     "dir": "dist/server",
     "entry": "index.cjs"
