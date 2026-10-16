@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { VIEW } from '../../shared/tuning';
 import type { Controls } from '../systems/Controls';
 import { ActionButtons, type ButtonContext } from '../ui/ActionButtons';
+import { buildHelpLayer } from '../ui/HelpPanel';
 import { Joystick } from '../ui/Joystick';
 import { PAL, PX } from '../ui/palette';
 import { pixelText } from '../ui/pixelFont';
@@ -37,6 +38,7 @@ export class HudScene extends Phaser.Scene {
   private debugText!: Phaser.GameObjects.BitmapText;
   private showDebug = false;
   private pauseLayer!: Phaser.GameObjects.Container;
+  private helpLayer!: Phaser.GameObjects.Container; // how to play (the i button)
 
   constructor() {
     super('Hud');
@@ -98,7 +100,7 @@ export class HudScene extends Phaser.Scene {
       VIEW.width - 56,
       48,
       '',
-      () => this.setPaused(true),
+      () => this.setOverlay('pause'),
       {
         width: 72,
         height: 64,
@@ -106,11 +108,32 @@ export class HudScene extends Phaser.Scene {
         icon: 'pause',
       }
     );
+    // i: how to play (pauses the match while it's open), left of pause.
+    new TextButton(
+      this,
+      VIEW.width - 144,
+      48,
+      '',
+      () => this.setOverlay('help'),
+      {
+        width: 72,
+        height: 64,
+        fill: PAL.blue,
+        icon: 'info',
+      }
+    );
+    // ESC closes whatever is open, else pauses; I toggles the help.
     this.input.keyboard?.on('keydown-ESC', () =>
-      this.setPaused(!this.pauseLayer.visible)
+      this.setOverlay(this.overlayOpen() ? null : 'pause')
+    );
+    this.input.keyboard?.on('keydown-I', () =>
+      this.setOverlay(this.helpLayer.visible ? null : 'help')
     );
 
     this.pauseLayer = this.buildPauseLayer().setVisible(false);
+    this.helpLayer = buildHelpLayer(this, () =>
+      this.setOverlay(null)
+    ).setVisible(false);
   }
 
   override update(time: number) {
@@ -162,9 +185,16 @@ export class HudScene extends Phaser.Scene {
     const scoreX = 184;
     const scoreY = 44;
     this.add.rectangle(scoreX, scoreY, 336, 56, PAL.black, 0.75);
-    this.add.rectangle(scoreX - 152, scoreY -2, 16, 28, PAL.red);
-    this.add.rectangle(scoreX + 152, scoreY -2, 16, 28, PAL.blue);
-    this.scoreText = pixelText(this, scoreX, scoreY + 2, '', 0.75 * PX, PAL.white).setOrigin(0.5);
+    this.add.rectangle(scoreX - 152, scoreY - 2, 16, 28, PAL.red);
+    this.add.rectangle(scoreX + 152, scoreY - 2, 16, 28, PAL.blue);
+    this.scoreText = pixelText(
+      this,
+      scoreX,
+      scoreY + 2,
+      '',
+      0.75 * PX,
+      PAL.white
+    ).setOrigin(0.5);
 
     const cx = VIEW.width / 2;
     this.add
@@ -184,15 +214,23 @@ export class HudScene extends Phaser.Scene {
       .setVisible(false);
   }
 
-  private setPaused(paused: boolean) {
-    this.pauseLayer.setVisible(paused);
+  private overlayOpen() {
+    return this.pauseLayer.visible || this.helpLayer.visible;
+  }
+
+  // Shows the pause menu or the help (either pauses the match), or closes
+  // both and resumes.
+  private setOverlay(which: 'pause' | 'help' | null) {
+    this.pauseLayer.setVisible(which === 'pause');
+    this.helpLayer.setVisible(which === 'help');
+    const paused = which !== null;
     this.joystick.enabled = !paused;
     this.actionButtons.enabled = !paused;
     if (paused) {
       this.joystick.release();
       this.actionButtons.release();
-      this.scene.pause('Match');
-    } else {
+      if (!this.scene.isPaused('Match')) this.scene.pause('Match');
+    } else if (this.scene.isPaused('Match')) {
       this.scene.resume('Match');
     }
   }
@@ -216,7 +254,7 @@ export class HudScene extends Phaser.Scene {
       cx,
       360,
       'RESUME',
-      () => this.setPaused(false),
+      () => this.setOverlay(null),
       {
         width: 320,
         fill: PAL.green,

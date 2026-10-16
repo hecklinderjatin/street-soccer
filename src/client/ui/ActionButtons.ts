@@ -39,7 +39,7 @@ const SWIPE_SHOWN = 0.1;
 // up a high punt, down a driven kick, left / right a curling kick).
 const SWIPE_ACTIONS = new Set(['SHOOT', 'KICK']);
 
-const ACTION_COLORS: Record<string, number> = {
+export const ACTION_COLORS: Record<string, number> = {
   PASS: PAL.green,
   SHOOT: PAL.red,
   TACKLE: PAL.orange,

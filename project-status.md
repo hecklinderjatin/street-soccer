@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**How-to-play (i) button (2026-10-17, `main` at 618ae6b):** a blue "i" button sits left of the pause button (`TextButton` icon `info`, a pixel lowercase i with the pause bars' drop shadow). It opens `ui/HelpPanel.ts`: a dimmed full-screen panel with every control drawn with the game's own icons (joystick ring + knob, tinted PASS / SHOOT / TACKLE / SWITCH / DIVE / THROW / KICK discs from `createButtonTexture` + `ACTION_COLORS`, yellow swipe arrows round SHOOT) and short text, plus the keyboard keys; GOT IT closes it. Opening it pauses the match like the pause menu (`HudScene.setOverlay('pause' | 'help' | null)` replaces `setPaused`); ESC closes whichever is open, else pauses; I toggles the help. Type check, lint and build pass; not yet looked at in a browser.
+
 **GitHub main integration (2026-10-17):** merged remote passing, switching and defensive AI updates with local scoreboard/action UI fixes. Resolved UI conflicts by retaining the local UI files; incoming changes there were line-ending-only. Kept both sets of project notes. TypeScript, lint, 20 logic checks and production build passed; unit runner found no tests. Localhost rebuilt.
 
 **UI changes prepared for main (2026-10-17):** scoreboard fitting and YOU/OPP labels, solid pause icon and smaller TACKLE label are ready to merge from assests. Preserved user-adjusted score y=46, bar y=42/height=28 and timer y=50. Latest production build passed.
@@ -323,6 +325,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- The help panel pauses the match and reuses the HUD's own textures/colours, so the icons always match the real buttons.
+
 - Preserve local UI edits while integrating remote gameplay and preview tooling; retain both branches' notes.
 
 - Preserve the user's manual scoreboard, bar and timer positions when merging UI changes to main.
@@ -473,6 +477,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Check the i button and help panel on localhost and a phone (text size, layout fits 1280x720).
+
 - Playtest the combined gameplay and UI changes on localhost.
 
 - Continue UI playtesting on main after the local merge.
@@ -593,6 +599,10 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+### 2026-10-17 - How-to-play (i) button
+
+- Added an i button beside pause opening a paused controls panel with game icons (HelpPanel.ts); I key toggles it, ESC closes it.
 
 ### 2026-10-17 - Integrate GitHub main
 

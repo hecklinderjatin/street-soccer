@@ -8,7 +8,7 @@ export type TextButtonOptions = {
   fill?: number;
   textColor?: number;
   textSize?: number; // logical px per font pixel
-  icon?: 'pause';
+  icon?: 'pause' | 'info'; // drawn instead of the label
 };
 
 // A chunky pixel-art button. It sinks on touch down (instant feedback) and
@@ -38,7 +38,7 @@ export class TextButton extends Phaser.GameObjects.Container {
     drawStepped(shadow, this.buttonWidth, this.buttonHeight, PX, PAL.black);
     this.bg = scene.add.graphics();
     const content =
-      options.icon === 'pause'
+      options.icon !== undefined
         ? scene.add.graphics()
         : pixelText(
             scene,
@@ -48,7 +48,23 @@ export class TextButton extends Phaser.GameObjects.Container {
             options.textSize ?? PX,
             options.textColor ?? PAL.white
           ).setOrigin(0.5);
-    if (content instanceof Phaser.GameObjects.Graphics) {
+    if (
+      content instanceof Phaser.GameObjects.Graphics &&
+      options.icon === 'info'
+    ) {
+      // A pixel lowercase "i" (the font only has capitals) with the same
+      // drop shadow as the pause bars; on the face so it sinks too.
+      for (const [color, alpha, o] of [
+        [PAL.black, 0.6, PX],
+        [options.textColor ?? PAL.white, 1, 0],
+      ] as const) {
+        content.fillStyle(color, alpha);
+        content.fillRect(-PX, -4 * PX + o - PX, 2 * PX, 2 * PX); // dot
+        content.fillRect(-2 * PX, -PX + o - PX, 3 * PX, PX); // top serif
+        content.fillRect(-PX, -PX + o - PX, 2 * PX, 5 * PX); // stem
+        content.fillRect(-2 * PX, 3 * PX + o, 4 * PX, PX); // foot
+      }
+    } else if (content instanceof Phaser.GameObjects.Graphics) {
       // Two solid bars, with an equal gap and balanced padding. Keep the icon
       // on the face so it sinks with the button when pressed.
       content.fillStyle(PAL.black, 0.6);
