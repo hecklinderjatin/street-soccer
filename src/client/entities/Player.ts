@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { AI, SIM, STAMINA, TACKLE } from '../../shared/tuning';
-import type { Team } from '../../shared/types';
+import type { JerseyColor, Team } from '../../shared/types';
 import { newProjected, type Projector } from '../render/Projector';
 import { PAL, PX } from '../ui/palette';
 import {
@@ -141,7 +141,8 @@ export class Player {
     readonly role: Role,
     x: number,
     y: number,
-    look: Look = DEFAULT_LOOK
+    look: Look = DEFAULT_LOOK,
+    jersey: JerseyColor = team === 'home' ? 'pink' : 'blue' // outfielders' kit
   ) {
     this.x = this.prevX = this.renderX = x;
     this.y = this.prevY = this.renderY = y;
@@ -151,7 +152,7 @@ export class Player {
         ? team === 'home'
           ? 'homeKeeper'
           : 'awayKeeper'
-        : team;
+        : jersey;
 
     this.targetRing = scene.add.image(0, 0, MARKER_TARGET);
     this.sprite = scene.add

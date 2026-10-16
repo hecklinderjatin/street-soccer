@@ -1,4 +1,4 @@
-import { mkdirSync, statSync } from 'node:fs';
+import { mkdirSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import {
   KIT_NAMES,
@@ -24,6 +24,9 @@ const source = resolve(root, 'public/art');
 const target = resolve(root, 'art-baked');
 
 mkdirSync(target, { recursive: true });
+// Drop atlases of kits that no longer exist (optimize_art ships every one).
+for (const file of readdirSync(target))
+  if (file.startsWith('player-')) rmSync(resolve(target, file));
 const started = Date.now();
 const sheets = SOURCE_SHEETS.map((sheet) =>
   readPng(resolve(source, `${sheet.file}.png`))
@@ -36,7 +39,7 @@ const save = (key: string, pixels: Pixels) => {
 for (const kit of KIT_NAMES) {
   const atlas = bakePlayerAtlas(kit, sheets);
   save(playerTexture(kit), atlas);
-  if (kit === 'home') {
+  if (kit === 'pink') {
     // The looks cover every pose, keepers' included.
     const { skin, hair } = bakeLookLayers(bakePlayerAtlas(kit, sheets, true));
     save(PLAYER_SKIN_TEXTURE, skin);

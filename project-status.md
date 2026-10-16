@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Custom match posts (2026-10-17, `main`, uncommitted):** the moderator menu item is now **Create Street Soccer match**. It opens a form (`server/core/challengeForm.ts`, registered as `challengeForm` in devvit.json) with: post title, optional challenge text, each team's label (A-Z/0-9/space, max 10), jersey colour and formation, bot difficulty, match length (0:30 to 5:00 in 30 s steps) and goals already conceded at kickoff (0-5, the AI starts that many up). `routes/forms.ts` `/challenge-submit` checks the user is a moderator of the subreddit and validates with `parseMatchConfig` (`shared/matchConfig.ts`, shared with the client); invalid answers reopen the form with the reason in a toast. The post stores `{ match: MatchConfig, description }` as **postData** (no Redis, no request: `client/challenge.ts` reads `context.postData`). A post with settings (`locked: true`) shows them on the menu with no difficulty picker, and PLAY AGAIN replays the same `MatchConfig` (MatchResult now carries `config`). Posts without settings (install post, older posts, local preview) keep the old menu with the default match. **Jerseys:** six outfield kits (pink, blue, red, white, black, purple; keepers stay green / gold): the kit atlases are named by colour (`player-pink` / `player-blue` replace `player-home` / `player-away`, pixel-identical) plus 4 new baked atlases (~235 KiB each). Boot, the match and the splash prefetch download only the two kits the post's match uses. Scoreboard shows the team labels with jersey-coloured chips. **Formations:** `FORMATIONS` in tuning.ts (2-1-1 default, 1-2-1, 2-2, 1-1-2, 3-1); every slot has a line and TACTICS push / drop by line instead of slot index (same numbers for 2-1-1, so the default match plays as before); last slot = forward (kickoff taker, CPU outlet). `TeamBrain` takes its side's formation. `MatchFlow(durationSec, startScore)`. Type check, lint, build and 24 logic checks pass (4 new: form -> config, rejections, start clock/score, formation spots); not run in Reddit or a browser.
+
 **How-to-play (i) button (2026-10-17, `main` at 618ae6b):** a blue "i" button sits left of the pause button (`TextButton` icon `info`, a pixel lowercase i with the pause bars' drop shadow). It opens `ui/HelpPanel.ts`: a dimmed full-screen panel with every control drawn with the game's own icons (joystick ring + knob, tinted PASS / SHOOT / TACKLE / SWITCH / DIVE / THROW / KICK discs from `createButtonTexture` + `ACTION_COLORS`, yellow swipe arrows round SHOOT) and short text, plus the keyboard keys; GOT IT closes it. Opening it pauses the match like the pause menu (`HudScene.setOverlay('pause' | 'help' | null)` replaces `setPaused`); ESC closes whichever is open, else pauses; I toggles the help. Type check, lint and build pass; not yet looked at in a browser.
 
 **GitHub main integration (2026-10-17):** merged remote passing, switching and defensive AI updates with local scoreboard/action UI fixes. Resolved UI conflicts by retaining the local UI files; incoming changes there were line-ending-only. Kept both sets of project notes. TypeScript, lint, 20 logic checks and production build passed; unit runner found no tests. Localhost rebuilt.
@@ -325,6 +327,10 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Custom match settings live in the post's postData, not Redis: the splash and the game get them from context with no request, and they can't change after posting. `/api/init` was left alone because the client never calls it.
+- Jersey colours are preset baked kits rather than a free colour picker. Recolouring on the device was removed for load time, and a preset palette keeps keepers (green/gold) and both teams distinct.
+- "Goals conceded" means the AI's score at kickoff (a comeback challenge), not a concede limit; a concede-limit win rule would be a new objective.
+
 - The help panel pauses the match and reuses the HUD's own textures/colours, so the icons always match the real buttons.
 
 - Preserve local UI edits while integrating remote gameplay and preview tooling; retain both branches' notes.
@@ -477,6 +483,9 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Playtest a custom match post in r/street_soccer_dev (`npm run dev`): create via the mod menu, check the form, locked menu layout, scoreboard labels/chips, each jersey and formation, start score and replay.
+- Later: daily challenges (scheduled posts reusing `createPost(challenge)`), special objectives (clean sheet etc.).
+
 - Check the i button and help panel on localhost and a phone (text size, layout fits 1280x720).
 
 - Playtest the combined gameplay and UI changes on localhost.
@@ -599,6 +608,10 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+### 2026-10-17 - Custom match posts
+
+- Moderator form creates a post with fixed team labels, jerseys, formations, difficulty, length (max 5:00) and goals conceded at kickoff, saved as postData; game, splash and replay use them; 4 new kit atlases; formations as data.
 
 ### 2026-10-17 - How-to-play (i) button
 

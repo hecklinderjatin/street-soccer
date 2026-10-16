@@ -7,6 +7,7 @@ import {
 } from './ballArt';
 import { createCourtTextures } from './pitchArt';
 import { registerPlayerAtlases } from './playerArt';
+import type { MatchConfig } from '../../shared/types';
 import {
   PLAYER_HAIR_TEXTURE,
   PLAYER_SKIN_TEXTURE,
@@ -22,11 +23,11 @@ import { createSceneryTextures } from './sceneryArt';
 export type Asset = { key: string; url: string };
 const atlas = (key: string): Asset => ({ key, url: `/art/${key}.webp` });
 
-// First what every match opens with (the outfield kits and the looks), then
-// the keepers and the ball.
-export const FIRST_ASSETS: readonly Asset[] = [
-  atlas(playerTexture('home')),
-  atlas(playerTexture('away')),
+// First what every match opens with (the two teams' outfield kits, picked
+// by the match settings, and the looks), then the keepers and the ball.
+export const firstAssets = (config: MatchConfig): Asset[] => [
+  atlas(playerTexture(config.home.jersey)),
+  atlas(playerTexture(config.away.jersey)),
   atlas(PLAYER_SKIN_TEXTURE),
   atlas(PLAYER_HAIR_TEXTURE),
 ];
@@ -36,7 +37,10 @@ export const REST_ASSETS: readonly Asset[] = [
   { key: AUTHORED_BALL_TEXTURE, url: '/art/ball-authored.webp' },
   { key: AUTHORED_SHOT_BALL_TEXTURE, url: '/art/ball-shot-authored.webp' },
 ];
-const ALL_ASSETS = [...FIRST_ASSETS, ...REST_ASSETS];
+export const matchAssets = (config: MatchConfig): Asset[] => [
+  ...firstAssets(config),
+  ...REST_ASSETS,
+];
 
 // The ball's source sheets are not needed once the ball atlas is built.
 function missing(scene: Phaser.Scene, asset: Asset) {
@@ -50,10 +54,7 @@ function missing(scene: Phaser.Scene, asset: Asset) {
 
 // Queues the missing ones on `scene`'s loader (the caller starts it);
 // returns how many were queued.
-export function queueAssets(
-  scene: Phaser.Scene,
-  assets: readonly Asset[] = ALL_ASSETS
-) {
+export function queueAssets(scene: Phaser.Scene, assets: readonly Asset[]) {
   let queued = 0;
   for (const asset of assets) {
     if (!missing(scene, asset)) continue;
@@ -63,11 +64,10 @@ export function queueAssets(
   return queued;
 }
 
-// How many of the downloads are in (for a progress readout).
-export function assetsLoaded(scene: Phaser.Scene) {
-  return ALL_ASSETS.filter((asset) => !missing(scene, asset)).length;
+// How many of `assets` are in (for a progress readout).
+export function assetsLoaded(scene: Phaser.Scene, assets: readonly Asset[]) {
+  return assets.filter((asset) => !missing(scene, asset)).length;
 }
-export const ASSET_COUNT = ALL_ASSETS.length;
 
 // One-time preparation once everything is downloaded, one step per frame so
 // the menu stays responsive. Each step does nothing if already done.

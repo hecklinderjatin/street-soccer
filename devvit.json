@@ -20,8 +20,8 @@
   "menu": {
     "items": [
       {
-        "label": "Create a new post",
-        "description": "street-soccer",
+        "label": "Create Street Soccer match",
+        "description": "Pick the match settings players get",
         "location": "subreddit",
         "forUserType": "moderator",
         "endpoint": "/internal/menu/post-create"
@@ -36,7 +36,8 @@
     ]
   },
   "forms": {
-    "exampleForm": "/internal/form/example-submit"
+    "exampleForm": "/internal/form/example-submit",
+    "challengeForm": "/internal/form/challenge-submit"
   },
   "triggers": {
     "onAppInstall": "/internal/triggers/on-app-install"

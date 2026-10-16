@@ -1,11 +1,12 @@
 import Phaser from 'phaser';
 import {
-  FIRST_ASSETS,
   PREPARE_STEPS,
   REST_ASSETS,
+  firstAssets,
   queueAssets,
   type Asset,
 } from '../art/gameAssets';
+import { startingConfig } from '../challenge';
 import { createPixelFont } from '../ui/pixelFont';
 import { markTiming } from '../ui/timing';
 
@@ -32,7 +33,8 @@ export class BootScene extends Phaser.Scene {
     this.scene.launch('Menu');
     this.stage = 'first';
     this.step = 0;
-    this.download(FIRST_ASSETS, 'kits and looks', 'rest-next');
+    // The kits this post's match wears (the default ones without settings).
+    this.download(firstAssets(startingConfig()), 'kits and looks', 'rest-next');
   }
 
   // Starts a download; `next` once it is in (or at once if nothing is

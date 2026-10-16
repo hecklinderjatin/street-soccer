@@ -1,4 +1,4 @@
-import type { Team } from '../../shared/types';
+import type { JerseyColor } from '../../shared/types';
 import { PAL } from '../ui/palette';
 
 // Player atlas layout and the build-time bake of the authored sheets.
@@ -105,9 +105,11 @@ export function atlasFrames() {
   }));
 }
 
-// Outfield kits per team, plus distinct goalkeeper kits. Shades are the
-// colours of the far-side limbs and the back of the shirt.
-export type Kit = Team | 'homeKeeper' | 'awayKeeper';
+// Outfield kits by shirt colour (a custom match picks one per team; pink
+// is the authored art, so it is never recoloured), plus distinct goalkeeper
+// kits. Shades are the colours of the far-side limbs and the back of the
+// shirt.
+export type Kit = JerseyColor | 'homeKeeper' | 'awayKeeper';
 type KitColors = {
   shirt: number;
   shirtShade: number;
@@ -117,8 +119,23 @@ type KitColors = {
   socks: number;
   sockShade: number;
 };
+// One colour head to toe; shorts in the shade (a darker band).
+const plainKit = (
+  shirt: number,
+  shade: number,
+  light: number,
+  shortsShade: number
+): KitColors => ({
+  shirt,
+  shirtShade: shade,
+  shirtHighlight: light,
+  shorts: shade,
+  shortsShade,
+  socks: shirt,
+  sockShade: shade,
+});
 const KITS: Record<Kit, KitColors> = {
-  home: {
+  pink: {
     shirt: PAL.kitPink,
     shirtShade: PAL.kitPinkShade,
     shirtHighlight: PAL.kitPinkLight,
@@ -127,7 +144,7 @@ const KITS: Record<Kit, KitColors> = {
     socks: PAL.kitPink,
     sockShade: PAL.kitPinkShade,
   },
-  away: {
+  blue: {
     shirt: PAL.kitBlue,
     shirtShade: PAL.kitBlueShade,
     shirtHighlight: PAL.kitBlueLight,
@@ -136,6 +153,25 @@ const KITS: Record<Kit, KitColors> = {
     socks: PAL.kitBlue,
     sockShade: PAL.kitBlueShade,
   },
+  red: plainKit(PAL.kitRed, PAL.kitRedShade, PAL.kitRedLight, PAL.ink),
+  white: plainKit(
+    PAL.kitWhite,
+    PAL.kitWhiteShade,
+    PAL.kitWhiteLight,
+    PAL.kitWhiteShorts
+  ),
+  black: plainKit(
+    PAL.kitBlack,
+    PAL.kitBlackShade,
+    PAL.kitBlackLight,
+    PAL.black
+  ),
+  purple: plainKit(
+    PAL.kitPurple,
+    PAL.kitPurpleShade,
+    PAL.kitPurpleLight,
+    PAL.ink
+  ),
   homeKeeper: {
     shirt: PAL.kitGreen,
     shirtShade: PAL.kitGreenShade,
@@ -156,8 +192,12 @@ const KITS: Record<Kit, KitColors> = {
   },
 };
 export const KIT_NAMES: readonly Kit[] = [
-  'home',
-  'away',
+  'pink',
+  'blue',
+  'red',
+  'white',
+  'black',
+  'purple',
   'homeKeeper',
   'awayKeeper',
 ];
@@ -535,7 +575,7 @@ export function bakePlayerAtlas(
           let r = src.data[si] ?? 0;
           let g = src.data[si + 1] ?? 0;
           let b = src.data[si + 2] ?? 0;
-          if (kitName !== 'home') {
+          if (kitName !== 'pink') {
             const c = kitColour(kit, sheet, pose, sx, sy, r, g, b);
             if (c) [r, g, b] = c;
           }

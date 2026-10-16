@@ -1,27 +1,24 @@
 import { Hono } from 'hono';
 import type { UiResponse } from '@devvit/web/shared';
-import { context } from '@devvit/web/server';
-import { createPost } from '../core/post';
+import {
+  CHALLENGE_FORM,
+  challengeForm,
+  challengeFormData,
+} from '../core/challengeForm';
 
 export const menu = new Hono();
 
-menu.post('/post-create', async (c) => {
-  try {
-    const post = await createPost();
-
-    return c.json<UiResponse>(
-      {
-        navigateTo: `https://reddit.com/r/${context.subredditName}/comments/${post.id}`,
+// Moderators only (devvit.json): opens the match settings form; the post is
+// created when it is submitted (routes/forms.ts).
+menu.post('/post-create', (c) =>
+  c.json<UiResponse>(
+    {
+      showForm: {
+        name: CHALLENGE_FORM,
+        form: challengeForm,
+        data: challengeFormData(),
       },
-      200
-    );
-  } catch (error) {
-    console.error(`Error creating post: ${error}`);
-    return c.json<UiResponse>(
-      {
-        showToast: 'Failed to create post',
-      },
-      400
-    );
-  }
-});
+    },
+    200
+  )
+);

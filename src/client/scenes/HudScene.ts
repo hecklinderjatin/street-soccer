@@ -1,10 +1,11 @@
 import Phaser from 'phaser';
 import { VIEW } from '../../shared/tuning';
+import type { Team, TeamSetup } from '../../shared/types';
 import type { Controls } from '../systems/Controls';
 import { ActionButtons, type ButtonContext } from '../ui/ActionButtons';
 import { buildHelpLayer } from '../ui/HelpPanel';
 import { Joystick } from '../ui/Joystick';
-import { PAL, PX } from '../ui/palette';
+import { JERSEY_SWATCH, PAL, PX } from '../ui/palette';
 import { pixelText } from '../ui/pixelFont';
 import { TextButton } from '../ui/TextButton';
 
@@ -21,6 +22,7 @@ export type MatchHudState = {
 export type HudData = {
   controls: Controls;
   state: MatchHudState;
+  teams: Record<Team, TeamSetup>; // scoreboard names and chip colours
   debugInfo: () => string; // extra lines for the debug overlay
 };
 
@@ -141,7 +143,8 @@ export class HudScene extends Phaser.Scene {
     this.joystick.update();
     this.actionButtons.update(s.buttons);
 
-    this.scoreText.setText(`YOU ${s.home} - ${s.away} OPP`);
+    const { home, away } = this.hud.teams;
+    this.scoreText.setText(`${home.name} ${s.home} - ${s.away} ${away.name}`);
     // Keep the whole label between the colour chips, including multi-digit scores.
     this.scoreText.setScale(1);
     const scoreWidth = this.scoreText.displayWidth;
@@ -185,8 +188,15 @@ export class HudScene extends Phaser.Scene {
     const scoreX = 184;
     const scoreY = 44;
     this.add.rectangle(scoreX, scoreY, 336, 56, PAL.black, 0.75);
-    this.add.rectangle(scoreX - 152, scoreY - 2, 16, 28, PAL.red);
-    this.add.rectangle(scoreX + 152, scoreY - 2, 16, 28, PAL.blue);
+    // Chips in each team's jersey colour, outlined so black still shows.
+    const { home, away } = this.hud.teams;
+    for (const [dx, setup] of [
+      [-152, home],
+      [152, away],
+    ] as const)
+      this.add
+        .rectangle(scoreX + dx, scoreY - 2, 16, 28, JERSEY_SWATCH[setup.jersey])
+        .setStrokeStyle(2, PAL.white, 0.5);
     this.scoreText = pixelText(
       this,
       scoreX,

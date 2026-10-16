@@ -51,18 +51,63 @@ export const MATCH = {
   goldenBreakSec: 2, // level at full time: the game pauses this long (GOLDEN GOAL banner), then a kickoff with a fresh goldenGoalSec clock
 } as const;
 
-// Formation spots for the home team (attacking right, x toward PITCH.width),
-// a 2-1-1 shape plus the keeper. The away team mirrors these in Phase 3.
+// Formation spots for the home team (attacking right, x toward PITCH.width);
+// the away team mirrors them.
 export const FORMATION = {
   keeper: { x: 44, y: 715 },
-  outfield: [
-    { x: 572, y: 462 }, // left back
-    { x: 572, y: 968 }, // right back
-    { x: 924, y: 715 }, // midfielder
-    { x: 1232, y: 715 }, // forward
-  ],
   kickoffSpot: { x: 1296, y: 715 }, // kicker stays 24 px from the centred kickoff ball
   defendKickoffX: 1122, // defending forward waits outside the centre circle; mirrored for away
+} as const;
+
+// The outfield shapes a custom match can pick (2-1-1 is the default).
+// Each slot has a line (TACTICS pushes / drops by line); the LAST slot is
+// the forward: it takes the kickoff and is the CPU's outlet. Every other
+// spot is in our half and outside the centre circle (176 px round 1320,
+// 715): the forward is placed for kickoffs by kickoffSpot / defendKickoffX.
+export type FormationLine = 'def' | 'mid' | 'fwd';
+export type FormationSpot = { x: number; y: number; line: FormationLine };
+export const FORMATIONS = {
+  '2-1-1': [
+    { x: 572, y: 462, line: 'def' }, // left back
+    { x: 572, y: 968, line: 'def' }, // right back
+    { x: 924, y: 715, line: 'mid' }, // midfielder
+    { x: 1232, y: 715, line: 'fwd' }, // forward
+  ],
+  '1-2-1': [
+    { x: 520, y: 715, line: 'def' }, // centre back
+    { x: 880, y: 430, line: 'mid' }, // left mid
+    { x: 880, y: 1000, line: 'mid' }, // right mid
+    { x: 1232, y: 715, line: 'fwd' }, // forward
+  ],
+  '2-2': [
+    { x: 572, y: 462, line: 'def' }, // left back
+    { x: 572, y: 968, line: 'def' }, // right back
+    { x: 1140, y: 470, line: 'fwd' }, // second striker, wide left
+    { x: 1232, y: 900, line: 'fwd' }, // forward
+  ],
+  '1-1-2': [
+    { x: 540, y: 715, line: 'def' }, // centre back
+    { x: 880, y: 715, line: 'mid' }, // midfielder
+    { x: 1150, y: 480, line: 'fwd' }, // second striker, wide left
+    { x: 1232, y: 930, line: 'fwd' }, // forward
+  ],
+  '3-1': [
+    { x: 560, y: 420, line: 'def' }, // left back
+    { x: 500, y: 715, line: 'def' }, // centre back
+    { x: 560, y: 1010, line: 'def' }, // right back
+    { x: 1120, y: 715, line: 'fwd' }, // forward (outside the circle)
+  ],
+} as const satisfies Record<string, readonly FormationSpot[]>;
+
+// Limits for a moderator's custom match (the post's settings form).
+export const CUSTOM_MATCH = {
+  minDurationSec: 30, // shortest match length offered
+  maxDurationSec: 300, // longest (5:00)
+  durationStepSec: 30, // lengths come in these steps
+  maxStartGoals: 5, // most goals the AI can start with
+  nameMaxLength: 10, // team label characters (fits the scoreboard)
+  titleMaxLength: 120, // post title
+  descriptionMaxLength: 200, // splash text under the title
 } as const;
 
 export const BALL = {
@@ -486,12 +531,12 @@ export const AI = {
 // plan (user request: "make our teammates more attacking, the whole plan
 // more aggressive; attackers go ahead when we have the ball and track back
 // otherwise, defenders and the midfielder come forward too"); the CPU plays
-// the balanced plan (as before). Per-slot arrays are in FORMATION order:
-// left back, right back, midfielder, forward.
+// the balanced plan (as before). Pushes and drops are per formation line
+// (FORMATIONS: defenders, midfielders, forwards).
 export const TACTICS = {
   attacking: {
-    pushAttack: [330, 330, 420, 480], // with the ball, each slot's spot goes this far upfield (defenders to about halfway, the forward high) ...
-    dropDefend: [110, 110, 200, 260], // ... without it, this far back (everyone tracks back, the forward too)
+    pushAttack: { def: 330, mid: 420, fwd: 480 }, // with the ball, each slot's spot goes this far upfield (defenders to about halfway, the forward high) ...
+    dropDefend: { def: 110, mid: 200, fwd: 260 }, // ... without it, this far back (everyone tracks back, the forward too)
     outletForward: false, // defending: the forward tracks back (no outlet left up)
     runAhead: 340, // the forward runs at least this far ahead of the ball (or its pushed-up spot if further)
     giveGoChance: 0.85, // after a pass, chance the passer bursts forward for a return pass ...
@@ -502,8 +547,8 @@ export const TACTICS = {
     pressGapScale: 0.85, // x the presser's gap (tighter)
   },
   balanced: {
-    pushAttack: [140, 140, 140, 140],
-    dropDefend: [100, 100, 100, 100],
+    pushAttack: { def: 140, mid: 140, fwd: 140 },
+    dropDefend: { def: 100, mid: 100, fwd: 100 },
     outletForward: true, // defending: the forward stays up (an outlet, one body fewer round the ball)
     runAhead: 280,
     giveGoChance: 0.6,

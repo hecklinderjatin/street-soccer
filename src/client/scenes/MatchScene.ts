@@ -3,6 +3,7 @@ import {
   AI,
   BALL,
   FORMATION,
+  FORMATIONS,
   INPUT,
   KEEPER,
   MATCH,
@@ -15,6 +16,7 @@ import {
   TACKLE,
   TACTICS,
   VIEW,
+  type FormationSpot,
 } from '../../shared/tuning';
 import type { MatchConfig, MatchResult, Team } from '../../shared/types';
 import {
@@ -29,7 +31,7 @@ import {
   registerPlayerAtlases,
   type Look,
 } from '../art/playerArt';
-import { ASSET_COUNT, assetsLoaded, queueAssets } from '../art/gameAssets';
+import { assetsLoaded, matchAssets, queueAssets } from '../art/gameAssets';
 import { markTiming, timingSummary } from '../ui/timing';
 import { Ball } from '../entities/Ball';
 import { Player } from '../entities/Player';
@@ -108,6 +110,9 @@ const SHAFT_HALF_END = 7; // ... and at the head
 // everyone are in systems/tackle.ts (the human's B1 without the ball).
 export class MatchScene extends Phaser.Scene {
   private config!: MatchConfig;
+  // Outfield spots of each side's formation (the away side mirrors its own).
+  private homeShape: readonly FormationSpot[] = FORMATIONS['2-1-1'];
+  private awayShape: readonly FormationSpot[] = FORMATIONS['2-1-1'];
   private readonly fixed = new FixedStep();
   private readonly projector = new Projector();
   private controls!: Controls;
@@ -177,6 +182,8 @@ export class MatchScene extends Phaser.Scene {
   // Phaser reuses this scene object on every restart, so reset per-match state here.
   init(data: MatchConfig) {
     this.config = data;
+    this.homeShape = FORMATIONS[data.home.formation];
+    this.awayShape = FORMATIONS[data.away.formation];
     this.ready = false;
     this.loadingText = null;
     this.fixed.reset();
@@ -219,13 +226,14 @@ export class MatchScene extends Phaser.Scene {
   // progress; if Boot has finished without some of it (a failed download),
   // fetch the rest here.
   private waitForPlayers() {
-    const loaded = assetsLoaded(this);
-    if (loaded === ASSET_COUNT) return true;
-    this.loadingText?.setText(`LOADING PLAYERS ${loaded}/${ASSET_COUNT}`);
+    const assets = matchAssets(this.config);
+    const loaded = assetsLoaded(this, assets);
+    if (loaded === assets.length) return true;
+    this.loadingText?.setText(`LOADING PLAYERS ${loaded}/${assets.length}`);
     if (
       !this.scene.isActive('Boot') &&
       !this.load.isLoading() &&
-      queueAssets(this)
+      queueAssets(this, assets)
     )
       this.load.start();
     return false;
@@ -245,9 +253,11 @@ export class MatchScene extends Phaser.Scene {
     // three along, so nobody in a team shares a look.
     const look = (i: number): Look =>
       LOOKS[i % LOOKS.length] ?? { skin: 0xffffff, hair: 0xffffff };
-    const keeperLook = FORMATION.outfield.length;
-    this.home = FORMATION.outfield.map(
-      (s, i) => new Player(this, 'home', 'outfield', s.x, s.y, look(i))
+    const keeperLook = this.homeShape.length;
+    const { home, away } = this.config;
+    this.home = this.homeShape.map(
+      (s, i) =>
+        new Player(this, 'home', 'outfield', s.x, s.y, look(i), home.jersey)
     );
     const k = FORMATION.keeper;
     this.homeKeeper = new Player(
@@ -266,7 +276,7 @@ export class MatchScene extends Phaser.Scene {
       k.y,
       look(keeperLook + 3)
     );
-    this.away = FORMATION.outfield.map(
+    this.away = this.awayShape.map(
       (s, i) =>
         new Player(
           this,
@@ -274,7 +284,8 @@ export class MatchScene extends Phaser.Scene {
           'outfield',
           PITCH.width - s.x,
           s.y,
-          look(i + 3)
+          look(i + 3),
+          away.jersey
         )
     );
     this.outfield = [...this.home, ...this.away];
@@ -289,11 +300,17 @@ export class MatchScene extends Phaser.Scene {
 
     // Our AI teammates play at normal with the attacking plan (user
     // request); the CPU at the chosen difficulty with the balanced plan.
-    this.homeBrain = new TeamBrain('home', LEVELS.normal, TACTICS.attacking);
+    this.homeBrain = new TeamBrain(
+      'home',
+      LEVELS.normal,
+      TACTICS.attacking,
+      this.homeShape
+    );
     this.awayBrain = new TeamBrain(
       'away',
       LEVELS[this.config.difficulty],
-      TACTICS.balanced
+      TACTICS.balanced,
+      this.awayShape
     );
     this.roleText = DEBUG
       ? this.outfield.map((p) =>
@@ -309,7 +326,10 @@ export class MatchScene extends Phaser.Scene {
             .setDepth(SHOT_TEXT_DEPTH)
         )
       : [];
-    this.flow = new MatchFlow();
+    this.flow = new MatchFlow(this.config.durationSec, {
+      home: 0,
+      away: this.config.startGoalsAgainst,
+    });
     this.controls = new Controls();
     this.controls.bindKeyboard(this);
     this.rig = new CameraRig(this.projector);
@@ -317,8 +337,8 @@ export class MatchScene extends Phaser.Scene {
     this.rig.snapTo(this.ball.x, this.ball.y);
 
     this.hudState = {
-      home: 0,
-      away: 0,
+      home: this.flow.score.home,
+      away: this.flow.score.away,
       clock: this.flow.clock,
       goldenGoal: false,
       banner: '',
@@ -327,6 +347,7 @@ export class MatchScene extends Phaser.Scene {
     const hud: HudData = {
       controls: this.controls,
       state: this.hudState,
+      teams: { home: this.config.home, away: this.config.away },
       debugInfo: () => this.debugInfo(),
     };
     this.scene.launch('Hud', hud);
@@ -1330,10 +1351,10 @@ export class MatchScene extends Phaser.Scene {
 
   private resetForKickoff() {
     this.ball.placeAt(PITCH.width / 2, PITCH.height / 2);
-    FORMATION.outfield.forEach((s, i) => {
-      this.home[i]?.placeAt(s.x, s.y);
-      this.away[i]?.placeAt(PITCH.width - s.x, s.y);
-    });
+    this.homeShape.forEach((s, i) => this.home[i]?.placeAt(s.x, s.y));
+    this.awayShape.forEach((s, i) =>
+      this.away[i]?.placeAt(PITCH.width - s.x, s.y)
+    );
     // The other side's forward waits outside the centre circle.
     const spotY = FORMATION.kickoffSpot.y;
     if (this.flow.kickoffTeam === 'home') {
@@ -1604,7 +1625,7 @@ export class MatchScene extends Phaser.Scene {
     if (this.resultShown) return;
     this.resultShown = true;
     const result: MatchResult = {
-      difficulty: this.config.difficulty,
+      config: this.config,
       goalsFor: this.flow.score.home,
       goalsAgainst: this.flow.score.away,
       shots: this.stats.shots,

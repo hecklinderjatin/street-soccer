@@ -47,7 +47,7 @@ export class ResultScene extends Phaser.Scene {
       this,
       cx,
       350,
-      `VS ${r.difficulty} AI | SHOTS ${r.shots} | PASSES ${r.passes} | TACKLES ${r.tacklesWon}`,
+      `VS ${r.config.difficulty} AI | SHOTS ${r.shots} | PASSES ${r.passes} | TACKLES ${r.tacklesWon}`,
       0.75 * PX
     ).setOrigin(0.5);
 
@@ -57,7 +57,7 @@ export class ResultScene extends Phaser.Scene {
       530,
       'PLAY AGAIN',
       () => {
-        const config: MatchConfig = { difficulty: r.difficulty };
+        const config: MatchConfig = r.config; // the same match, settings and all
         this.scene.start('Match', config);
       },
       { width: 320, fill: PAL.green }

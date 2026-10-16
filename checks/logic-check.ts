@@ -12,7 +12,21 @@ import {
 import { cpuKeeperReact, stepKeeperHands } from '../src/client/systems/keeper';
 import { TeamBrain, interceptPoint } from '../src/client/systems/ai';
 import { idealPassWeight, passWeight } from '../src/client/systems/actions';
-import { AI, KEEPER, LEVELS, PASS, PITCH, TACKLE } from '../src/shared/tuning';
+import {
+  AI,
+  FORMATIONS,
+  KEEPER,
+  LEVELS,
+  PASS,
+  PITCH,
+  TACKLE,
+} from '../src/shared/tuning';
+import {
+  DEFAULT_MATCH_CONFIG,
+  parseMatchConfig,
+} from '../src/shared/matchConfig';
+import { readChallenge } from '../src/server/core/challengeForm';
+import { MatchFlow } from '../src/client/systems/MatchFlow';
 
 let passed = 0;
 function check(name: string, fn: () => void) {
@@ -463,6 +477,82 @@ check('defending A: no recovery run for a goal-side defender', () => {
   const brain = defend(mates, c);
   for (const m of mates.slice(1, 3))
     assert.equal(brain.orders.get(m)?.sprint, false);
+});
+
+// --- Custom match settings (moderator form -> postData -> game) ---
+
+const formValues = (o: Record<string, unknown> = {}) => ({
+  title: '  Comeback night ',
+  description: '',
+  homeName: ' red  devils ',
+  homeJersey: ['red'],
+  homeFormation: ['3-1'],
+  awayName: 'CPU',
+  awayJersey: ['black'],
+  awayFormation: ['1-2-1'],
+  difficulty: ['hard'],
+  durationSec: ['300'],
+  startGoalsAgainst: ['2'],
+  ...o,
+});
+check('custom match: a valid form becomes a locked config', () => {
+  const c = readChallenge(formValues(), parseMatchConfig);
+  assert.ok(typeof c !== 'string', String(c));
+  assert.equal(c.title, 'Comeback night');
+  assert.deepEqual(c.config, {
+    difficulty: 'hard',
+    durationSec: 300,
+    startGoalsAgainst: 2,
+    home: { name: 'RED DEVILS', jersey: 'red', formation: '3-1' },
+    away: { name: 'CPU', jersey: 'black', formation: '1-2-1' },
+    locked: true,
+  });
+  // What the client reads back from postData is the same config.
+  assert.deepEqual(
+    parseMatchConfig(JSON.parse(JSON.stringify(c.config))),
+    c.config
+  );
+});
+check('custom match: bad answers are rejected with a reason', () => {
+  const bad: Record<string, unknown>[] = [
+    { title: '   ' },
+    { durationSec: ['330'] }, // over 5:00
+    { durationSec: ['20'] }, // under 0:30
+    { startGoalsAgainst: ['6'] },
+    { homeName: 'TOO LONG NAME' },
+    { awayName: 'émile' }, // the pixel font has no accents
+    { awayJersey: ['red'] }, // same as home
+    { homeJersey: ['green'] }, // a keeper colour
+    { awayFormation: ['4-4-2'] },
+    { difficulty: ['legend'] },
+  ];
+  for (const o of bad)
+    assert.equal(
+      typeof readChallenge(formValues(o), parseMatchConfig),
+      'string',
+      JSON.stringify(o)
+    );
+  assert.equal(typeof parseMatchConfig(undefined), 'string');
+  assert.equal(typeof parseMatchConfig(DEFAULT_MATCH_CONFIG), 'object');
+});
+check('custom match: clock and score start from the settings', () => {
+  const flow = new MatchFlow(120, { home: 0, away: 3 });
+  assert.equal(flow.clock, 120);
+  assert.deepEqual(flow.score, { home: 0, away: 3 });
+  const plain = new MatchFlow();
+  assert.deepEqual(plain.score, { home: 0, away: 0 });
+});
+check('formations: 4 spots in our half, outside the centre circle', () => {
+  for (const [name, spots] of Object.entries(FORMATIONS)) {
+    assert.equal(spots.length, 4, name);
+    // The forward (last) is moved to the kickoff spot at every kickoff.
+    for (const s of spots.slice(0, -1)) {
+      assert.ok(s.x < PITCH.width / 2, `${name} in our half`);
+      const d = Math.hypot(s.x - PITCH.width / 2, s.y - PITCH.height / 2);
+      assert.ok(d > PITCH.centerCircle, `${name} outside the circle`);
+    }
+    assert.equal(spots[spots.length - 1]?.line, 'fwd', `${name} forward last`);
+  }
 });
 
 console.log(`\n${passed} checks passed`);

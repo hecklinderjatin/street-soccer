@@ -1,5 +1,11 @@
 import { context, requestExpandedMode } from '@devvit/web/client';
-import { PLAYER_ATLAS_KEYS } from './art/playerSheets';
+import { formatClock } from '../shared/matchConfig';
+import {
+  PLAYER_HAIR_TEXTURE,
+  PLAYER_SKIN_TEXTURE,
+  playerTexture,
+} from './art/playerSheets';
+import { postChallenge, startingConfig } from './challenge';
 
 const startButton = document.getElementById(
   'start-button'
@@ -15,7 +21,18 @@ const greetingElement = document.getElementById(
 
 // context is only populated inside Reddit; a local preview has none.
 const username = context?.username;
-if (username) {
+const challenge = postChallenge();
+if (challenge?.config.locked) {
+  // A moderator's custom match: their text, else a summary of the settings.
+  const { config, description } = challenge;
+  const start =
+    config.startGoalsAgainst > 0
+      ? `, starting 0-${config.startGoalsAgainst} down`
+      : '';
+  greetingElement.textContent =
+    description ||
+    `${config.home.name} vs ${config.away.name}: ${formatClock(config.durationSec)} against the ${config.difficulty} AI${start}.`;
+} else if (username) {
   greetingElement.textContent = `Hey u/${username}, 90-second 5v5 street football. Can you beat the AI?`;
 }
 
@@ -24,12 +41,22 @@ if (username) {
 // stayed at least half on screen for PREFETCH_AFTER_MS (not for people just
 // scrolling past), and never with data saver on.
 const PREFETCH_AFTER_MS = 1500;
+// The art gameAssets.ts loads, with only the two kits this post's match
+// wears (gameAssets itself pulls in Phaser, too heavy for the splash).
+const { home, away } = startingConfig();
 const GAME_FILES = [
   '/game.js',
   '/game.css',
   '/art/ball-authored.webp',
   '/art/ball-shot-authored.webp',
-  ...PLAYER_ATLAS_KEYS.map((key) => `/art/${key}.webp`),
+  ...[
+    playerTexture(home.jersey),
+    playerTexture(away.jersey),
+    playerTexture('homeKeeper'),
+    playerTexture('awayKeeper'),
+    PLAYER_SKIN_TEXTURE,
+    PLAYER_HAIR_TEXTURE,
+  ].map((key) => `/art/${key}.webp`),
 ];
 
 function saveDataOn() {

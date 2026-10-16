@@ -2,7 +2,7 @@ import {
   AI,
   BALL,
   DRIBBLE,
-  FORMATION,
+  FORMATIONS,
   KEEPER,
   PITCH,
   PLAYER,
@@ -12,6 +12,8 @@ import {
   STAMINA,
   TACKLE,
   TACTICS,
+  type FormationLine,
+  type FormationSpot,
 } from '../../shared/tuning';
 import type { Team } from '../../shared/types';
 import type { Ball } from '../entities/Ball';
@@ -128,11 +130,11 @@ export type BrainSkill = {
 };
 
 // A team's game plan: a TACTICS row (ours attacking, the CPU balanced).
-// Per-slot arrays are in FORMATION order (left back, right back,
-// midfielder, forward).
+// Pushes and drops are per formation line (defenders, midfielders,
+// forwards).
 export type TeamStyle = {
-  pushAttack: readonly number[]; // with the ball: each slot's spot this far upfield
-  dropDefend: readonly number[]; // without it: this far back
+  pushAttack: Readonly<Record<FormationLine, number>>; // with the ball: each slot's spot this far upfield
+  dropDefend: Readonly<Record<FormationLine, number>>; // without it: this far back
   outletForward: boolean; // defending: the forward stays up instead of tracking back
   runAhead: number; // the forward runs at least this far ahead of the ball
   giveGoChance: number; // after a pass, chance of a give-and-go burst ...
@@ -144,7 +146,7 @@ export type TeamStyle = {
 };
 
 export type TeamView = {
-  mates: readonly Player[]; // outfield players, in FORMATION order
+  mates: readonly Player[]; // outfield players, in the brain's formation order
   opponents: readonly Player[]; // the other side's outfield players
   human: Player | null; // our player under the human's control, if any
   ball: Ball;
@@ -198,7 +200,8 @@ export class TeamBrain {
   constructor(
     readonly team: Team,
     readonly skill: BrainSkill,
-    readonly style: TeamStyle = TACTICS.balanced
+    readonly style: TeamStyle = TACTICS.balanced,
+    readonly formation: readonly FormationSpot[] = FORMATIONS['2-1-1']
   ) {
     this.dir = team === 'home' ? 1 : -1;
     this.goalX = team === 'home' ? 0 : PITCH.width;
@@ -371,10 +374,7 @@ export class TeamBrain {
     } else if (order.role === 'press') {
       // To the spot worked out when thinking (pressPoint).
       if (!ball.owner) return STAND;
-    } else if (
-      (order.role === 'mark' || order.role === 'rest') &&
-      order.mark
-    ) {
+    } else if ((order.role === 'mark' || order.role === 'rest') && order.mark) {
       const at = this.withError(
         p,
         order.role === 'mark'
@@ -463,13 +463,14 @@ export class TeamBrain {
     phase: 'attack' | 'defend' | 'loose'
   ) {
     const i = view.mates.indexOf(p);
-    const base = FORMATION.outfield[i] ?? FORMATION.outfield[0];
+    const base = this.formation[i] ?? this.formation[0];
+    if (!base) return { x: p.x, y: p.y };
     const bx = this.team === 'home' ? base.x : PITCH.width - base.x;
     const push =
       phase === 'attack'
-        ? (this.style.pushAttack[i] ?? 0)
+        ? this.style.pushAttack[base.line]
         : phase === 'defend'
-          ? -(this.style.dropDefend[i] ?? 0)
+          ? -this.style.dropDefend[base.line]
           : 0;
     const gy = PITCH.height / 2;
     const width = phase === 'attack' ? AI.attackWidth : 1;
@@ -497,7 +498,7 @@ export class TeamBrain {
   private zoneSpot(view: TeamView, p: Player) {
     if (
       this.style.outletForward &&
-      view.mates.indexOf(p) === FORMATION.outfield.length - 1
+      view.mates.indexOf(p) === this.formation.length - 1
     )
       return this.withError(p, this.spot(view, p, 'loose'));
     const s = this.spot(view, p, 'defend');
@@ -612,7 +613,7 @@ export class TeamBrain {
     // at its pushed-up spot if that is further.
     let runner: Player | null = null;
     if (!giveGo) {
-      const forward = view.mates[FORMATION.outfield.length - 1];
+      const forward = view.mates[this.formation.length - 1];
       runner = forward && left.includes(forward) ? forward : null;
       if (!runner)
         for (const p of left)
@@ -690,8 +691,7 @@ export class TeamBrain {
       (a, b) =>
         Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y)
     );
-    for (const s of spots.slice(0, AI.showTries))
-      if (free(s.x, s.y)) return s;
+    for (const s of spots.slice(0, AI.showTries)) if (free(s.x, s.y)) return s;
     return null;
   }
 
@@ -902,7 +902,7 @@ export class TeamBrain {
     prev: Map<Player, AiOrder>
   ) {
     const outlet = this.style.outletForward
-      ? view.mates[FORMATION.outfield.length - 1]
+      ? view.mates[this.formation.length - 1]
       : undefined;
     const candidates = free.filter((p) => p !== outlet);
     if (candidates.length < 2) return null;
@@ -944,7 +944,7 @@ export class TeamBrain {
   private recovering(p: Player, view: TeamView) {
     if (
       this.style.outletForward &&
-      view.mates.indexOf(p) === FORMATION.outfield.length - 1
+      view.mates.indexOf(p) === this.formation.length - 1
     )
       return false;
     if (p.stamina < AI.saveStaminaBelow || p.sprintLocked) return false;
@@ -1282,8 +1282,7 @@ export class TeamBrain {
       // Eased from last think's direction (same carrier): no zig-zag.
       if (this.carryDir && this.carryDir.p === c)
         a =
-          this.carryDir.dir +
-          angleDiff(a, this.carryDir.dir) * AI.dribbleBlend;
+          this.carryDir.dir + angleDiff(a, this.carryDir.dir) * AI.dribbleBlend;
       const fwd = { x: Math.cos(a), y: Math.sin(a) };
       const block = nearestAhead(others, c, fwd, AI.dribbleLook * 1.5);
       const space = block
@@ -1399,9 +1398,7 @@ export class TeamBrain {
       const clears = flight.heights.slice(0, 3).every((z) => z > over);
       const atLine = flight.heights[3] ?? 0;
       const goes =
-        atLine > 0
-          ? atLine < under
-          : flight.landing >= len - AI.chipLandShort;
+        atLine > 0 ? atLine < under : flight.landing >= len - AI.chipLandShort;
       if (!clears || !goes) continue;
       return {
         act: {
@@ -1416,9 +1413,7 @@ export class TeamBrain {
           ),
           chip: 1,
         },
-        score:
-          AI.chipScore +
-          0.4 * clamp((kOut - AI.chipKeeperOut) / 80, 0, 1),
+        score: AI.chipScore + 0.4 * clamp((kOut - AI.chipKeeperOut) / 80, 0, 1),
       };
     }
     return null;
@@ -1540,7 +1535,8 @@ export function pressureOn(
     const ux = d > 0 ? dx / d : 0;
     const uy = d > 0 ? dy / d : 0;
     const closing = (o.vx - c.vx) * ux + (o.vy - c.vy) * uy;
-    const speed = AI.pressureBaseSpeed + AI.pressureClosing * Math.max(0, closing);
+    const speed =
+      AI.pressureBaseSpeed + AI.pressureClosing * Math.max(0, closing);
     soonest = Math.min(soonest, Math.max(0, d - AI.pressureReach) / speed);
   }
   return clamp(

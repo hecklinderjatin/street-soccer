@@ -13,17 +13,27 @@ export type MatchPhase = 'kickoff' | 'live' | 'goal' | 'break' | 'fulltime';
 // game pauses (break, GOLDEN GOAL banner), then restarts from a kickoff
 // (the other team from the last kickoff) with a fresh 30 s clock; the next
 // goal wins; still level -> draw.
+// A custom match sets the regular time and the score at kickoff (e.g. the
+// AI a goal up: a comeback challenge).
 export class MatchFlow {
   phase: MatchPhase = 'kickoff';
   phaseTime = 0; // real seconds in the current phase
-  clock: number = MATCH.durationSec; // seconds left
+  clock: number; // seconds left
   clockRunning = false;
   awaitingKickoff = false; // live, but waiting for the kickoff pass
   goldenGoal = false;
-  score: Record<Team, number> = { home: 0, away: 0 };
+  score: Record<Team, number>;
   kickoffTeam: Team = 'home';
   lastScorer: Team | null = null;
   finished = false; // full-time pause done: show the result
+
+  constructor(
+    durationSec: number = MATCH.durationSec,
+    startScore: Readonly<Record<Team, number>> = { home: 0, away: 0 }
+  ) {
+    this.clock = durationSec;
+    this.score = { ...startScore };
+  }
 
   // Players hold their spots during the kickoff freeze, until the kickoff
   // pass, during the celebration and the golden-goal break.
@@ -132,7 +142,8 @@ export class MatchFlow {
   // A touch of the ball in live play keeps the clock running (it starts
   // with the kickoff pass, kickedOff).
   onTouch() {
-    if (this.phase === 'live' && !this.awaitingKickoff) this.clockRunning = true;
+    if (this.phase === 'live' && !this.awaitingKickoff)
+      this.clockRunning = true;
   }
 
   // The kickoff pass has been struck: play (AI, clock) starts.

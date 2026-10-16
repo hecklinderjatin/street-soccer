@@ -1,3 +1,5 @@
+import type { JerseyColor } from '../../shared/types';
+
 // Retro pixel art style. One art pixel is PX logical pixels, and every shape
 // snaps to that grid so the whole game reads as chunky pixel art.
 export const PX = 4;
@@ -41,4 +43,27 @@ export const PAL = {
   kitGold: 0xe3bb66,
   kitGoldShade: 0xa87b43,
   kitGoldLight: 0xf6d891,
+  kitRed: 0xd8474a,
+  kitRedShade: 0x8e2a38,
+  kitRedLight: 0xf47c6e,
+  kitWhite: 0xe4e6ee,
+  kitWhiteShade: 0xa3a8bb,
+  kitWhiteLight: 0xffffff,
+  kitWhiteShorts: 0x6d7390, // white kit's shorts shade
+  kitBlack: 0x3c3d48,
+  kitBlackShade: 0x24252d,
+  kitBlackLight: 0x5d5f6e,
+  kitPurple: 0x9064c4,
+  kitPurpleShade: 0x573e84,
+  kitPurpleLight: 0xbb97e4,
 } as const;
+
+// Each jersey's shirt colour, for UI swatches (scoreboard chips, menu).
+export const JERSEY_SWATCH: Record<JerseyColor, number> = {
+  pink: PAL.kitPink,
+  blue: PAL.kitBlue,
+  red: PAL.kitRed,
+  white: PAL.kitWhite,
+  black: PAL.kitBlack,
+  purple: PAL.kitPurple,
+};
