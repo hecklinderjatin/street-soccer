@@ -64,3 +64,304 @@ body {
     background-position: 0 0;
   }
 }
+
+/* Portrait lobby uses native-size text and touch targets over a full-card
+   live match. Expanded gameplay keeps its existing landscape layout. */
+#mobile-lobby {
+  display: none;
+}
+#mobile-lobby.is-portrait {
+  position: fixed;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  color: #fff1e8;
+  font:
+    13px/1.4 monospace,
+    monospace;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    #070e18a8 0%,
+    transparent 28%,
+    #070e1830 45%,
+    #070e18ee 68%,
+    #070e18 100%
+  );
+}
+.mobile-lobby-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 18px 16px;
+}
+.mobile-lobby-header > strong {
+  font: 400 clamp(13px, 3.6vw, 18px)/1 monospace;
+  letter-spacing: 0;
+  text-shadow: 2px 2px #000;
+}
+.mobile-lobby-header > span {
+  font-size: 9px;
+  letter-spacing: 0.8px;
+  white-space: nowrap;
+}
+.mobile-lobby-header i {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 4px;
+  background: #00e436;
+}
+.mobile-lobby-details {
+  padding: 12px 16px 14px;
+  pointer-events: auto;
+}
+.mobile-match-tag {
+  display: inline-block;
+  background: #ffec27;
+  color: #000000;
+  border-radius: 0;
+  padding: 4px 8px;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+}
+.mobile-teams {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 900;
+  font-size: 18px;
+}
+.mobile-teams > div {
+  border-left: 6px solid;
+  padding-left: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mobile-teams > span {
+  font-size: 9px;
+  color: #c2c3c7;
+}
+.mobile-formations {
+  margin: 4px 0 10px;
+  color: #c2c3c7;
+  font: 11px monospace;
+}
+.mobile-match-facts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 9px 0;
+}
+.mobile-match-facts small {
+  display: block;
+  font-size: 9px;
+  color: #c2c3c7;
+  letter-spacing: 0.5px;
+}
+.mobile-match-facts strong {
+  display: block;
+  font-weight: 900;
+  font-size: 18px;
+}
+.mobile-match-facts .mobile-difficulty {
+  font-size: 14px;
+  padding-top: 3px;
+}
+.mobile-challenge {
+  margin: 8px 0 10px;
+  color: #c2c3c7;
+  font-size: 12px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+#mobile-lobby button {
+  touch-action: manipulation;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+#mobile-lobby .mobile-play {
+  width: 100%;
+  min-height: 50px;
+  border: 0;
+  border-bottom: 4px solid #ab5236;
+  border-radius: 0;
+  background: #ffa300;
+  color: white;
+  font-size: 14px;
+  font-weight: 900;
+  box-shadow: 3px 4px #000;
+  clip-path: polygon(4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px), 0 4px, 4px 4px);
+}
+#mobile-lobby .mobile-play:active {
+  transform: translateY(2px);
+}
+.mobile-board-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+.mobile-board-heading > strong {
+  font-size: 9px;
+  color: #ffec27;
+  letter-spacing: 0.7px;
+}
+#mobile-lobby .mobile-more {
+  min-width: 56px;
+  min-height: 38px;
+  border: 0;
+  background: transparent;
+  color: #ffec27;
+  font-weight: 800;
+}
+.mobile-leaders,
+.mobile-board-rows {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.mobile-leaders li,
+.mobile-board-rows li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 0;
+  border-bottom: 1px solid #ffffff10;
+  font-size: 12px;
+}
+.mobile-leaders li span,
+.mobile-board-rows li span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mobile-leaders strong,
+.mobile-board-rows strong {
+  color: #00e436;
+  white-space: nowrap;
+}
+.mobile-best {
+  font-size: 9px;
+  color: #c2c3c7;
+  padding-top: 6px;
+}
+.mobile-best:empty {
+  display: none;
+}
+.mobile-board-modal {
+  position: absolute;
+  inset: 0;
+  background: #000c;
+  display: flex;
+  align-items: center;
+  padding: 16px;
+  pointer-events: auto;
+}
+.mobile-board-modal[hidden] {
+  display: none;
+}
+.mobile-board-sheet {
+  width: 100%;
+  border: 4px solid #5f574f;
+  box-shadow: 4px 4px #000;
+  border-radius: 0;
+  padding: 16px;
+  background: #1d2b53;
+}
+.mobile-board-sheet header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 12px;
+  color: #ffec27;
+}
+#mobile-lobby .mobile-board-close {
+  min-width: 40px;
+  min-height: 40px;
+  border: 0;
+  background: #ffffff10;
+  border-radius: 0;
+}
+.mobile-board-sheet footer {
+  display: flex;
+  justify-content: space-between;
+}
+.mobile-board-sheet footer button {
+  border: 0;
+  border-radius: 0;
+  background: #ffffff10;
+  padding: 12px;
+  min-height: 44px;
+}
+.mobile-board-status {
+  color: #c2c3c7;
+  font-size: 12px;
+}
+@media (max-height: 560px) {
+  .mobile-lobby-header {
+    padding: 12px 14px;
+  }
+  .mobile-lobby-details {
+    padding: 8px 14px 10px;
+  }
+  .mobile-challenge,
+  .mobile-formations {
+    display: none;
+  }
+  .mobile-match-tag {
+    margin-bottom: 5px;
+    padding: 3px 6px;
+  }
+  .mobile-match-facts {
+    margin: 6px 0;
+  }
+  .mobile-leaders li {
+    padding: 3px 0;
+    font-size: 11px;
+  }
+  .mobile-leaders li:nth-child(n + 2) {
+    display: none;
+  }
+}
+
+/* Same glyph pixels as the Phaser HUD, at a readable phone size. */
+.lobby-pixel {
+  display: inline-block;
+  height: 1em;
+  max-width: 100%;
+  vertical-align: middle;
+  overflow: visible;
+  shape-rendering: crispEdges;
+  filter: drop-shadow(1px 1px #000);
+}
+.lobby-readable {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.mobile-lobby-header > strong { color: #ffec27; }
+.mobile-match-tag .lobby-pixel { filter: none; }
+.mobile-lobby-details {
+  background: linear-gradient(180deg, transparent, #000c 24%, #000e);
+  border-bottom: 4px solid #5f574f;
+}
+.mobile-board-heading { border-top: 2px solid #5f574f; }
+.mobile-match-facts > div { min-width: 0; }
+.mobile-match-facts small { font-size: 8px; }
+.mobile-teams > div { min-width: 0; }
+.mobile-board-sheet { box-sizing: border-box; }
+#mobile-lobby button:focus-visible { outline: 3px solid #ffec27; outline-offset: 3px; }

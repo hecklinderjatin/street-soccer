@@ -1,0 +1,147 @@
+import type { DailyLeadersResponse } from '../../shared/api';
+import { formatClock } from '../../shared/matchConfig';
+import type { MatchConfig } from '../../shared/types';
+import { css } from './menuCard';
+import { JERSEY_SWATCH } from './palette';
+import { pixelLabel } from './pixelLabel';
+
+// Native-size text and touch targets over the real match canvas. The canvas
+// fills the portrait card; settings sit over a gradient at its lower edge.
+export function createMobileLobby(
+  config: MatchConfig,
+  description: string,
+  onPlay: (event: MouseEvent) => void,
+  onMore: () => void
+) {
+  const element = document.createElement('section');
+  element.id = 'mobile-lobby';
+  element.innerHTML = `
+    <header class="mobile-lobby-header"><strong>STREET SOCCER</strong><span><i></i> LIVE PREVIEW</span></header>
+    <div class="mobile-lobby-details">
+      <div class="mobile-match-tag"></div>
+      <div class="mobile-teams"><div class="mobile-home"></div><span>VS</span><div class="mobile-away"></div></div>
+      <div class="mobile-formations"></div>
+      <div class="mobile-match-facts"><div><small>MATCH TIME</small><strong class="mobile-time"></strong></div><div><small>DIFFICULTY</small><strong class="mobile-difficulty"></strong></div><div><small>START SCORE</small><strong class="mobile-start"></strong></div></div>
+      <p class="mobile-challenge"></p>
+      <button class="mobile-play">▶ PLAY MATCH</button>
+      <div class="mobile-board-heading"><strong>TODAY'S TOP 3</strong><button class="mobile-more">ALL ›</button></div>
+      <ol class="mobile-leaders"><li>Leaderboard available on Reddit</li></ol>
+      <div class="mobile-best"></div>
+    </div>
+    <div class="mobile-board-modal" hidden role="dialog" aria-label="Today's leaderboard">
+      <div class="mobile-board-sheet"><header><strong>TODAY'S LEADERBOARD</strong><button class="mobile-board-close" aria-label="Close leaderboard">✕</button></header><ol class="mobile-board-rows"></ol><p class="mobile-board-status"></p><footer><button class="mobile-board-prev">‹ PREV</button><button class="mobile-board-next">NEXT ›</button></footer></div>
+    </div>`;
+  const get = (selector: string) => {
+    const node = element.querySelector<HTMLElement>(selector);
+    if (!node) throw new Error(`Missing lobby element ${selector}`);
+    return node;
+  };
+  get('.mobile-match-tag').textContent = config.locked
+    ? 'COMMUNITY CHALLENGE'
+    : 'QUICK MATCH';
+  get('.mobile-home').textContent = config.home.name;
+  get('.mobile-home').style.borderColor = css(
+    JERSEY_SWATCH[config.home.jersey]
+  );
+  get('.mobile-away').textContent = config.away.name;
+  get('.mobile-away').style.borderColor = css(
+    JERSEY_SWATCH[config.away.jersey]
+  );
+  get('.mobile-formations').textContent =
+    `${config.home.formation}  vs  ${config.away.formation}`;
+  get('.mobile-time').textContent = formatClock(config.durationSec);
+  get('.mobile-difficulty').textContent = config.difficulty.toUpperCase();
+  get('.mobile-start').textContent = `0 – ${config.startGoalsAgainst}`;
+  get('.mobile-challenge').textContent =
+    description || 'Outplay the opposition. Own the street.';
+  const pixelSelectors = [
+    '.mobile-lobby-header > strong', '.mobile-match-tag', '.mobile-home',
+    '.mobile-away', '.mobile-time', '.mobile-difficulty', '.mobile-start',
+    '.mobile-board-heading > strong', '.mobile-board-sheet header > strong',
+  ];
+  pixelSelectors.forEach((selector) => {
+    const node = get(selector);
+    pixelLabel(node, node.textContent ?? '');
+  });
+  pixelLabel(get('.mobile-play'), 'PLAY MATCH');
+  pixelLabel(get('.mobile-more'), 'ALL >');
+  get('.mobile-play').addEventListener('click', onPlay);
+  get('.mobile-more').addEventListener('click', onMore);
+  get('.mobile-board-close').addEventListener('click', () => {
+    get('.mobile-board-modal').hidden = true;
+  });
+  const row = (leader: DailyLeadersResponse['top'][number]) => {
+    const li = document.createElement('li');
+    const name = document.createElement('span');
+    name.textContent = `${leader.rank}. ${leader.username}`;
+    const score = document.createElement('strong');
+    score.textContent = `${leader.goalsFor}–${leader.goalsAgainst}`;
+    li.append(name, score);
+    return li;
+  };
+  return {
+    element,
+    setDifficulty(value: string) {
+      pixelLabel(get('.mobile-difficulty'), value);
+    },
+    setBoard(data: DailyLeadersResponse | string) {
+      const list = get('.mobile-leaders');
+      list.replaceChildren();
+      if (typeof data === 'string' || !data.top.length) {
+        const li = document.createElement('li');
+        li.textContent =
+          typeof data === 'string' ? data : 'No scores yet. Set the first!';
+        list.append(li);
+      } else data.top.slice(0, 3).forEach((leader) => list.append(row(leader)));
+      get('.mobile-best').textContent =
+        typeof data !== 'string' && data.me
+          ? `Your best: #${data.me.rank} · ${data.me.goalsFor}–${data.me.goalsAgainst}`
+          : '';
+    },
+    async showBoard(onReddit: boolean) {
+      const modal = get('.mobile-board-modal');
+      const list = get('.mobile-board-rows');
+      const status = get('.mobile-board-status');
+      const prev = get('.mobile-board-prev');
+      const next = get('.mobile-board-next');
+      modal.hidden = false;
+      list.replaceChildren();
+      prev.hidden = next.hidden = true;
+      status.textContent = onReddit
+        ? 'Loading...'
+        : 'Leaderboard available on Reddit';
+      if (!onReddit) return;
+      try {
+        const res = await fetch('/api/daily-leaders?limit=25');
+        if (!res.ok) throw new Error('Leaderboard unavailable');
+        const data: DailyLeadersResponse = await res.json();
+        if (!element.isConnected) return;
+        let page = 0;
+        const draw = () => {
+          list.replaceChildren();
+          data.top
+            .slice(page * 5, page * 5 + 5)
+            .forEach((leader) => list.append(row(leader)));
+          status.textContent = !data.top.length
+            ? 'No scores yet. Set the first!'
+            : data.me
+              ? `Your best: #${data.me.rank}`
+              : 'You: not played today';
+          prev.hidden = page === 0;
+          next.hidden = (page + 1) * 5 >= data.top.length;
+        };
+        prev.onclick = () => {
+          page--;
+          draw();
+        };
+        next.onclick = () => {
+          page++;
+          draw();
+        };
+        draw();
+      } catch {
+        status.textContent = 'Scores unavailable. Please try again.';
+      }
+    },
+  };
+}

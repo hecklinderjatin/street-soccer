@@ -10,7 +10,16 @@
     <title>Street Soccer</title>
   </head>
   <body>
-    <canvas id="card" aria-label="Street Soccer: tap Play to start"></canvas>
+    <div
+      id="game"
+      aria-label="Street Soccer match preview and leaderboard"
+    ></div>
+    <div id="boot-loading">
+      <div class="boot-title">STREET SOCCER</div>
+      <div class="boot-bar"></div>
+      <div id="preview-status">LOADING LIVE MATCH PREVIEW</div>
+      <button id="loading-play">PLAY MATCH</button>
+    </div>
     <script type="module" src="splash.ts" defer></script>
   </body>
 </html>

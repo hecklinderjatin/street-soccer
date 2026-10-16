@@ -31,7 +31,12 @@ import {
   registerPlayerAtlases,
   type Look,
 } from '../art/playerArt';
-import { assetsLoaded, matchAssets, queueAssets } from '../art/gameAssets';
+import {
+  PREPARE_STEPS,
+  assetsLoaded,
+  matchAssets,
+  queueAssets,
+} from '../art/gameAssets';
 import { markTiming, timingSummary } from '../ui/timing';
 import { Ball } from '../entities/Ball';
 import { Player } from '../entities/Player';
@@ -109,6 +114,10 @@ const SHAFT_HALF_END = 7; // ... and at the head
 // that pass, shoot, dribble or clear (stepAiCarriers). Tackles for
 // everyone are in systems/tackle.ts (the human's B1 without the ball).
 export class MatchScene extends Phaser.Scene {
+  private music: Phaser.Sound.BaseSound | null = null;
+  private demo = false;
+  private startSoundPlayed = false;
+  private overSoundPlayed = false;
   private config!: MatchConfig;
   // Outfield spots of each side's formation (the away side mirrors its own).
   private homeShape: readonly FormationSpot[] = FORMATIONS['2-1-1'];
@@ -180,7 +189,8 @@ export class MatchScene extends Phaser.Scene {
   }
 
   // Phaser reuses this scene object on every restart, so reset per-match state here.
-  init(data: MatchConfig) {
+  init(data: MatchConfig & { demo?: boolean }) {
+    this.demo = data.demo === true;
     this.config = data;
     this.homeShape = FORMATIONS[data.home.formation];
     this.awayShape = FORMATIONS[data.away.formation];
@@ -209,9 +219,58 @@ export class MatchScene extends Phaser.Scene {
     this.switchIndex = 0;
     this.switchHoldArmed = false;
     this.resultShown = false;
+    this.startSoundPlayed = false;
+    this.overSoundPlayed = false;
+  }
+
+  preload() {
+    if (this.demo) return;
+    if (!this.cache.audio.exists('match-bgm'))
+      this.load.audio('match-bgm', '/audio/bgm.mp3');
+    if (!this.cache.audio.exists('ball-strike'))
+      this.load.audio('ball-strike', '/audio/shoot.wav');
+    if (!this.cache.audio.exists('goal-celebration'))
+      this.load.audio('goal-celebration', '/audio/goal.wav');
+    if (!this.cache.audio.exists('match-start'))
+      this.load.audio('match-start', '/audio/start.wav');
+    if (!this.cache.audio.exists('match-over'))
+      this.load.audio('match-over', '/audio/stop.wav');
+    if (!this.cache.audio.exists('goal-miss'))
+      this.load.audio('goal-miss', '/audio/goal-miss.wav');
   }
 
   create() {
+    if (this.demo) {
+      const portrait = this.registry.get('mobileLobby') === true;
+      this.cameras.main
+        .setViewport(portrait ? 0 : 528, 0, portrait ? 1280 : 752, 720)
+        .setZoom(portrait ? 1 : 0.92)
+        .centerOn(640, 360);
+      this.input.enabled = false;
+      this.scene.bringToTop('Menu');
+    } else {
+      this.cameras.main
+        .setViewport(0, 0, VIEW.width, VIEW.height)
+        .setZoom(1)
+        .setScroll(0, 0);
+      this.input.enabled = true;
+    }
+    // Let the final whistle finish over results; stop it before a new match.
+    this.sound.stopByKey('match-over');
+    const pauseMusic = () => this.music?.pause();
+    const resumeMusic = () => this.music?.resume();
+    this.events.on(Phaser.Scenes.Events.PAUSE, pauseMusic);
+    this.events.on(Phaser.Scenes.Events.RESUME, resumeMusic);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.events.off(Phaser.Scenes.Events.PAUSE, pauseMusic);
+      this.events.off(Phaser.Scenes.Events.RESUME, resumeMusic);
+      this.music?.destroy();
+      this.music = null;
+      this.sound.stopByKey('goal-celebration');
+      this.sound.stopByKey('ball-strike');
+      this.sound.stopByKey('match-start');
+      this.sound.stopByKey('goal-miss');
+    });
     this.loadingText = pixelText(
       this,
       VIEW.width / 2,
@@ -242,6 +301,9 @@ export class MatchScene extends Phaser.Scene {
   // Boot has usually prepared all this while the menu was up (each call does
   // nothing then); after an early PLAY the match does it here.
   private finishCreate() {
+    // A live lobby can start as soon as downloads finish, before Boot's
+    // frame-by-frame preparation; each preparation step is idempotent.
+    for (const [, prepare] of PREPARE_STEPS) prepare(this);
     createBallTexture(this);
     registerPlayerAtlases(this);
     // The ball atlas persists across matches; drop its two source sheets.
@@ -331,7 +393,7 @@ export class MatchScene extends Phaser.Scene {
       away: this.config.startGoalsAgainst,
     });
     this.controls = new Controls();
-    this.controls.bindKeyboard(this);
+    if (!this.demo) this.controls.bindKeyboard(this);
     this.rig = new CameraRig(this.projector);
     this.resetForKickoff();
     this.rig.snapTo(this.ball.x, this.ball.y);
@@ -366,7 +428,7 @@ export class MatchScene extends Phaser.Scene {
       teams: { home: this.config.home, away: this.config.away },
       debugInfo: () => this.debugInfo(),
     };
-    this.scene.launch('Hud', hud);
+    if (!this.demo) this.scene.launch('Hud', hud);
 
     // Don't replay the paused time as a burst of steps.
     const onResume = () => this.fixed.reset();
@@ -387,27 +449,88 @@ export class MatchScene extends Phaser.Scene {
       markTiming('match ready');
       return;
     }
+    // Opening whistle once per match; if audio is locked, wait for a gesture.
+    if (!this.demo && !this.music && !this.sound.locked &&
+        this.flow.phase !== 'fulltime' && this.cache.audio.exists('match-bgm')) {
+      this.music = this.sound.add('match-bgm', { loop: true, volume: 1 });
+      this.music.play();
+    }
+    if (this.flow.phase === 'fulltime') this.music?.stop();
+    if (
+      !this.demo &&
+      !this.startSoundPlayed &&
+      this.cache.audio.exists('match-start') &&
+      !this.sound.locked
+    ) {
+      this.sound.play('match-start', { volume: 0.4 });
+      this.startSoundPlayed = true;
+    }
     const realDt = delta / 1000;
     this.controls.sample();
     if (this.flow.update(realDt)) this.resetForKickoff();
     if (this.flow.finished) {
-      this.showResult();
+      if (this.demo) {
+        this.flow = new MatchFlow(this.config.durationSec, {
+          home: 0,
+          away: this.config.startGoalsAgainst,
+        });
+        this.resetForKickoff();
+      } else this.showResult();
       return;
     }
 
     const timeScale = this.flow.timeScale;
     const simStart = performance.now();
+    const strikesBefore = this.ball.strikes;
+    const goalsBefore = this.flow.score.home + this.flow.score.away;
     const alpha = this.fixed.advance(delta * timeScale, (dt) => this.step(dt));
+    if (
+      !this.demo &&
+      this.flow.phase === 'fulltime' &&
+      !this.overSoundPlayed &&
+      this.cache.audio.exists('match-over') &&
+      !this.sound.locked
+    ) {
+      this.sound.stopByKey('goal-celebration');
+      this.sound.play('match-over', { volume: 0.4 });
+      this.overSoundPlayed = true;
+    }
+    if (
+      !this.demo &&
+      this.ball.strikes !== strikesBefore &&
+      this.cache.audio.exists('ball-strike') &&
+      !this.sound.locked
+    )
+      this.sound.play('ball-strike', { volume: 0.4 });
+    if (
+      !this.demo &&
+      this.flow.score.home + this.flow.score.away > goalsBefore &&
+      this.cache.audio.exists('goal-celebration') &&
+      !this.sound.locked
+    ) {
+      this.sound.stopByKey('goal-celebration');
+      this.sound.play('goal-celebration', { volume: 0.4 });
+    }
     const simMs = performance.now() - simStart;
+    if (this.demo)
+      this.events.emit(
+        'demo-score',
+        this.flow.score.home,
+        this.flow.score.away,
+        this.flow.clock,
+        this.flow.banner
+      );
     this.simMsAvg += (simMs - this.simMsAvg) * 0.05;
     this.simMsPeak = Math.max(simMs, this.simMsPeak * 0.995);
 
     for (const p of this.everyone) p.interpolate(alpha);
     this.ball.interpolate(alpha);
-    this.updatePassPreview();
-    this.updateShotText();
-    this.updateRoleText();
-    this.updateGroundMarker();
+    if (!this.demo) {
+      this.updatePassPreview();
+      this.updateShotText();
+      this.updateRoleText();
+      this.updateGroundMarker();
+    }
 
     const b = this.ball;
     this.rig.setBallInAir(
@@ -462,12 +585,13 @@ export class MatchScene extends Phaser.Scene {
       // Tackles the AI decided on (never for the human's player).
       for (const brain of [this.homeBrain, this.awayBrain]) {
         for (const { p, dir } of brain.tackles)
-          if (p !== this.controlled) startTackle(p, dir, t, ball.owner);
+          if (this.demo || p !== this.controlled)
+            startTackle(p, dir, t, ball.owner);
         brain.tackles.length = 0;
       }
     }
     for (const p of this.outfield) {
-      const human = p === this.controlled && !frozen;
+      const human = !this.demo && p === this.controlled && !frozen;
       // A lunge moves the body itself; start-up, recovery, a stumble or
       // being tackled (stagger) stop the player.
       if (stepLunge(p, t, dt)) continue;
@@ -506,7 +630,7 @@ export class MatchScene extends Phaser.Scene {
     for (const k of [this.homeKeeper, this.awayKeeper]) {
       const home = k.team === 'home';
       const level = home ? LEVELS.normal : LEVELS[this.config.difficulty];
-      if (k !== this.controlled && !frozen)
+      if ((this.demo || k !== this.controlled) && !frozen)
         cpuKeeperReact(
           k,
           ball,
@@ -516,7 +640,7 @@ export class MatchScene extends Phaser.Scene {
           level.keeperDiveError
         );
       if (stepKeeperBody(k, t, dt)) continue; // diving or down after a dive
-      const human = k === this.controlled;
+      const human = !this.demo && k === this.controlled;
       const steer = frozen
         ? STAND_STILL
         : human
@@ -587,7 +711,7 @@ export class MatchScene extends Phaser.Scene {
       }
       for (const keeper of [this.homeKeeper, this.awayKeeper]) {
         const home = keeper.team === 'home';
-        const human = keeper === this.controlled;
+        const human = !this.demo && keeper === this.controlled;
         const event = stepKeeperHands(
           keeper,
           ball,
@@ -599,6 +723,8 @@ export class MatchScene extends Phaser.Scene {
           human
         );
         if (!event) continue;
+        if (event === 'caught' || event === 'parried' || event === 'smothered')
+          this.playMissSound();
         this.flow.onTouch();
         // A throw marks its receiver (kickPass); anything else frees the ball.
         if (event !== 'thrown') this.clearReceivers();
@@ -622,6 +748,7 @@ export class MatchScene extends Phaser.Scene {
 
     const contact = collideBall(ball);
     if (contact.goal !== 0) {
+      ball.pendingShot = false;
       if (ball.owner) releaseBall(ball, ball.owner, t);
       this.pendingPass = null;
       this.chargeSince = null;
@@ -635,6 +762,11 @@ export class MatchScene extends Phaser.Scene {
         scorer.celebrate(Math.floor(Math.random() * CELEBRATION_STYLES));
       this.flow.onGoal(scoring);
     }
+    if (
+      this.flow.phase === 'live' &&
+      (contact.out !== 0 || contact.hitPost || contact.hitWall)
+    )
+      this.playMissSound();
     if (contact.out !== 0 && this.flow.phase === 'live') {
       // Over the bar (or over the end wall): the defending keeper restarts.
       if (ball.owner) releaseBall(ball, ball.owner, t);
@@ -656,11 +788,11 @@ export class MatchScene extends Phaser.Scene {
       // The CPU kicks off by itself, a moment after the freeze.
       if (
         this.flow.awaitingKickoff &&
-        this.flow.kickoffTeam === 'away' &&
+        (this.demo || this.flow.kickoffTeam === 'away') &&
         this.flow.phaseTime >= MATCH.cpuKickoffSec
       )
         this.cpuKickoff(t);
-      this.stepActions(t);
+      if (!this.demo) this.stepActions(t);
       this.stepAiCarriers(t);
     }
     this.flow.tickClock(dt);
@@ -1061,7 +1193,39 @@ export class MatchScene extends Phaser.Scene {
     this.lastSwitchAt = t;
   }
 
+  private playMissSound() {
+    // Consume the attempt on first save/miss, even if browser audio is locked.
+    // A parry followed by an out-of-bounds bounce must not play it twice.
+    if (!this.ball.pendingShot) return;
+    this.ball.pendingShot = false;
+    if (this.demo) return;
+    const { x, y } = this.ball;
+    const inGoalArea =
+      Math.abs(y - PITCH.height / 2) <= PITCH.boxHeight / 2 &&
+      ((x >= -PITCH.goalDepth - BALL.radius && x <= PITCH.boxDepth) ||
+        (x >= PITCH.width - PITCH.boxDepth &&
+          x <= PITCH.width + PITCH.goalDepth + BALL.radius));
+    if (!inGoalArea) return;
+    if (this.cache.audio.exists('goal-miss') && !this.sound.locked) {
+      this.sound.stopByKey('goal-miss');
+      // Soften only the miss/save cue: rise from silence to 40% in 150 ms.
+      const cue = this.sound.add('goal-miss', { volume: 0 });
+      cue.once(Phaser.Sound.Events.COMPLETE, () => cue.destroy());
+      cue.once(Phaser.Sound.Events.STOP, () => cue.destroy());
+      if (cue.play()) {
+        const fade = this.tweens.add({
+          targets: cue,
+          volume: 0.4,
+          duration: 150,
+          ease: 'Sine.easeIn',
+        });
+        cue.once(Phaser.Sound.Events.DESTROY, () => fade.remove());
+      } else cue.destroy();
+    }
+  }
+
   private onGained(p: Player) {
+    this.ball.pendingShot = false;
     this.flow.onTouch();
     this.clearReceivers();
     // Control follows the ball: when our team gains it, we control the carrier.
@@ -1082,7 +1246,7 @@ export class MatchScene extends Phaser.Scene {
     return {
       mates: home ? this.home : this.away,
       opponents: home ? this.away : this.home,
-      human: home && c.role === 'outfield' ? c : null,
+      human: !this.demo && home && c.role === 'outfield' ? c : null,
       ball: this.ball,
       oppKeeper: home ? this.awayKeeper : this.homeKeeper,
       canTackle: this.simTime - this.liveSince >= TACKLE.kickoffGraceSec,
@@ -1120,7 +1284,7 @@ export class MatchScene extends Phaser.Scene {
     const ball = this.ball;
     for (const brain of [this.homeBrain, this.awayBrain]) {
       const due = brain.takeAction(t, ball);
-      if (!due || due.p === this.controlled) continue;
+      if (!due || (!this.demo && due.p === this.controlled)) continue;
       const { p, act } = due;
       if (act.kind === 'dribble') continue;
       if (act.kind === 'pass') {
@@ -1173,6 +1337,7 @@ export class MatchScene extends Phaser.Scene {
   }
 
   private setControlled(p: Player) {
+    if (this.demo) return;
     // Both sides re-think at once: the released player gets an AI role on
     // the next step (no freeze), the new one drops its AI role.
     this.homeBrain.wake();
@@ -1271,10 +1436,11 @@ export class MatchScene extends Phaser.Scene {
   // normal pass at its level's accuracy), and play starts.
   private cpuKickoff(t: number) {
     const ball = this.ball;
-    const kicker = this.awayForward;
+    const team = this.flow.kickoffTeam;
+    const kicker = team === 'home' ? this.forward : this.awayForward;
     let to: Player | null = null;
     let best = Infinity;
-    for (const p of this.away) {
+    for (const p of team === 'home' ? this.home : this.away) {
       if (p === kicker) continue;
       const d = Math.hypot(p.x - kicker.x, p.y - kicker.y);
       if (d < best) {
@@ -1290,10 +1456,10 @@ export class MatchScene extends Phaser.Scene {
         this.opponentsOf(kicker),
         Math.random,
         null,
-        this.awayBrain.skill.passErrorScale
+        (team === 'home' ? this.homeBrain : this.awayBrain).skill.passErrorScale
       );
       releaseBall(ball, kicker, t);
-      this.passReaction('away', t);
+      this.passReaction(team, t);
     }
     this.flow.kickedOff();
   }
@@ -1647,6 +1813,7 @@ export class MatchScene extends Phaser.Scene {
   }
 
   private showResult() {
+    if (this.demo) return;
     if (this.resultShown) return;
     this.resultShown = true;
     const result: MatchResult = {

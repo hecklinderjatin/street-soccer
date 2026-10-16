@@ -333,7 +333,11 @@ api.get('/daily-leaders', async (c) => {
   try {
     const username = await reddit.getCurrentUsername();
     return c.json<DailyLeadersResponse>(
-      await dailyLeaders(postId, username ?? null)
+      await dailyLeaders(
+        postId,
+        username ?? null,
+        Number(c.req.query('limit') ?? 3)
+      )
     );
   } catch (error) {
     console.error('GET /api/daily-leaders error:', error);

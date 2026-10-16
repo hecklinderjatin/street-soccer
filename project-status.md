@@ -8,6 +8,42 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Save updates on main (2026-10-17):** changes were already on main as uncommitted work; saving the responsive live lobby, theme, audio assets, master mute and final mix/fade settings together. Latest production build, types and changed-file lint passed. Local commit only; GitHub push not requested.
+
+**Miss/save fade-in (2026-10-17):** only goal-miss now starts at volume 0 and uses a 150 ms Sine.easeIn tween to 0.4. Existing keeper-area and once-per-shot checks retained. Cue destroys on stop/completion and removes its fade on destroy. All other effects remain immediate at 0.4; BGM stays 1. Types and changed-file lint passed; listening review pending.
+
+**Sound effects at 40 percent (2026-10-17):** user deferred fade-ins; only changed shoot/pass, goal, start, fulltime and miss/save volume from 0.5 to 0.4. BGM remains 1. No fade-in changes implemented.
+
+**Sound effects volume (2026-10-17):** shoot/pass, goal celebration, opening whistle, fulltime whistle and miss/save effects now play at 50 percent, per user request. Background music remains at 100 percent; master mute still applies.
+
+**Background music volume (2026-10-17):** user requested full volume; match BGM gain changed from 0.22 to 1. Sound effects remain at 0.65 and master mute still applies.
+
+**Background music and sound toggle (2026-10-17):** supplied 4:20 bgm.wav converted from 74.9 MB PCM to 3.12 MB 96 kbps MP3 in source/release. Normal matches loop it at 100 percent after audio unlock; preview remains silent. Music pauses/resumes with the match, stops at fulltime and is destroyed on shutdown. Pixel speaker button left of i controls master music/effects mute, with green/red-slash states and localStorage preference (session fallback). Types, changed-file lint, build and matching source/release hashes passed. Browser verified button placement and toggling between green speaker and red slash; listening balance and real-device review pending. Screenshot: output/match-sound-button.png in workspace root.
+
+**Lobby theme alignment (2026-10-17):** mobile lobby now reuses the game GLYPHS as accessible SVG pixel lettering, PICO-8 amber/yellow/white colours, stepped PLAY edges and square bordered leaderboard panels. Desktop left panel uses the existing street backdrop cropped to the panel under a dark overlay, leaving the live match visible. Responsive layout and live preview retained. Types, changed-file lint, build and whitespace checks passed; phone views at 390x700 and 320x500 plus leaderboard popup verified locally.
+
+**Portrait live lobby (2026-10-17):** responsive native-size HTML controls overlay the real silent preview on portrait screens below 700 px. Full-card gameplay sits behind a readable gradient; title/live badge at top, teams/kits/formations, duration/difficulty/starting score, challenge, 50 px PLAY target and top 3 at bottom. ALL opens a paginated, non-scrolling leaderboard. Compact-height cards show the top player; desktop keeps the side-by-side Phaser layout. PLAY removes the overlay and starts a fresh player match; Reddit expands into the landscape game. Default feed height is tall. TypeScript, changed-file ESLint, 27 logic checks and production build passed. Browser verified portrait views at 390x700 and 320x500, ALL open/close and PLAY resetting to 0-0. Real Reddit expansion and populated leaderboards still need playtest.
+
+**Live opening lobby (2026-10-17, main):** left panel shows post teams/kits/formations, duration, starting score, difficulty, description and today's top 3 plus personal best. Right panel reuses MatchScene in silent AI-vs-AI demo mode with a cropped broadcast camera and live score; loops full matches without entering ResultScene or writing results. PLAY replaces the demo with a fresh player match; on Reddit feed it expands straight into a fresh match. Inline preview lazy-loads the game only when visible and sleeps off-screen; inline stays unrotated while expanded gameplay retains landscape rotation. Desktop live gameplay, full-match looping and fresh PLAY transition verified locally. TypeScript, changed-file ESLint, 27 logic checks and production build passed; Reddit API data and expansion still need playtest.
+
+**POST MY SCORE permission fix (2026-10-17):** declared permissions.reddit.asUser SUBMIT_COMMENT, required by submitComment with runAs USER. Existing scope user did not enable the UserActions plugin. Requires a fresh Devvit playtest upload/restart; real comment attribution still needs Reddit testing.
+
+**Miss/save sound restricted to keeper area (2026-10-17):** latest user sample copied to source/release. Cue now checks the ball's event position against either chalk penalty box (PITCH.boxDepth/boxHeight, including the goal recess behind the line for misses). Elsewhere the attempt is consumed silently. Keeps once-per-attempt behavior and 65 percent volume. TypeScript, production build and whitespace checks passed; source/release hashes match. Localhost rebuilt; listening review pending.
+
+**Refreshed miss/save sample (2026-10-17):** recopied the latest supplied Downloads/sound/goal miss.wav into source and release goal-miss.wav. Existing triggers and 65 percent volume retained. Production build passed; source and release hashes match. Localhost rebuilt; listening review pending.
+
+**Miss/save audio (2026-10-17):** supplied goal miss.wav saved as audio/goal-miss.wav in source/release. Tracks unresolved shots, plays at 65 percent volume on the first keeper catch/parry/smother or shot hitting a post/wall/going out. Consumes the attempt so save-then-out cannot repeat; normal passes and dribbling do not trigger it. Goals, possession and kickoff clear the attempt. TypeScript, 27 logic checks, build and whitespace checks passed; source/release hashes match. Localhost rebuilt; listening review pending.
+
+**Match over sound (2026-10-17):** supplied stop.wav added to source/release audio, preloaded and played once on entry to fulltime at 65 percent volume. Covers regular and golden-goal endings without sounding at the golden-goal break. Stops any remaining goal cheer; may finish over results and is stopped before a new match. TypeScript, build and whitespace checks passed; source/release hashes match. Localhost rebuilt; listening review pending.
+
+**Match start audio (2026-10-17):** supplied start.wav added to source/release assets and preloaded by MatchScene. Plays once when the opening match is ready at 65 percent volume, waits for browser audio unlock if needed, resets for a new match/replay and stops on scene shutdown. Goals and pause/resume do not repeat it. TypeScript, build and whitespace checks passed; source/release hashes match. Localhost rebuilt; listening review pending.
+
+**Goal celebration audio (2026-10-17):** supplied goal.wav added to source/release audio. Match preloads it and plays once at 65 percent volume when the total score increases for either team; kickoff head starts do not trigger it. Retrigger replaces an unfinished cheer; scene shutdown stops match effects so they do not leak into menus/replays. TypeScript, build and whitespace checks passed; source/release hashes match. Localhost rebuilt; listening review pending.
+
+**Replacement pass/shot sound (2026-10-17):** replaced both source and release shoot.wav with the user's Downloads/sound/shoot.wav. Existing triggers and 65 percent volume retained. Source/release hashes match; production build passed and localhost rebuilt. Listening review pending.
+
+**Pass/shot sound (2026-10-17, main):** user-provided shoot.wav copied to public/audio and public-release/audio. Match preloads it once and plays at 65 percent volume when the ball is actually struck by a pass, through pass or shot on either team, including kickoff. A ball strike counter keeps audio outside simulation logic and avoids duplicate playback within a rendered frame. Browser audio unlock is respected; missing audio does not block gameplay. TypeScript, 27 logic checks, production build and whitespace checks passed. Source/release WAV hashes match; listening review pending.
+
 **Feed card = title screen; result screen: POST MY SCORE and today's top 3 (2026-10-17, `main`, uncommitted):** (1) The inline splash is now one canvas painted like the game's title screen (user: show the menu scene in the feed, not the old HTML card). `ui/menuCard.ts` (no Phaser) paints the street backdrop, title, match line or a moderator's locked settings, and the PLAY button; MenuScene paints its static part with the same function (a canvas texture, buttons stay Phaser) and the result screen's backdrop too, so all three always match. Font glyphs moved to `ui/glyphs.ts` so the splash can draw them (2 KB + a 31 KB shared chunk, no Phaser). The 1280 x 720 view is scaled to fit the card; the wall and street fill the rest. The challenge text is no longer drawn (it is the canvas tooltip). On a locked post, PLAY goes straight into the match (BootScene launches Match; the menu is still reached by QUIT). (2) Result screen: MENU replaced by **POST MY SCORE**: Devvit's `showForm` popup with a comment box and "Share my score and match stats" (on by default), then `POST /api/post-score` comments on the post as the player (`runAs: 'USER'`, devvit.json now declares `permissions.reddit.scope: "user"` and `redis: true`); if Reddit refuses that, the app account posts it headed with the player's name. Button shows POSTING... / POSTED! (once per result). (3) **Today's top 3** panel: the screen sends the match to `POST /api/result` (`server/core/daily.ts`): kept if it is the player's best of the UTC day on this post (Redis zset `daily:{postId}:{day}` ranked by goal difference then goals, stats hash beside it, kept 8 days); returns the top 3 (rank, u/name, score, W/D/L, shots) and the player's own rank if outside it. Results are checked server-side (`server/core/matchStats.ts`: whole numbers in range; a locked post's difficulty and at least its head-start goals against). Outside Reddit the panel says LEADERBOARD ONLY ON REDDIT and posting says ONLY ON REDDIT. Type check, lint, build and 27 logic checks pass (3 new); splash (locked and default), straight-to-match, result screen and a mocked top 3 checked in headless Chrome; the popup, comment posting and Redis board are not yet run on Reddit.
 
 **Minimap (2026-10-17, `main`, uncommitted):** a top-down pitch at the bottom centre of the HUD (`ui/Minimap.ts`, 264 x 143 = the pitch at 1/10, 16 px above the bottom, between the joystick and the PASS button): lines, boxes and goals drawn once, then every frame a square per player in its jersey colour (keepers green / gold), the human's player bigger with a yellow rim, and the ball as a white square. Positions are the players' interpolated render positions (`MatchHudState.minimap`, filled in place by `MatchScene.updateHud`, no per-frame arrays). Not interactive; hidden under the pause / help overlays. Type check, lint and build pass; checked in a headless Chrome screenshot of the local build (kickoff).
@@ -331,6 +367,42 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Commit the current completed updates directly on main because that is already the checked-out branch; no branch merge is needed.
+
+- Apply a short 150 ms eased attack only to the missed/saved-shot cue, following the latest request; preserve all other audio behavior.
+
+- Apply only 40 percent effect levels now; defer the earlier fade-in request following user steering. Retain 100 percent BGM.
+
+- Set every match sound effect to 0.5 while retaining BGM gain 1, as requested.
+
+- Use 100 percent background music volume as explicitly requested; retain existing effect levels and master mute.
+
+- Compress the supplied long WAV for mobile loading; use one global mute for music and effects, remembered locally. Keep automated feed demos silent and defer music until browser audio unlock.
+
+- Reuse the existing glyph data and palette for the lobby; SVG letters inherit colour and retain hidden readable text for native control accessibility. Keep player names as regular monospace text for legibility.
+
+- Use DOM text/touch targets for portrait lobby readability rather than shrinking the desktop canvas. Keep gameplay and physics unchanged and use cover framing only while the portrait lobby is active.
+
+- For the requested real live feed preview, reuse Phaser and the actual match engine via a lazy shared game module instead of the previous static lightweight splash. Only visible posts load it; inline runs at 30 FPS and sleeps off-screen. Demo mode disables player input, sounds, HUD and result submission.
+
+- Request only SUBMIT_COMMENT for the existing explicit POST MY SCORE action; do not add posting or subscription permissions.
+
+- Interpret goalkeeper D area as the existing chalk penalty box; restrict miss/save sound by event position, not shot origin.
+
+- Use the latest attached miss/save sample while retaining existing playback behavior.
+
+- Play miss/save audio only for an unresolved shot, once per attempt; retain existing shot and goal cues.
+
+- Trigger stop.wav at fulltime once, let it finish over results and reset for replay.
+
+- Play start.wav when the opening match becomes ready, once per match; defer until audio unlock rather than dropping the cue.
+
+- Trigger goal.wav from a new goal rather than a repeating celebration animation, and stop match sounds on scene shutdown.
+
+- Use the latest user-supplied Downloads/sound/shoot.wav as the pass/shot sound.
+
+- Reuse the supplied shoot.wav for passes and shots; trigger on actual ball strikes rather than button presses. Keep source and release audio together.
+
 - The splash paints the real title screen on a canvas with shared Phaser-free code (menuCard.ts) instead of loading Phaser in the feed, so the card stays fast while looking exactly like the game.
 - Daily leaderboard ranks each player's best match of the UTC day by goal difference, then goals scored; results come from the client and are only sanity-checked (no replay validation).
 - Score comments are posted as the player; if that is refused, the app account posts them with the player's name rather than failing.
@@ -491,6 +563,42 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Push main when requested, then restart Reddit playtest and review the mobile card and audio mix.
+
+- Listen to missed/saved shots after refresh to review the new 150 ms fade-in.
+
+- Listen to the 40 percent effects / 100 percent BGM mix after refresh; fade-ins are deferred.
+
+- Review the mix after refreshing localhost: BGM 100 percent, effects 50 percent.
+
+- Listen to the full-volume BGM after refreshing localhost.
+
+- Listen to BGM balance/looping and test sound preference after refresh on mobile Reddit, including pause/help and fulltime.
+
+- Review the themed lobby on Reddit after restarting playtest; local preview rebuilt. Real API rankings and expansion remain Reddit-only checks.
+
+- Restart npm run dev to upload the tall responsive feed card; verify real phone orientation changes, populated leaderboards and Reddit expansion. Local portrait sizing, ALL and PLAY checks passed.
+
+- Verify lobby layout, silent autonomous gameplay, leaderboard fetch and PLAY creating a clean player match on desktop and mobile Reddit.
+
+- Restart npm run dev and test POST MY SCORE as the app owner; user actions for other players require Reddit approval.
+
+- Review misses/saves inside the keeper penalty area and silent shots hitting walls elsewhere.
+
+- Listen to the refreshed miss/save sample after a hard refresh.
+
+- Listen to missed/saved shots, rebounds, and normal passes to verify the new cue triggers only once per attempt.
+
+- Listen to the fulltime cue after normal time and golden goal, and on replay.
+
+- Listen to the opening match cue and verify it returns on replay without repeating after goals or pause.
+
+- Listen to the goal celebration cue, including opponent goals and leaving/replaying a match.
+
+- Listen to the replacement pass/shot sound on localhost.
+
+- Listen to pass/shot audio on localhost and mobile Reddit; tune volume if needed, then add the next user-supplied sound.
+
 - Playtest on Reddit: feed card on desktop and phone, POST MY SCORE popup and comment (as user vs app fallback), today's top 3 with several accounts.
 
 - Check the minimap on a phone: size and whether it gets in the way of the view near the bottom of the pitch.
@@ -620,6 +728,78 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+### 2026-10-17 - Save lobby and sound updates on main
+
+- Recorded completed live-lobby and audio work on main at user request; no separate branch merge needed.
+
+### 2026-10-17 - Ease in missed/saved-shot audio
+
+- Added a 150 ms sine ease-in from silence to 40 percent exclusively for goal-miss, with cue/tween cleanup.
+
+### 2026-10-17 - Sound effects at 40 percent
+
+- Lowered all effects to 0.4, kept music at 1, and deferred fade-ins per user clarification.
+
+### 2026-10-17 - Sound effects at 50 percent
+
+- Reduced all five effect playback levels from 0.65 to 0.5; background music stays at 1.
+
+### 2026-10-17 - Full-volume background music
+
+- Raised match BGM playback from 22 percent to 100 percent at user request.
+
+### 2026-10-17 - Background music and master sound switch
+
+- Added compressed bgm.mp3, match lifecycle playback and a persistent pixel speaker toggle immediately left of the info button.
+
+### 2026-10-17 - Match lobby to game theme
+
+- Replaced rounded modern mobile styling with shared pixel glyphs, game colours and stepped buttons; restored the desktop street backdrop. Mobile sizing and leaderboard popup visually verified.
+
+### 2026-10-17 - Portrait live lobby
+
+- Added mobile overlay layout, full-card live preview framing, readable controls and non-scrolling leaderboard pages. Tall feed card configured. Verified 390x700 and 320x500 layouts, ALL open/close and fresh PLAY transition locally; screenshot saved in workspace output/mobile-live-lobby.png.
+
+### 2026-10-17 - Live match opening lobby
+
+- Added a settings/leaderboard panel beside real AI-vs-AI preview gameplay, shared lazy game bootstrap and a direct PLAY-to-match transition.
+
+### 2026-10-17 - Enable score comment user action
+
+- Added permissions.reddit.asUser SUBMIT_COMMENT to fix UserActions plugin not enabled errors.
+
+### 2026-10-17 - Keeper-area miss/save sound
+
+- Updated the supplied miss/save sample and restricted its playback to events in either goalkeeper penalty area.
+
+### 2026-10-17 - Refresh miss/save sample
+
+- Replaced both source and release goal-miss.wav from the newly supplied file.
+
+### 2026-10-17 - Miss and save sound
+
+- Added goal-miss.wav with unresolved-shot tracking and cleanup on possession, goals and kickoff.
+
+### 2026-10-17 - Match over sound
+
+- Added stop.wav once per fulltime transition with replay reset and goal-cheer suppression.
+
+### 2026-10-17 - Match start sound
+
+- Added start.wav with once-per-match playback, replay reset and scene cleanup.
+
+### 2026-10-17 - Goal celebration audio
+
+- Added goal.wav once per scored goal with audio unlock checks and shutdown cleanup.
+
+### 2026-10-17 - Replace pass/shot sample
+
+- Replaced source and release audio with the latest supplied shoot.wav; gameplay triggers unchanged.
+
+### 2026-10-17 - Pass and shot audio
+
+- Added supplied shoot.wav and playback for passes and shots using Phaser audio with a ball strike counter.
 
 ### 2026-10-17 - Feed card = title screen, POST MY SCORE, today's top 3
 

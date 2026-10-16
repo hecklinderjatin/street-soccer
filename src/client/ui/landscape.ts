@@ -16,7 +16,11 @@ type Layout = {
 // getBoundingClientRect, which a rotated parent breaks. So Phaser runs in
 // Scale.NONE at a fixed 1280x720, this module sizes and rotates the box, and
 // pointer positions are mapped back into game space here.
-export function forceLandscape(game: Phaser.Game, box: HTMLElement) {
+export function forceLandscape(
+  game: Phaser.Game,
+  box: HTMLElement,
+  rotatePortrait = true
+) {
   let layout: Layout = { rotated: false, scale: 1, centerX: 0, centerY: 0 };
   let lastW = 0;
   let lastH = 0;
@@ -26,15 +30,19 @@ export function forceLandscape(game: Phaser.Game, box: HTMLElement) {
     const vh = window.innerHeight;
     lastW = vw;
     lastH = vh;
-    const rotated = vh > vw;
+    const mobileLobby = game.registry.get('mobileLobby') === true;
+    const rotated = rotatePortrait && !mobileLobby && vh > vw;
     const availableW = rotated ? vh : vw;
     const availableH = rotated ? vw : vh;
-    const scale = Math.min(availableW / VIEW.width, availableH / VIEW.height);
+    const scale = mobileLobby
+      ? Math.max(availableW / VIEW.width, availableH / VIEW.height)
+      : Math.min(availableW / VIEW.width, availableH / VIEW.height);
     layout = { rotated, scale, centerX: vw / 2, centerY: vh / 2 };
     box.style.transform = `translate(-50%, -50%) ${rotated ? 'rotate(90deg) ' : ''}scale(${scale})`;
   };
 
   apply();
+  game.events.on('layout-mode', apply);
   window.addEventListener('resize', apply);
   window.addEventListener('orientationchange', () => {
     apply();

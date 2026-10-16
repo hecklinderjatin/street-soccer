@@ -215,6 +215,8 @@ function strikePass(
   rand: () => number,
   errorScale: number
 ) {
+  ball.strikes += 1;
+  ball.pendingShot = false;
   const pressured = opponents.some(
     (o) => Math.hypot(o.x - passer.x, o.y - passer.y) < PASS.pressureRadius
   );
@@ -272,7 +274,9 @@ export function kickShot(
   rand: () => number,
   swipe: SwipeVec = { x: 0, y: 0 }
 ) {
+  ball.strikes += 1;
   ball.shotAnimationAge = 0;
+  ball.pendingShot = true;
   const shape = shotShape(swipe);
   const aim = shotDirection(shooter, move);
   const overHit = Math.max(

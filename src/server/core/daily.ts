@@ -54,11 +54,15 @@ export async function saveResult(
 
 export async function dailyLeaders(
   postId: string,
-  username: string | null
+  username: string | null,
+  limit = TOP
 ): Promise<DailyLeadersResponse> {
   const day = today();
   const board = boardKey(postId, day);
-  const top = await redis.zRange(board, 0, TOP - 1, {
+  const count = Number.isFinite(limit)
+    ? Math.max(1, Math.min(25, Math.floor(limit)))
+    : TOP;
+  const top = await redis.zRange(board, 0, count - 1, {
     by: 'rank',
     reverse: true,
   });

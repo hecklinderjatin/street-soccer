@@ -128,6 +128,36 @@ export class HudScene extends Phaser.Scene {
         icon: 'info',
       }
     );
+    // One master sound switch for music and effects, directly left of i.
+    try {
+      this.sound.mute = localStorage.getItem('street-soccer-muted') === 'true';
+    } catch { /* Storage can be unavailable inside an embedded browser. */ }
+    const soundButton = new TextButton(this, VIEW.width - 232, 48, '', () => {
+      this.sound.mute = !this.sound.mute;
+      try {
+        localStorage.setItem('street-soccer-muted', String(this.sound.mute));
+      } catch { /* The current session still respects the switch. */ }
+      drawSound();
+    }, { width: 72, height: 64, fill: PAL.darkGray });
+    const speaker = this.add.graphics();
+    soundButton.add(speaker);
+    const drawSound = () => {
+      speaker.clear();
+      speaker.fillStyle(this.sound.mute ? PAL.lightGray : PAL.green);
+      const rows = ['....#......', '...##..#...', '.####...#..', '.####...#..',
+        '.####...#..', '...##..#...', '....#......'];
+      rows.forEach((row, y) => [...row].forEach((pixel, x) => {
+        if (pixel === '#' && (x < 5 || !this.sound.mute))
+          speaker.fillRect((x - 5) * PX, (y - 3) * PX, PX, PX);
+      }));
+      if (this.sound.mute) {
+        speaker.fillStyle(PAL.red);
+        for (let i = 0; i < 7; i++)
+          speaker.fillRect((i - 3) * PX, (3 - i) * PX, PX, PX);
+      }
+      soundButton.setFill(this.sound.mute ? PAL.darkGray : PAL.darkGreen);
+    };
+    drawSound();
     // ESC closes whatever is open, else pauses; I toggles the help.
     this.input.keyboard?.on('keydown-ESC', () =>
       this.setOverlay(this.overlayOpen() ? null : 'pause')

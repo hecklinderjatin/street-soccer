@@ -1,18 +1,14 @@
-/* The feed card is one canvas painted like the game's title screen
-   (splash.ts, ui/menuCard.ts); the navy matches the street in case the
-   canvas has not painted yet. */
-html,
-body {
-  margin: 0;
-  height: 100%;
-  overflow: hidden;
-  background: #1d2b53;
-}
+@import './style.css';
 
-#card {
-  display: block;
-  width: 100%;
-  height: 100%;
-  image-rendering: pixelated;
-  touch-action: manipulation;
+#preview-status {
+  font-size: 12px;
+  letter-spacing: 1px;
+}
+#loading-play {
+  padding: 12px 24px;
+  border: 2px solid #ffec27;
+  background: #ff8c00;
+  color: white;
+  font: bold 16px monospace;
+  cursor: pointer;
 }

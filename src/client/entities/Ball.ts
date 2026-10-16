@@ -21,6 +21,8 @@ const TRAIL_LENGTH = 14; // render frames of trail
 // While a player owns it, systems/possession.ts steers it in dribble touches
 // instead of free physics; it is never simply glued to the feet.
 export class Ball {
+  strikes = 0; // increments on an actual pass/shot, consumed by match audio
+  pendingShot = false; // one unresolved shot for miss/save audio
   x = 0;
   y = 0;
   z = 0;
@@ -65,6 +67,7 @@ export class Ball {
 
   // Dead ball on a spot (kickoff).
   placeAt(x: number, y: number) {
+    this.pendingShot = false;
     this.x = this.prevX = this.renderX = x;
     this.y = this.prevY = this.renderY = y;
     this.z = this.prevZ = this.renderZ = 0;

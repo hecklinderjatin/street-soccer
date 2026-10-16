@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { context } from '@devvit/web/client';
 import {
   PREPARE_STEPS,
   REST_ASSETS,
@@ -6,7 +7,7 @@ import {
   queueAssets,
   type Asset,
 } from '../art/gameAssets';
-import { postChallenge, startingConfig } from '../challenge';
+import { startingConfig } from '../challenge';
 import { createPixelFont } from '../ui/pixelFont';
 import { markTiming } from '../ui/timing';
 
@@ -30,10 +31,10 @@ export class BootScene extends Phaser.Scene {
     createPixelFont(this);
     markTiming('boot');
     document.getElementById('boot-loading')?.remove();
-    // A moderator's locked match was already shown on the feed splash (the
-    // same title screen), so PLAY there goes straight into the match.
-    const challenge = postChallenge();
-    if (challenge?.config.locked) this.scene.launch('Match', challenge.config);
+    // The feed lobby already offered PLAY: expanded Reddit opens a fresh
+    // player match. Localhost and the inline card open the live lobby.
+    if (!this.registry.get('inline') && context?.postId)
+      this.scene.launch('Match', startingConfig());
     else this.scene.launch('Menu');
     this.stage = 'first';
     this.step = 0;

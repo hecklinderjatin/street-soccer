@@ -6,6 +6,7 @@
     "entrypoints": {
       "default": {
         "entry": "splash.html",
+        "height": "tall",
         "inline": true
       },
       "game": {
@@ -17,7 +18,8 @@
     "redis": true,
     "reddit": {
       "enable": true,
-      "scope": "user"
+      "scope": "user",
+      "asUser": ["SUBMIT_COMMENT"]
     }
   },
   "server": {
