@@ -142,7 +142,16 @@ export class MatchScene extends Phaser.Scene {
   // Receive assist (PASS.receiveAssist): our receiver of the pass in flight
   // comes to meet the ball until the human steers it; `stickDir` is how the
   // stick was held when the pass left (null = centred since).
-  private receiveAssist: { p: Player; stickDir: number | null } | null = null;
+  // Chase assist (INPUT.chaseAssist): `kind` 'chase' is the same takeover
+  // rule for a player switched to after losing the ball, running at it.
+  private receiveAssist: {
+    p: Player;
+    stickDir: number | null;
+    kind: 'receive' | 'chase';
+  } | null = null;
+  // Sim time the CPU last tackled the ball off our controlled player (until
+  // we win it back): SWITCH then picks the soonest to the ball and he chases.
+  private lostBallAt = -Infinity;
   // Receiver hold: when each intended receiver of a normal pass was first
   // seen receiving (PASS.receiveHoldSec).
   private readonly receivingSince = new Map<Player, number>();
@@ -185,6 +194,7 @@ export class MatchScene extends Phaser.Scene {
     this.chargeSince = null;
     this.passChargeSince = null;
     this.receiveAssist = null;
+    this.lostBallAt = -Infinity;
     this.receivingSince.clear();
     this.lastSwitchAt = -Infinity;
     this.switchCycle = [];
@@ -505,7 +515,17 @@ export class MatchScene extends Phaser.Scene {
     // Lunges that reach an opposing carrier's ball (tackle.ts decides).
     if (this.flow.phase === 'live')
       for (const p of this.outfield) {
+        const carrier = ball.owner;
         const result = resolveTackle(p, ball, t, Math.random);
+        // The CPU took the ball off the player we control: the next SWITCH
+        // goes to whoever can get to it soonest (switchPlayer).
+        if (
+          result === 'won' &&
+          p.team === 'away' &&
+          carrier !== null &&
+          carrier === this.controlled
+        )
+          this.lostBallAt = t;
         if (result === 'won' && p === this.controlled)
           this.stats.tacklesWon += 1;
         if (result === 'won') {
@@ -957,7 +977,14 @@ export class MatchScene extends Phaser.Scene {
       this.switchCycle = [...soonest.keys()]
         .filter((p) => p !== this.controlled)
         .sort((a, b) => (soonest.get(a) ?? 0) - (soonest.get(b) ?? 0));
-      const pick = this.homeBrain.switchTarget();
+      // Just lost the ball to a CPU tackle: the outfielder who can reach the
+      // ball soonest comes first (not the AI's presser pick), and runs at it.
+      const lostBall =
+        t - this.lostBallAt < INPUT.lostBallSwitchSec &&
+        ball.owner?.team !== 'home';
+      const pick = lostBall
+        ? (this.switchCycle.find((p) => p.role !== 'keeper') ?? null)
+        : this.homeBrain.switchTarget();
       if (pick && pick !== this.controlled)
         this.switchCycle = [
           pick,
@@ -979,7 +1006,16 @@ export class MatchScene extends Phaser.Scene {
       this.switchIndex = (this.switchIndex + 1) % this.switchCycle.length;
     }
     const next = this.switchCycle[this.switchIndex];
-    if (next) this.setControlled(next);
+    if (next) {
+      this.setControlled(next);
+      if (
+        INPUT.chaseAssist &&
+        next.role !== 'keeper' &&
+        t - this.lostBallAt < INPUT.lostBallSwitchSec &&
+        this.ball.owner?.team !== 'home'
+      )
+        this.startChaseAssist(next);
+    }
     this.lastSwitchAt = t;
   }
 
@@ -987,7 +1023,10 @@ export class MatchScene extends Phaser.Scene {
     this.flow.onTouch();
     this.clearReceivers();
     // Control follows the ball: when our team gains it, we control the carrier.
-    if (p.team === 'home') this.setControlled(p);
+    if (p.team === 'home') {
+      this.lostBallAt = -Infinity;
+      this.setControlled(p);
+    }
     // A CPU player who has just won the ball decides at once (even while
     // its team's pass reaction delay is running).
     else this.awayBrain.wake();
@@ -1114,7 +1153,15 @@ export class MatchScene extends Phaser.Scene {
     const manual = { move: this.controls.move, sprint: this.controls.sprint };
     const assist = this.receiveAssist;
     const ball = this.ball;
-    if (!assist || assist.p !== p || !p.receiving || ball.owner) {
+    const owner = ball.owner;
+    const active =
+      assist !== null &&
+      assist.p === p &&
+      (assist.kind === 'receive'
+        ? p.receiving && !owner
+        : // chase: the ball is still the CPU's (not in its keeper's hands) or loose
+          owner?.team !== 'home' && !owner?.holding && ball.out === 0);
+    if (!assist || !active) {
       this.receiveAssist = null;
       return manual;
     }
@@ -1136,9 +1183,13 @@ export class MatchScene extends Phaser.Scene {
     const dy = meet.y - p.y;
     const d = Math.hypot(dx, dy);
     if (d < AI.arriveDist) return STAND_STILL;
-    const contested = this.opponentsOf(p).some(
-      (o) => interceptPoint(o, ball).t < meet.t + AI.chaseRelaxSec
-    );
+    // A chase after losing the ball always sprints; a receiver only when
+    // an opponent could get there too.
+    const contested =
+      assist.kind === 'chase' ||
+      this.opponentsOf(p).some(
+        (o) => interceptPoint(o, ball).t < meet.t + AI.chaseRelaxSec
+      );
     const sprint = contested && d > AI.sprintChase;
     return {
       move: {
@@ -1158,6 +1209,19 @@ export class MatchScene extends Phaser.Scene {
     this.receiveAssist = {
       p,
       stickDir: move.r > STICK.deadZone ? Math.atan2(move.y, move.x) : null,
+      kind: 'receive',
+    };
+  }
+
+  // SWITCH after the CPU tackled the ball off us: the new player runs at
+  // the ball (at the carrier, or where it can first reach a loose one) by
+  // himself until the human steers him (humanSteer; same takeover rule).
+  private startChaseAssist(p: Player) {
+    const move = this.controls.move;
+    this.receiveAssist = {
+      p,
+      stickDir: move.r > STICK.deadZone ? Math.atan2(move.y, move.x) : null,
+      kind: 'chase',
     };
   }
 
@@ -1292,6 +1356,7 @@ export class MatchScene extends Phaser.Scene {
     this.chargeSince = null;
     this.passChargeSince = null;
     this.receiveAssist = null;
+    this.lostBallAt = -Infinity;
     // Nothing the AI had queued (a pass, a shot, a tackle) survives a restart.
     this.homeBrain.reset();
     this.awayBrain.reset();
