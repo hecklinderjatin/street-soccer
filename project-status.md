@@ -8,6 +8,10 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Launch guide check (2026-10-17):** user pasted developers.reddit.com/docs/guides/launch/launch-guide. Met: custom first screen (live lobby), responsive (portrait lobby, landscape game), no inline scrolling (`overflow: hidden`, no scroll areas), immediately understandable ((i) help, PASS TO START), `npm run launch` runs `devvit publish` (unlisted by default: right for a game; do not use `--public`). Fixed: the required app README.md is now a reviewer/moderator README (what it is, how it plays, controls incl. keyboard, the moderator menu item and form, data stored in Redis and retention, Reddit API permissions incl. SUBMIT_COMMENT only on POST MY SCORE, logged-out players, no external requests or payments) plus the developer commands. Still the user's: a dedicated non-test subreddit (only r/street_soccer_dev exists), testing on mobile and web from developer / moderator / regular accounts, optional feedback cross-posts (r/Devvit Feedback Friday, r/GamesOnReddit Feedback flair), and reading the Devvit Rules page.
+
+**Deployed v0.0.2 (2026-10-17, `main` at c1382fc):** user playtested v0.0.1.119 in r/street_soccer_dev, then ran `npm run deploy` (type check, lint, vite build, `devvit upload`): app version bumped to 0.0.2 and uploaded (developers.reddit.com/apps/street-soccer). Not published / not submitted for review yet (`npm run launch`). Playtest notes: Vite's "chunks larger than 500 kB" warning is the 800 KB (220 KB gzip) game bundle, expected; Devvit's "scripts.dev did not produce expected build outputs within 60s" comes from slow file-change events on /mnt/f under WSL; it still uploaded the fresh build (if a change ever does not show: stop dev, `npm run build`, start dev again).
+
 **Music fix, new mix, smoother entry into the game (2026-10-17, `main`):** user: background music fails, transition from the post preview into the game is not good, music 80% / other sounds 25%. (1) Music failed because the plain `<audio>` element's play() ran from the game loop, not inside a tap: phones (iOS, some Android WebViews) refuse that silently and it never retried (the post's PLAY tap happened in the feed frame, not the game's). `ui/streamMusic.ts` now routes the element through Phaser's Web Audio (`createMediaElementSource` -> own GainNode -> `sound.destination`), so its volume works on iPhones (which ignore element volume) and Phaser's master mute applies; a refused start is retried on the next pointerdown / touchend / keydown (capture listeners, removed on destroy). MatchScene creates it as soon as the match is ready (no longer waits for `sound.locked`). Falls back to the bare element when Web Audio is unavailable (then soundMuted() drives `muted`). (2) Mix: `MUSIC_VOLUME` 0.8 and `EFFECTS_VOLUME` 0.25 in MatchScene (start, over, strike, goal, and the miss cue's fade target). (3) Entry into the game: the page loader (index.html / style.css) is now just the navy Phaser starts with and a small bar near the bottom, no big STREET SOCCER title; BootScene fades it out (300 ms, class `done`, removed after 400 ms) while the match camera fades in from that navy (`fadeIn(450)`), and the court is drawn first; the LOADING PLAYERS text is small (0.75 PX, 80% alpha) at the bottom. Type check, lint, build and 28 logic checks pass; no listening / device test.
 
 **Live preview straight away; sound switch fixed (2026-10-17, `main`):** (1) Sound toggle: Phaser's `sound.mute` reads the Web Audio gain, which only updates on the next audio processing step (never while audio is still locked), so the button read back the old value, drew the wrong icon, saved the wrong value and the next tap undid it. Now `ui/soundSetting.ts` holds the switch (soundMuted / setSoundMuted, localStorage) and applies it to Phaser; HudScene draws from it and the streamed music follows it. (2) Feed card (user: no loading panel, show the live preview directly, no extra layers): splash.html is only the `#game` box; splash.ts starts the live lobby as soon as the card is visible (no 1.5 s wait, no data-saver skip, no painted card) and still sleeps it off-screen. (3) Court first: MatchScene.create paints the court/scenery (PAINT_STEPS), builds the Court and the CameraRig (focus on the centre) and draws the court every frame while it waits for the player art; the players join when it is in. The feed preview shows no LOADING text (a real match still shows LOADING PLAYERS n/8). (4) Parallel downloads: `art/assetList.ts` (the file list, no Phaser) and `earlyAssets.ts`: `startEarlyDownloads()` fetches the match's art into blobs at once; main.ts and splash.ts call it first and then `import('./game')` dynamically, so the art downloads alongside the 220 KB game bundle (built: entry 0.2-0.4 KB + 11 KB shared chunk, then game2.js). Boot hands the loader the blob URLs (`withEarlyDownloads`, single download; failed early fetches fall back to the normal URL) and frees them after (`releaseEarlyDownloads`). The game page keeps its STREET SOCCER text loader until Boot. Pasted Reddit GameMaker quickstart checked: Node 22+ (we use 24), 100 MB / 30 s upload limit (build ~8.3 MB, largest file 2 MB), npm run dev / deploy / launch present; the rest is GameMaker-specific. Type check, lint, build and 28 logic checks pass; no gameplay test.
@@ -571,6 +575,10 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Before `npm run launch`: create a dedicated public subreddit for the game and install the app there; test from a regular (non-mod) account and a logged-out browser on phone and desktop; optionally cross-post for feedback; paste the Devvit Rules page (developers.reddit.com/docs/devvit_rules) for a final check.
+
+- Before `npm run launch`: check the launch guide's review rules (developers.reddit.com/docs/guides/launch/launch-guide; paste it, the agent cannot open developers.reddit.com); the `asUser: SUBMIT_COMMENT` permission will be reviewed (POST MY SCORE errors until approved).
+
 - On a phone in Reddit: tapping PLAY in the post opens the game without a hard cut (navy, small bar, court fades in, players join); the music starts on the first touch in the game at 80% and the speaker button mutes it; effects at 25%.
 
 - On Reddit: the feed card shows the court at once and the players shortly after; the speaker button mutes / unmutes music and effects reliably and stays as set after a reload. Paste the launch guide (developers.reddit.com/docs/guides/launch/launch-guide) to check app-review rules.
@@ -744,6 +752,14 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+### 2026-10-17: App README for review
+
+- README.md rewritten for Reddit's review (required by the launch guide): overview, controls, moderator tools, data and permissions, then the developer commands.
+
+### 2026-10-17: v0.0.2 uploaded
+
+- `npm run deploy` passed and uploaded app version 0.0.2; not launched yet.
 
 ### 2026-10-17: Music plays on phones; mix 80 / 25; smoother entry
 
