@@ -1,14 +1,1 @@
 @import './style.css';
-
-#preview-status {
-  font-size: 12px;
-  letter-spacing: 1px;
-}
-#loading-play {
-  padding: 12px 24px;
-  border: 2px solid #ffec27;
-  background: #ff8c00;
-  color: white;
-  font: bold 16px monospace;
-  cursor: pointer;
-}

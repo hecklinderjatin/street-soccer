@@ -32,6 +32,7 @@ import {
   type Look,
 } from '../art/playerArt';
 import {
+  PAINT_STEPS,
   PREPARE_STEPS,
   assetsLoaded,
   matchAssets,
@@ -81,6 +82,21 @@ import { constrainMove, stepPlayer } from '../systems/movement';
 import { gainBall, releaseBall, stepPossession } from '../systems/possession';
 import { JERSEY_SWATCH, PAL, PX } from '../ui/palette';
 import { pixelText } from '../ui/pixelFont';
+import { StreamMusic } from '../ui/streamMusic';
+import { soundMuted } from '../ui/soundSetting';
+
+// Mix (user request): music at 80%, every effect at 25%.
+const MUSIC_VOLUME = 0.8;
+const EFFECTS_VOLUME = 0.25;
+
+// Sound effects: cache key and file (public-release/audio/<file>.mp3).
+const SOUND_FILES: readonly [string, string][] = [
+  ['ball-strike', 'shoot'],
+  ['goal-celebration', 'goal'],
+  ['match-start', 'start'],
+  ['match-over', 'stop'],
+  ['goal-miss', 'goal-miss'],
+];
 import type { HudData, MatchHudState } from './HudScene';
 
 const NO_MOVE: StickInput = { x: 0, y: 0, r: 0 };
@@ -114,7 +130,7 @@ const SHAFT_HALF_END = 7; // ... and at the head
 // that pass, shoot, dribble or clear (stepAiCarriers). Tackles for
 // everyone are in systems/tackle.ts (the human's B1 without the ball).
 export class MatchScene extends Phaser.Scene {
-  private music: Phaser.Sound.BaseSound | null = null;
+  private music: StreamMusic | null = null;
   private demo = false;
   private startSoundPlayed = false;
   private overSoundPlayed = false;
@@ -223,20 +239,22 @@ export class MatchScene extends Phaser.Scene {
     this.overSoundPlayed = false;
   }
 
-  preload() {
-    if (this.demo) return;
-    if (!this.cache.audio.exists('match-bgm'))
-      this.load.audio('match-bgm', '/audio/bgm.mp3');
-    if (!this.cache.audio.exists('ball-strike'))
-      this.load.audio('ball-strike', '/audio/shoot.wav');
-    if (!this.cache.audio.exists('goal-celebration'))
-      this.load.audio('goal-celebration', '/audio/goal.wav');
-    if (!this.cache.audio.exists('match-start'))
-      this.load.audio('match-start', '/audio/start.wav');
-    if (!this.cache.audio.exists('match-over'))
-      this.load.audio('match-over', '/audio/stop.wav');
-    if (!this.cache.audio.exists('goal-miss'))
-      this.load.audio('goal-miss', '/audio/goal-miss.wav');
+  // Sound effects (small MP3s, scripts/optimize_audio.py) load in the
+  // background once the match is ready, so the match never waits for sound;
+  // each one plays only once it is in (every call checks the cache). The
+  // music is streamed separately (StreamMusic).
+  private loadSoundsInBackground() {
+    let queued = 0;
+    for (const [key, file] of SOUND_FILES) {
+      if (this.cache.audio.exists(key)) continue;
+      this.load.audio(key, `/audio/${file}.mp3`);
+      queued++;
+    }
+    if (!queued) return;
+    this.load.once(Phaser.Loader.Events.COMPLETE, () =>
+      markTiming('sound effects')
+    );
+    this.load.start();
   }
 
   create() {
@@ -271,14 +289,30 @@ export class MatchScene extends Phaser.Scene {
       this.sound.stopByKey('match-start');
       this.sound.stopByKey('goal-miss');
     });
-    this.loadingText = pixelText(
-      this,
-      VIEW.width / 2,
-      VIEW.height / 2,
-      'LOADING PLAYERS',
-      PX,
-      PAL.white
-    ).setOrigin(0.5);
+    // Court first: painted and shown from the first frame (no downloads
+    // needed); the players join when their art is in.
+    for (const [, paint] of PAINT_STEPS) paint(this);
+    this.court = new Court(this);
+    this.rig = new CameraRig(this.projector);
+    this.rig.snapTo(PITCH.width / 2, PITCH.height / 2);
+    // The court fades in from the navy the page opens with (index.html,
+    // Phaser's background), so leaving the feed preview for the game has no
+    // hard cut. The feed preview shows just the court meanwhile; a real match
+    // says why it is waiting, small, at the bottom.
+    if (!this.demo) {
+      this.cameras.main.fadeIn(450, 0x1d, 0x2b, 0x53);
+      this.loadingText = pixelText(
+        this,
+        VIEW.width / 2,
+        VIEW.height - 40,
+        'LOADING PLAYERS',
+        0.75 * PX,
+        PAL.white
+      )
+        .setOrigin(0.5)
+        .setAlpha(0.8)
+        .setDepth(1e9);
+    }
   }
 
   // Until the art is in (Boot downloads it while the menu is up), show
@@ -301,15 +335,15 @@ export class MatchScene extends Phaser.Scene {
   // Boot has usually prepared all this while the menu was up (each call does
   // nothing then); after an early PLAY the match does it here.
   private finishCreate() {
+    if (!this.demo) this.loadSoundsInBackground();
     // A live lobby can start as soon as downloads finish, before Boot's
     // frame-by-frame preparation; each preparation step is idempotent.
-    for (const [, prepare] of PREPARE_STEPS) prepare(this);
+    for (const [, prepare] of [...PAINT_STEPS, ...PREPARE_STEPS]) prepare(this);
     createBallTexture(this);
     registerPlayerAtlases(this);
     // The ball atlas persists across matches; drop its two source sheets.
     for (const key of [AUTHORED_BALL_TEXTURE, AUTHORED_SHOT_BALL_TEXTURE])
       if (this.textures.exists(key)) this.textures.remove(key);
-    this.court = new Court(this);
 
     // Different skin / hair per player: home takes looks 0-4, away starts
     // three along, so nobody in a team shares a look.
@@ -394,7 +428,6 @@ export class MatchScene extends Phaser.Scene {
     });
     this.controls = new Controls();
     if (!this.demo) this.controls.bindKeyboard(this);
-    this.rig = new CameraRig(this.projector);
     this.resetForKickoff();
     this.rig.snapTo(this.ball.x, this.ball.y);
 
@@ -441,7 +474,10 @@ export class MatchScene extends Phaser.Scene {
 
   override update(time: number, delta: number) {
     if (!this.ready) {
-      if (!this.waitForPlayers()) return;
+      if (!this.waitForPlayers()) {
+        this.court.update(this.projector, time / 1000);
+        return;
+      }
       this.loadingText?.destroy();
       this.loadingText = null;
       this.finishCreate();
@@ -450,11 +486,21 @@ export class MatchScene extends Phaser.Scene {
       return;
     }
     // Opening whistle once per match; if audio is locked, wait for a gesture.
-    if (!this.demo && !this.music && !this.sound.locked &&
-        this.flow.phase !== 'fulltime' && this.cache.audio.exists('match-bgm')) {
-      this.music = this.sound.add('match-bgm', { loop: true, volume: 1 });
+    // Music: streamed through the game's Web Audio (volume and the master
+    // mute apply on every phone); a start the browser refuses before the
+    // first touch is retried on the next one (StreamMusic).
+    if (!this.demo && !this.music && this.flow.phase !== 'fulltime') {
+      const sound = this.sound;
+      this.music = new StreamMusic(
+        '/audio/bgm.mp3',
+        MUSIC_VOLUME,
+        sound instanceof Phaser.Sound.WebAudioSoundManager
+          ? { context: sound.context, destination: sound.destination }
+          : undefined
+      );
       this.music.play();
     }
+    this.music?.setMuted(soundMuted());
     if (this.flow.phase === 'fulltime') this.music?.stop();
     if (
       !this.demo &&
@@ -462,7 +508,7 @@ export class MatchScene extends Phaser.Scene {
       this.cache.audio.exists('match-start') &&
       !this.sound.locked
     ) {
-      this.sound.play('match-start', { volume: 0.4 });
+      this.sound.play('match-start', { volume: EFFECTS_VOLUME });
       this.startSoundPlayed = true;
     }
     const realDt = delta / 1000;
@@ -492,7 +538,7 @@ export class MatchScene extends Phaser.Scene {
       !this.sound.locked
     ) {
       this.sound.stopByKey('goal-celebration');
-      this.sound.play('match-over', { volume: 0.4 });
+      this.sound.play('match-over', { volume: EFFECTS_VOLUME });
       this.overSoundPlayed = true;
     }
     if (
@@ -501,7 +547,7 @@ export class MatchScene extends Phaser.Scene {
       this.cache.audio.exists('ball-strike') &&
       !this.sound.locked
     )
-      this.sound.play('ball-strike', { volume: 0.4 });
+      this.sound.play('ball-strike', { volume: EFFECTS_VOLUME });
     if (
       !this.demo &&
       this.flow.score.home + this.flow.score.away > goalsBefore &&
@@ -509,7 +555,7 @@ export class MatchScene extends Phaser.Scene {
       !this.sound.locked
     ) {
       this.sound.stopByKey('goal-celebration');
-      this.sound.play('goal-celebration', { volume: 0.4 });
+      this.sound.play('goal-celebration', { volume: EFFECTS_VOLUME });
     }
     const simMs = performance.now() - simStart;
     if (this.demo)
@@ -1208,14 +1254,14 @@ export class MatchScene extends Phaser.Scene {
     if (!inGoalArea) return;
     if (this.cache.audio.exists('goal-miss') && !this.sound.locked) {
       this.sound.stopByKey('goal-miss');
-      // Soften only the miss/save cue: rise from silence to 40% in 150 ms.
+      // Soften only the miss/save cue: rise from silence in 150 ms.
       const cue = this.sound.add('goal-miss', { volume: 0 });
       cue.once(Phaser.Sound.Events.COMPLETE, () => cue.destroy());
       cue.once(Phaser.Sound.Events.STOP, () => cue.destroy());
       if (cue.play()) {
         const fade = this.tweens.add({
           targets: cue,
-          volume: 0.4,
+          volume: EFFECTS_VOLUME,
           duration: 150,
           ease: 'Sine.easeIn',
         });
@@ -1517,7 +1563,9 @@ export class MatchScene extends Phaser.Scene {
   // Who celebrates a goal: the last toucher if they are on the scoring
   // team, else (an own goal) the scoring team's outfielder nearest the ball.
   private scorer(team: Team, last: Player | null) {
-    if (last && last.team === team) return last;
+    // Keepers never celebrate (their atlases have no celebration poses):
+    // a keeper's goal is celebrated by the nearest outfielder.
+    if (last && last.team === team && last.role !== 'keeper') return last;
     const side = team === 'home' ? this.home : this.away;
     let best: Player | null = null;
     let bestD = Infinity;

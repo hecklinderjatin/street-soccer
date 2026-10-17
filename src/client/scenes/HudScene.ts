@@ -9,6 +9,7 @@ import { Minimap, type MinimapState } from '../ui/Minimap';
 import { JERSEY_SWATCH, PAL, PX } from '../ui/palette';
 import { pixelText } from '../ui/pixelFont';
 import { TextButton } from '../ui/TextButton';
+import { setSoundMuted, soundMuted } from '../ui/soundSetting';
 
 // Match state the HUD shows, written by the Match scene every frame.
 export type MatchHudState = {
@@ -129,33 +130,47 @@ export class HudScene extends Phaser.Scene {
       }
     );
     // One master sound switch for music and effects, directly left of i.
-    try {
-      this.sound.mute = localStorage.getItem('street-soccer-muted') === 'true';
-    } catch { /* Storage can be unavailable inside an embedded browser. */ }
-    const soundButton = new TextButton(this, VIEW.width - 232, 48, '', () => {
-      this.sound.mute = !this.sound.mute;
-      try {
-        localStorage.setItem('street-soccer-muted', String(this.sound.mute));
-      } catch { /* The current session still respects the switch. */ }
-      drawSound();
-    }, { width: 72, height: 64, fill: PAL.darkGray });
+    // The switch's state lives in soundSetting (Phaser's mute can't be read
+    // back right after it is set).
+    setSoundMuted(this.sound, soundMuted());
+    const soundButton = new TextButton(
+      this,
+      VIEW.width - 232,
+      48,
+      '',
+      () => {
+        setSoundMuted(this.sound, !soundMuted());
+        drawSound();
+      },
+      { width: 72, height: 64, fill: PAL.darkGray }
+    );
     const speaker = this.add.graphics();
     soundButton.add(speaker);
     const drawSound = () => {
       speaker.clear();
-      speaker.fillStyle(this.sound.mute ? PAL.lightGray : PAL.green);
-      const rows = ['....#......', '...##..#...', '.####...#..', '.####...#..',
-        '.####...#..', '...##..#...', '....#......'];
-      rows.forEach((row, y) => [...row].forEach((pixel, x) => {
-        if (pixel === '#' && (x < 5 || !this.sound.mute))
-          speaker.fillRect((x - 5) * PX, (y - 3) * PX, PX, PX);
-      }));
-      if (this.sound.mute) {
+      const mute = soundMuted();
+      speaker.fillStyle(mute ? PAL.lightGray : PAL.green);
+      const rows = [
+        '....#......',
+        '...##..#...',
+        '.####...#..',
+        '.####...#..',
+        '.####...#..',
+        '...##..#...',
+        '....#......',
+      ];
+      rows.forEach((row, y) =>
+        [...row].forEach((pixel, x) => {
+          if (pixel === '#' && (x < 5 || !mute))
+            speaker.fillRect((x - 5) * PX, (y - 3) * PX, PX, PX);
+        })
+      );
+      if (mute) {
         speaker.fillStyle(PAL.red);
         for (let i = 0; i < 7; i++)
           speaker.fillRect((i - 3) * PX, (3 - i) * PX, PX, PX);
       }
-      soundButton.setFill(this.sound.mute ? PAL.darkGray : PAL.darkGreen);
+      soundButton.setFill(mute ? PAL.darkGray : PAL.darkGreen);
     };
     drawSound();
     // ESC closes whatever is open, else pauses; I toggles the help.

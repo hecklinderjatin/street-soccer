@@ -593,6 +593,12 @@ check('results: junk and out-of-range numbers are rejected', () => {
     assert.equal(typeof readStats(stats(o), null), 'string', JSON.stringify(o));
   assert.equal(typeof readStats(null, null), 'string');
 });
+check('results: more goals than the match length allows are rejected', () => {
+  // A default match: 90 s + 30 s golden goal, at least 4 s a goal = 30.
+  assert.ok(typeof readStats(stats({ goalsFor: 30 }), null) !== 'string');
+  assert.equal(typeof readStats(stats({ goalsFor: 31 }), null), 'string');
+  assert.equal(typeof readStats(stats({ goalsAgainst: 31 }), null), 'string');
+});
 check('POST MY SCORE: comment text with and without stats', () => {
   const s = readStats(stats(), null);
   assert.ok(typeof s !== 'string');

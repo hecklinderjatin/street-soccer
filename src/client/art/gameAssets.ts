@@ -2,17 +2,11 @@ import Phaser from 'phaser';
 import {
   AUTHORED_BALL_TEXTURE,
   AUTHORED_SHOT_BALL_TEXTURE,
-  BALL_KEY,
-  createBallTexture,
-} from './ballArt';
+  type Asset,
+} from './assetList';
+import { BALL_KEY, createBallTexture } from './ballArt';
 import { createCourtTextures } from './pitchArt';
 import { registerPlayerAtlases } from './playerArt';
-import type { MatchConfig } from '../../shared/types';
-import {
-  PLAYER_HAIR_TEXTURE,
-  PLAYER_SKIN_TEXTURE,
-  playerTexture,
-} from './playerSheets';
 import { createSceneryTextures } from './sceneryArt';
 
 // Everything a match needs that is downloaded or painted once per game.
@@ -20,27 +14,9 @@ import { createSceneryTextures } from './sceneryArt';
 // it, so PLAY only has to place the players; the match does whatever is
 // still missing if PLAY comes first.
 
-export type Asset = { key: string; url: string };
-const atlas = (key: string): Asset => ({ key, url: `/art/${key}.webp` });
-
-// First what every match opens with (the two teams' outfield kits, picked
-// by the match settings, and the looks), then the keepers and the ball.
-export const firstAssets = (config: MatchConfig): Asset[] => [
-  atlas(playerTexture(config.home.jersey)),
-  atlas(playerTexture(config.away.jersey)),
-  atlas(PLAYER_SKIN_TEXTURE),
-  atlas(PLAYER_HAIR_TEXTURE),
-];
-export const REST_ASSETS: readonly Asset[] = [
-  atlas(playerTexture('homeKeeper')),
-  atlas(playerTexture('awayKeeper')),
-  { key: AUTHORED_BALL_TEXTURE, url: '/art/ball-authored.webp' },
-  { key: AUTHORED_SHOT_BALL_TEXTURE, url: '/art/ball-shot-authored.webp' },
-];
-export const matchAssets = (config: MatchConfig): Asset[] => [
-  ...firstAssets(config),
-  ...REST_ASSETS,
-];
+// The file lists live in assetList.ts (no Phaser: the early-download
+// script uses them too).
+export { REST_ASSETS, firstAssets, matchAssets, type Asset } from './assetList';
 
 // The ball's source sheets are not needed once the ball atlas is built.
 function missing(scene: Phaser.Scene, asset: Asset) {
@@ -69,12 +45,16 @@ export function assetsLoaded(scene: Phaser.Scene, assets: readonly Asset[]) {
   return assets.filter((asset) => !missing(scene, asset)).length;
 }
 
-// One-time preparation once everything is downloaded, one step per frame so
-// the menu stays responsive. Each step does nothing if already done.
-export const PREPARE_STEPS: readonly [string, (scene: Phaser.Scene) => void][] =
-  [
-    ['player frames', registerPlayerAtlases],
-    ['ball', createBallTexture],
-    ['court', createCourtTextures],
-    ['scenery', createSceneryTextures],
-  ];
+// One-time preparation, one step per frame so the menu / loading screen
+// stays responsive. Each step does nothing if already done. Painting needs
+// no downloads, so it runs while the art is still coming in; the rest needs
+// the downloaded art.
+type Step = readonly [string, (scene: Phaser.Scene) => void];
+export const PAINT_STEPS: readonly Step[] = [
+  ['court', createCourtTextures],
+  ['scenery', createSceneryTextures],
+];
+export const PREPARE_STEPS: readonly Step[] = [
+  ['player frames', registerPlayerAtlases],
+  ['ball', createBallTexture],
+];

@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { context } from '@devvit/web/client';
 import {
+  PAINT_STEPS,
   PREPARE_STEPS,
   REST_ASSETS,
   firstAssets,
@@ -8,6 +9,7 @@ import {
   type Asset,
 } from '../art/gameAssets';
 import { startingConfig } from '../challenge';
+import { releaseEarlyDownloads, withEarlyDownloads } from '../earlyAssets';
 import { createPixelFont } from '../ui/pixelFont';
 import { markTiming } from '../ui/timing';
 
@@ -22,6 +24,7 @@ type Stage = 'first' | 'rest-next' | 'rest' | 'prepare';
 export class BootScene extends Phaser.Scene {
   private stage: Stage = 'first';
   private step = 0;
+  private painted = 0; // PAINT_STEPS done
 
   constructor() {
     super('Boot');
@@ -30,7 +33,10 @@ export class BootScene extends Phaser.Scene {
   create() {
     createPixelFont(this);
     markTiming('boot');
-    document.getElementById('boot-loading')?.remove();
+    // The page loader fades out (style.css) while the court fades in.
+    const loader = document.getElementById('boot-loading');
+    loader?.classList.add('done');
+    setTimeout(() => loader?.remove(), 400);
     // The feed lobby already offered PLAY: expanded Reddit opens a fresh
     // player match. Localhost and the inline card open the live lobby.
     if (!this.registry.get('inline') && context?.postId)
@@ -38,25 +44,38 @@ export class BootScene extends Phaser.Scene {
     else this.scene.launch('Menu');
     this.stage = 'first';
     this.step = 0;
+    this.painted = 0;
     // The kits this post's match wears (the default ones without settings).
     this.download(firstAssets(startingConfig()), 'kits and looks', 'rest-next');
   }
 
   // Starts a download; `next` once it is in (or at once if nothing is
   // missing). A failed file is fetched again by the match.
+  // The files usually started downloading before the game code arrived
+  // (earlyAssets.ts): the loader then reads those copies.
   private download(assets: readonly Asset[], name: string, next: Stage) {
-    if (!queueAssets(this, assets)) {
-      this.stage = next;
-      return;
-    }
-    this.load.once(Phaser.Loader.Events.COMPLETE, () => {
-      markTiming(name);
-      this.stage = next;
+    void withEarlyDownloads(assets).then((ready) => {
+      if (!this.scene.isActive()) return;
+      if (!queueAssets(this, ready)) {
+        this.stage = next;
+        return;
+      }
+      this.load.once(Phaser.Loader.Events.COMPLETE, () => {
+        markTiming(name);
+        void releaseEarlyDownloads(assets);
+        this.stage = next;
+      });
+      this.load.start();
     });
-    this.load.start();
   }
 
   override update() {
+    // Court and scenery are painted while the art downloads.
+    const paint = PAINT_STEPS[this.painted];
+    if (paint) {
+      paint[1](this);
+      if (++this.painted === PAINT_STEPS.length) markTiming('court painted');
+    }
     if (this.stage === 'rest-next') {
       this.stage = 'rest';
       this.download(REST_ASSETS, 'keepers and ball', 'prepare');
@@ -66,6 +85,7 @@ export class BootScene extends Phaser.Scene {
         step[1](this);
         return;
       }
+      if (this.painted < PAINT_STEPS.length) return; // painting first
       markTiming('match prepared');
       this.scene.stop();
     }

@@ -1,5 +1,6 @@
 import type { MatchStats } from '../../shared/api';
 import { parseMatchConfig } from '../../shared/matchConfig';
+import { MATCH } from '../../shared/tuning';
 import { DIFFICULTIES, type MatchConfig } from '../../shared/types';
 
 // Checking a match result a client reports (pure: no Redis, so the logic
@@ -7,6 +8,13 @@ import { DIFFICULTIES, type MatchConfig } from '../../shared/types';
 
 const MAX_GOALS = 99; // more than any real match; anything over is rejected
 const MAX_COUNT = 999; // shots / passes / tackles
+// A goal takes at least this much match clock (kickoff, build-up, shot):
+// more goals than the match length allows are rejected as made up.
+const MIN_SEC_PER_GOAL = 4;
+
+// The longest a match on this post can run (regular time plus golden goal).
+export const matchLengthSec = (config: MatchConfig | null) =>
+  (config?.durationSec ?? MATCH.durationSec) + MATCH.goldenGoalSec;
 
 // The post's locked match, if it has one (its postData).
 export function postConfig(postData: unknown): MatchConfig | null {
@@ -46,6 +54,12 @@ export function readStats(
   )
     return 'Invalid result';
   if (config && goalsAgainst < config.startGoalsAgainst)
+    return 'Invalid result';
+  const maxGoals = Math.ceil(matchLengthSec(config) / MIN_SEC_PER_GOAL);
+  if (
+    goalsFor > maxGoals ||
+    goalsAgainst > maxGoals + (config?.startGoalsAgainst ?? 0)
+  )
     return 'Invalid result';
   const difficulty = config ? config.difficulty : asked;
   return { difficulty, goalsFor, goalsAgainst, shots, passes, tacklesWon };

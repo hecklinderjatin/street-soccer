@@ -8,6 +8,14 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Music fix, new mix, smoother entry into the game (2026-10-17, `main`):** user: background music fails, transition from the post preview into the game is not good, music 80% / other sounds 25%. (1) Music failed because the plain `<audio>` element's play() ran from the game loop, not inside a tap: phones (iOS, some Android WebViews) refuse that silently and it never retried (the post's PLAY tap happened in the feed frame, not the game's). `ui/streamMusic.ts` now routes the element through Phaser's Web Audio (`createMediaElementSource` -> own GainNode -> `sound.destination`), so its volume works on iPhones (which ignore element volume) and Phaser's master mute applies; a refused start is retried on the next pointerdown / touchend / keydown (capture listeners, removed on destroy). MatchScene creates it as soon as the match is ready (no longer waits for `sound.locked`). Falls back to the bare element when Web Audio is unavailable (then soundMuted() drives `muted`). (2) Mix: `MUSIC_VOLUME` 0.8 and `EFFECTS_VOLUME` 0.25 in MatchScene (start, over, strike, goal, and the miss cue's fade target). (3) Entry into the game: the page loader (index.html / style.css) is now just the navy Phaser starts with and a small bar near the bottom, no big STREET SOCCER title; BootScene fades it out (300 ms, class `done`, removed after 400 ms) while the match camera fades in from that navy (`fadeIn(450)`), and the court is drawn first; the LOADING PLAYERS text is small (0.75 PX, 80% alpha) at the bottom. Type check, lint, build and 28 logic checks pass; no listening / device test.
+
+**Live preview straight away; sound switch fixed (2026-10-17, `main`):** (1) Sound toggle: Phaser's `sound.mute` reads the Web Audio gain, which only updates on the next audio processing step (never while audio is still locked), so the button read back the old value, drew the wrong icon, saved the wrong value and the next tap undid it. Now `ui/soundSetting.ts` holds the switch (soundMuted / setSoundMuted, localStorage) and applies it to Phaser; HudScene draws from it and the streamed music follows it. (2) Feed card (user: no loading panel, show the live preview directly, no extra layers): splash.html is only the `#game` box; splash.ts starts the live lobby as soon as the card is visible (no 1.5 s wait, no data-saver skip, no painted card) and still sleeps it off-screen. (3) Court first: MatchScene.create paints the court/scenery (PAINT_STEPS), builds the Court and the CameraRig (focus on the centre) and draws the court every frame while it waits for the player art; the players join when it is in. The feed preview shows no LOADING text (a real match still shows LOADING PLAYERS n/8). (4) Parallel downloads: `art/assetList.ts` (the file list, no Phaser) and `earlyAssets.ts`: `startEarlyDownloads()` fetches the match's art into blobs at once; main.ts and splash.ts call it first and then `import('./game')` dynamically, so the art downloads alongside the 220 KB game bundle (built: entry 0.2-0.4 KB + 11 KB shared chunk, then game2.js). Boot hands the loader the blob URLs (`withEarlyDownloads`, single download; failed early fetches fall back to the normal URL) and frees them after (`releaseEarlyDownloads`). The game page keeps its STREET SOCCER text loader until Boot. Pasted Reddit GameMaker quickstart checked: Node 22+ (we use 24), 100 MB / 30 s upload limit (build ~8.3 MB, largest file 2 MB), npm run dev / deploy / launch present; the rest is GameMaker-specific. Type check, lint, build and 28 logic checks pass; no gameplay test.
+
+**Reddit compliance clean-up (2026-10-17, `main`):** the Reddit docs page (quickstart-gamemaker) could not be fetched (developers.reddit.com is blocked for the agent), so the review used AGENTS.md's Devvit rules and the code. Already fine: Phaser only, no blocks / public-api, no window.location / alert / confirm / prompt, no geolocation / camera / notifications / downloads, no inline scripts, only same-origin `/api/*` requests, sound only after a gesture with a mute. Fixed: (1) template leftovers removed: the moderator menu item "Example form" (its route was already gone, so it was broken), the `exampleForm` form and `/internal/form/example-submit`, and the unused demo endpoints `/api/init`, `/api/state` (GET/POST), `/api/score`, `/api/leaderboard` with their types (InitResponse, StoredState, StateUpsertRequest, ScoreSubmit*, Leaderboard*). (2) POST MY SCORE no longer falls back to posting the player's text from the app account: if Reddit refuses the user comment it returns 502 "Reddit did not accept the comment" (`PostScoreResponse.asUser` removed). (3) Rate limits (Redis keys with expiry, `routes/api.ts` `takeCooldown`): one score comment per player per post every 10 min (`COMMENT_COOLDOWN_SEC`, 429 with a message; a failed post releases it), and a result is saved to the daily board at most once per 0.8 x the post's match length (`matchLengthSec`: duration + golden goal). (4) `readStats` rejects more goals than the match length allows (at least `MIN_SEC_PER_GOAL` 4 s each; against: plus the head start). True anti-cheat would need server-side simulation. Type check, lint, build and 28 logic checks (1 new) pass; Reddit-side behaviour (user comments, limits) needs a playtest.
+
+**Load optimisation round 2 (2026-10-17, `main`):** measured first: on Reddit PLAY goes straight into the match, and the match preloaded 6.5 MB of audio (3.1 MB music MP3 + five 24-bit stereo 48 kHz WAVs, 3.6 MB) before it could start; the music would also decode to ~90 MB. (1) Audio: `scripts/optimize_audio.py` (`npm run audio:release`, needs `pip install lameenc miniaudio`) writes `public-release/audio`: effects as mono 96 kbps MP3 (3.5 MB -> 151 KB: shoot 1, goal 74, start 35, stop 13, goal-miss 28 KB), music re-encoded 64 kbps stereo (3.0 -> 2.0 MB); WAV sources stay in public/audio. MatchScene no longer preloads audio: the effects load in the background once the match is ready (`loadSoundsInBackground`; every play already checked the cache), and the music streams through an `<audio>` element (`ui/streamMusic.ts`: starts once Phaser audio is unlocked, follows the master mute, pause/resume with the match, stop at full time, released on shutdown), so nothing waits for sound and nothing decodes the whole track. (2) `gameAssets.ts`: PAINT_STEPS (court, scenery: no downloads) run one per frame in Boot while the art downloads; PREPARE_STEPS (player frames, ball) after; MatchScene runs both (idempotent). (3) Feed preview (splash.ts): starts only after the card has been visible 1.5 s (`PREVIEW_AFTER_MS`), never with data saver on (then the card says TAP PLAY MATCH); still 30 fps and asleep off-screen. (4) Celebration sheets are `outfieldOnly`: left out of the keeper atlases (310 -> 262 KB each); `MatchScene.scorer` never picks a keeper (a keeper's goal is celebrated by the nearest outfielder). (5) Shared tinted kit layers instead of per-kit atlases were measured and REJECTED: one grey ramp x tint reproduces the kits with mean error ~11 and up to 50 (red / keeper shorts; our limit is 5) because shade / highlight colours are not scaled copies of the base; a smaller palette (128 / 96 colours) only saves 5-10%, so 256 stays. (6) New timing marks: `court painted`, `sound effects`. Result: per match before playable ~8 MB -> ~1.4 MB (game code 226 KB gzip + 2 outfield kits ~480 KB + 2 keeper kits ~525 KB + looks/ball 153 KB); effects (151 KB) and music (2 MB, streamed) after, in the background. Release art 2.05 MiB, audio 2.2 MB, dist 5.1 MB. Type check, lint, build, 27 logic checks pass; no gameplay/listening test.
+
 **Save updates on main (2026-10-17):** changes were already on main as uncommitted work; saving the responsive live lobby, theme, audio assets, master mute and final mix/fade settings together. Latest production build, types and changed-file lint passed. Local commit only; GitHub push not requested.
 
 **Miss/save fade-in (2026-10-17):** only goal-miss now starts at volume 0 and uses a 150 ms Sine.easeIn tween to 0.4. Existing keeper-area and once-per-shot checks retained. Cue destroys on stop/completion and removes its fade on destroy. All other effects remain immediate at 0.4; BGM stays 1. Types and changed-file lint passed; listening review pending.
@@ -563,6 +571,14 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- On a phone in Reddit: tapping PLAY in the post opens the game without a hard cut (navy, small bar, court fades in, players join); the music starts on the first touch in the game at 80% and the speaker button mutes it; effects at 25%.
+
+- On Reddit: the feed card shows the court at once and the players shortly after; the speaker button mutes / unmutes music and effects reliably and stays as set after a reload. Paste the launch guide (developers.reddit.com/docs/guides/launch/launch-guide) to check app-review rules.
+
+- On Reddit: POST MY SCORE posts as the user (and shows the error instead of posting as the app if refused), a second post within 10 min is refused with a message, results still reach the daily board. Check the docs page by hand (or paste it) for limits we could not confirm (upload size, inline guidelines).
+
+- Check on Reddit: tap PLAY -> playable time (`[timing]` lines: match ready, sound effects, court painted), music starts after the first touch and mutes with the speaker button, effects arrive within a second or two, the feed preview waits 1.5 s. After changing sound sources: `npm run audio:release`.
+
 - Push main when requested, then restart Reddit playtest and review the mobile card and audio mix.
 
 - Listen to missed/saved shots after refresh to review the new 150 ms fade-in.
@@ -728,6 +744,31 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+### 2026-10-17: Music plays on phones; mix 80 / 25; smoother entry
+
+- Streamed music routed through Phaser's Web Audio (volume, mute) and retried on the next touch if the browser refused it.
+- Music 80%, effects 25%.
+- Game page loader reduced to a small bar on navy, faded out while the court fades in; small LOADING PLAYERS text at the bottom.
+- Type check, lint, build and 28 logic checks pass; no device test.
+
+### 2026-10-17: Live preview straight away; sound switch fixed
+
+- Sound switch state kept in `ui/soundSetting.ts` (Phaser's mute read-back was stale).
+- Feed card: no loading panel or placeholder, the live lobby starts as soon as the card is visible; the court is drawn first; match art downloads in parallel with the game code (`earlyAssets.ts`, dynamic game import).
+- Type check, lint, build and 28 logic checks pass; no gameplay test.
+
+### 2026-10-17: Reddit compliance clean-up
+
+- Removed the template's example form and demo API routes; POST MY SCORE never posts the player's text as the app; score comments limited to one per 10 min per player and post; results saved at most once per match length; impossible goal counts rejected.
+- Type check, lint, build and 28 logic checks pass; no Reddit test yet.
+
+### 2026-10-17: Faster start: audio compressed and loaded in the background
+
+- Audio 6.5 -> 2.2 MB (effects MP3, music 64 kbps); the match no longer waits for any sound; music streamed (`ui/streamMusic.ts`); `scripts/optimize_audio.py`, `npm run audio:release`.
+- Court/scenery painted during the art download; feed preview after 1.5 s on screen, none with data saver; keeper atlases without celebrations.
+- Tinted kit layers measured and rejected (visible colour change).
+- Type check, lint, build and 27 logic checks pass; no gameplay test.
 
 ### 2026-10-17 - Save lobby and sound updates on main
 

@@ -7,8 +7,8 @@ export const BALL_KEY = 'ball';
 export const BALL_W = 6;
 export const BALL_TEXTURE_W = 64;
 export const BALL_FRAMES = ['a', 'b', 'c', 'd']; // four supplied rolling views
-export const AUTHORED_BALL_TEXTURE = 'ball-authored-source';
-export const AUTHORED_SHOT_BALL_TEXTURE = 'ball-shot-authored-source';
+export { AUTHORED_BALL_TEXTURE, AUTHORED_SHOT_BALL_TEXTURE } from './assetList';
+import { AUTHORED_BALL_TEXTURE, AUTHORED_SHOT_BALL_TEXTURE } from './assetList';
 export const BALL_SHOT_TEXTURE_W = 96;
 export const BALL_SHOT_FRAMES = Array.from(
   { length: 6 },

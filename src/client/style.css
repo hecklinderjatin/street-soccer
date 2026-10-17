@@ -33,24 +33,29 @@ body {
 }
 
 /* Loading screen in the page itself (index.html), before any game code runs. */
+/* Page loader (index.html): the navy Phaser starts with and a small bar, no
+   big title, so the step from the feed preview into the game is calm; it
+   fades out when the game has booted (BootScene) and the court fades in. */
 #boot-loading {
   position: fixed;
   inset: 0;
   z-index: 10;
   display: flex;
-  flex-direction: column;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
-  gap: 24px;
+  padding-bottom: 12vh;
   background: #1d2b53;
-  color: #ffec27;
-  font: bold 28px monospace;
-  letter-spacing: 4px;
+  transition: opacity 300ms ease-out;
+}
+
+#boot-loading.done {
+  opacity: 0;
+  pointer-events: none;
 }
 
 #boot-loading .boot-bar {
-  width: 160px;
-  height: 8px;
+  width: 120px;
+  height: 6px;
   background: linear-gradient(90deg, #ffec27 0 40%, #5f574f 40% 100%);
   background-size: 200% 100%;
   animation: boot-slide 1s linear infinite;
@@ -200,7 +205,20 @@ body {
   font-size: 14px;
   font-weight: 900;
   box-shadow: 3px 4px #000;
-  clip-path: polygon(4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px), 0 4px, 4px 4px);
+  clip-path: polygon(
+    4px 0,
+    calc(100% - 4px) 0,
+    calc(100% - 4px) 4px,
+    100% 4px,
+    100% calc(100% - 4px),
+    calc(100% - 4px) calc(100% - 4px),
+    calc(100% - 4px) 100%,
+    4px 100%,
+    4px calc(100% - 4px),
+    0 calc(100% - 4px),
+    0 4px,
+    4px 4px
+  );
 }
 #mobile-lobby .mobile-play:active {
   transform: translateY(2px);
@@ -353,15 +371,32 @@ body {
   overflow: hidden;
   clip-path: inset(50%);
 }
-.mobile-lobby-header > strong { color: #ffec27; }
-.mobile-match-tag .lobby-pixel { filter: none; }
+.mobile-lobby-header > strong {
+  color: #ffec27;
+}
+.mobile-match-tag .lobby-pixel {
+  filter: none;
+}
 .mobile-lobby-details {
   background: linear-gradient(180deg, transparent, #000c 24%, #000e);
   border-bottom: 4px solid #5f574f;
 }
-.mobile-board-heading { border-top: 2px solid #5f574f; }
-.mobile-match-facts > div { min-width: 0; }
-.mobile-match-facts small { font-size: 8px; }
-.mobile-teams > div { min-width: 0; }
-.mobile-board-sheet { box-sizing: border-box; }
-#mobile-lobby button:focus-visible { outline: 3px solid #ffec27; outline-offset: 3px; }
+.mobile-board-heading {
+  border-top: 2px solid #5f574f;
+}
+.mobile-match-facts > div {
+  min-width: 0;
+}
+.mobile-match-facts small {
+  font-size: 8px;
+}
+.mobile-teams > div {
+  min-width: 0;
+}
+.mobile-board-sheet {
+  box-sizing: border-box;
+}
+#mobile-lobby button:focus-visible {
+  outline: 3px solid #ffec27;
+  outline-offset: 3px;
+}

@@ -274,6 +274,9 @@ type SourceSheet = {
   splits?: readonly KitSplit[];
   // Only keepers use these poses: left out of the outfield kits' atlases.
   keeperOnly?: boolean;
+  // Only outfielders use these poses (keepers never celebrate a goal):
+  // left out of the keeper kits' atlases.
+  outfieldOnly?: boolean;
 };
 const RUN_VIEW_WAIST = [376, 379, 376, 379];
 const RUN_VIEW_SHORTS = [480, 489, 480, 489];
@@ -301,6 +304,7 @@ const celebration = (
   ground: 681,
   waist,
   shortsEnd,
+  outfieldOnly: true,
 });
 // Keeper poses: one row of 720 px cells, all on the ground line (the jump
 // is lifted in game by the keeper's height).
@@ -545,6 +549,11 @@ export function bakePlayerAtlas(
   const shadowY = SHADOW_ROW + DETAIL;
   SOURCE_SHEETS.forEach((sheet, s) => {
     if (sheet.keeperOnly && !keeperPoses) return;
+    if (
+      sheet.outfieldOnly &&
+      (kitName === 'homeKeeper' || kitName === 'awayKeeper')
+    )
+      return;
     const src = sources[s];
     if (!src) throw new Error(`Missing source sheet ${sheet.file}`);
     const width = (sheet.cellW / SOURCE_H) * PLAYER_H;
