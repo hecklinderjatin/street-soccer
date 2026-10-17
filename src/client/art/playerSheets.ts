@@ -235,7 +235,8 @@ const HAIR_REF_LUMA = 80;
 // A line runs from (x1, y1) to (x2, y2); the feet side is on the right of
 // that direction (screen y down).
 type SplitLine = readonly [number, number, number, number];
-type KitSplit = { waist: SplitLine; shortsEnd: SplitLine };
+// `socksAlso`: a second sock line, for a leg the shorts line can't reach.
+type KitSplit = { waist: SplitLine; shortsEnd: SplitLine; socksAlso?: SplitLine };
 const DIVE_CROUCH: KitSplit = {
   waist: [430, 460, 710, 410],
   shortsEnd: [450, 530, 790, 500],
@@ -325,44 +326,99 @@ const keeperSheet = (
 });
 export const SOURCE_SHEETS: readonly SourceSheet[] = [
   {
+    // Redrawn head (clean-shaven, new face and hair), new body proportions.
     file: 'player-idle-authored',
     frames: IDLE_FRAMES,
     cellW: 352,
     columns: 4,
     ground: 695,
-    waist: STAND_WAIST,
-    shortsEnd: STAND_SHORTS,
+    waist: [440, 425, 442, 442],
+    shortsEnd: [525, 510, 528, 525],
   },
   {
+    // Redrawn head; the shorts lines slant where the back leg's sock sits
+    // higher than the front shorts.
     file: 'player-run-authored',
     frames: RUN_FRAMES,
     cellW: 640,
     columns: 4,
     ground: 681,
-    waist: [399, 388, 389, 388, 392, 379, 395, 377],
-    shortsEnd: [510, 494, 508, 494, 513, 492, 513, 495],
+    waist: [],
+    shortsEnd: [],
+    splits: [
+      { waist: [0, 395, 640, 395], shortsEnd: [0, 480, 640, 500] },
+      { waist: [0, 392, 640, 392], shortsEnd: [0, 490, 640, 490] },
+      { waist: [0, 386, 640, 386], shortsEnd: [0, 488, 640, 488] },
+      { waist: [0, 405, 640, 405], shortsEnd: [100, 468, 380, 515] },
+      { waist: [0, 390, 640, 390], shortsEnd: [0, 478, 640, 490] },
+      { waist: [0, 385, 640, 385], shortsEnd: [0, 480, 640, 480] },
+      { waist: [0, 396, 640, 396], shortsEnd: [0, 488, 640, 488] },
+      { waist: [0, 415, 640, 415], shortsEnd: [90, 478, 380, 512] },
+    ],
   },
   {
+    // Redrawn head; the swung-back and kicking legs get their own sock lines.
     file: 'player-shoot-authored',
     frames: SHOOT_FRAMES,
     cellW: 640,
     columns: 4,
     ground: 681,
-    waist: [391, 405, 443, 396],
-    shortsEnd: [517, 529, 486, 517],
+    waist: [],
+    shortsEnd: [],
+    splits: [
+      { waist: [0, 383, 640, 383], shortsEnd: [0, 495, 640, 495], socksAlso: [298, 380, 298, 700] },
+      { waist: [0, 395, 640, 395], shortsEnd: [0, 505, 640, 505], socksAlso: [390, 520, 450, 380] },
+      { waist: [160, 400, 420, 350], shortsEnd: [0, 490, 640, 490], socksAlso: [370, 700, 370, 300] },
+      { waist: [0, 384, 640, 384], shortsEnd: [0, 500, 640, 500] },
+    ],
   },
   runView('player-run-up-authored', UP_FRAMES),
-  runView('player-run-down-authored', DOWN_FRAMES),
+  {
+    // Redrawn head.
+    file: 'player-run-down-authored',
+    frames: DOWN_FRAMES,
+    cellW: 640,
+    columns: 4,
+    ground: 681,
+    waist: [378, 372, 386, 375],
+    shortsEnd: [470, 465, 480, 460],
+  },
   runView('player-run-up-diagonal-authored', UP_DIAGONAL_FRAMES),
-  runView('player-run-down-diagonal-authored', DOWN_DIAGONAL_FRAMES),
+  {
+    // Redrawn head; on poses 1 and 3 the shorts line slants under the raised
+    // back leg, whose sock sits higher than the front shorts.
+    file: 'player-run-down-diagonal-authored',
+    frames: DOWN_DIAGONAL_FRAMES,
+    cellW: 640,
+    columns: 4,
+    ground: 681,
+    waist: [],
+    shortsEnd: [],
+    splits: [
+      { waist: [0, 375, 640, 375], shortsEnd: [190, 425, 420, 470] },
+      { waist: [0, 384, 640, 384], shortsEnd: [0, 485, 640, 485] },
+      { waist: [0, 372, 640, 372], shortsEnd: [180, 425, 420, 470] },
+      { waist: [0, 384, 640, 384], shortsEnd: [0, 485, 640, 485] },
+    ],
+  },
   {
     file: 'player-tackle-authored',
     frames: TACKLE_FRAMES,
     cellW: 1024,
     columns: 4,
     ground: 681,
-    waist: [395, 450, 540, 555, 535, 455, 445, 400],
-    shortsEnd: [520, 565, 630, 640, 635, 605, 580, 540],
+    waist: [],
+    shortsEnd: [],
+    splits: [
+      { waist: [238, 476, 685, 387], shortsEnd: [288, 541, 685, 486] },
+      { waist: [396, 576, 602, 497], shortsEnd: [237, 611, 635, 611], socksAlso: [635, 700, 635, 303] },
+      { waist: [436, 711, 436, 214], shortsEnd: [590, 711, 590, 214] },
+      { waist: [489, 700, 489, 203], shortsEnd: [649, 700, 649, 203] },
+      { waist: [489, 700, 489, 203], shortsEnd: [649, 700, 649, 203] },
+      { waist: [436, 711, 436, 214], shortsEnd: [590, 711, 590, 214] },
+      { waist: [396, 576, 602, 497], shortsEnd: [237, 611, 635, 611], socksAlso: [635, 700, 635, 303] },
+      { waist: [238, 476, 685, 387], shortsEnd: [288, 541, 685, 486] },
+    ],
   },
   {
     // Crouch, launch x2, full stretch x2, landed.
@@ -394,13 +450,20 @@ export const SOURCE_SHEETS: readonly SourceSheet[] = [
     shortsEnd: STAND_SHORTS,
   },
   {
+    // Redrawn head; lying poses split left to right (shirt, shorts, socks).
     file: 'player-hurt-authored',
     frames: HURT_FRAMES,
     cellW: 1152,
     columns: 2,
     ground: 681,
-    waist: [427, 422, 500, 586],
-    shortsEnd: [544, 539, 608, 655],
+    waist: [],
+    shortsEnd: [],
+    splits: [
+      { waist: [300, 475, 750, 385], shortsEnd: [350, 540, 750, 485] },
+      { waist: [460, 575, 667, 495], shortsEnd: [300, 610, 700, 610], socksAlso: [700, 700, 700, 300] },
+      { waist: [500, 700, 500, 200], shortsEnd: [655, 700, 655, 200] },
+      { waist: [552, 700, 552, 200], shortsEnd: [713, 700, 713, 200] },
+    ],
   },
   {
     file: 'player-carry-authored',
@@ -484,7 +547,8 @@ function kitColour(
   const isShorts =
     !isShirt &&
     (split
-      ? !pastLine(split.shortsEnd, x, y)
+      ? !pastLine(split.shortsEnd, x, y) &&
+        !(split.socksAlso && pastLine(split.socksAlso, x, y))
       : y < (sheet.shortsEnd[pose] ?? 552));
   const base = isShirt ? kit.shirt : isShorts ? kit.shorts : kit.socks;
   const shade = isShirt

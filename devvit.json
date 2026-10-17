@@ -19,7 +19,7 @@
     "reddit": {
       "enable": true,
       "scope": "user",
-      "asUser": ["SUBMIT_COMMENT"]
+      "asUser": ["SUBMIT_COMMENT", "SUBMIT_POST"]
     }
   },
   "server": {
@@ -34,11 +34,18 @@
         "location": "subreddit",
         "forUserType": "moderator",
         "endpoint": "/internal/menu/post-create"
+      },
+      {
+        "label": "Delete my Street Soccer data",
+        "description": "Remove your saved leaderboard results in this subreddit",
+        "location": "subreddit",
+        "endpoint": "/internal/menu/delete-data"
       }
     ]
   },
   "forms": {
-    "challengeForm": "/internal/form/challenge-submit"
+    "challengeForm": "/internal/form/challenge-submit",
+    "deleteDataForm": "/internal/form/delete-data"
   },
   "triggers": {
     "onAppInstall": "/internal/triggers/on-app-install",
@@ -50,5 +57,13 @@
   },
   "dev": {
     "subreddit": "street_soccer_dev"
+  },
+  "scheduler": {
+    "tasks": {
+      "privacy-cleanup": {
+        "endpoint": "/internal/scheduler/privacy-cleanup",
+        "cron": "*/10 * * * *"
+      }
+    }
   }
 }

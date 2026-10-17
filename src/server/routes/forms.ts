@@ -10,8 +10,37 @@ import {
   type ChallengeValues,
 } from '../core/challengeForm';
 import { createPost } from '../core/post';
+import { forgetPlayer } from '../core/privacy';
 
 export const forms = new Hono();
+
+forms.post('/delete-data', async (c) => {
+  try {
+    const username = await reddit.getCurrentUsername();
+    if (!username)
+      return c.json<UiResponse>({ showToast: 'Log in to delete your data' });
+    const body: unknown = await c.req.json();
+    if (
+      !body ||
+      typeof body !== 'object' ||
+      Reflect.get(body, 'confirmed') !== true
+    )
+      return c.json<UiResponse>({
+        showToast: 'Check the confirmation box to delete your data',
+      });
+    await forgetPlayer(username);
+    return c.json<UiResponse>({
+      showToast:
+        'Your saved leaderboard results in this subreddit were deleted. Refresh the game to update the display.',
+    });
+  } catch (error) {
+    console.error('Player data deletion failed:', error);
+    return c.json<UiResponse>({
+      showToast:
+        'Deletion could not finish. Please retry or contact the subreddit moderators.',
+    });
+  }
+});
 
 // Moderators can create posts with fixed match settings.
 const isModerator = async () => {

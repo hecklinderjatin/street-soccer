@@ -69,7 +69,7 @@ const teamFields = (side: 'home' | 'away'): FormField[] => [
 export const challengeForm: Form = {
   title: 'Create a Street Soccer match',
   description:
-    'Players get exactly these settings; they cannot change them in the game.',
+    'Create a post from your Reddit account. Players get exactly these settings; they cannot change them in the game.',
   acceptLabel: 'Create post',
   fields: [
     {

@@ -85,8 +85,7 @@ api.get('/daily-leaders', async (c) => {
 });
 
 // The player's comment on this post, with their score and stats if they
-// chose to share them. Posted from their account; if Reddit refuses that,
-// from the app account with their name on it.
+// chose to share them. Posted only from their account.
 api.post('/post-score', async (c) => {
   const { postId } = context;
   if (!postId)
@@ -136,7 +135,11 @@ api.post('/post-score', async (c) => {
       console.warn('Posting as the user failed:', error);
       await redis.del(cooldown); // a failed post doesn't use up the cooldown
       return c.json<SimpleErrorResponse>(
-        { error: 'Reddit did not accept the comment: try again later' },
+        {
+          error: comment
+            ? 'Reddit did not accept the comment: try again later'
+            : 'Could not verify the pinned Scores comment or share your score. Retry later or contact the subreddit moderators.',
+        },
         502
       );
     }

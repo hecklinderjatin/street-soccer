@@ -5,12 +5,12 @@ import type {
   MatchStats,
 } from '../../shared/api';
 import { readStats } from './matchStats';
+import { deletionInProgress, registerBoard, RETENTION_SEC } from './privacy';
 
 // Today's leaderboard for one post (a challenge): each player's best match
 // of the UTC day, ranked by goal difference, then goals scored. Kept a week
 // after the day ends.
 
-const KEEP_SEC = 8 * 24 * 60 * 60;
 const TOP = 3;
 
 export const today = () => new Date().toISOString().slice(0, 10);
@@ -42,6 +42,8 @@ export async function saveResult(
 ) {
   const day = today();
   const board = boardKey(postId, day);
+  if (await deletionInProgress(username)) return;
+  await registerBoard(board);
   const score = rankScore(stats);
   const best = await redis.zScore(board, username);
   if (best !== undefined && best !== null && best >= score) return;
@@ -49,8 +51,12 @@ export async function saveResult(
   await redis.hSet(statsKey(postId, day), {
     [username]: JSON.stringify(stats),
   });
-  await redis.expire(board, KEEP_SEC);
-  await redis.expire(statsKey(postId, day), KEEP_SEC);
+  await redis.expire(board, RETENTION_SEC);
+  await redis.expire(statsKey(postId, day), RETENTION_SEC);
+  if (await deletionInProgress(username)) {
+    await redis.zRem(board, [username]);
+    await redis.hDel(statsKey(postId, day), [username]);
+  }
 }
 
 export async function dailyLeaders(

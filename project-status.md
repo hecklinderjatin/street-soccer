@@ -8,6 +8,36 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Review of the full head replacement + compliance follow-up (2026-10-17, main, uncommitted):** every authored sheet with a visible face now has the clean-shaven head (run up / run up-diagonal are back views and were left as they are). Atlases were rebaked after the last sheet (hold); release art 1.75 MiB. `npm run test:local` passes (types, lint, unit, 28 logic checks, privacy/pinned-score checks, build). Full atlases inspected in blue and home keeper kits: kits split cleanly on every frame, one face throughout. Cosmetic only: a few dark-pink pixels stay pink on the black keeper shorts in the lying tackle/hurt frames (too dark for the pink rule), and the keeper jump poses are drawn smaller than keeper idle (same as before the redraw, not new). Before `npm run launch`: commit, playtest the new delete-my-data menu item / form, the 10-minute privacy-cleanup scheduler and SUBMIT_POST on Reddit (new permissions need a fresh upload).
+
+**Compliance follow-up (2026-10-17, main):** implemented confirmed self-service leaderboard deletion from the subreddit menu, legacy board discovery, a 10-minute rotating deleted/unavailable-account sweep, fail-closed Scores pin verification with reusable pending comments, and moderator custom posts as USER with SUBMIT_POST and reportable UGC. Help and README document deletion scope and migration limits. Privacy/pinning regressions, 28 game logic checks, TypeScript, lint and production build passed. All current source sprites rebaked into 10 atlases and 12 release images (1.75 MiB). Reddit playtest v0.0.2.2 installed successfully in r/street_soccer_dev; browser access to Reddit was declined, so native forms, non-owner moderator attribution and scheduled execution still need Reddit verification. Local help spacing adjusted after inspection.
+
+**Clean-shaven keeper static hold replacement (2026-10-17, main):** replaced public/art/player-hold-authored.png with supplied clean-shaven four-pose standing hold sheet, including blink. Restored alpha with imagegen from RGB black backdrop, uniformly scaled to previous standing body height and fitted to four 640 x 724 cells (2560 x 724), previous horizontal centres and ground 681. Intermediate saved in workspace output/sprites/player-keeper-hold-transparent-v1.png. Existing metadata and timing retained. No colour checks, bake or build per preference. Both bearded sheets identified by the last audit (tackle and hold) are now replaced in source; release atlases still need rebaking.
+
+**Supplied side-tackle replacement (2026-10-17, main):** user explicitly chose the four-pose clean-shaven falling/hurt sheet for side tackle. Imported into player-tackle-authored.png using existing 4096 x 1448 layout (4 x 2 of 1024 x 724), one uniform nearest-neighbour scale, centred complete silhouettes and boots/ground at 681. Existing eight-frame timing retained by mapping supplied poses 1,2,3,4,4,3,2,1 (fall then reverse recovery). Clothing split lines transferred from corresponding existing hurt poses using placement transforms, preserving prior metadata elsewhere. No colour checks, bake or build per preference. Only bearded source now known remaining is keeper static hold.
+
+**Clean-shaven keeper standing block replacement (2026-10-17, main):** supplied three-pose hand-block sheet replaces public/art/player-keeper-block-authored.png. Imagegen restored alpha from RGB black background; nearest-neighbour fitted to existing 2160 x 724 canvas (three 720 x 724 cells), opaque centres matched to previous frames and boots at 681. Existing block keys, timing and metadata retained. Transparent intermediate saved to workspace output/sprites/player-keeper-block-transparent-v1.png. No colour checks, rebake or build per user preference.
+
+**Clean-shaven keeper jump replacement (2026-10-17, main):** replaced public/art/player-keeper-jump-authored.png from supplied four-pose overhead save. RGB black backdrop extracted with imagegen; transparent intermediate saved in workspace output/sprites/player-keeper-jump-transparent-v1.png. Uniform nearest-neighbour scale fits tallest overhead pose within existing cell, each pose centred against previous opaque bounds with boots at 681; existing 2880 x 724 sheet, four 720 x 724 cells and animation order retained. No colour checks, atlas bake or build, per user preference.
+
+**Clean-shaven keeper idle replacement (2026-10-17, main):** supplied three-pose gloved idle sheet replaces public/art/player-keeper-idle-authored.png. RGB black backdrop extracted with imagegen, then fitted nearest-neighbour to 2160 x 724 (three 720 x 724 cells), opaque centres aligned to previous cells and boots aligned to 681. Metadata retained. Transparent intermediate saved in workspace output/sprites/player-keeper-idle-transparent-v1.png. No colour checks, atlas bake or build per user preference.
+
+**Keeper carry replacement (2026-10-17, main):** supplied six-pose glove/ball-carry running sheet replaces public/art/player-carry-authored.png. Input was RGB with a solid black backdrop; imagegen background extraction restored alpha, saved separately in workspace output/sprites/player-keeper-carry-transparent-v1.png, then nearest-neighbour fitted to existing 1920 x 1448 source (3 x 2 of 640 x 724). Existing carry frame ordering, ground 681 and metadata retained. No colour checks, rebake or build, per user preference. Static hold remains separate.
+
+**Keeper hold sheet supplied (2026-10-17, main):** copied user attachment directly to public/art/player-hold-authored.png. Four 640 x 724 cells already match existing dimensions and opaque bounds exactly, so no resizing or metadata changes. User explicitly requested no colour checks, atlas rebake or production build; skipped all three.
+
+**Clean-shaven goalkeeper dive (2026-10-17, main):** replaced public/art/player-dive-authored.png with supplied six-frame clean-shaven dive. Attachment 1938 x 812 resized with nearest-neighbour to existing 3456 x 1448 (3 x 2 of 1152 x 724). Opaque pose bounds match the original within 4 source pixels; existing ground 681, animation order and slanted kit splits retained. All six poses visually compared before/after in home green and away gold baked kits; beard removed, gloves and dive shapes preserved. Rebuilt atlases/look layers and release art. Prior uncommitted source replacements preserved.
+
+**New celebration heads: all three sets (2026-10-17, main):** imported the three user-supplied clean-shaven celebration sheets. Image 1 jump -> player-celebrate-authored (a), Image 3 knee-slide -> player-celebrate2-authored (b), Image 2 dance -> player-celebrate3-authored (c). Normalized 1532 x 1027 attachments to existing 2160 x 1448 sheets (3 x 2 cells of 720 x 724), nearest-neighbour scale 1.4, same row ground 681, previous lower-body anchors and relative jump lift. Low-alpha specks outside each opaque character bounding box excluded; original RGBA edges retained nearby. Existing kit split metadata fits the replacement bodies. Rebaked all kits/look layers and optimized release art (1.87 MiB); all 18 frames visually inspected in pink/blue/red contact sheet. Type check passed. Other existing uncommitted head replacements preserved.
+
+**New player head, sheets 5 and 6 of 18: shoot + hurt (2026-10-17):** `player-shoot-authored.png` (scale 1.28, 4 x 640 x 724) and `player-hurt-authored.png` (scale 1.38, 2 x 2 of 1152 x 724) replaced from the user's sheets; poses centred on their whole outline like the old sheets (`BBOX=1 sheetbuild.py`), so the kick still meets the ball where it did. Both now use per-pose `splits`. New optional `socksAlso` line in `KitSplit` (a second sock line, for a leg the shorts line can't reach: the swung-back and kicking legs of shoot poses 1 to 3, the raised knee of hurt pose 2); the lying hurt poses split left to right with vertical lines. Checked in the baked blue and home keeper atlases. Release art 1.63 MiB. Done so far: idle, run, run down, run down-diagonal, shoot, hurt.
+
+**New player head, sheets 3 and 4 of 18: run down + run down-diagonal (2026-10-17):** `player-run-down-authored.png` (scale 1.26) and `player-run-down-diagonal-authored.png` (scale 1.25) replaced from the user's 4-pose sheets (2000 x 667 WebP), same 4 x 640 x 724 layout, boots on y 681. Both now have their own entries instead of `runView()` (run up and run up-diagonal still use it): run down waist 378/372/386/375, shorts end 470/465/480/460; run down-diagonal uses `splits` with slanted shorts lines on poses 1 and 3 (raised back leg). Checked on blue/green test kits and in the baked red / home keeper atlases. Release art 1.77 MiB. Done so far: idle, run, run down, run down-diagonal.
+
+**New player head, sheet 2 of 18: run (2026-10-17):** `public/art/player-run-authored.png` replaced from the user's 8-pose sheet (1667 x 943 WebP): scaled 1.52 to the old body size, centred on the legs, boots on y 681 (each pose keeps its height above its source row's ground), same 4 x 2 layout of 640 x 724 cells. Kit split now uses per-pose `splits` (horizontal waist lines; shorts lines slanted on poses 1, 4, 5 and 8 where the back leg's sock sits higher), checked on pink / blue / red / keeper green. Release art 1.83 MiB. Scratchpad tool `sheetbuild.py <src> <out> <grid> <scale> <cell_w> <cols> <ground> <poses-json>` fits any redrawn sheet into an existing layout. Done so far: idle, run.
+
+**New player head, sheet 1 of 18: idle (2026-10-17):** to avoid a real footballer's likeness (Devvit Rules: no third-party IP / impersonation) the user is supplying the sheets again with a redrawn head (clean-shaven, new face and hair), one by one. An automatic beard removal in the bake was tried first and rejected (blotchy faces, smeared eyebrows / mouth; never shipped). Done: `public/art/player-idle-authored.png` replaced from the user's 4-pose sheet (1748 x 899 WebP with alpha): poses scaled 0.80 (same body size as before), centred on the legs, boots on y 695, in the same 4 x 352 x 724 layout; the idle entry in SOURCE_SHEETS now has its own split lines (waist 440/425/442/442, shorts end 525/510/528/525; the hold sheet keeps STAND_WAIST / STAND_SHORTS). Rebaked (`art:bake` + optimize_art): kits split cleanly, the new face / hair are found by the look layers. Release art 1.98 MiB. Until all 18 sheets are replaced, the other animations still show the old bearded head.
+
 **Devvit Rules compliance (2026-10-17):** user pasted developers.reddit.com/docs/devvit_rules. Already met: README rules, no links out, no payments / fetch / LLMs, no Reddit IP (no Snoo or logos), not aimed at under-13s, data minimal and expiring (8 days < recommended 30). Fixed per the User action requirements: (1) score-only shares are now replies to a stickied comment: `server/core/scoreThread.ts` creates one pinned app comment per post ("Scores", `distinguish(true)`), when the post is created (`createPost`) or on first need, id kept in Redis `scorethread:<postId>`; POST MY SCORE replies to it when there is no player text, and posts top-level only with the player's own words (always `runAs: 'USER'`). (2) The POST MY SCORE popup says it posts from the player's account u/name, that everyone sees it with the username, and where it goes; the button reads "Post as u/name". (3) Deletions: new `onPostDelete` trigger (`/internal/triggers/on-post-delete`, devvit.json) deletes the post's daily boards and stats for the last 9 UTC days and its scores comment id (`forgetPost`); `daily.ts` exports `boardKey` / `statsKey`. (4) Reporting: the (i) help shows "REPORT A PROBLEM: MESSAGE THE MODS OF R/<subreddit>" (`context.subredditName`); README has a Support section and documents the scores comment and deletion. Review risk noted, not changed: the authored player art may read as a real footballer's likeness in a pink club-style kit (Devvit Rules: no third-party IP / impersonation); worth a second look at the face / default kit before launch. Type check passes; lint / build / logic run pending at time of writing; no Reddit test of the stickied comment yet (the app account needs mod rights to sticky; it falls back to an unstickied comment).
 
 **Launch guide check (2026-10-17):** user pasted developers.reddit.com/docs/guides/launch/launch-guide. Met: custom first screen (live lobby), responsive (portrait lobby, landscape game), no inline scrolling (`overflow: hidden`, no scroll areas), immediately understandable ((i) help, PASS TO START), `npm run launch` runs `devvit publish` (unlisted by default: right for a game; do not use `--public`). Fixed: the required app README.md is now a reviewer/moderator README (what it is, how it plays, controls incl. keyboard, the moderator menu item and form, data stored in Redis and retention, Reddit API permissions incl. SUBMIT_COMMENT only on POST MY SCORE, logged-out players, no external requests or payments) plus the developer commands. Still the user's: a dedicated non-test subreddit (only r/street_soccer_dev exists), testing on mobile and web from developer / moderator / regular accounts, optional feedback cross-posts (r/Devvit Feedback Friday, r/GamesOnReddit Feedback flair), and reading the Devvit Rules page.
@@ -381,6 +411,27 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Player deletion is confirmed and authenticated against the current Reddit user, covers all indexed retained boards in this subreddit, and reports migration failures. Account cleanup uses rotating scheduled pages; lookup errors never count as deleted accounts. Score-only shares require a verified pinned parent; moderator challenge text uses user-action attribution.
+
+
+- Use latest supplied four-frame clean-shaven standing pose for keeper hold, superseding the earlier bearded attachment; fit with uniform scaling so proportions are preserved.
+
+- Follow explicit request to use the four supplied falling poses for side tackle. Repeat/reverse into the established eight-frame animation rather than changing runtime timing; retain existing tackle physics and hitboxes.
+
+- Route three standing palms-forward frames to keeper block; restore alpha and original cell/ground alignment while deferring colour checks and builds.
+
+- Use four-frame overhead glove poses for keeper jump, preserve relative pose sizes with one uniform scale and ground alignment; restore alpha before source import and defer colour/build checks.
+
+- Route three gloved standing frames to keeper idle; restore alpha and retain established cell/boot alignment without running colour checks or builds.
+
+- Route the six running-with-gloves poses to the keeper carry sheet, retaining the four-pose static hold. Restore alpha on the supplied RGB attachment before importing; defer bake/build and colour checks as requested.
+
+- Use supplied four-pose sheet for keeper hold (not the separate three-pose gloved idle). Preserve pixels/layout directly and skip colour checks/build per user request.
+
+- Import the supplied dive sheet directly at the established source canvas size; preserve animation keys, timing, hitboxes and recolouring because the pose bounds remain aligned.
+
+- Import supplied celebration artwork directly without regenerating; retain existing animation keys, six-frame order, source layout, ground anchors and per-pose jump displacement. Keep the established recolouring metadata after visual kit checks.
+
 - Commit the current completed updates directly on main because that is already the checked-out branch; no branch merge is needed.
 
 - Apply a short 150 ms eased attack only to the missed/saved-shot cue, following the latest request; preserve all other audio behavior.
@@ -577,6 +628,29 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Playtest the installed compliance update on Reddit with a non-owner moderator: user post attribution/approval, pin failure and recovery, confirmed deletion across two posts, and scheduled cleanup. No publication requested.
+
+
+- Rebuild pending tackle and keeper source replacements when requested; latest source head replacement batch now includes the formerly bearded static hold.
+
+- Replace remaining bearded keeper static hold when supplied. Rebuild pending source replacements and review side-tackle animation when requested.
+
+- Rebuild the pending keeper idle/hold/carry/jump/block source replacements when requested.
+
+- Rebuild idle/hold/carry/jump keeper release assets together when requested; source replacements are pending bake.
+
+- Rebuild keeper idle/hold/carry release atlases together when requested; current replacements are source-only.
+
+- Rebuild keeper carry/hold release atlases when requested; these source-only replacements are not yet in the served build.
+
+- Keeper hold source supplied; rebuild atlases/release assets later when requested.
+
+- Review the clean-shaven keeper dive in a match after refreshing localhost or uploading the next Reddit playtest.
+
+- Review the three new clean-shaven celebrations in a match after refreshing localhost/Reddit playtest; continue remaining head replacement sheets as supplied.
+
+- Receive the other 17 sheets with the new head (run, run up/down/diagonals, shoot, tackle, hurt, 3 celebrations, dive, hold, carry, keeper idle / jump / block); fit each into its existing layout, set its split lines, rebake.
+
 - Reddit test: a new post gets the pinned Scores comment; POST MY SCORE without text replies to it, with text posts top-level, both from the player's account; deleting a post clears its leaderboard. Decide on the player art likeness / pink default kit before `npm run launch`.
 
 - Before `npm run launch`: create a dedicated public subreddit for the game and install the app there; test from a regular (non-mod) account and a logged-out browser on phone and desktop; optionally cross-post for feedback; paste the Devvit Rules page (developers.reddit.com/docs/devvit_rules) for a final check.
@@ -756,6 +830,65 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+### 2026-10-17: Review of head replacement and compliance follow-up
+
+- All face sheets confirmed replaced and baked; full check suite passes; launch checklist noted in Current state.
+
+- **2026-10-17:** compliance follow-up adds player deletion and legacy migration, scheduled account cleanup, mandatory verified Scores pins, user-attributed custom challenges, and regression checks; rebuilt all latest sprite sources for release and installed private playtest v0.0.2.2. Reddit UI verification blocked by declined browser-origin permission.
+
+
+### 2026-10-17 - Replace remaining bearded keeper hold
+
+- Imported latest four-pose clean-shaven hold sheet with alpha, uniform body scale and matching cell/ground alignment. No colour check or build.
+
+### 2026-10-17 - Use supplied four-pose sheet for side tackle
+
+- Fitted four clean-shaven falling poses into eight existing tackle frames with a reverse recovery, and transferred clothing split boundaries; no colour check or build.
+
+### 2026-10-17 - Replace goalkeeper standing block sheet
+
+- Imported three supplied clean-shaven hand-block frames with alpha and matching alignment. No colour check or build.
+
+### 2026-10-17 - Replace goalkeeper jump-save sheet
+
+- Imported four clean-shaven jump-save poses with alpha and original frame alignment; no colour check or build.
+
+### 2026-10-17 - Replace goalkeeper idle sheet
+
+- Imported supplied clean-shaven gloved idle artwork, restored transparency and fitted all three frames to existing alignment; no colour check or build.
+
+### 2026-10-17 - Replace goalkeeper ball-carry animation
+
+- Imported supplied six-pose sheet as keeper carry, restored transparency and matched existing frame dimensions. No colour check or build.
+
+### 2026-10-17 - Copy supplied goalkeeper hold sheet
+
+- Copied the supplied four-frame image to player-hold-authored.png without colour checks or build.
+
+### 2026-10-17 - Replace goalkeeper dive with clean-shaven sheet
+
+- Imported six supplied dive poses into the existing sheet layout, rebaked keeper/look atlases, and visually compared green/gold variants before and after.
+
+### 2026-10-17 - Replace all celebration heads on main
+
+- Fitted supplied jump, knee-slide and dance sheets to existing source cells and replaced all 18 bearded celebration frames. Rebaked kits/look layers and release art; visually checked pink/blue/red frames without changing animation timing or keys.
+
+### 2026-10-17: New head: shoot + hurt sheets
+
+- Shoot and hurt sheets replaced with the redrawn head; per-pose kit splits with a new optional second sock line (`socksAlso`); atlases rebaked; release art 1.63 MiB.
+
+### 2026-10-17: New head: run down + run down-diagonal sheets
+
+- Both sheets replaced with the redrawn head; own kit split lines (slanted on the diagonal's raised-leg poses); atlases rebaked.
+
+### 2026-10-17: New head: run sheet
+
+- Run sheet replaced with the redrawn head; per-pose kit split lines; atlases rebaked.
+
+### 2026-10-17: New head: idle sheet
+
+- Idle sheet replaced with the redrawn clean-shaven head; own kit split lines; atlases rebaked.
 
 ### 2026-10-17: Devvit Rules compliance
 

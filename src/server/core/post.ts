@@ -10,6 +10,14 @@ export const createPost = async (challenge?: Challenge) => {
   const post = challenge
     ? await reddit.submitCustomPost({
         title: challenge.title,
+        runAs: 'USER',
+        userGeneratedContent: {
+          text: [
+            challenge.title,
+            challenge.description,
+            JSON.stringify(challenge.config),
+          ].join('\n\n'),
+        },
         postData: {
           match: challenge.config,
           description: challenge.description,

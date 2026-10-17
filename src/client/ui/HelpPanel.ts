@@ -136,7 +136,15 @@ export function buildHelpLayer(
     pixelText(
       scene,
       cx,
-      600,
+      596,
+      'DELETE SAVED SCORES: SUBREDDIT MENU > DELETE MY STREET SOCCER DATA',
+      BODY,
+      PAL.lightGray
+    ).setOrigin(0.5),
+    pixelText(
+      scene,
+      cx,
+      618,
       `REPORT A PROBLEM: ${where}`,
       BODY,
       PAL.lightGray
@@ -144,9 +152,9 @@ export function buildHelpLayer(
   );
 
   items.push(
-    new TextButton(scene, cx, 650, 'GOT IT', onClose, {
+    new TextButton(scene, cx, 660, 'GOT IT', onClose, {
       width: 280,
-      height: 64,
+      height: 56,
       fill: PAL.green,
     })
   );
