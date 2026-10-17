@@ -14,8 +14,9 @@ const KEEP_SEC = 8 * 24 * 60 * 60;
 const TOP = 3;
 
 export const today = () => new Date().toISOString().slice(0, 10);
-const boardKey = (postId: string, day: string) => `daily:${postId}:${day}`;
-const statsKey = (postId: string, day: string) =>
+export const boardKey = (postId: string, day: string) =>
+  `daily:${postId}:${day}`;
+export const statsKey = (postId: string, day: string) =>
   `daily:${postId}:${day}:stats`;
 
 // Higher is better: goal difference first, then goals scored.

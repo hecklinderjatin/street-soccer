@@ -210,8 +210,14 @@ export class ResultScene extends Phaser.Scene {
     try {
       form = await showForm({
         title: 'Post my score',
-        description: 'Adds a comment to this post.',
-        acceptLabel: 'Post',
+        // Devvit Rules: clear that it posts from the player's own account,
+        // what appears and where.
+        description:
+          `Posts a comment on this post from your Reddit account, ` +
+          `u/${context.username ?? 'you'}: everyone can see it with your ` +
+          `username. Score only: a reply in the pinned Scores comment. ` +
+          `With your own words: a comment on the post.`,
+        acceptLabel: `Post as u/${context.username ?? 'me'}`,
         fields: [
           {
             type: 'paragraph',

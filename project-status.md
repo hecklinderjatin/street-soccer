@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Devvit Rules compliance (2026-10-17):** user pasted developers.reddit.com/docs/devvit_rules. Already met: README rules, no links out, no payments / fetch / LLMs, no Reddit IP (no Snoo or logos), not aimed at under-13s, data minimal and expiring (8 days < recommended 30). Fixed per the User action requirements: (1) score-only shares are now replies to a stickied comment: `server/core/scoreThread.ts` creates one pinned app comment per post ("Scores", `distinguish(true)`), when the post is created (`createPost`) or on first need, id kept in Redis `scorethread:<postId>`; POST MY SCORE replies to it when there is no player text, and posts top-level only with the player's own words (always `runAs: 'USER'`). (2) The POST MY SCORE popup says it posts from the player's account u/name, that everyone sees it with the username, and where it goes; the button reads "Post as u/name". (3) Deletions: new `onPostDelete` trigger (`/internal/triggers/on-post-delete`, devvit.json) deletes the post's daily boards and stats for the last 9 UTC days and its scores comment id (`forgetPost`); `daily.ts` exports `boardKey` / `statsKey`. (4) Reporting: the (i) help shows "REPORT A PROBLEM: MESSAGE THE MODS OF R/<subreddit>" (`context.subredditName`); README has a Support section and documents the scores comment and deletion. Review risk noted, not changed: the authored player art may read as a real footballer's likeness in a pink club-style kit (Devvit Rules: no third-party IP / impersonation); worth a second look at the face / default kit before launch. Type check passes; lint / build / logic run pending at time of writing; no Reddit test of the stickied comment yet (the app account needs mod rights to sticky; it falls back to an unstickied comment).
+
 **Launch guide check (2026-10-17):** user pasted developers.reddit.com/docs/guides/launch/launch-guide. Met: custom first screen (live lobby), responsive (portrait lobby, landscape game), no inline scrolling (`overflow: hidden`, no scroll areas), immediately understandable ((i) help, PASS TO START), `npm run launch` runs `devvit publish` (unlisted by default: right for a game; do not use `--public`). Fixed: the required app README.md is now a reviewer/moderator README (what it is, how it plays, controls incl. keyboard, the moderator menu item and form, data stored in Redis and retention, Reddit API permissions incl. SUBMIT_COMMENT only on POST MY SCORE, logged-out players, no external requests or payments) plus the developer commands. Still the user's: a dedicated non-test subreddit (only r/street_soccer_dev exists), testing on mobile and web from developer / moderator / regular accounts, optional feedback cross-posts (r/Devvit Feedback Friday, r/GamesOnReddit Feedback flair), and reading the Devvit Rules page.
 
 **Deployed v0.0.2 (2026-10-17, `main` at c1382fc):** user playtested v0.0.1.119 in r/street_soccer_dev, then ran `npm run deploy` (type check, lint, vite build, `devvit upload`): app version bumped to 0.0.2 and uploaded (developers.reddit.com/apps/street-soccer). Not published / not submitted for review yet (`npm run launch`). Playtest notes: Vite's "chunks larger than 500 kB" warning is the 800 KB (220 KB gzip) game bundle, expected; Devvit's "scripts.dev did not produce expected build outputs within 60s" comes from slow file-change events on /mnt/f under WSL; it still uploaded the fresh build (if a change ever does not show: stop dev, `npm run build`, start dev again).
@@ -575,6 +577,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Reddit test: a new post gets the pinned Scores comment; POST MY SCORE without text replies to it, with text posts top-level, both from the player's account; deleting a post clears its leaderboard. Decide on the player art likeness / pink default kit before `npm run launch`.
+
 - Before `npm run launch`: create a dedicated public subreddit for the game and install the app there; test from a regular (non-mod) account and a logged-out browser on phone and desktop; optionally cross-post for feedback; paste the Devvit Rules page (developers.reddit.com/docs/devvit_rules) for a final check.
 
 - Before `npm run launch`: check the launch guide's review rules (developers.reddit.com/docs/guides/launch/launch-guide; paste it, the agent cannot open developers.reddit.com); the `asUser: SUBMIT_COMMENT` permission will be reviewed (POST MY SCORE errors until approved).
@@ -752,6 +756,10 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+### 2026-10-17: Devvit Rules compliance
+
+- Score-only shares reply to a pinned Scores comment; clearer POST MY SCORE popup ("Post as u/name"); PostDelete trigger clears a deleted post's data; report-a-problem line in the help; README updated.
 
 ### 2026-10-17: App README for review
 

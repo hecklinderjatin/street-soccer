@@ -6,7 +6,7 @@ A fast 5v5 arcade street football match against the AI, played right inside a Re
 
 - **In the feed**, the post shows a live AI-vs-AI preview match with the match info and a **PLAY** button.
 - **PLAY** opens the game full-screen and starts a match against the AI: 90 seconds by default, golden goal if level. Pass to kick off.
-- **After the match**, the result screen shows today's top 3 for this post. Players can choose **POST MY SCORE** to comment their result on the post.
+- **After the match**, the result screen shows today's top 3 for this post. Players can choose **POST MY SCORE** to share their result. The popup says it posts from their own account and shows their username. A score on its own is posted as a reply to the post's pinned **Scores** comment (made by the app with each post); a score with the player's own words is posted as a comment on the post. Sharing is always optional and never needed to play.
 - The (i) button in the match explains the controls. There is a pause menu and a sound on/off switch.
 
 ## Controls
@@ -33,9 +33,14 @@ Every player of that post plays those settings, and the post has its own daily l
 ## Data and permissions
 
 - **Redis:** for each post, each player's best result of the day (Reddit username, goals for and against, shots, passes, tackles won, difficulty), kept for 8 days, plus short-lived rate-limit keys. Nothing else is stored.
-- **Reddit API:** reads the current username (for the leaderboard). Posts a comment **as the player** (`SUBMIT_COMMENT`) only when the player taps POST MY SCORE and confirms the comment; limited to one comment per player per post every 10 minutes. The app never posts a player's words from its own account.
+- **Reddit API:** reads the current username (for the leaderboard). Posts a comment **as the player** (`SUBMIT_COMMENT`) only when the player taps POST MY SCORE and confirms the popup ("Post as u/name"); limited to one comment per player per post every 10 minutes. The app never posts a player's words from its own account; its only own comment is the pinned Scores comment on each game post.
+- **Deletion:** when a game post is deleted, the app deletes that post's leaderboards and stored comment id (PostDelete trigger). Player results expire after 8 days on their own.
 - **Logged-out players** can play; their results are not saved and they cannot post a comment.
 - No external network requests, no payments, no data shared outside Reddit. Sound starts only after the player taps, and can be muted.
+
+## Support
+
+Players can report a problem from the game's (i) help screen, which tells them to message the moderators of the subreddit the game is in (modmail). For questions about the app itself, message the moderators of the game's home subreddit.
 
 ## Develop
 

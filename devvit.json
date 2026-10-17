@@ -41,7 +41,8 @@
     "challengeForm": "/internal/form/challenge-submit"
   },
   "triggers": {
-    "onAppInstall": "/internal/triggers/on-app-install"
+    "onAppInstall": "/internal/triggers/on-app-install",
+    "onPostDelete": "/internal/triggers/on-post-delete"
   },
   "scripts": {
     "build": "vite build",

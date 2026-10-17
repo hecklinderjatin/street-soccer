@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { context } from '@devvit/web/client';
 import { VIEW } from '../../shared/tuning';
 import { STICK_BASE, STICK_KNOB, createButtonTexture } from '../art/playerArt';
 import { ACTION_COLORS } from './ActionButtons';
@@ -126,6 +127,21 @@ export function buildHelpLayer(
     'THROW TO THE RINGED MATE',
     'KICK: HOLD + SLIDE AS SHOOT',
   ]);
+
+  // Devvit Rules: players need a way to report problems with the app.
+  const where = context?.subredditName
+    ? `MESSAGE THE MODS OF R/${context.subredditName}`
+    : 'MESSAGE THE MODS OF THIS SUBREDDIT';
+  items.push(
+    pixelText(
+      scene,
+      cx,
+      600,
+      `REPORT A PROBLEM: ${where}`,
+      BODY,
+      PAL.lightGray
+    ).setOrigin(0.5)
+  );
 
   items.push(
     new TextButton(scene, cx, 650, 'GOT IT', onClose, {

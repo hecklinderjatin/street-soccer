@@ -4,6 +4,7 @@ import type { DailyLeadersResponse, PostScoreResponse } from '../../shared/api';
 import { dailyLeaders, saveResult } from '../core/daily';
 import { matchLengthSec, postConfig, readStats } from '../core/matchStats';
 import { COMMENT_MAX, scoreComment } from '../core/scoreComment';
+import { scoreThread } from '../core/scoreThread';
 
 type SimpleErrorResponse = {
   error: string;
@@ -121,8 +122,11 @@ api.post('/post-score', async (c) => {
         429
       );
     try {
+      // Devvit Rules: a score shared without the player's own words is a
+      // reply to the post's stickied scores comment; with their words it
+      // may be a top-level comment.
       const posted = await reddit.submitComment({
-        id: postId,
+        id: comment ? postId : await scoreThread(postId),
         text: scoreComment(comment, includeStats, stats, config),
         runAs: 'USER',
       });
