@@ -427,6 +427,7 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- **Keep every Devvit package on one exact version** (`devvit`, `@devvit/web`, `@devvit/start`): a mismatch installs two copies of `@devvit/server`, and server code then can't find its request context ("No context found" in playtest logs). Upgrade them together.
 - User feedback on the first teaser prioritizes continuity and smooth motion: use one complete real-game passage, keep the camera following play, remove flashes/replay cuts, and reveal branding over the existing celebration. Continue to omit match-duration marketing copy.
 
 - Teaser uses landscape 16:9 and the approved save-focused script, omitting match-duration claims. Use directed in-engine capture with the current art and existing physics, with production scripts isolated under workspace `output/teaser/`.
@@ -868,6 +869,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-10-18:** aligned Devvit packages at 0.14.8 (`devvit`, `@devvit/web`, `@devvit/start`, all exact). The CLI had been bumped to 0.14.8 alone, so two copies of `@devvit/server` were installed and scheduled jobs in the playtest failed every 10 minutes with "No context found"
 
 - **2026-10-18:** easier scoring: finishing assist on human shots (pulled toward the open side of the keeper, random 10-90%), keeper reads shots 0.1 s before side-stepping, standing reach 38, rush-out stops 110 px from the shooter; tuned by simulation; new logic checks
 
