@@ -261,6 +261,15 @@ export const SHOOT = {
   powerDip: 0.7, // extra gravity (fraction of normal) in the air, at a full swipe
   powerErrorMore: 0.4, // stray increased by this fraction at a full swipe
   powerOverHit: 0.3, // over-hit lift increased by this fraction at a full swipe
+  // Finishing assist (human shots only, actions.assistedShotDirection):
+  // a shot heading in or near the mouth is pulled toward the open side.
+  assistRange: 700, // no assist from further than this from the goal centre ...
+  assistFullRange: 400, // ... full assist this close (fading in between)
+  assistMin: 0.1, // share of the way from the aimed spot to the open-side spot, random per shot from this ...
+  assistMax: 0.9, // ... to this (the aim arrow shows the middle)
+  assistInset: 45, // open-side spot this far inside the post
+  assistMargin: 60, // also assists shots aimed this far outside the posts
+  assistKeeperBand: 25, // aimed within this of the keeper: goes to the bigger gap
   trailMinSpeed: 650, // a free ball faster than this draws a trail
   aimArrow: true, // show the strike direction (not the target) while charging
 } as const;
@@ -269,7 +278,7 @@ export const SHOOT = {
 // isn't controlling it): positioning, claiming, rushing out, reaction dives
 // and smothers, hands (catch / parry), distribution.
 export const KEEPER = {
-  reach: 40, // ground distance at which the keeper gets to the ball
+  reach: 38, // ground distance at which the keeper gets to the ball (was 40: shots just past it went in too rarely)
   reachHeight: 120, // highest ball it can reach while diving ...
   stretchReachHeight: 95, // ... down to this at a full-stretch dive (lower in between): top corners beat a long dive
   standReachHeight: 96, // ... and standing (just under the bar: a dropping chip can beat it)
@@ -303,7 +312,8 @@ export const KEEPER = {
   outFarDist: 1000, // ball this far from goal = lineOut
   outNearDist: 350, // ball this close = maxOut
   setAbove: 450, // a free ball faster than this (a shot): the keeper sets itself ...
-  shuffleStick: 0.5, // ... side-stepping toward where it will cross at this stick (~140 px/s, a walk), until its dive
+  shuffleStick: 0.5, // ... side-stepping toward where it will cross at this stick (~140 px/s, a walk), until its dive ...
+  shuffleDelay: 0.1, // ... starting only this long after it sees the shot (reading it; was at once, which smothered placed shots)
   // Keeper reaction dive (cpuKeeperReact): sees a shot coming, waits its
   // reaction time (LEVELS.keeperReactSec), then dives toward where it will
   // pass, as far as needed.
@@ -336,7 +346,7 @@ export const KEEPER = {
   claimBoxMargin: 40, // the meeting point may be this far outside the box
   // Rushing out: an opposing carrier through on goal.
   rushDist: 450, // carrier this close to the goal centre (and nearer to goal than our outfielders) ...
-  rushGap: 80, // ... the keeper comes out to this far from it ...
+  rushGap: 110, // ... the keeper comes out to this far from it (was 80: so close it blocked every angle) ...
   rushMax: 170, // ... at most this far off its line (staying in the box)
   smotherRange: 95, // dives at the ball of a carrier this close (in its box), after its reaction time
   // Distribution (a keeper holding the ball and not human-controlled).

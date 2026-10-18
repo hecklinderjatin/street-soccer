@@ -8,6 +8,22 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Easier scoring, keeper still saves the obvious (2026-10-18):** user: "very hard to score, whenever we shoot it sticks to the goalkeeper"; keeper should still make obvious saves. Measured with a scratch Monte Carlo of the real code (kickShot, stepFreeBall, collideBall, keeper AI at normal; script kept outside the repo) before changing anything: a straight shot at goal from 200-400 px scored 0-2%, an 8-way keyboard aim 19-28%, a shot aimed at a corner 59-90%; 1-on-1 against a rushing keeper 0-39%. Causes: shots leave exactly along the stick (straight = at the keeper), the keeper side-stepped the instant the ball was struck, and its rush-out stopped 80 px from the shooter, where its reach covers every angle. Changes: (1) **finishing assist** for human shots only (`assistedShotDirection` in actions.ts, `SHOOT.assist*`): within 700 px (full under 400), a shot crossing in or near the mouth is pulled 10-90% (random per shot) of the way to a spot 45 px inside the post on the open side (the side the stick picked vs the keeper, or the bigger gap when aimed at it); the aim arrow shows the middle strength; wide shots, shots away from goal and long range are untouched. (2) Keeper: `KEEPER.shuffleDelay` 0.1 s read before side-stepping (new `Player.shuffleAt`, set by cpuKeeperReact; `keeperStick` now takes `time`), `reach` 40 -> 38, `rushGap` 80 -> 110. After: from 200 px straight 54% / keyboard 77% / aimed 99%; from 350 px 22% / 53% / 80%; rushing keeper 11-57%; from 500-600 px still 2-5% (keeper keeps long shots, weak taps and shots at it from distance). The CPU gets no assist, but the keeper change is shared, so CPU shots score a little more too. New logic checks for the assist and the read delay; `npm run test:local` passes. Not yet playtested by hand.
+
+**Continuous teaser revision (2026-10-18):** user found the first workspace teaser choppy and disconnected. New `output/teaser/street-soccer-teaser-smooth-v2.mp4` is 19 s, 1280 x 720, 60 fps, H.264 + AAC. One uninterrupted seed-15 real-game passage: passing/dribble, turnover, dive save, second save, third attempt scores, celebration. No scene cuts, flashes or replay jumps; title fades over continuing celebration. Recorder reprojects known camera/player/ball coordinates between the original 30 Hz replay frames for smooth 60 fps output without changing the match. Existing soundtrack/effects mixed continuously from event timestamps. Full 1,140-frame decode passes, both saves and goal confirmed, interior has no black frames, gameplay duplicate-frame fraction 0.24%, audio peak -4.5 dBFS. Original teaser and other trailer exports preserved. Sources/review stills/verification in workspace `output/teaser/smooth/` and its parent; no game source changes.
+
+**Gameplay trailer v2 (2026-10-18):** `tools/trailer/out/street-soccer-trailer-v2.mp4` (19.6 s, 12.2 MB; v1 kept in out/v1). Recorded with both AIs at normal (trailer.mjs CONFIG) so the real scoreboard stays (early-match moments only: 0-0 / 0-1); seeds 11-18. Cut: slide-tackle cold open (seed 13), title slam with white flash, dribble past repeated tackles (seed 14), dive save then REPLAY in 0.4x slow motion zoomed on the keeper (seed 15), 6-pass move into the first goal, freeze + flash on the goal, celebration push-in (seed 12), end card. edit.py gained per-cut `zoom` [from, to, cx, cy, span] (window kept below the HUD strip, score / clock panels pasted unscaled), `flash`, `flashAt`, `tag` (REPLAY); `coverScore` is now optional. Plans: out/plan-render.json, plan-render2.json, plan-edit.json.
+
+**Gameplay trailer, first cut (2026-10-18):** 20 s landscape trailer at `tools/trailer/out/street-soccer-trailer.mp4` (1280 x 720, 30 fps, H.264 + AAC, 13 MB; out/ is git-ignored). Dev-only recorder in `tools/trailer/` (never shipped): `harness.js` (Playwright init script: seeded Math.random, virtual clock, Phaser loop stopped and `game.step` driven with exact 1/30 s frames, because Phaser's TimeStep smoothing / unfocused clamping made replays differ; event log of kicks, passes, shots, saves, tackles, goals; hides touch controls, minimap, FPS, top-right buttons and the controlled-player markers; frames read with canvas.toDataURL in the same task, since page screenshots timed out), `trailer.mjs` (`search <from> <to>`: AI-vs-AI matches without drawing, ranks passing moves / dribbles / dive saves / goals; `render <plan> [segment]`; `check <seed> <frames>`: determinism, verified identical), `edit.py` (cuts, title / end cards in the game's pixel font, freeze frame, slow motion, score box replaced by RED VS BLUE because the hard-vs-normal AI scores are lopsided, soundtrack rebuilt from the event logs with ffmpeg). Only game change: `?film` also exposes window.__game (game.ts). Playwright 1.49.1 added as a devDependency; Chromium unpacked by hand into ~/.cache/ms-playwright (its own unzip stalled) and launched as channel 'chromium' with SwiftShader WebGL. Red vs blue, end card R/STREETSOCCERGAME. Needs `npm run build` + `node scripts/serve.mjs` running.
+
+**Landscape teaser (2026-10-17):** created workspace `output/teaser/street-soccer-teaser-landscape.mp4`: 22 seconds, 1280 x 720, 30 fps, H.264 + stereo AAC. Directed in-engine montage includes a dive parry, jump-save parry, dribbling, missed tackle, passing exchange, goal and celebration. Approved copy ends STREET SOCCER / EARN EVERY GOAL. / PLAY INSIDE REDDIT; no match-duration marketing copy. Existing game music/effects mixed with original synthesized percussion. Separate output-folder director uses the game's current physics and art; no shipped source/assets changed. Reviewed key frames, confirmed both parry events and goal, and decoded all 660 final frames with no errors; audio peak -4.2 dBFS. Editable sources and reproduction notes saved beside the MP4.
+
+**Slim desktop banner v3 (2026-10-17):** reworked composition to 1072:128 aspect ratio, exported at 2144 x 256 and 1072 x 128 in workspace output/branding/street-soccer-desktop-v3-*.png. Single-line STREET SOCCER title, thinner brick/asphalt backdrop. Background/title edited using built-in imagegen; exact pink shoot_contact (atlas index 12), mirrored blue run frame (index 5), and authored ball composited from game files with nearest-neighbour sampling. Both exports visually inspected, full sprites and title visible. Reproducible export-desktop-banner.mjs and complete generation prompt saved beside exports.
+
+
+**Subreddit banner v2 (2026-10-17):** improved the supplied banner with built-in imagegen using the current clean-shaven shoot/run sheets and blue atlas as references. Stronger central pixel title, worn brick wall, balanced pink kicker / blue runner, one ball. Cropped generated letterboxing and exported at 1920 x 384 plus native 2170 x 434 in workspace output/branding/street-soccer-banner-v2*.png. Prompt notes and export script are beside the images. Final crop visually inspected. This is a separate branding artifact; no game assets replaced.
+
+
 **Review of the full head replacement + compliance follow-up (2026-10-17, main, uncommitted):** every authored sheet with a visible face now has the clean-shaven head (run up / run up-diagonal are back views and were left as they are). Atlases were rebaked after the last sheet (hold); release art 1.75 MiB. `npm run test:local` passes (types, lint, unit, 28 logic checks, privacy/pinned-score checks, build). Full atlases inspected in blue and home keeper kits: kits split cleanly on every frame, one face throughout. Cosmetic only: a few dark-pink pixels stay pink on the black keeper shorts in the lying tackle/hurt frames (too dark for the pink rule), and the keeper jump poses are drawn smaller than keeper idle (same as before the redraw, not new). Before `npm run launch`: commit, playtest the new delete-my-data menu item / form, the 10-minute privacy-cleanup scheduler and SUBMIT_POST on Reddit (new permissions need a fresh upload).
 
 **Compliance follow-up (2026-10-17, main):** implemented confirmed self-service leaderboard deletion from the subreddit menu, legacy board discovery, a 10-minute rotating deleted/unavailable-account sweep, fail-closed Scores pin verification with reusable pending comments, and moderator custom posts as USER with SUBMIT_POST and reportable UGC. Help and README document deletion scope and migration limits. Privacy/pinning regressions, 28 game logic checks, TypeScript, lint and production build passed. All current source sprites rebaked into 10 atlases and 12 release images (1.75 MiB). Reddit playtest v0.0.2.2 installed successfully in r/street_soccer_dev; browser access to Reddit was declined, so native forms, non-owner moderator attribution and scheduled execution still need Reddit verification. Local help spacing adjusted after inspection.
@@ -411,6 +427,16 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- User feedback on the first teaser prioritizes continuity and smooth motion: use one complete real-game passage, keep the camera following play, remove flashes/replay cuts, and reveal branding over the existing celebration. Continue to omit match-duration marketing copy.
+
+- Teaser uses landscape 16:9 and the approved save-focused script, omitting match-duration claims. Use directed in-engine capture with the current art and existing physics, with production scripts isolated under workspace `output/teaser/`.
+
+- Desktop banner v3 uses the 1072:128 proportion supplied by the user, a single-line title and actual baked game pixels for the players, rather than relying on generated sprite lookalikes.
+
+
+- Subreddit branding uses the current clean-shaven character references and the in-game brick / asphalt / pixel-lettering theme. Banner output is versioned separately, preserving the supplied original.
+
+
 - Player deletion is confirmed and authenticated against the current Reddit user, covers all indexed retained boards in this subreddit, and reports migration failures. Account cleanup uses rotating scheduled pages; lookup errors never count as deleted accounts. Score-only shares require a verified pinned parent; moderator challenge text uses user-action attribution.
 
 
@@ -565,7 +591,7 @@ public/ball.svg             pixel ball shown on the splash
 - **Movement feels FIFA-like, not instant** (user feedback: movement with the ball felt rigid and chunky). This overrides the plan's "no acceleration ramp": speed ramps up (0 -> jog in about 0.2 s, which is still responsive), turning rate drops with speed (wide arcs when sprinting, a quick pivot when slow), and the further the heading is off the stick (45° -> 150°), the more the player eases off. So a reversal plants, turns and re-accelerates instead of snapping round.
 - **Dribble model (close control).** The previous model (a spring pulling the ball to a point ahead of the facing, with large out-and-back touches) felt chunky: on turns the target swung round and the ball cut through the player's body. Now the ball is placed relative to the carrier by an angle that follows the facing at a limited rate (dragged round in an arc) and a distance that eases to a speed-dependent lead with small smooth taps. Its velocity is derived from its motion. Measured: jogging lead 29-31 px with at most 0.44 px change per step; a 180° turn keeps the ball at least 26 px from the feet; sprint lead 47-53 px. The carrier loses the ball beyond 110 px (leash).
 - **Ball control limit raised from the plan's 450 to 1000 px/s and 40 high** (user request: a shot at a teammate should be controlled). The intended receiver of a pass always controls it (automatic first touch).
-- **Shooting is skill-based, no assist** (user request, replacing the earlier aim assist): the ball leaves along the stick; accuracy comes from charge timing; swipes on SHOOT shape it (analog chip / power / curl). The AI uses the very same `kickShot` and `kickPass`.
+- **Shooting is skill-based, with a partial finishing assist** (first user request: no assist, replacing the earlier aim assist; then 2026-10-18 user: too hard to score, shots go at the keeper). The ball leaves along the stick, except that a human shot in or near the mouth from within 700 px is pulled a random 10-90% toward the open side of the keeper (`assistedShotDirection`), so aim still matters (aimed shots score most) but a straight shot no longer goes at the keeper. Accuracy comes from charge timing; swipes on SHOOT shape it (analog chip / power / curl). The AI uses the very same `kickShot` and `kickPass` without the assist (it picks open spots itself).
 - **One shared AI for both teams** (user picked plan v3 + parts of v2): a team-level `TeamBrain` assigns roles, players steer with the normal movement code; difficulty only changes the CPU's `LEVELS` row. Tackles are the same code for the human and the AI.
 - **Button contexts and buffering:**
   - B1 = PASS / TACKLE, B2 = SHOOT (hold to charge) / SWITCH.
@@ -576,7 +602,7 @@ public/ball.svg             pixel ball shown on the splash
 - **Team plans (`TACTICS`, `TeamBrain.style`)** (user request: "make our teammates more attacking, the whole plan more aggressive; attackers go ahead with the ball and track back without it, defenders and the midfielder come forward too"): our AI teammates play `attacking` (every slot pushes well up with the ball and drops back without it, the forward always runs ahead, more one-twos, riskier through balls, more forward passing, pressing high and tighter); the CPU keeps `balanced` (the previous behaviour), so the difficulty levels are unchanged.
 - **AI reacts late to the opposing carrier** (user request: "it is too difficult to fake them"): `LEVELS.readSec` delay on what the pressing / tackling AI sees, plus juke 120 -> 90 degrees. Applies to both sides (ours reads CPU carriers at normal).
 - **Stamina +30% for everyone** (user request): `STAMINA.drainPerSec` 16 -> 12.3 (about 8 s of sprint from full instead of 6); regen, delay and thresholds unchanged, so it refills as fast as before.
-- **Keeper improvements kept modest** (user: "don't make it overpowered that nobody can score"): better angle positioning and a walking side-step while it reacts, but the same reaction times, dive and reach.
+- **Keeper improvements kept modest** (user: "don't make it overpowered that nobody can score"): better angle positioning and a walking side-step while it reacts, but the same reaction times, dive and reach. 2026-10-18 (scoring too hard): the side-step starts only after a 0.1 s read, reach 38, rush-out stops 110 px from the shooter; balance checked by simulating shots by distance and aim. Target: most close shots score, placed shots score best, long shots rarely.
 - **Less crowding round the ball** (user feedback: "it feels so overcrowded at times"): the shape slides less with the ball, our team stretches wide, the defending zones close the middle less, the defending forward stays up, positioning jobs move calmly, and the camera is zoomed out to 0.9. Player sprites were left at their size (optional idea, not asked for).
 - **Kickoffs wait for the kickoff pass** (user request: "unless I click pass the game shouldn't start, neither AI nor time clock"). The CPU kicks off by itself after a short pause, so a CPU kickoff never needs input.
 - **Contain, then punish idling** (user feedback: the presser "follows like a shadow, no room to pass to the player behind"; user request: an idle carrier should be attacked and the CPU go through on goal): the presser keeps a real distance and reacts at its think rate, but a carrier standing on the ball for 1.5 s is closed down and tackled, and a won ball turns into a counter-attack.
@@ -627,6 +653,18 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 - The far wall and near fence are still infinitely tall for the ball; only the end walls have a height (120) for the ball to clear.
 
 ## Next up
+
+- Playtest the easier scoring (finishing assist + keeper read delay). If still too hard or too easy, tune `SHOOT.assistMin/assistMax` first, then `KEEPER.shuffleDelay` / `reach` / `rushGap`.
+
+- Review the revised continuous teaser at workspace `output/teaser/street-soccer-teaser-smooth-v2.mp4`. Original 22 s teaser and separate tools/trailer work remain available; no publishing requested.
+
+- User review of the finished landscape teaser at `output/teaser/street-soccer-teaser-landscape.mp4`; editable capture and audio sources are beside it. No posting or publication requested.
+
+- Use the new 2144 x 256 desktop banner v3 for the subreddit; a 1072 x 128 version is also saved. No Reddit settings changed.
+
+
+- New subreddit banner is available in output/branding for the user to upload; no Reddit community appearance settings changed.
+
 
 - Playtest the installed compliance update on Reddit with a non-owner moderator: user post attribution/approval, pin failure and recovery, confirmed deletion across two posts, and scheduled cleanup. No publication requested.
 
@@ -830,6 +868,26 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-10-18:** easier scoring: finishing assist on human shots (pulled toward the open side of the keeper, random 10-90%), keeper reads shots 0.1 s before side-stepping, standing reach 38, rush-out stops 110 px from the shooter; tuned by simulation; new logic checks
+
+- **2026-10-18:** replaced the first teaser's disconnected montage with a separately exported 19 s, 60 fps continuous-gameplay revision; verified 1,140 frames, two saves, one goal, smooth title reveal and unclipped audio.
+
+### 2026-10-18: Trailer v2
+
+- Even-difficulty recording with the real score, zooms on the save and celebration, REPLAY tag, flashes on the title and goal.
+
+### 2026-10-18: Gameplay trailer
+
+- Dev-only trailer recorder (tools/trailer) and a 20 s first cut; `?film` URL flag exposes the game object locally.
+
+- **2026-10-17:** produced and verified a 22-second landscape Street Soccer teaser with two goalkeeper saves, goal celebration, title cards, music and synchronized effects. Export lives outside the repo in workspace `output/teaser/`; 660 frames decode cleanly and audio does not clip.
+
+- **2026-10-17:** redesigned desktop banner for 1072:128 proportions with single-line title and actual game sprites; exported 2144 x 256 / 1072 x 128 PNGs and inspected both.
+
+
+- **2026-10-17:** created improved Street Soccer subreddit banner v2 using current game sprite references; exported and inspected two wide PNGs with prompt notes.
+
 
 ### 2026-10-17: Review of head replacement and compliance follow-up
 

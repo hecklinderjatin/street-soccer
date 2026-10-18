@@ -49,6 +49,7 @@ import {
   shotShape,
   choosePassTarget,
   kickPass,
+  assistedShotDirection,
   kickShot,
   kickThroughPass,
   idealPassWeight,
@@ -695,7 +696,8 @@ export class MatchScene extends Phaser.Scene {
               k,
               ball,
               home ? this.home : this.away,
-              home ? this.away : this.home
+              home ? this.away : this.home,
+              t
             );
       stepPlayer(k, steer.move, steer.sprint, dt, ball.owner === k, regen(k));
       // Standing still, a keeper keeps its eyes on the ball.
@@ -991,10 +993,16 @@ export class MatchScene extends Phaser.Scene {
           held <= SHOOT.tapMaxSec ? 0 : clamp(held / SHOOT.chargeSec, 0, 1);
         this.chargeSince = null;
         this.passChargeSince = null;
+        const aim = assistedShotDirection(
+          c,
+          controls.move,
+          this.keeperFacing(c),
+          Math.random
+        );
         kickShot(
           ball,
           c,
-          controls.move,
+          { x: Math.cos(aim), y: Math.sin(aim), r: 1 },
           charge,
           this.opponentsOf(c),
           Math.random,
@@ -1687,11 +1695,23 @@ export class MatchScene extends Phaser.Scene {
   }
 
   // Which way the strike will leave: the stick, or the facing with the stick
-  // centred; a keeper kick from the hands goes upfield then.
+  // centred; a keeper kick from the hands goes upfield then. An outfield
+  // shot shows the finishing assist at its middle strength.
   private strikeDirection(c: Player) {
     if (c.holding && this.controls.move.r <= STICK.deadZone)
       return c.team === 'home' ? 0 : Math.PI;
-    return shotDirection(c, this.controls.move);
+    if (c.role === 'keeper') return shotDirection(c, this.controls.move);
+    return assistedShotDirection(
+      c,
+      this.controls.move,
+      this.keeperFacing(c),
+      () => 0.5
+    );
+  }
+
+  // The keeper a player shoots at.
+  private keeperFacing(p: Player) {
+    return p.team === 'home' ? this.awayKeeper : this.homeKeeper;
   }
 
   // White while building, green in the perfect band, red when over-hit (a

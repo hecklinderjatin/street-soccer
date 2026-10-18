@@ -70,7 +70,9 @@ export function keepInBox(keeper: Player) {
 // 2. A shot (a fast free ball) heading for its goal: it sets itself,
 //    side-stepping along its line toward where the ball will cross it at
 //    a walk (KEEPER.shuffleStick) until its reaction dive (cpuKeeperReact).
-//    Not at a sprint: a well-placed shot still beats it.
+//    Not at a sprint, and only once it has read the shot
+//    (KEEPER.shuffleDelay after cpuKeeperReact first sees it): a
+//    well-placed shot still beats it.
 // 3. Rush out: an opposing carrier near goal with none of our outfielders
 //    between it and the goal: it comes out toward the carrier (to
 //    KEEPER.rushGap from it, at most KEEPER.rushMax off its line).
@@ -82,7 +84,8 @@ export function keeperStick(
   k: Player,
   ball: Ball,
   mates: readonly Player[],
-  opponents: readonly Player[]
+  opponents: readonly Player[],
+  time: number
 ): KeeperSteer {
   const gx = k.team === 'home' ? 0 : PITCH.width;
   const gy = PITCH.height / 2;
@@ -109,6 +112,7 @@ export function keeperStick(
       return STAND;
     const cross = ball.y + (ball.vy * (k.x - ball.x)) / ball.vx;
     if (Math.abs(cross - gy) > halfMouth + KEEPER.reactMargin) return STAND;
+    if (time < k.shuffleAt) return STAND;
     const dy = clamp(cross, gy - halfMouth, gy + halfMouth) - k.y;
     if (Math.abs(dy) < 6) return STAND;
     return {
@@ -383,6 +387,7 @@ export function cpuKeeperReact(
   if (keeper.reactAt < 0 || keeper.reactKind !== target.kind) {
     keeper.reactKind = target.kind;
     keeper.reactAt = time + reactSec + (rand() * 2 - 1) * KEEPER.reactJitter;
+    keeper.shuffleAt = time + KEEPER.shuffleDelay;
     return;
   }
   if (time < keeper.reactAt) return;

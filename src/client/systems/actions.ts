@@ -373,6 +373,57 @@ export function shotDirection(shooter: Player, move: StickInput) {
   return move.r > STICK.deadZone ? Math.atan2(move.y, move.x) : shooter.heading;
 }
 
+// Finishing assist (user request: scoring was too hard, shots went
+// straight at the keeper). A human shot from within SHOOT.assistRange that
+// would cross the goal line in or near the mouth is steered part of the way
+// (SHOOT.assistMin..assistMax, random per shot so the finish isn't all or
+// nothing) toward a spot SHOOT.assistInset inside the post on
+// the open side: the side the stick picked relative to the keeper, or the
+// bigger gap when aimed right at it. The pull fades out toward the range
+// limit. Clearly wide shots, shots away from goal and long range keep the
+// stick, so the keeper still saves weak, central or speculative efforts.
+export function assistedShotDirection(
+  shooter: Player,
+  move: StickInput,
+  keeper: Player,
+  rand: () => number
+) {
+  const aim = shotDirection(shooter, move);
+  const dx = (shooter.team === 'home' ? PITCH.width : 0) - shooter.x;
+  const gy = PITCH.height / 2;
+  const half = PITCH.goalMouth / 2;
+  const dist = Math.hypot(dx, gy - shooter.y);
+  const along = Math.cos(aim) * Math.sign(dx);
+  if (Math.abs(dx) < 1 || along < 0.2 || dist > SHOOT.assistRange) return aim;
+  const cross = shooter.y + (dx * Math.sin(aim)) / Math.cos(aim);
+  if (Math.abs(cross - gy) > half + SHOOT.assistMargin) return aim;
+  // Where the keeper stands, seen from the shooter, on the goal line.
+  const kdx = keeper.x - shooter.x;
+  const kCross =
+    Math.sign(kdx) === Math.sign(dx) && Math.abs(kdx) > 1
+      ? clamp(
+          shooter.y + ((keeper.y - shooter.y) * dx) / kdx,
+          gy - half,
+          gy + half
+        )
+      : gy;
+  const side =
+    Math.abs(cross - kCross) > SHOOT.assistKeeperBand
+      ? Math.sign(cross - kCross)
+      : kCross === gy
+        ? Math.sign(cross - gy) || Math.sign(gy - shooter.y) || 1
+        : Math.sign(gy - kCross);
+  const target = gy + side * (half - SHOOT.assistInset);
+  const fade = clamp(
+    (SHOOT.assistRange - dist) / (SHOOT.assistRange - SHOOT.assistFullRange),
+    0,
+    1
+  );
+  const strength = lerp(SHOOT.assistMin, SHOOT.assistMax, rand());
+  const y = lerp(cross, target, strength * fade);
+  return Math.atan2(y - shooter.y, dx);
+}
+
 // Is this charge a perfect (green) release?
 export function isPerfectCharge(charge: number) {
   return (

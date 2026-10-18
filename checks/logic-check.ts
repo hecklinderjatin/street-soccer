@@ -9,9 +9,17 @@ import {
   startTackle,
   tacklePhase,
 } from '../src/client/systems/tackle';
-import { cpuKeeperReact, stepKeeperHands } from '../src/client/systems/keeper';
+import {
+  cpuKeeperReact,
+  keeperStick,
+  stepKeeperHands,
+} from '../src/client/systems/keeper';
 import { TeamBrain, interceptPoint } from '../src/client/systems/ai';
-import { idealPassWeight, passWeight } from '../src/client/systems/actions';
+import {
+  assistedShotDirection,
+  idealPassWeight,
+  passWeight,
+} from '../src/client/systems/actions';
 import {
   AI,
   FORMATIONS,
@@ -19,6 +27,7 @@ import {
   LEVELS,
   PASS,
   PITCH,
+  SHOOT,
   TACKLE,
 } from '../src/shared/tuning';
 import {
@@ -229,6 +238,63 @@ check(
     // Not diving yet at the old smother deadline.
     cpuKeeperReact(k, b, 10 + react + 0.01, react, () => 0.5);
     assert.equal(k.diveUntil, 0);
+  }
+);
+
+check('keeper: reads a shot before side-stepping toward it', () => {
+  const k = player({
+    team: 'away',
+    role: 'keeper',
+    x: PITCH.width - 50,
+    y: PITCH.height / 2,
+  });
+  const b = ball({
+    x: PITCH.width - 450,
+    y: PITCH.height / 2,
+    vx: 1100,
+    vy: 220, // crosses its line about 80 px to its side, inside the post
+  });
+  cpuKeeperReact(k, b, 10, LEVELS.normal.keeperReactSec, () => 0.5);
+  assert.equal(k.reactKind, 'dive');
+  assert.equal(keeperStick(k, b, [], [], 10).move.r, 0, 'still reading it');
+  const step = keeperStick(k, b, [], [], 10 + KEEPER.shuffleDelay);
+  assert.ok(step.move.r > 0 && step.move.y > 0, 'then side-steps toward it');
+});
+
+// --- Finishing assist ------------------------------------------------------
+check(
+  'shot assist: a shot at the keeper is pulled toward the open side',
+  () => {
+    const gy = PITCH.height / 2;
+    const shooter = player({ x: PITCH.width - 300, y: gy - 40 });
+    const k = player({
+      team: 'away',
+      role: 'keeper',
+      x: PITCH.width - 60,
+      y: gy,
+    });
+    const straight = { x: 1, y: 0, r: 1 }; // at the keeper's chest
+    const cross = (aim: number) => shooter.y + 300 * Math.tan(aim);
+    const mid = cross(assistedShotDirection(shooter, straight, k, () => 0.5));
+    const low = cross(assistedShotDirection(shooter, straight, k, () => 0));
+    const high = cross(assistedShotDirection(shooter, straight, k, () => 1));
+    // The keeper sits slightly low as seen from the shooter: the open side is up.
+    assert.ok(mid < shooter.y - 20, 'moved off the keeper toward the gap');
+    assert.ok(high < mid && mid < low, 'more pull with a stronger roll');
+    assert.ok(
+      high > gy - PITCH.goalMouth / 2 + SHOOT.assistInset * 0.9,
+      'still inside the post'
+    );
+    // Aimed clearly wide, or from long range: the stick is kept.
+    const wide = { x: Math.cos(0.9), y: Math.sin(0.9), r: 1 };
+    assert.ok(
+      Math.abs(assistedShotDirection(shooter, wide, k, () => 0.5) - 0.9) < 1e-9
+    );
+    const far = player({ x: PITCH.width - SHOOT.assistRange - 50, y: gy });
+    assert.equal(
+      assistedShotDirection(far, straight, k, () => 0.5),
+      0
+    );
   }
 );
 

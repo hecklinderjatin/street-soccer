@@ -86,6 +86,7 @@ export class Player {
   lying = false; // keeper: diving or down after a dive (drawn on its side)
   reactAt = -1; // AI keeper: sim time it reacts to the threat it has seen (-1 = none) ...
   reactKind = ''; // ... and of which kind (keeper.ts KeeperMove)
+  shuffleAt = -1; // AI keeper: sim time it starts side-stepping toward a shot it has just seen
   jumpAt = -Infinity; // keeper: jump save started ...
   jumpUntil = 0; // ... in the air until ...
   jumpLandUntil = 0; // ... landing until
@@ -207,6 +208,7 @@ export class Player {
     this.lying = false;
     this.reactAt = -1;
     this.reactKind = '';
+    this.shuffleAt = -1;
     this.jumpAt = this.blockAt = -Infinity;
     this.jumpUntil = this.jumpLandUntil = this.blockUntil = 0;
     this.blockTackle = false;
