@@ -3,3 +3,4 @@ node_modules
 dist
 .env
 art-baked
+tools/trailer/out

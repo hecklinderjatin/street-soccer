@@ -48,8 +48,11 @@ export function createGame(inline = false) {
   forceLandscape(game, box, !inline);
 
   // Testing hook: with ?debug in the URL, expose the game for inspection from
-  // the console or automated checks (window.__game). Off in normal play.
-  if (new URLSearchParams(window.location.search).has('debug'))
+  // the console or automated checks (window.__game); ?film does the same
+  // without the debug overlays, for the trailer recorder (tools/trailer).
+  // Off in normal play.
+  const query = new URLSearchParams(window.location.search);
+  if (query.has('debug') || query.has('film'))
     Reflect.set(window, '__game', game);
   return game;
 }
