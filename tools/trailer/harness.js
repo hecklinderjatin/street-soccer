@@ -47,6 +47,7 @@
   let prev = null;
   let demoSet = false;
   let hudClean = false;
+  let keepBanner = true;
   const teamOf = (p) => (p ? p.team : null);
   const idOf = (s, p) => (p ? s.everyone.indexOf(p) : -1);
 
@@ -129,6 +130,7 @@
     hudClean = true;
     if (h.helpLayer?.visible) h.setOverlay(null); // every match opens with it
     const keep = new Set([h.scoreText, h.clockText, h.goldenText, h.bannerText, h.bannerShadow]);
+    if (!keepBanner) for (const o of [h.bannerText, h.bannerShadow]) o.setVisible(false);
     for (const o of h.children.list) {
       if (keep.has(o)) continue;
       const topRight = o.x > 960 && o.y < 120;
@@ -210,7 +212,16 @@
     // drawing buffer is still intact then), as a PNG data URL.
     stepCapture(ms) {
       const ev = this.step(1, ms);
-      return { ev, png: game().canvas.toDataURL('image/png') };
+      // Ball on screen, so a vertical cut can crop around the action.
+      const s = match();
+      const b = s?.ball;
+      const at = { x: 640, y: 360 };
+      if (b) s.projector.project(b.renderX, b.renderY, b.renderZ, at);
+      return { ev, png: game().canvas.toDataURL('image/png'), ball: { x: Math.round(at.x), y: Math.round(at.y) } };
+    },
+    // The video draws its own GOAL!! instead of the game's banner.
+    showBanner(on) {
+      keepBanner = on;
     },
     frame: () => frame,
     ready: () => !!match()?.ready && demoSet,

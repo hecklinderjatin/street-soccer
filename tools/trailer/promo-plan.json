@@ -1,0 +1,12 @@
+{
+  "hideBanner": true,
+  "segments": [
+    { "name": "hook", "seed": 1, "from": 1930, "frames": 60 },
+    { "name": "dribble", "seed": 2, "from": 1269, "frames": 114 },
+    { "name": "passing", "seed": 1, "from": 1703, "frames": 176 },
+    { "name": "save", "seed": 1, "from": 4419, "frames": 90, "shakeAt": [4478] },
+    { "name": "save-slow", "seed": 1, "from": 4452, "frames": 80, "speed": 0.4 },
+    { "name": "goal", "seed": 2, "from": 2734, "frames": 217, "shakeAt": [2831] },
+    { "name": "goal-slow", "seed": 2, "from": 2812, "frames": 75, "speed": 0.35 }
+  ]
+}

@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Remotion promo video (2026-10-20):** a separate Remotion project at `F:\code ball\promo` (not part of the game or the Devvit upload) edits recorder clips into a vertical 1080x1920 and a landscape 1920x1080 promo, cut to the beat of `bgm.mp3` (164 BPM), in the game's pixel font. Clips come from `node tools/trailer/trailer.mjs render tools/trailer/promo-plan.json`, then `node scripts/import-clips.mjs` in the promo folder.
+
 **How-to-play panel at game start (2026-10-18):** a match opened from the post's PLAY (expanded Reddit, `BootScene` sets registry `helpAtStart`) starts with the (i) help panel open; the match waits paused until GOT IT. Once per page load (the flag is cleared), not on localhost or matches started from the menu / lobby, and not remembered across visits. Type check, lint and build pass; not yet seen on Reddit.
 
 **Hard minimum gap between AI teammates (2026-10-18):** user: "in defence sometimes it gets too crowded, make a hard rule of minimum distance among cpu players". `TeamBrain.steer` now runs every AI player's target through `keepApart` (ai.ts): pushed out of a `AI.mateMinGap` (120 px) circle round each teammate (3 passes, clamped to the pitch), for every job except going for the ball (`chase`, `press`), which still run straight in. A player already inside the gap moves off even when settled (the calm stand-still hysteresis is skipped). Applies to both AI teams (the CPU and our AI teammates); the human-controlled player is not moved, but teammates keep away from it. Before this only calm jobs (cover / support / run / show) had the soft `spaceDist` push; markers, rest defence, backup and recovery runs could bunch up. New logic check (3 attackers bunched at our goal, 4 s of steering): bound players stay over 105 px apart; with the rule off they end 77 px apart. `npm run test:local` passes. Not yet playtested by hand.
@@ -884,6 +886,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-10-20:** trailer recorder also logs the ball's screen position per frame (`ball.json` next to each segment's frames, from `__film.stepCapture`), so a vertical cut can crop around the action; new `tools/trailer/promo-plan.json` records the clips for the Remotion promo in `F:\code ball\promo` (outside the repo)
 
 - **2026-10-18:** the how-to-play (i) panel opens by itself on the first match started from the post's PLAY (match paused until GOT IT); the HUD had been opening it on every match, now only behind BootScene's `helpAtStart` flag
 

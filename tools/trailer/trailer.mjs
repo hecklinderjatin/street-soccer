@@ -170,7 +170,7 @@ async function search(from, to) {
 
 // ---- render ----------------------------------------------------------------
 
-// plan: { segments: [{ name, seed, from, frames, speed?, shakeAt?: [frame] }] }
+// plan: { hideBanner?, segments: [{ name, seed, from, frames, speed?, shakeAt?: [frame] }] }
 async function render(planFile) {
   const plan = JSON.parse(await readFile(planFile, 'utf8'));
   const browser = await chromium.launch(LAUNCH);
@@ -180,19 +180,23 @@ async function render(planFile) {
     if (only && seg.name !== only) continue;
     const dir = join(OUT, 'frames', seg.name);
     await mkdir(dir, { recursive: true });
+    await page.evaluate((on) => window.__film.showBanner(on), !plan.hideBanner);
     await startMatch(page, seg.seed);
     await fastForward(page, seg.from);
     const speed = seg.speed ?? 1;
     const log = [];
+    const track = [];
     for (let i = 0; i < seg.frames; i++) {
       const at = seg.from + i * speed;
       if (seg.shakeAt?.some((f) => f >= at && f < at + speed))
         await page.evaluate(() => window.__film.shake(160, 0.006));
-      const { ev, png } = await page.evaluate(([ms]) => window.__film.stepCapture(ms), [FRAME_MS * speed]);
+      const { ev, png, ball } = await page.evaluate(([ms]) => window.__film.stepCapture(ms), [FRAME_MS * speed]);
+      track.push(ball);
       for (const e of ev) if (e.type !== 'pos') log.push({ ...e, out: i });
       await writeFile(join(dir, `${String(i).padStart(5, '0')}.png`), Buffer.from(png.split(',')[1], 'base64'));
     }
     await writeFile(join(dir, 'events.json'), JSON.stringify(log, null, 1));
+    await writeFile(join(dir, 'ball.json'), JSON.stringify(track));
     console.log(`${seg.name}: ${seg.frames} frames`);
   }
   await browser.close();
