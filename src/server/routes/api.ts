@@ -29,7 +29,7 @@ async function takeCooldown(key: string, sec: number) {
   return true;
 }
 
-// # Match results: today's top 3 per post, and posting a score as a comment
+// # Match results: the last 7 days' top 3 per post, and posting a score as a comment
 // ##########################################################################
 
 // A finished match: kept if it is the player's best today; returns the

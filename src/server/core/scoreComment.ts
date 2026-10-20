@@ -1,5 +1,5 @@
 import type { MatchStats } from '../../shared/api';
-import type { MatchConfig } from '../../shared/types';
+import { DIFFICULTY_LABEL, type MatchConfig } from '../../shared/types';
 
 // The comment a player posts from the result screen (POST MY SCORE): their
 // own words, then, if they chose to share it, a line with the score and
@@ -14,11 +14,13 @@ const outcome = (s: MatchStats) =>
       ? 'Lost'
       : 'Drew';
 
+const capital = (s: string) => s.charAt(0) + s.slice(1).toLowerCase();
+
 export function statsLine(stats: MatchStats, config: MatchConfig | null) {
   const teams = config ? `${config.home.name} vs ${config.away.name}, ` : '';
   return (
     `⚽ **${outcome(stats)} ${stats.goalsFor}-${stats.goalsAgainst}** ` +
-    `(${teams}${stats.difficulty} AI) · ` +
+    `(${teams}${capital(DIFFICULTY_LABEL[stats.difficulty])} AI) · ` +
     `Shots ${stats.shots} · Passes ${stats.passes} · Tackles won ${stats.tacklesWon}`
   );
 }

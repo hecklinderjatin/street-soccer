@@ -414,6 +414,7 @@ export const AI = {
   openDist: 140, // a support spot this close to an opponent shifts away from them
   supportMinDist: 240, // supporters keep at least this far from the carrier
   spaceDist: 150, // teammates closer than this push their spots apart (cover / support / run / show)
+  mateMinGap: 120, // hard rule, any job but going for the ball (chase / press): an AI player's target is never closer than this to a teammate (user request: defence too crowded)
   restGap: 110, // rest defence: our deepest player stays this far goal-side of their most advanced one ...
   restBehindBall: 150, // ... and at least this far behind the ball
   showPress: 0.35, // our carrier pressed this hard (pressureOn): the nearest teammate shows for the ball ...
@@ -571,10 +572,26 @@ export const TACTICS = {
 } as const;
 
 // Difficulty: how sharp the CPU team is (our AI teammates and our keeper
-// always play at normal). Same movement, physics and rules at every level
+// always play at normal). Shown as NOOB / EASY / NORMAL / HARD /
+// PROFESSIONAL (pro). Same movement, physics and rules at every level
 // (no speed boosts or guaranteed saves): only reaction, decisions,
 // accuracy and positioning change.
 export const LEVELS = {
+  noob: {
+    thinkSec: 0.4,
+    readSec: 0.5,
+    tackleChance: 0.12,
+    shotChargeNoise: 0.35,
+    decisionNoise: 0.4,
+    passErrorScale: 3.2,
+    passReactSec: 0.6,
+    aimSpread: 140,
+    markGapScale: 2,
+    posError: 100,
+    recoverSlack: 260,
+    keeperReactSec: 0.6,
+    keeperDiveError: 45,
+  },
   easy: {
     thinkSec: 0.3, // re-thinks this often (reaction)
     readSec: 0.35, // reacts to the opponent's carrier as it was this long ago (feints and sudden turns fool it)
@@ -619,6 +636,21 @@ export const LEVELS = {
     recoverSlack: 20,
     keeperReactSec: 0.32,
     keeperDiveError: 5,
+  },
+  pro: {
+    thinkSec: 0.08,
+    readSec: 0.1,
+    tackleChance: 0.8,
+    shotChargeNoise: 0.03,
+    decisionNoise: 0.02,
+    passErrorScale: 1.1,
+    passReactSec: 0.16,
+    aimSpread: 20,
+    markGapScale: 0.75,
+    posError: 6,
+    recoverSlack: 0,
+    keeperReactSec: 0.26,
+    keeperDiveError: 2,
   },
 } as const;
 

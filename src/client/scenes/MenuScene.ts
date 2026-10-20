@@ -4,6 +4,7 @@ import type { DailyLeadersResponse } from '../../shared/api';
 import { formatClock } from '../../shared/matchConfig';
 import {
   DIFFICULTIES,
+  DIFFICULTY_LABEL,
   type Difficulty,
   type MatchConfig,
 } from '../../shared/types';
@@ -111,36 +112,44 @@ export class MenuScene extends Phaser.Scene {
         text(34, 340 + i * 22, line.trim(), 1.8, PAL.lightGray)
       );
     if (!this.config.locked && !inline) {
-      const buttons = DIFFICULTIES.map(
-        (difficulty, i) =>
-          new TextButton(
-            this,
-            104 + i * 152,
-            386,
-            difficulty,
-            () => {
-              this.difficulty = difficulty;
-              this.mobileLobby?.setDifficulty(difficulty);
-              buttons.forEach((button, j) =>
-                button.setFill(
-                  DIFFICULTIES[j] === difficulty ? PAL.orange : PAL.darkGray
-                )
-              );
-              this.restartDemo();
-            },
-            {
-              width: 140,
-              height: 36,
-              textSize: 1.8,
-              fill: difficulty === this.difficulty ? PAL.orange : PAL.darkGray,
-            }
-          )
+      // < LEVEL >: the arrows step through DIFFICULTIES (easiest first),
+      // the middle cycles; five names don't fit as separate buttons.
+      const level = new TextButton(
+        this,
+        256,
+        386,
+        DIFFICULTY_LABEL[this.difficulty],
+        () => step(1, true),
+        { width: 304, height: 36, textSize: 1.8, fill: PAL.orange }
       );
+      const step = (by: number, wrap = false) => {
+        const i = DIFFICULTIES.indexOf(this.difficulty) + by;
+        const next = wrap
+          ? DIFFICULTIES[(i + DIFFICULTIES.length) % DIFFICULTIES.length]
+          : DIFFICULTIES[Phaser.Math.Clamp(i, 0, DIFFICULTIES.length - 1)];
+        if (!next || next === this.difficulty) return;
+        this.difficulty = next;
+        level.setLabel(DIFFICULTY_LABEL[next]);
+        this.mobileLobby?.setDifficulty(DIFFICULTY_LABEL[next]);
+        this.restartDemo();
+      };
+      new TextButton(this, 56, 386, '<', () => step(-1), {
+        width: 64,
+        height: 36,
+        textSize: 1.8,
+        fill: PAL.darkGray,
+      });
+      new TextButton(this, 456, 386, '>', () => step(1), {
+        width: 64,
+        height: 36,
+        textSize: 1.8,
+        fill: PAL.darkGray,
+      });
     } else
       text(
         34,
         385,
-        `${this.config.difficulty.toUpperCase()} AI  /  FIXED MATCH RULES`,
+        `${DIFFICULTY_LABEL[this.config.difficulty]} AI  /  FIXED MATCH RULES`,
         1.8,
         PAL.lightGray
       );
@@ -154,7 +163,7 @@ export class MenuScene extends Phaser.Scene {
       },
       { width: PLAY.w, height: PLAY.h, textSize: 3, fill: PAL.orange }
     );
-    text(34, 502, "TODAY'S LEADERBOARD", 2.3, PAL.yellow);
+    text(34, 502, '7-DAY LEADERBOARD', 2.3, PAL.yellow);
     new TextButton(
       this,
       425,
@@ -271,7 +280,7 @@ export class MenuScene extends Phaser.Scene {
         .rectangle(640, 360, 920, 648, PAL.navy)
         .setStrokeStyle(4, PAL.yellow)
     );
-    overlay.add(pixelText(this, 230, 83, "TODAY'S LEADERBOARD", 3, PAL.yellow));
+    overlay.add(pixelText(this, 230, 83, '7-DAY LEADERBOARD', 3, PAL.yellow));
     overlay.add(
       new TextButton(this, 1040, 80, 'X', () => overlay.destroy(), {
         width: 48,
@@ -352,7 +361,7 @@ export class MenuScene extends Phaser.Scene {
             585,
             data.me
               ? `YOUR BEST: #${data.me.rank}  ${data.me.goalsFor}-${data.me.goalsAgainst}`
-              : 'YOU: NOT PLAYED TODAY',
+              : 'YOU: NO 7-DAY SCORE',
             2,
             PAL.lightGray
           )
@@ -454,7 +463,7 @@ export class MenuScene extends Phaser.Scene {
           683,
           data.me
             ? `YOUR BEST: #${data.me.rank}  ${data.me.goalsFor}-${data.me.goalsAgainst}`
-            : 'YOU: NOT PLAYED TODAY',
+            : 'YOU: NO 7-DAY SCORE',
           1.8,
           PAL.lightGray
         ).setOrigin(0, 0.5)

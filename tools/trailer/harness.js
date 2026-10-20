@@ -127,6 +127,7 @@
     const h = game().scene.getScene('Hud');
     if (!h || !h.sys.isActive() || !h.scoreText) return;
     hudClean = true;
+    if (h.helpLayer?.visible) h.setOverlay(null); // every match opens with it
     const keep = new Set([h.scoreText, h.clockText, h.goldenText, h.bannerText, h.bannerShadow]);
     for (const o of h.children.list) {
       if (keep.has(o)) continue;

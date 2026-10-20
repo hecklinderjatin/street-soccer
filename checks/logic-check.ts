@@ -34,6 +34,7 @@ import {
   DEFAULT_MATCH_CONFIG,
   parseMatchConfig,
 } from '../src/shared/matchConfig';
+import { DIFFICULTIES } from '../src/shared/types';
 import { readChallenge } from '../src/server/core/challengeForm';
 import { postConfig, readStats } from '../src/server/core/matchStats';
 import { scoreComment } from '../src/server/core/scoreComment';
@@ -440,17 +441,18 @@ check('interceptPoint: a stopped ball is met where it lies', () => {
 check(
   'difficulty table: harder = quicker and sharper, never different physics',
   () => {
-    const { easy, normal, hard } = LEVELS;
+    const order = DIFFICULTIES.map((d) => LEVELS[d]);
+    order.slice(1).forEach((level, i) => {
+      const easier = order[i];
+      assert.ok(easier, 'levels listed easiest first');
+      assert.ok(easier.thinkSec > level.thinkSec);
+      assert.ok(easier.keeperReactSec > level.keeperReactSec);
+      assert.ok(easier.tackleChance < level.tackleChance);
+      assert.ok(easier.keeperDiveError > level.keeperDiveError);
+    });
     assert.ok(
-      easy.thinkSec > normal.thinkSec && normal.thinkSec > hard.thinkSec
-    );
-    assert.ok(
-      easy.keeperReactSec > normal.keeperReactSec &&
-        normal.keeperReactSec > hard.keeperReactSec
-    );
-    assert.ok(
-      easy.tackleChance < normal.tackleChance &&
-        normal.tackleChance < hard.tackleChance
+      LEVELS.pro.keeperReactSec - KEEPER.reactJitter > 0,
+      'the sharpest keeper still has a reaction time'
     );
     assert.ok(TACKLE.baseChance > 0 && TACKLE.baseChance < 1);
   }
@@ -503,6 +505,44 @@ check(
     assert.ok(Math.abs(o2!.y - straightPress(c2).y) < 1, 'no shift in the box');
   }
 );
+check('defending: AI players keep AI.mateMinGap apart (chaser exempt)', () => {
+  // Three attackers bunched in front of our goal pull markers and zones
+  // together; walk the defenders for 4 s and measure the gaps.
+  const gy = PITCH.height / 2;
+  const c = carrierAt(420, gy);
+  const brain = new TeamBrain('home', LEVELS.normal);
+  const opps = [
+    c,
+    ...team('away', [380, 380, 380]).map((o, i) => {
+      o.y = gy - 60 + i * 60;
+      o.seenAgo = () => o;
+      return o;
+    }),
+  ];
+  const mates = team('home', [250, 260, 270, 280]);
+  mates.forEach((m, i) => (m.y = gy - 30 + i * 20));
+  const b = ball({ x: c.x - 20, y: c.y, owner: c });
+  const dt = 1 / 60;
+  for (let t = 1; t < 5; t += dt) {
+    brain.think(view(mates, opps, b), t);
+    for (const m of mates) {
+      const s = brain.steer(m, view(mates, opps, b));
+      m.x += s.move.x * s.move.r * 250 * dt;
+      m.y += s.move.y * s.move.r * 250 * dt;
+    }
+  }
+  const bound = mates.filter((m) => {
+    const role = brain.orders.get(m)?.role;
+    return role !== 'press' && role !== 'chase';
+  });
+  for (const m of bound)
+    for (const q of mates)
+      if (q !== m)
+        assert.ok(
+          Math.hypot(q.x - m.x, q.y - m.y) > AI.mateMinGap - 15,
+          `${Math.round(Math.hypot(q.x - m.x, q.y - m.y))} px apart`
+        );
+});
 check('defending B: a backup covers behind the presser, goal-side', () => {
   const gy = PITCH.height / 2;
   const c = carrierAt(1000, gy);
@@ -670,7 +710,7 @@ check('POST MY SCORE: comment text with and without stats', () => {
   assert.ok(typeof s !== 'string');
   const both = scoreComment('  gg ', true, s, null);
   assert.ok(both.startsWith('gg\n\n'), both);
-  assert.match(both, /Won 3-2.*easy AI.*Shots 7.*Passes 14.*Tackles won 4/);
+  assert.match(both, /Won 3-2.*Easy AI.*Shots 7.*Passes 14.*Tackles won 4/);
   assert.equal(scoreComment('gg', false, s, null), 'gg');
   assert.match(
     scoreComment('', true, s, null, 'kicker'),

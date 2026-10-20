@@ -8,6 +8,12 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**How-to-play panel at game start (2026-10-18):** a match opened from the post's PLAY (expanded Reddit, `BootScene` sets registry `helpAtStart`) starts with the (i) help panel open; the match waits paused until GOT IT. Once per page load (the flag is cleared), not on localhost or matches started from the menu / lobby, and not remembered across visits. Type check, lint and build pass; not yet seen on Reddit.
+
+**Hard minimum gap between AI teammates (2026-10-18):** user: "in defence sometimes it gets too crowded, make a hard rule of minimum distance among cpu players". `TeamBrain.steer` now runs every AI player's target through `keepApart` (ai.ts): pushed out of a `AI.mateMinGap` (120 px) circle round each teammate (3 passes, clamped to the pitch), for every job except going for the ball (`chase`, `press`), which still run straight in. A player already inside the gap moves off even when settled (the calm stand-still hysteresis is skipped). Applies to both AI teams (the CPU and our AI teammates); the human-controlled player is not moved, but teammates keep away from it. Before this only calm jobs (cover / support / run / show) had the soft `spaceDist` push; markers, rest defence, backup and recovery runs could bunch up. New logic check (3 attackers bunched at our goal, 4 s of steering): bound players stay over 105 px apart; with the rule off they end 77 px apart. `npm run test:local` passes. Not yet playtested by hand.
+
+**Five difficulty levels (2026-10-18):** user: "add 5 lvls of difficulty from very easy to very hard: noob, easy, amateur, hard, professional". `Difficulty` is now `'noob' | 'easy' | 'normal' | 'hard' | 'pro'` (`DIFFICULTIES` easiest first); players see `DIFFICULTY_LABEL` (NOOB / EASY / AMATEUR / HARD / PROFESSIONAL) on the menu, mobile lobby, feed card, result screen, the moderator form and the posted score line ("Amateur AI"). New `LEVELS.noob` (slower than easy on every number: think 0.4 s, read 0.5 s, tackle 12%, keeper react 0.6 s, dive error 45 px, wide spots and marking) and `LEVELS.pro` (think 0.08 s, read 0.1 s, tackle 80%, keeper react 0.26 s, dive error 2 px, tight marking, no recovery slack); still same physics and movement. Menu: the three level buttons became one `< LEVEL >` selector (arrows step and stop at the ends, tapping the middle cycles), because five names don't fit side by side. The logic check now requires every level to be strictly sharper than the one before. `npm run test:local` passes; menu checked in a local screenshot (AMATEUR -> HARD -> PROFESSIONAL). Not yet balanced by playing: noob and pro numbers are first guesses.
+
 **Easier scoring, keeper still saves the obvious (2026-10-18):** user: "very hard to score, whenever we shoot it sticks to the goalkeeper"; keeper should still make obvious saves. Measured with a scratch Monte Carlo of the real code (kickShot, stepFreeBall, collideBall, keeper AI at normal; script kept outside the repo) before changing anything: a straight shot at goal from 200-400 px scored 0-2%, an 8-way keyboard aim 19-28%, a shot aimed at a corner 59-90%; 1-on-1 against a rushing keeper 0-39%. Causes: shots leave exactly along the stick (straight = at the keeper), the keeper side-stepped the instant the ball was struck, and its rush-out stopped 80 px from the shooter, where its reach covers every angle. Changes: (1) **finishing assist** for human shots only (`assistedShotDirection` in actions.ts, `SHOOT.assist*`): within 700 px (full under 400), a shot crossing in or near the mouth is pulled 10-90% (random per shot) of the way to a spot 45 px inside the post on the open side (the side the stick picked vs the keeper, or the bigger gap when aimed at it); the aim arrow shows the middle strength; wide shots, shots away from goal and long range are untouched. (2) Keeper: `KEEPER.shuffleDelay` 0.1 s read before side-stepping (new `Player.shuffleAt`, set by cpuKeeperReact; `keeperStick` now takes `time`), `reach` 40 -> 38, `rushGap` 80 -> 110. After: from 200 px straight 54% / keyboard 77% / aimed 99%; from 350 px 22% / 53% / 80%; rushing keeper 11-57%; from 500-600 px still 2-5% (keeper keeps long shots, weak taps and shots at it from distance). The CPU gets no assist, but the keeper change is shared, so CPU shots score a little more too. New logic checks for the assist and the read delay; `npm run test:local` passes. Not yet playtested by hand.
 
 **Continuous teaser revision (2026-10-18):** user found the first workspace teaser choppy and disconnected. New `output/teaser/street-soccer-teaser-smooth-v2.mp4` is 19 s, 1280 x 720, 60 fps, H.264 + AAC. One uninterrupted seed-15 real-game passage: passing/dribble, turnover, dive save, second save, third attempt scores, celebration. No scene cuts, flashes or replay jumps; title fades over continuing celebration. Recorder reprojects known camera/player/ball coordinates between the original 30 Hz replay frames for smooth 60 fps output without changing the match. Existing soundtrack/effects mixed continuously from event timestamps. Full 1,140-frame decode passes, both saves and goal confirmed, interior has no black frames, gameplay duplicate-frame fraction 0.24%, audio peak -4.5 dBFS. Original teaser and other trailer exports preserved. Sources/review stills/verification in workspace `output/teaser/smooth/` and its parent; no game source changes.
@@ -599,6 +605,8 @@ public/ball.svg             pixel ball shown on the splash
   - A press is kept for 150 ms only when the ball is loose within 60 px of the controlled player, so it can become a pass or shot on gaining the ball. Otherwise it acts on the spot (switch/tackle).
   - Shot charge is timed in real time from the press.
 - **Goalkeepers share one AI** (keeper.ts) for both sides; saves only come from real reach and dive timing. Difficulty changes reaction time only (no reach or speed boosts). The human can control ours (via SWITCH or when it catches the ball), including a DIVE (user request); the Phase 3 plans assumed an AI-only keeper, and the user hasn't decided yet whether to keep keeper control.
+- **Min gap is on targets, not physics** (`AI.mateMinGap`, chasers / pressers exempt): spacing is decided where the AI picks its spot, so the ball-winner is never held back and players may still brush past each other while running; tackles and contests are unchanged.
+- **Five levels keep the old ids** (user request for NOOB / EASY / AMATEUR / HARD / PROFESSIONAL): `normal` is shown as AMATEUR and `pro` as PROFESSIONAL via `DIFFICULTY_LABEL`, instead of renaming ids, because saved posts' postData and existing configs store `easy` / `normal` / `hard`; renaming would make older challenge posts fail `parseMatchConfig`. Spelled AMATEUR (the user typed "amature").
 - **Difficulty = one table (`LEVELS`)** for the CPU; our AI teammates and keeper always play at normal. Same movement and physics at every level (v3: "no impossible movement or guaranteed saves"); only reaction (think rate, keeper reaction), decisions (score noise), accuracy (pass error, shot charge and placement, keeper dive error) and positioning (marking distance, positioning error) change.
 - **Team plans (`TACTICS`, `TeamBrain.style`)** (user request: "make our teammates more attacking, the whole plan more aggressive; attackers go ahead with the ball and track back without it, defenders and the midfielder come forward too"): our AI teammates play `attacking` (every slot pushes well up with the ball and drops back without it, the forward always runs ahead, more one-twos, riskier through balls, more forward passing, pressing high and tighter); the CPU keeps `balanced` (the previous behaviour), so the difficulty levels are unchanged.
 - **AI reacts late to the opposing carrier** (user request: "it is too difficult to fake them"): `LEVELS.readSec` delay on what the pressing / tackling AI sees, plus juke 120 -> 90 degrees. Applies to both sides (ours reads CPU carriers at normal).
@@ -654,6 +662,12 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 - The far wall and near fence are still infinitely tall for the ball; only the end walls have a height (120) for the ball to clear.
 
 ## Next up
+
+- On Reddit: tapping PLAY in the post opens the match with the how-to-play panel; GOT IT starts play; the next match does not show it again. Decide whether it should show only on a player's first visit ever (would need a stored flag).
+
+- Playtest the 120 px AI gap in defence: if the back line now looks too open, lower `AI.mateMinGap` (100); if still bunched, raise it (140).
+
+- Playtest NOOB and PROFESSIONAL: noob should be winnable by a first-time player, pro should be hard but beatable. Tune `LEVELS.noob` / `LEVELS.pro` in tuning.ts (keep each level sharper than the previous; the logic check enforces it).
 
 - Playtest the easier scoring (finishing assist + keeper read delay). If still too hard or too easy, tune `SHOOT.assistMin/assistMax` first, then `KEEPER.shuffleDelay` / `reach` / `rushGap`.
 
@@ -748,6 +762,7 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 - Later: daily challenges (scheduled posts reusing `createPost(challenge)`), special objectives (clean sheet etc.).
 
 - Check the i button and help panel on localhost and a phone (text size, layout fits 1280x720).
+- In the Reddit playtest: PLAY on the post opens the match with the help panel up and paused; GOT IT starts it; REMATCH / menu matches don't show it again.
 
 - Playtest the combined gameplay and UI changes on localhost.
 
@@ -869,6 +884,12 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-10-18:** the how-to-play (i) panel opens by itself on the first match started from the post's PLAY (match paused until GOT IT); the HUD had been opening it on every match, now only behind BootScene's `helpAtStart` flag
+
+- **2026-10-18:** hard minimum gap of 120 px between AI teammates (`AI.mateMinGap`, `TeamBrain.keepApart`), everyone but the chaser / presser; new logic check
+
+- **2026-10-18:** five difficulty levels, NOOB / EASY / AMATEUR / HARD / PROFESSIONAL (new `noob` and `pro` LEVELS rows, display labels, `< LEVEL >` selector on the menu); default stays AMATEUR (`normal`)
 
 - **2026-10-18:** aligned Devvit packages at 0.14.8 (`devvit`, `@devvit/web`, `@devvit/start`, all exact). The CLI had been bumped to 0.14.8 alone, so two copies of `@devvit/server` were installed and scheduled jobs in the playtest failed every 10 minutes with "No context found"
 

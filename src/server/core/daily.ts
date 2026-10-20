@@ -5,15 +5,28 @@ import type {
   MatchStats,
 } from '../../shared/api';
 import { readStats } from './matchStats';
-import { deletionInProgress, registerBoard, RETENTION_SEC } from './privacy';
+import {
+  boardExpiry,
+  deletionInProgress,
+  registerBoard,
+  WINDOW_DAYS,
+} from './privacy';
 
-// Today's leaderboard for one post (a challenge): each player's best match
-// of the UTC day, ranked by goal difference, then goals scored. Kept a week
-// after the day ends.
+// One post's (a challenge's) leaderboard: each player's best match of the
+// last 7 UTC days (today included), ranked by goal difference, then goals
+// scored. Stored as one board per UTC day; a day is deleted when it becomes
+// the 8th day back.
 
 const TOP = 3;
 
 export const today = () => new Date().toISOString().slice(0, 10);
+// Today first, then the previous WINDOW_DAYS - 1 UTC days.
+const windowDays = () => {
+  const start = Date.parse(`${today()}T00:00:00Z`);
+  return Array.from({ length: WINDOW_DAYS }, (_, back) =>
+    new Date(start - back * 86_400_000).toISOString().slice(0, 10)
+  );
+};
 export const boardKey = (postId: string, day: string) =>
   `daily:${postId}:${day}`;
 export const statsKey = (postId: string, day: string) =>
@@ -43,7 +56,7 @@ export async function saveResult(
   const day = today();
   const board = boardKey(postId, day);
   if (await deletionInProgress(username)) return;
-  await registerBoard(board);
+  await registerBoard(board, day);
   const score = rankScore(stats);
   const best = await redis.zScore(board, username);
   if (best !== undefined && best !== null && best >= score) return;
@@ -51,8 +64,9 @@ export async function saveResult(
   await redis.hSet(statsKey(postId, day), {
     [username]: JSON.stringify(stats),
   });
-  await redis.expire(board, RETENTION_SEC);
-  await redis.expire(statsKey(postId, day), RETENTION_SEC);
+  const ttl = Math.ceil((boardExpiry(day) - Date.now()) / 1000);
+  await redis.expire(board, ttl);
+  await redis.expire(statsKey(postId, day), ttl);
   if (await deletionInProgress(username)) {
     await redis.zRem(board, [username]);
     await redis.hDel(statsKey(postId, day), [username]);
@@ -64,33 +78,41 @@ export async function dailyLeaders(
   username: string | null,
   limit = TOP
 ): Promise<DailyLeadersResponse> {
-  const day = today();
-  const board = boardKey(postId, day);
   const count = Number.isFinite(limit)
     ? Math.max(1, Math.min(25, Math.floor(limit)))
     : TOP;
-  const top = await redis.zRange(board, 0, count - 1, {
-    by: 'rank',
-    reverse: true,
-  });
+  // Each player's best score across the window, and the day it was set.
+  const best = new Map<string, { score: number; day: string }>();
+  for (const day of windowDays()) {
+    const entries = await redis.zRange(boardKey(postId, day), 0, -1, {
+      by: 'rank',
+    });
+    for (const { member, score } of entries) {
+      const prev = best.get(member);
+      if (!prev || score > prev.score) best.set(member, { score, day });
+    }
+  }
+  const ranked = [...best.entries()].sort(
+    ([a, x], [b, y]) => y.score - x.score || a.localeCompare(b)
+  );
   const leader = async (
     name: string,
     rank: number
   ): Promise<DailyLeader | null> => {
+    const day = best.get(name)?.day;
+    if (!day) return null;
     const stats = readSaved(await redis.hGet(statsKey(postId, day), name));
     return stats ? { ...stats, rank, username: name } : null;
   };
   const leaders: DailyLeader[] = [];
-  for (const [i, entry] of top.entries()) {
-    const l = await leader(entry.member, i + 1);
+  for (const [i, [name]] of ranked.slice(0, count).entries()) {
+    const l = await leader(name, i + 1);
     if (l) leaders.push(l);
   }
   let me: DailyLeader | null = null;
   if (username) {
-    const ascending = await redis.zRank(board, username);
-    const total = await redis.zCard(board);
-    if (ascending !== undefined && ascending !== null)
-      me = await leader(username, total - ascending);
+    const index = ranked.findIndex(([name]) => name === username);
+    if (index >= 0) me = await leader(username, index + 1);
   }
-  return { day, top: leaders, me };
+  return { day: today(), top: leaders, me };
 }

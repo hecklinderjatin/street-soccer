@@ -19,9 +19,9 @@ export type DailyLeader = MatchStats & {
 
 // POST /api/result (body: MatchStats) and GET /api/daily-leaders.
 export type DailyLeadersResponse = {
-  day: string; // UTC date, YYYY-MM-DD
-  top: DailyLeader[]; // the best 3 today, each player's best match
-  me: DailyLeader | null; // the caller's best today, if any
+  day: string; // today's UTC date, YYYY-MM-DD (the window's last day)
+  top: DailyLeader[]; // the best 3 of the last 7 days, each player's best match
+  me: DailyLeader | null; // the caller's best of the last 7 days, if any
 };
 
 // POST /api/post-score: a comment on the post, optionally with the stats.

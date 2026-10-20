@@ -7,20 +7,20 @@ import type {
   PostScoreRequest,
 } from '../../shared/api';
 import { VIEW } from '../../shared/tuning';
-import type { MatchResult } from '../../shared/types';
+import { DIFFICULTY_LABEL, type MatchResult } from '../../shared/types';
 import { addStreetBackdrop } from '../ui/backdrop';
 import { PAL, PX } from '../ui/palette';
 import { pixelText } from '../ui/pixelFont';
 import { TextButton } from '../ui/TextButton';
 
-// Full time: the score and stats, today's top 3 on this post (the result
+// Full time: the score and stats, the last 7 days' top 3 on this post (the result
 // is saved first, POST /api/result: each player's best match of the UTC
 // day), PLAY AGAIN (same settings) and POST MY SCORE: a Reddit popup with a
 // comment box and a "share my score and stats" box that posts a comment on
 // the post. Outside Reddit (local preview) there is no server: the board
 // says so and posting is unavailable.
 
-const PANEL = { y: 300, w: 760, h: 180 }; // today's top 3, centred
+const PANEL = { y: 300, w: 760, h: 180 }; // the last 7 days' top 3, centred
 const ROW_Y = [370, 408, 446];
 
 const outcome = (s: MatchStats) =>
@@ -72,7 +72,7 @@ export class ResultScene extends Phaser.Scene {
       this,
       cx,
       250,
-      `VS ${r.config.difficulty} AI | SHOTS ${r.shots} | PASSES ${r.passes} | TACKLES ${r.tacklesWon}`,
+      `VS ${DIFFICULTY_LABEL[r.config.difficulty]} AI | SHOTS ${r.shots} | PASSES ${r.passes} | TACKLES ${r.tacklesWon}`,
       0.75 * PX
     ).setOrigin(0.5);
 
@@ -116,14 +116,9 @@ export class ResultScene extends Phaser.Scene {
     this.add
       .rectangle(cx, PANEL.y + PANEL.h / 2, PANEL.w, PANEL.h, PAL.black, 0.92)
       .setStrokeStyle(4, PAL.black);
-    pixelText(
-      this,
-      cx,
-      PANEL.y + 28,
-      "TODAY'S TOP 3",
-      PX,
-      PAL.yellow
-    ).setOrigin(0.5);
+    pixelText(this, cx, PANEL.y + 28, '7-DAY TOP 3', PX, PAL.yellow).setOrigin(
+      0.5
+    );
     const status = pixelText(
       this,
       cx,
@@ -138,7 +133,7 @@ export class ResultScene extends Phaser.Scene {
         return;
       }
       if (board.top.length === 0) {
-        status.setText('NO SCORES YET TODAY');
+        status.setText('NO SCORES IN 7 DAYS');
         return;
       }
       status.setVisible(false);

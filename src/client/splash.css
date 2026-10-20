@@ -1,1 +1,10 @@
 @import './style.css';
+
+/* Inline feed card: swipes and wheel scrolls over it must scroll the Reddit
+   feed, so undo the game page's touch lock. Nothing in the card scrolls
+   itself (body stays overflow: hidden), so every scroll chains to Reddit. */
+html,
+body {
+  touch-action: manipulation;
+  overscroll-behavior: auto;
+}

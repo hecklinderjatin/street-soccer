@@ -1,6 +1,23 @@
-export type Difficulty = 'easy' | 'normal' | 'hard';
+// Ids are stored in posts' saved matches and score lines, so 'easy' /
+// 'normal' / 'hard' keep their old ids; players see DIFFICULTY_LABEL.
+export type Difficulty = 'noob' | 'easy' | 'normal' | 'hard' | 'pro';
 
-export const DIFFICULTIES: readonly Difficulty[] = ['easy', 'normal', 'hard'];
+// Easiest first.
+export const DIFFICULTIES: readonly Difficulty[] = [
+  'noob',
+  'easy',
+  'normal',
+  'hard',
+  'pro',
+];
+
+export const DIFFICULTY_LABEL: Readonly<Record<Difficulty, string>> = {
+  noob: 'NOOB',
+  easy: 'EASY',
+  normal: 'NORMAL',
+  hard: 'HARD',
+  pro: 'PROFESSIONAL',
+};
 
 // Home is the human's team (attacks right, toward x = width); away is the CPU.
 export type Team = 'home' | 'away';

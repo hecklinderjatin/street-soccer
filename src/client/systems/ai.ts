@@ -415,7 +415,59 @@ export class TeamBrain {
     } else {
       this.aims.delete(p);
     }
-    return arrive(p, tx, ty, urgent, order.relax, calm);
+    // Hard minimum gap (user request: defence got too crowded): whoever
+    // goes for the ball (chase, press) runs straight there; every other
+    // AI player's target stays at least AI.mateMinGap from each teammate,
+    // whatever its job. Already too close, it moves off even when calm.
+    const free = order.role === 'chase' || order.role === 'press';
+    let crowded = false;
+    if (!free) {
+      const spaced = this.keepApart(p, view.mates, tx, ty);
+      tx = spaced.x;
+      ty = spaced.y;
+      crowded = view.mates.some(
+        (q) => q !== p && Math.hypot(q.x - p.x, q.y - p.y) < AI.mateMinGap
+      );
+    }
+    return arrive(p, tx, ty, urgent, order.relax, calm && !crowded);
+  }
+
+  // (tx, ty) pushed out of every teammate's AI.mateMinGap circle (a few
+  // passes, since leaving one circle can enter another), kept on the pitch.
+  private keepApart(
+    p: Player,
+    mates: readonly Player[],
+    tx: number,
+    ty: number
+  ) {
+    const gap = AI.mateMinGap;
+    const margin = PLAYER.radius;
+    for (let pass = 0; pass < 3; pass++) {
+      let moved = false;
+      for (const q of mates) {
+        if (q === p) continue;
+        let dx = tx - q.x;
+        let dy = ty - q.y;
+        let d = Math.hypot(dx, dy);
+        if (d >= gap) continue;
+        if (d < 1) {
+          // On top of the teammate: step away on our own side of it.
+          dx = p.x - q.x;
+          dy = p.y - q.y;
+          d = Math.hypot(dx, dy);
+          if (d < 1) {
+            dx = 0;
+            dy = 1;
+            d = 1;
+          }
+        }
+        tx = clamp(q.x + (dx / d) * gap, margin, PITCH.width - margin);
+        ty = clamp(q.y + (dy / d) * gap, margin, PITCH.height - margin);
+        moved = true;
+      }
+      if (!moved) break;
+    }
+    return { x: tx, y: ty };
   }
 
   // A player of ours has just passed (AI or human): sometimes it bursts

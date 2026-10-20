@@ -1,6 +1,10 @@
 import { formatClock } from '../../shared/matchConfig';
 import { VIEW } from '../../shared/tuning';
-import type { MatchConfig, TeamSetup } from '../../shared/types';
+import {
+  DIFFICULTY_LABEL,
+  type MatchConfig,
+  type TeamSetup,
+} from '../../shared/types';
 import { GLYPHS } from './glyphs';
 import { JERSEY_SWATCH, PAL, PX } from './palette';
 
@@ -217,7 +221,7 @@ export function paintMenuCard(
         : '';
     paintText(
       ctx,
-      `${formatClock(config.durationSec)} - ${config.difficulty} AI${start}`,
+      `${formatClock(config.durationSec)} - ${DIFFICULTY_LABEL[config.difficulty]} AI${start}`,
       cx,
       400,
       PX,

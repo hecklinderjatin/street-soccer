@@ -1,7 +1,13 @@
 import { context, reddit, redis } from '@devvit/web/server';
 import { removePlayerResults, removeUnavailableAccounts } from './privacyData';
 
-export const RETENTION_SEC = 8 * 24 * 60 * 60;
+// Leaderboards cover today and the previous 6 UTC days. A day's data is
+// deleted when it becomes the 8th day back (the start of the UTC day
+// WINDOW_DAYS after it).
+export const WINDOW_DAYS = 7;
+export const RETENTION_SEC = WINDOW_DAYS * 24 * 60 * 60; // longest any board lives
+export const boardExpiry = (day: string) =>
+  Date.parse(`${day}T00:00:00Z`) + WINDOW_DAYS * 86_400_000;
 const BOARDS = 'privacy:boards';
 const deletingKey = (username: string) => `privacy:deleting:${username}`;
 
@@ -9,11 +15,8 @@ export const deletionInProgress = async (username: string) =>
   Boolean(await redis.get(deletingKey(username)));
 
 // Register before writing any player data. Members contain only board IDs.
-export async function registerBoard(board: string) {
-  await redis.zAdd(BOARDS, {
-    member: board,
-    score: Date.now() + RETENTION_SEC * 1000,
-  });
+export async function registerBoard(board: string, day: string) {
+  await redis.zAdd(BOARDS, { member: board, score: boardExpiry(day) });
 }
 
 // Older versions did not index their boards. Discover their app-authored
@@ -43,7 +46,14 @@ async function migrateLegacyBoards() {
         .toISOString()
         .slice(0, 10);
       const board = `daily:${post.id}:${day}`;
-      if (await redis.zCard(board)) await registerBoard(board);
+      // Legacy boards were kept 8 days after their last write.
+      const ttl = Math.ceil((boardExpiry(day) - Date.now()) / 1000);
+      if (ttl <= 0) await redis.del(board, `${board}:stats`);
+      else if (await redis.zCard(board)) {
+        await registerBoard(board, day);
+        await redis.expire(board, ttl);
+        await redis.expire(`${board}:stats`, ttl);
+      }
     }
   }
   await redis.set('privacy:legacy-indexed', '1');

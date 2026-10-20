@@ -185,6 +185,12 @@ export class HudScene extends Phaser.Scene {
     this.helpLayer = buildHelpLayer(this, () =>
       this.setOverlay(null)
     ).setVisible(false);
+    // The match opened from the post's PLAY starts with how to play (it
+    // waits paused until closed); once per page load.
+    if (this.registry.get('helpAtStart') === true) {
+      this.registry.set('helpAtStart', false);
+      this.setOverlay('help');
+    }
   }
 
   override update(time: number) {

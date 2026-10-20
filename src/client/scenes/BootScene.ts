@@ -39,9 +39,11 @@ export class BootScene extends Phaser.Scene {
     setTimeout(() => loader?.remove(), 400);
     // The feed lobby already offered PLAY: expanded Reddit opens a fresh
     // player match. Localhost and the inline card open the live lobby.
-    if (!this.registry.get('inline') && context?.postId)
+    // That first match opens with how to play (HudScene clears the flag).
+    if (!this.registry.get('inline') && context?.postId) {
+      this.registry.set('helpAtStart', true);
       this.scene.launch('Match', startingConfig());
-    else this.scene.launch('Menu');
+    } else this.scene.launch('Menu');
     this.stage = 'first';
     this.step = 0;
     this.painted = 0;

@@ -7,6 +7,7 @@ import {
 import { CUSTOM_MATCH } from '../../shared/tuning';
 import {
   DIFFICULTIES,
+  DIFFICULTY_LABEL,
   FORMATION_NAMES,
   JERSEY_COLORS,
   type MatchConfig,
@@ -90,7 +91,10 @@ export const challengeForm: Form = {
       type: 'select',
       name: 'difficulty',
       label: 'Bot difficulty',
-      options: options(DIFFICULTIES),
+      options: DIFFICULTIES.map((value) => ({
+        value,
+        label: capital(DIFFICULTY_LABEL[value].toLowerCase()),
+      })),
       required: true,
     },
     {

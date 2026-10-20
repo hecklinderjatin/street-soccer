@@ -38,6 +38,13 @@ export function createGame(inline = false) {
     },
     input: {
       activePointers: 3, // joystick thumb + button thumb + spare
+      // The feed card must never trap scrolling: let swipes and the mouse
+      // wheel through to Reddit (Phaser cancels them by default). Taps
+      // still reach the canvas, so PLAY works.
+      ...(inline && {
+        touch: { capture: false },
+        mouse: { preventDefaultWheel: false },
+      }),
     },
     render: {
       powerPreference: 'high-performance',

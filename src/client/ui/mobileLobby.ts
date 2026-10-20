@@ -1,6 +1,6 @@
 import type { DailyLeadersResponse } from '../../shared/api';
 import { formatClock } from '../../shared/matchConfig';
-import type { MatchConfig } from '../../shared/types';
+import { DIFFICULTY_LABEL, type MatchConfig } from '../../shared/types';
 import { css } from './menuCard';
 import { JERSEY_SWATCH } from './palette';
 import { pixelLabel } from './pixelLabel';
@@ -24,12 +24,12 @@ export function createMobileLobby(
       <div class="mobile-match-facts"><div><small>MATCH TIME</small><strong class="mobile-time"></strong></div><div><small>DIFFICULTY</small><strong class="mobile-difficulty"></strong></div><div><small>START SCORE</small><strong class="mobile-start"></strong></div></div>
       <p class="mobile-challenge"></p>
       <button class="mobile-play">▶ PLAY MATCH</button>
-      <div class="mobile-board-heading"><strong>TODAY'S TOP 3</strong><button class="mobile-more">ALL ›</button></div>
+      <div class="mobile-board-heading"><strong>7-DAY TOP 3</strong><button class="mobile-more">ALL ›</button></div>
       <ol class="mobile-leaders"><li>Leaderboard available on Reddit</li></ol>
       <div class="mobile-best"></div>
     </div>
     <div class="mobile-board-modal" hidden role="dialog" aria-label="Today's leaderboard">
-      <div class="mobile-board-sheet"><header><strong>TODAY'S LEADERBOARD</strong><button class="mobile-board-close" aria-label="Close leaderboard">✕</button></header><ol class="mobile-board-rows"></ol><p class="mobile-board-status"></p><footer><button class="mobile-board-prev">‹ PREV</button><button class="mobile-board-next">NEXT ›</button></footer></div>
+      <div class="mobile-board-sheet"><header><strong>7-DAY LEADERBOARD</strong><button class="mobile-board-close" aria-label="Close leaderboard">✕</button></header><ol class="mobile-board-rows"></ol><p class="mobile-board-status"></p><footer><button class="mobile-board-prev">‹ PREV</button><button class="mobile-board-next">NEXT ›</button></footer></div>
     </div>`;
   const get = (selector: string) => {
     const node = element.querySelector<HTMLElement>(selector);
@@ -50,7 +50,7 @@ export function createMobileLobby(
   get('.mobile-formations').textContent =
     `${config.home.formation}  vs  ${config.away.formation}`;
   get('.mobile-time').textContent = formatClock(config.durationSec);
-  get('.mobile-difficulty').textContent = config.difficulty.toUpperCase();
+  get('.mobile-difficulty').textContent = DIFFICULTY_LABEL[config.difficulty];
   get('.mobile-start').textContent = `0 – ${config.startGoalsAgainst}`;
   get('.mobile-challenge').textContent =
     description || 'Outplay the opposition. Own the street.';
@@ -126,7 +126,7 @@ export function createMobileLobby(
             ? 'No scores yet. Set the first!'
             : data.me
               ? `Your best: #${data.me.rank}`
-              : 'You: not played today';
+              : 'You: no score in 7 days';
           prev.hidden = page === 0;
           next.hidden = (page + 1) * 5 >= data.top.length;
         };

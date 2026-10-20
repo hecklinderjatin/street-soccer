@@ -42,7 +42,7 @@ export async function scoreThread(postId: `t3_${string}`) {
 }
 
 // A deleted post: everything the app keeps about it goes (Devvit Rules,
-// user deletions): its daily leaderboards (kept 8 days, so the last 9 UTC
+// user deletions): its daily leaderboards (kept 7 days, so the last 9 UTC
 // days cover them all) and its scores comment id. Per-player cooldown keys
 // expire on their own within minutes.
 export async function forgetPost(postId: string) {
