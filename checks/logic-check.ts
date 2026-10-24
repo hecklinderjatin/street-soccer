@@ -38,6 +38,7 @@ import {
   CASUAL_OPTIONS,
   casualConfig,
   cycleOption,
+  setCasualJersey,
 } from '../src/shared/casual';
 import { competitiveResultAllowed, postType } from '../src/shared/postType';
 import { challengeFormFor } from '../src/server/core/challengeForm';
@@ -844,4 +845,38 @@ check(
   }
 );
 
+check(
+  'Casual kits: colour clashes swap teams and saved colours survive reload',
+  () => {
+    const initial = casualConfig();
+    const swapped = setCasualJersey(initial, 'home', initial.away.jersey);
+    assert.equal(swapped.home.jersey, 'blue');
+    assert.equal(swapped.away.jersey, 'pink');
+    const custom = setCasualJersey(
+      setCasualJersey(swapped, 'home', 'orange'),
+      'away',
+      'teal'
+    );
+    assert.equal(casualConfig(custom).home.jersey, 'orange');
+    assert.equal(casualConfig(custom).away.jersey, 'teal');
+    assert.notEqual(custom.home.jersey, custom.away.jersey);
+  }
+);
+check(
+  'new kits and formations validate for ranked posts as well as Casual',
+  () => {
+    const result = readChallenge(
+      formValues({
+        homeJersey: ['orange'],
+        awayJersey: ['teal'],
+        homeFormation: ['1-3'],
+        awayFormation: ['0-3-1'],
+      }),
+      parseMatchConfig
+    );
+    assert.ok(typeof result !== 'string');
+    assert.equal(result.config.home.formation, '1-3');
+    assert.equal(result.config.away.formation, '0-3-1');
+  }
+);
 console.log(`\n${passed} checks passed`);

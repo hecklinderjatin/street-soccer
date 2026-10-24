@@ -97,6 +97,18 @@ export const FORMATIONS = {
     { x: 560, y: 1010, line: 'def' }, // right back
     { x: 1120, y: 715, line: 'fwd' }, // forward (outside the circle)
   ],
+  '1-3': [
+    { x: 520, y: 715, line: 'def' }, // one defender behind three attackers
+    { x: 1000, y: 420, line: 'fwd' },
+    { x: 1000, y: 1010, line: 'fwd' },
+    { x: 1232, y: 715, line: 'fwd' },
+  ],
+  '0-3-1': [
+    { x: 650, y: 715, line: 'mid' }, // deep midfielder anchors the shape
+    { x: 880, y: 420, line: 'mid' },
+    { x: 880, y: 1010, line: 'mid' },
+    { x: 1232, y: 715, line: 'fwd' },
+  ],
 } as const satisfies Record<string, readonly FormationSpot[]>;
 
 // Limits for a moderator's custom match (the post's settings form).

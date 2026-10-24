@@ -1,7 +1,6 @@
 import Phaser from 'phaser';
 import { context, requestExpandedMode } from '@devvit/web/client';
 import type { DailyLeadersResponse } from '../../shared/api';
-import { formatClock } from '../../shared/matchConfig';
 import { currentPostType, postChallenge, startingConfig } from '../challenge';
 import { readGamesPlayed } from '../gameCount';
 import { createMobileLobby } from '../ui/mobileLobby';
@@ -87,26 +86,12 @@ export class MenuScene extends Phaser.Scene {
       loop: true,
       callback: onFocus,
     });
-    const demo = this.scene.get('Match');
-    const score = (
-      home: number,
-      away: number,
-      clock: number,
-      banner: string
-    ) => {
-      lobby.setPreviewScore(
-        `${config.home.name} ${home} : ${away} ${config.away.name}`,
-        banner === 'GOAL!' ? 'GOAL!' : formatClock(Math.ceil(clock))
-      );
-    };
-    demo.events.on('demo-score', score);
     this.scene.launch('Match', { ...config, demo: true });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       timer.remove();
       resize.disconnect();
       window.removeEventListener('resize', layout);
       window.removeEventListener('focus', onFocus);
-      demo.events.off('demo-score', score);
       lobby.element.remove();
       this.registry.set('menuPreview', false);
       this.game.events.emit('layout-mode');

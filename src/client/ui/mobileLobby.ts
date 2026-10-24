@@ -19,14 +19,10 @@ export function createMobileLobby(
   const element = document.createElement('section');
   element.id = 'mobile-lobby';
   element.innerHTML = `
-    <header class="mobile-lobby-header"><strong>STREET SOCCER</strong><span class="preview-edition">5 A SIDE / ALL STREET</span></header>
-    <div class="preview-stage" aria-label="Live AI match preview">
-      <div class="preview-stage-header"><span class="preview-live"><i></i>LIVE MATCH</span><span>CPU vs CPU</span></div>
-      <div class="preview-scorebar"><strong class="preview-score">WARMING UP</strong><span class="preview-clock">LIVE</span></div>
-    </div>
+    <div class="preview-stage" aria-label="Live AI match preview"></div>
+    <header class="mobile-lobby-header"><strong>STREET SOCCER</strong><span class="preview-live"><i></i>LIVE PREVIEW</span></header>
     <div class="mobile-lobby-details">
-      <div class="preview-card-top"><div class="mobile-match-tag"></div><span class="preview-status">READY TO PLAY</span></div>
-      <h1 class="preview-headline"></h1>
+      <div class="preview-card-top"><div class="mobile-match-tag"></div></div>
       <div class="mobile-teams"><div class="mobile-home"></div><span>VS</span><div class="mobile-away"></div></div>
       <div class="mobile-formations"></div>
       <div class="mobile-match-facts"><div><small>TIME</small><strong class="mobile-time"></strong></div><div><small>AI LEVEL</small><strong class="mobile-difficulty"></strong></div><div><small>START SCORE</small><strong class="mobile-start"></strong></div></div>
@@ -49,10 +45,6 @@ export function createMobileLobby(
   };
   element.classList.toggle('is-casual', type === 'casual');
   get('.mobile-match-tag').textContent = POST_TYPE_LABEL[type];
-  pixelLabel(
-    get('.preview-headline'),
-    type === 'casual' ? 'YOUR STREET. YOUR RULES.' : 'STEP UP. PLAY TO WIN.'
-  );
   get('.mobile-home').textContent = config.home.name;
   get('.mobile-home').style.borderColor = css(
     JERSEY_SWATCH[config.home.jersey]
@@ -71,6 +63,7 @@ export function createMobileLobby(
     (type === 'casual'
       ? 'Choose your formations, difficulty and match time.'
       : 'Outplay the opposition. Own the street.');
+  get('.mobile-challenge').hidden = type !== 'casual' && !description;
   const pixelSelectors = [
     '.mobile-lobby-header > strong',
     '.mobile-match-tag',
@@ -121,10 +114,6 @@ export function createMobileLobby(
         count === null
           ? 'Game count unavailable'
           : `${count} completed matches on this post`;
-    },
-    setPreviewScore(score: string, clock: string) {
-      get('.preview-score').textContent = score;
-      get('.preview-clock').textContent = clock;
     },
     setDifficulty(value: string) {
       pixelLabel(get('.mobile-difficulty'), value);

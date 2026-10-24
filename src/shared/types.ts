@@ -25,7 +25,7 @@ export type Team = 'home' | 'away';
 // Outfield shirt colours a team can wear (keepers always wear green / gold,
 // so neither is offered). Each one is a baked kit atlas.
 export type JerseyColor =
-  'pink' | 'blue' | 'red' | 'white' | 'black' | 'purple';
+  'pink' | 'blue' | 'red' | 'white' | 'black' | 'purple' | 'orange' | 'teal';
 export const JERSEY_COLORS: readonly JerseyColor[] = [
   'pink',
   'blue',
@@ -33,17 +33,22 @@ export const JERSEY_COLORS: readonly JerseyColor[] = [
   'white',
   'black',
   'purple',
+  'orange',
+  'teal',
 ];
 
 // Outfield shapes (back-mid-forward) for the 4 outfielders; spots in
 // tuning.ts FORMATIONS.
-export type FormationName = '2-1-1' | '1-2-1' | '2-2' | '1-1-2' | '3-1';
+export type FormationName =
+  '2-1-1' | '1-2-1' | '2-2' | '1-1-2' | '3-1' | '1-3' | '0-3-1';
 export const FORMATION_NAMES: readonly FormationName[] = [
   '2-1-1',
   '1-2-1',
   '2-2',
   '1-1-2',
   '3-1',
+  '1-3',
+  '0-3-1',
 ];
 
 export type TeamSetup = {

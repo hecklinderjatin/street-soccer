@@ -4,8 +4,8 @@ A fast 5v5 arcade street football match against the AI, played right inside a Re
 
 ## How it works
 
-- **In the feed**, the post shows a live AI-vs-AI preview match with the match info and a **PLAY** button.
-- **PLAY CHALLENGE / PLAY CLASSIC** opens the fixed match and controls panel. **PLAY CASUAL** opens free formation, difficulty and time selectors before the controls panel. Tap GOT IT, then pass to kick off. Golden goal applies if level at full time.
+- **In the feed**, live AI-vs-AI gameplay fills the post, with the title and match details, Play buttons, games-played count and leaderboard layered over it.
+- **PLAY CHALLENGE / PLAY CLASSIC** opens the fixed match and controls panel. **PLAY CASUAL** opens free kit-colour, formation, difficulty and time selectors before the controls panel. Tap GOT IT, then pass to kick off. Golden goal applies if level at full time.
 - **After a ranked match**, the result screen shows the top 3 of the last 7 days for this post. Players can choose **POST MY SCORE** to share their result. The popup says it posts from their own account and shows their username. A score on its own is posted as a reply to the post's pinned **Scores** comment (made by the app with each post); a score with the player's own words is posted as a comment on the post. Sharing is always optional and never needed to play.
 - The (i) button in the match explains the controls. There is a pause menu and a sound on/off switch.
 
@@ -24,7 +24,7 @@ Moderators choose **Create Street Soccer match** in the subreddit menu, then sel
 
 Daily Challenge and Classic offer the same options: title, optional description, team names, jersey colours, formations, AI difficulty, match length (0:30–5:00), and opponent starting goals (0–5). These settings are fixed for ranked matches, with a separate 7-day leaderboard for each post. Existing custom posts are treated as Daily Challenges.
 
-Casual posts ask only for a title and optional description. Players tap **PLAY CASUAL**, select their own and the opponent's formations, difficulty and duration using left/right arrows, then tap **START MATCH**. All options are free; matches start 0–0. Preferences are remembered on the device when storage is available. The compact setup fits the webview without internal scrolling, including short portrait and landscape layouts. The controls panel opens before the first Casual match in a page session. Results show match stats with **REMATCH**, **CHANGE SETTINGS** and **EXIT**, without ranked score submission or score sharing.
+Casual posts ask only for a title and optional description. Players tap **PLAY CASUAL**, select their own and the opponent's kit colours and formations, difficulty and duration using left/right arrows, then tap **START MATCH**. Formation choices are text-only arrow selectors, without pitch diagrams. Matching kit choices swap the teams’ colours to prevent clashes. Orange and Teal join the existing six outfield colours; 1-3 and 0-3-1 join the existing formations. These new choices are also available in Daily Challenge and Classic creation forms. All options are free; matches start 0–0. Preferences are remembered on the device when storage is available. The compact setup fits the webview without internal scrolling, including short portrait and landscape layouts. The controls panel opens before the first Casual match in a page session. Results show match stats with **REMATCH**, **CHANGE SETTINGS** and **EXIT**, without ranked score submission or score sharing.
 
 Daily Challenge and Classic cards also offer **PLAY CASUAL**. These matches stay unranked even when launched from a ranked post. Post labels do not automatically schedule daily posts. Installation still creates one default game post.
 
@@ -36,7 +36,7 @@ A real match registers a random receipt after its assets are ready. The server v
 
 ## Data and permissions
 
-- **Local Casual preferences:** formations, difficulty and time are saved in browser storage on the device when available. These settings contain no account identifiers and are not uploaded. Casual results are not saved to leaderboards or shared as score comments.
+- **Local Casual preferences:** kit colours, formations, difficulty and time are saved in browser storage on the device when available. Saved preferences contain no account identifiers and remain on the device. A match configuration is sent to the game-count endpoint for validation; the app retains only anonymous timing/completion receipts for counting. Casual results are not saved to leaderboards or shared as score comments.
 
 - **Redis:** each post stores each player's best result of the day (Reddit username, goals for and against, shots, passes, tackles won, difficulty), plus short-lived rate limits. The leaderboard shows each player's best of today and the previous 6 UTC days; each day's results are deleted at the start of the 8th UTC day. Board IDs, cleanup cursors and Scores comment IDs support deletion and sharing. A deletion marker containing the username expires after 60 seconds to block concurrent result writes.
 - **Reddit API:** reads usernames for leaderboards and checks account availability for cleanup. Comments use `SUBMIT_COMMENT` only after the player confirms POST MY SCORE, limited to one per player per post every 10 minutes. Custom match creation uses `SUBMIT_POST`, `runAs: 'USER'` and `userGeneratedContent` containing all moderator-entered text/settings. The form identifies that it creates a post from the moderator's account. Reddit approval of user actions is needed for attribution for all users; verify with a non-owner moderator before release. Installation still creates the default post as the app.

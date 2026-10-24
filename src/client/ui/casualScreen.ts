@@ -23,8 +23,8 @@ export function casualScreen(title: string, subtitle: string, setup = false) {
     const style = getComputedStyle(element);
     const available =
       height - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
-    element.dataset.compact = String(available < 420);
-    element.dataset.minimal = String(available < 300);
+    element.dataset.compact = String(available < 530);
+    element.dataset.minimal = String(available < 430);
   };
   resize();
   window.addEventListener('resize', resize);

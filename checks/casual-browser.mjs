@@ -124,8 +124,26 @@ try {
       '2-1-1'
     );
     await page
-      .getByRole('button', { name: 'Next your formation', exact: true })
+      .getByRole('button', { name: 'Previous your formation', exact: true })
       .click();
+    await page
+      .getByRole('button', { name: 'Previous your formation', exact: true })
+      .click();
+    for (let step = 0; step < 6; step++)
+      await page
+        .getByRole('button', { name: 'Next your colour', exact: true })
+        .click();
+    await page
+      .getByRole('button', { name: 'Previous opponent colour', exact: true })
+      .click();
+    assert.equal(
+      await page.getByRole('status', { name: 'Your colour' }).textContent(),
+      'ORANGE'
+    );
+    assert.equal(
+      await page.getByRole('status', { name: 'Opponent colour' }).textContent(),
+      'TEAL'
+    );
     await page
       .getByRole('button', { name: 'Previous opponent formation', exact: true })
       .click();
@@ -142,10 +160,7 @@ try {
       await page.getByRole('status', { name: 'Match time' }).textContent(),
       '0:30'
     );
-    assert.equal(
-      await page.getByRole('img', { name: /^Your 1-2-1/ }).count(),
-      1
-    );
+    assert.equal(await page.locator('.casual-pitch').count(), 0);
     const overflow = await page.evaluate(
       () =>
         document.querySelector('.casual-panel').scrollWidth >
@@ -165,7 +180,7 @@ try {
       .waitFor();
     assert.equal(
       await page.getByRole('status', { name: 'Your formation' }).textContent(),
-      '1-2-1',
+      '1-3',
       'settings survive reload'
     );
     await page
@@ -182,8 +197,10 @@ try {
     });
     assert.equal(start.config.mode, 'casual');
     assert.equal(start.config.difficulty, 'easy');
-    assert.equal(start.config.home.formation, '1-2-1');
-    assert.equal(start.config.away.formation, '3-1');
+    assert.equal(start.config.home.formation, '1-3');
+    assert.equal(start.config.home.jersey, 'orange');
+    assert.equal(start.config.away.jersey, 'teal');
+    assert.equal(start.config.away.formation, '0-3-1');
     assert.equal(start.config.durationSec, 30);
     assert.equal(start.config.locked, false);
     assert.equal(start.clock, 30);
@@ -353,6 +370,26 @@ try {
         'AI preview never registers or completes a game'
       );
       assert.equal(await page.locator('.preview-games').textContent(), '127');
+      assert.equal(
+        await page.evaluate(() => {
+          const stage = document
+            .querySelector('.preview-stage')
+            .getBoundingClientRect();
+          const panel = document
+            .querySelector('.mobile-lobby-details')
+            .getBoundingClientRect();
+          return (
+            stage.top === 0 &&
+            stage.left === 0 &&
+            stage.width === innerWidth &&
+            stage.height === innerHeight &&
+            panel.top > stage.top &&
+            panel.bottom <= stage.bottom
+          );
+        }),
+        true,
+        'controls overlay the full-card preview'
+      );
       if (process.env.CASUAL_SCREENSHOTS) {
         await page.waitForFunction(
           () => window.__game.scene.getScene('Match').ready
