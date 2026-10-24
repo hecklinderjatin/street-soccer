@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Retired formation (2026-10-24):** remove 0-3-1 from all selectors and gameplay shapes. Older posts and saved Casual preferences migrate that shape to 1-2-1 during shared validation, preserving their other settings. Types, lint, 39 logic checks, privacy/counter regressions and build pass.
+
 **Responsive results UI (2026-10-24):** Daily Challenge, Classic and Casual now share a centred pixel-styled native card with coloured team panels, score, difficulty/time, stat tiles and consistent actions. Ranked results retain the 7-day board, result saving, consent-based score sharing and Play Casual. Browser checks pass across desktop, portrait and landscape, including 320×480 and 640×320, with visible touch targets and no internal scrolling at the tested sizes. Sharing cancellation, submission and late-form responses are covered with mocked Reddit APIs; live Reddit playtesting remains outstanding.
 
 **Casual from ranked results (2026-10-24):** adding PLAY CASUAL below Play Again and Post My Score on Daily Challenge/Classic results. It opens Casual setup with remembered preferences; the ranked result is still saved normally. Existing result buttons move up slightly to keep every action inside the canvas. Types, lint, build and browser checks pass for Daily Challenge and Classic on desktop, portrait mobile and landscape mobile. Real canvas clicks open saved Casual settings and start an unranked 0–0 match, with exactly one ranked result submission.
@@ -451,6 +453,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Retire 0-3-1 globally; normalize old saved values to 1-2-1 so existing posts remain playable without resetting other settings.
+
 - Results use one responsive card with centred outcome, colour-coded teams, score, difficulty/time and stat tiles. Centre the card vertically when it fits; retain safe scrolling on genuinely small viewports rather than clipping actions. Ranked results retain leaderboard/share/Play Casual; Casual retains rematch/settings/exit and makes no ranked calls.
 
 - Ranked results offer a direct route to Casual setup through the existing scene, rather than replaying fixed challenge settings. Keep ranked saving/sharing and Casual results actions unchanged.
@@ -697,6 +701,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Playtest the six remaining formations and compatibility fallback on Reddit.
+
 - Review the unified results screenshots and playtest the end screens on Reddit before merging `codex/results-play-casual`. Local layout checks and browser flows pass, including ranked replay, sharing consent and Casual transitions.
 
 - Review the results-screen PLAY CASUAL button and playtest on Reddit before merging `codex/results-play-casual`; local desktop and mobile click-through checks pass.
@@ -705,7 +711,7 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 - Review the top-right duration/difficulty header screenshots and playtest on Reddit before merging. All local and browser checks pass.
 
-- Review overlay and text-only Casual setup screenshots, then playtest the branch on Reddit before merging. Check Orange/Teal visibility and the new 1-3 / 0-3-1 formations during full matches.
+- Review overlay and text-only Casual setup screenshots, then playtest the branch on Reddit before merging. Check Orange/Teal visibility and the 1-3 formation during full matches.
 
 - Review the modern pixel UI screenshots and playtest the feature branch on Reddit, especially actual Redis game counts, returning to the preview after a match, and short mobile viewports, before merging.
 
@@ -934,6 +940,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-10-24:** remove 0-3-1 from available formations; migrate legacy configurations to 1-2-1 and update formation cycling/browser checks. Local checks and the full Casual browser suite pass.
 
 - **2026-10-24:** unify responsive pixel results UI and centre the Casual end card on `codex/results-play-casual`. Preserve ranked saving/sharing and all mode actions; add browser regressions for ranked rematch, cancelled/submitted/late share forms and Casual transitions. Local checks and portrait/landscape layout checks pass.
 

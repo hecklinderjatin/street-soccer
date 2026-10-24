@@ -126,9 +126,6 @@ try {
     await page
       .getByRole('button', { name: 'Previous your formation', exact: true })
       .click();
-    await page
-      .getByRole('button', { name: 'Previous your formation', exact: true })
-      .click();
     for (let step = 0; step < 6; step++)
       await page
         .getByRole('button', { name: 'Next your colour', exact: true })
@@ -200,7 +197,7 @@ try {
     assert.equal(start.config.home.formation, '1-3');
     assert.equal(start.config.home.jersey, 'orange');
     assert.equal(start.config.away.jersey, 'teal');
-    assert.equal(start.config.away.formation, '0-3-1');
+    assert.equal(start.config.away.formation, '1-3');
     assert.equal(start.config.durationSec, 30);
     assert.equal(start.config.locked, false);
     assert.equal(start.clock, 30);

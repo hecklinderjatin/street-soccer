@@ -103,12 +103,6 @@ export const FORMATIONS = {
     { x: 1000, y: 1010, line: 'fwd' },
     { x: 1232, y: 715, line: 'fwd' },
   ],
-  '0-3-1': [
-    { x: 650, y: 715, line: 'mid' }, // deep midfielder anchors the shape
-    { x: 880, y: 420, line: 'mid' },
-    { x: 880, y: 1010, line: 'mid' },
-    { x: 1232, y: 715, line: 'fwd' },
-  ],
 } as const satisfies Record<string, readonly FormationSpot[]>;
 
 // Limits for a moderator's custom match (the post's settings form).

@@ -62,7 +62,12 @@ function parseTeam(value: unknown): TeamSetup | string {
     return `team names: 1-${CUSTOM_MATCH.nameMaxLength} letters, digits or spaces`;
   const jersey = pick(JERSEY_COLORS, Reflect.get(value, 'jersey'));
   if (!jersey) return 'unknown jersey colour';
-  const formation = pick(FORMATION_NAMES, Reflect.get(value, 'formation'));
+  // Retired shape: keep older posts and device preferences playable.
+  const savedFormation = Reflect.get(value, 'formation');
+  const formation = pick(
+    FORMATION_NAMES,
+    savedFormation === '0-3-1' ? '1-2-1' : savedFormation
+  );
   if (!formation) return 'unknown formation';
   return { name, jersey, formation };
 }

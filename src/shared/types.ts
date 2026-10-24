@@ -39,8 +39,7 @@ export const JERSEY_COLORS: readonly JerseyColor[] = [
 
 // Outfield shapes (back-mid-forward) for the 4 outfielders; spots in
 // tuning.ts FORMATIONS.
-export type FormationName =
-  '2-1-1' | '1-2-1' | '2-2' | '1-1-2' | '3-1' | '1-3' | '0-3-1';
+export type FormationName = '2-1-1' | '1-2-1' | '2-2' | '1-1-2' | '3-1' | '1-3';
 export const FORMATION_NAMES: readonly FormationName[] = [
   '2-1-1',
   '1-2-1',
@@ -48,7 +47,6 @@ export const FORMATION_NAMES: readonly FormationName[] = [
   '1-1-2',
   '3-1',
   '1-3',
-  '0-3-1',
 ];
 
 export type TeamSetup = {

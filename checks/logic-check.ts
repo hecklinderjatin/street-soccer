@@ -863,7 +863,7 @@ check(
   }
 );
 check(
-  'new kits and formations validate for ranked posts as well as Casual',
+  'new kits validate and retired formation migrates for posts and Casual',
   () => {
     const result = readChallenge(
       formValues({
@@ -876,7 +876,14 @@ check(
     );
     assert.ok(typeof result !== 'string');
     assert.equal(result.config.home.formation, '1-3');
-    assert.equal(result.config.away.formation, '0-3-1');
+    assert.equal(result.config.away.formation, '1-2-1');
+    assert.equal(
+      casualConfig({
+        ...DEFAULT_MATCH_CONFIG,
+        away: { ...DEFAULT_MATCH_CONFIG.away, formation: '0-3-1' },
+      }).away.formation,
+      '1-2-1'
+    );
   }
 );
 console.log(`\n${passed} checks passed`);
