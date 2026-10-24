@@ -16,7 +16,7 @@ export const DIFFICULTY_LABEL: Readonly<Record<Difficulty, string>> = {
   easy: 'EASY',
   normal: 'NORMAL',
   hard: 'HARD',
-  pro: 'PROFESSIONAL',
+  pro: 'PRO',
 };
 
 // Home is the human's team (attacks right, toward x = width); away is the CPU.

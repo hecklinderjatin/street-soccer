@@ -585,7 +585,7 @@ export const TACTICS = {
 
 // Difficulty: how sharp the CPU team is (our AI teammates and our keeper
 // always play at normal). Shown as NOOB / EASY / NORMAL / HARD /
-// PROFESSIONAL (pro). Same movement, physics and rules at every level
+// PRO (pro). Same movement, physics and rules at every level
 // (no speed boosts or guaranteed saves): only reaction, decisions,
 // accuracy and positioning change.
 export const LEVELS = {

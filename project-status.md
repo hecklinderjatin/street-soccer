@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Difficulty label (2026-10-24):** the highest difficulty is now displayed as PRO across the preview, settings, results and creation form. Its stored `pro` ID and gameplay tuning remain the same.
+
 **Preview match information (2026-10-24):** moving configured match duration and a difficulty-coloured badge into the top-right header, replacing LIVE PREVIEW. The lower team row keeps starting score only; Casual shows CUSTOM SETTINGS instead of fixed values. Types, lint, 39 gameplay checks, privacy/counter regressions and build pass. Browser checks verify all five badge colours, configured duration, no duplicate fields, Casual handling and non-overlapping header placement down to 320px, plus existing gameplay/settings flows.
 
 **Overlay preview revision (2026-10-24):** restoring full-card live gameplay with native controls layered over a lower gradient, replacing the separate preview/panel layout. Reworking Casual setup without pitch diagrams; formation selectors remain. Adding Orange and Teal kits, kit selectors for both Casual teams, and 1-3 / 0-3-1 formations. Matching kit choices swap the teams’ colours to avoid clashes; saved preferences retain kit choices. Art baking and WebP alpha/colour validation passed; only the two new atlases are added, preserving existing release art. Types, lint, 39 gameplay checks, privacy/counter regressions, build and desktop/mobile browser flows pass, including saved kits, both new formations, overlay geometry and no-scroll safe-area layouts. Live Reddit playtesting remains outstanding.
@@ -445,6 +447,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Use the short PRO display label everywhere through `DIFFICULTY_LABEL`; retain the existing stored `pro` ID for compatibility.
+
 - Header time is the configured match duration, not the AI demo countdown. Badge colours: Noob green, Easy teal, Normal yellow, Hard orange, Professional red. Casual has no fixed time/difficulty in the feed and uses CUSTOM SETTINGS instead.
 
 - User rejected the framed split preview layout: gameplay must fill the card, with title and play/settings information overlaid as in the earlier version. Remove decorative formation diagrams from Casual setup, retaining accessible arrow selectors and the no-scroll requirement.
@@ -685,6 +689,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Review the header changes with the shortened PRO label before merging `codex/preview-match-info`.
+
 - Review the top-right duration/difficulty header screenshots and playtest on Reddit before merging. All local and browser checks pass.
 
 - Review overlay and text-only Casual setup screenshots, then playtest the branch on Reddit before merging. Check Orange/Teal visibility and the new 1-3 / 0-3-1 formations during full matches.
@@ -916,6 +922,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-10-24:** rename the highest difficulty display label from PROFESSIONAL to PRO.
 
 - **2026-10-24:** move preview time/difficulty into the top-right header with five colour-coded difficulty badges, replace LIVE PREVIEW, remove lower duplicates and place starting score beside team names on `codex/preview-match-info`. Casual shows CUSTOM SETTINGS. Local and browser checks pass.
 
