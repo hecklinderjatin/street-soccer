@@ -312,6 +312,141 @@ try {
     );
   }
 
+  // Ranked results now use native buttons too. Check that moving the UI
+  // preserves ranked saving, rematches and the explicit sharing decision.
+  for (const type of ['daily', 'classic']) {
+    const { page, context, errors, mutations } = await pageFor(
+      { width: 390, height: 600 },
+      { matchType: type, match: config }
+    );
+    await page.goto(new URL('index.html?debug', base).href);
+    await waitForMatch(page, true);
+    await page.keyboard.press('i');
+    await waitForMatch(page);
+    await page.evaluate(() => {
+      window.__game.scene.getScene('Match').flow.finished = true;
+    });
+    await page
+      .getByRole('button', { name: 'PLAY AGAIN', exact: true })
+      .waitFor();
+    await page.locator('.results-board li').nth(2).waitFor();
+    assert.deepEqual(mutations, ['/api/result']);
+    await page.getByRole('button', { name: 'PLAY AGAIN', exact: true }).click();
+    await waitForMatch(page);
+    const replay = await page.evaluate(
+      () => window.__game.scene.getScene('Match').config
+    );
+    assert.equal(replay.durationSec, config.durationSec);
+    assert.equal(replay.startGoalsAgainst, config.startGoalsAgainst);
+    assert.equal(replay.locked, true);
+    await page.evaluate(() => {
+      window.__game.scene.getScene('Match').flow.finished = true;
+    });
+    await page
+      .getByRole('button', { name: 'POST MY SCORE', exact: true })
+      .waitFor();
+    await page.locator('.results-board li').nth(2).waitFor();
+    assert.deepEqual(mutations, ['/api/result', '/api/result']);
+
+    await page
+      .getByRole('button', { name: 'POST MY SCORE', exact: true })
+      .click();
+    await page.waitForFunction(() =>
+      window.hostMessages.some((message) => message.showForm)
+    );
+    assert.equal(
+      mutations.includes('/api/post-score'),
+      false,
+      'opening the form cannot post'
+    );
+    await page.evaluate(() => {
+      const message = window.hostMessages.find((message) => message.showForm);
+      window.postMessage(
+        { type: 'devvit-message', data: { id: message.id } },
+        '*'
+      ); // cancel
+    });
+    await page.waitForTimeout(30);
+    assert.equal(
+      mutations.includes('/api/post-score'),
+      false,
+      'cancelled form cannot post'
+    );
+    await page
+      .getByRole('button', { name: 'POST MY SCORE', exact: true })
+      .click();
+    await page.waitForFunction(
+      () =>
+        window.hostMessages.filter((message) => message.showForm).length === 2
+    );
+    if (type === 'classic') {
+      await page
+        .getByRole('button', { name: 'PLAY CASUAL', exact: true })
+        .click();
+      await page
+        .getByRole('button', { name: 'START MATCH', exact: true })
+        .waitFor();
+    }
+    await page.evaluate(() => {
+      const message = window.hostMessages
+        .filter((message) => message.showForm)
+        .at(-1);
+      window.postMessage(
+        {
+          type: 'devvit-message',
+          data: {
+            id: message.id,
+            formSubmitted: {
+              results: {
+                comment: { fieldType: 1, stringValue: '' }, // SDK paragraph field
+                includeStats: { fieldType: 3, boolValue: true }, // SDK boolean field
+              },
+            },
+          },
+        },
+        '*'
+      );
+    });
+    if (type === 'daily') {
+      await page
+        .getByRole('button', { name: 'POSTED!', exact: true })
+        .waitFor();
+      assert.equal(
+        mutations.filter((path) => path === '/api/post-score').length,
+        1
+      );
+      await page
+        .getByRole('button', { name: 'PLAY CASUAL', exact: true })
+        .click();
+    } else {
+      await page.waitForTimeout(50);
+      assert.equal(
+        mutations.includes('/api/post-score'),
+        false,
+        'late submission from an old results card is ignored'
+      );
+    }
+    await page
+      .getByRole('button', { name: 'START MATCH', exact: true })
+      .waitFor();
+    assert.equal(await page.locator('.results-screen').count(), 0);
+    await page
+      .getByRole('button', { name: 'START MATCH', exact: true })
+      .click();
+    await waitForMatch(page, true);
+    const casual = await page.evaluate(
+      () => window.__game.scene.getScene('Match').config
+    );
+    assert.equal(casual.mode, 'casual');
+    assert.equal(casual.startGoalsAgainst, 0);
+    assert.equal(mutations.filter((path) => path === '/api/result').length, 2);
+    assert.deepEqual(errors, []);
+    await context.close();
+    console.log(
+      `ok ${type} responsive results: ranked rematch, consent-based sharing and Casual transition`
+    );
+  }
+
   for (const type of ['daily', 'classic', 'casual', 'legacy']) {
     for (const viewport of [
       { width: 390, height: 844 },

@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Responsive results UI (2026-10-24):** Daily Challenge, Classic and Casual now share a centred pixel-styled native card with coloured team panels, score, difficulty/time, stat tiles and consistent actions. Ranked results retain the 7-day board, result saving, consent-based score sharing and Play Casual. Browser checks pass across desktop, portrait and landscape, including 320×480 and 640×320, with visible touch targets and no internal scrolling at the tested sizes. Sharing cancellation, submission and late-form responses are covered with mocked Reddit APIs; live Reddit playtesting remains outstanding.
+
 **Casual from ranked results (2026-10-24):** adding PLAY CASUAL below Play Again and Post My Score on Daily Challenge/Classic results. It opens Casual setup with remembered preferences; the ranked result is still saved normally. Existing result buttons move up slightly to keep every action inside the canvas. Types, lint, build and browser checks pass for Daily Challenge and Classic on desktop, portrait mobile and landscape mobile. Real canvas clicks open saved Casual settings and start an unranked 0–0 match, with exactly one ranked result submission.
 
 **Difficulty label (2026-10-24):** the highest difficulty is now displayed as PRO across the preview, settings, results and creation form. Its stored `pro` ID and gameplay tuning remain the same.
@@ -449,6 +451,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Results use one responsive card with centred outcome, colour-coded teams, score, difficulty/time and stat tiles. Centre the card vertically when it fits; retain safe scrolling on genuinely small viewports rather than clipping actions. Ranked results retain leaderboard/share/Play Casual; Casual retains rematch/settings/exit and makes no ranked calls.
+
 - Ranked results offer a direct route to Casual setup through the existing scene, rather than replaying fixed challenge settings. Keep ranked saving/sharing and Casual results actions unchanged.
 
 - Use the short PRO display label everywhere through `DIFFICULTY_LABEL`; retain the existing stored `pro` ID for compatibility.
@@ -693,6 +697,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Review the unified results screenshots and playtest the end screens on Reddit before merging `codex/results-play-casual`. Local layout checks and browser flows pass, including ranked replay, sharing consent and Casual transitions.
+
 - Review the results-screen PLAY CASUAL button and playtest on Reddit before merging `codex/results-play-casual`; local desktop and mobile click-through checks pass.
 
 - Review the header changes with the shortened PRO label before merging `codex/preview-match-info`.
@@ -928,6 +934,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-10-24:** unify responsive pixel results UI and centre the Casual end card on `codex/results-play-casual`. Preserve ranked saving/sharing and all mode actions; add browser regressions for ranked rematch, cancelled/submitted/late share forms and Casual transitions. Local checks and portrait/landscape layout checks pass.
 
 - **2026-10-24:** add PLAY CASUAL to Daily Challenge/Classic results on `codex/results-play-casual`. Types, lint, build and desktop/mobile browser click-through checks pass.
 

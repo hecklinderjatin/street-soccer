@@ -26,6 +26,8 @@ Daily Challenge and Classic offer the same options: title, optional description,
 
 Casual posts ask only for a title and optional description. Players tap **PLAY CASUAL**, select their own and the opponent's kit colours and formations, difficulty and duration using left/right arrows, then tap **START MATCH**. Formation choices are text-only arrow selectors, without pitch diagrams. Matching kit choices swap the teams’ colours to prevent clashes. Orange and Teal join the existing six outfield colours; 1-3 and 0-3-1 join the existing formations. These new choices are also available in Daily Challenge and Classic creation forms. All options are free; matches start 0–0. Preferences are remembered on the device when storage is available. The compact setup fits the webview without internal scrolling, including short portrait and landscape layouts. The controls panel opens before the first Casual match in a page session. Results show match stats with **REMATCH**, **CHANGE SETTINGS** and **EXIT**, without ranked score submission or score sharing.
 
+All modes use a centred, responsive pixel results card with team colours, scores and match stats. Daily Challenge and Classic results also show the 7-day top three and offer **PLAY AGAIN**, **POST MY SCORE** and **PLAY CASUAL**. Score sharing opens an explicit Reddit confirmation form.
+
 Daily Challenge and Classic cards also offer **PLAY CASUAL**. These matches stay unranked even when launched from a ranked post. Post labels do not automatically schedule daily posts. Installation still creates one default game post.
 
 ## Games played
