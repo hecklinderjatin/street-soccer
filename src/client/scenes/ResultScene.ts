@@ -22,7 +22,8 @@ import { TextButton } from '../ui/TextButton';
 
 // Full time: the score and stats, the last 7 days' top 3 on this post (the result
 // is saved first, POST /api/result: each player's best match of the UTC
-// day), PLAY AGAIN (same settings) and POST MY SCORE: a Reddit popup with a
+// day), PLAY AGAIN (same settings), PLAY CASUAL (opens unranked setup),
+// and POST MY SCORE: a Reddit popup with a
 // comment box and a "share my score and stats" box that posts a comment on
 // the post. Outside Reddit (local preview) there is no server: the board
 // says so and posting is unavailable.
@@ -92,7 +93,7 @@ export class ResultScene extends Phaser.Scene {
     new TextButton(
       this,
       cx - 176,
-      600,
+      566,
       'PLAY AGAIN',
       () => this.scene.start('Match', r.config), // the same match, settings and all
       { width: 320, fill: PAL.green }
@@ -100,10 +101,19 @@ export class ResultScene extends Phaser.Scene {
     const post: TextButton = new TextButton(
       this,
       cx + 176,
-      600,
+      566,
       'POST MY SCORE',
       () => void this.postScore(post),
       { width: 320, fill: PAL.blue, textSize: 0.75 * PX }
+    );
+
+    new TextButton(
+      this,
+      cx,
+      662,
+      'PLAY CASUAL',
+      () => this.scene.start('Casual'),
+      { width: 672, height: 72, textSize: 0.75 * PX, fill: PAL.orange }
     );
 
     void this.saveResult(board);

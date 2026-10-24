@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Casual from ranked results (2026-10-24):** adding PLAY CASUAL below Play Again and Post My Score on Daily Challenge/Classic results. It opens Casual setup with remembered preferences; the ranked result is still saved normally. Existing result buttons move up slightly to keep every action inside the canvas. Types, lint, build and browser checks pass for Daily Challenge and Classic on desktop, portrait mobile and landscape mobile. Real canvas clicks open saved Casual settings and start an unranked 0–0 match, with exactly one ranked result submission.
+
 **Difficulty label (2026-10-24):** the highest difficulty is now displayed as PRO across the preview, settings, results and creation form. Its stored `pro` ID and gameplay tuning remain the same.
 
 **Preview match information (2026-10-24):** moving configured match duration and a difficulty-coloured badge into the top-right header, replacing LIVE PREVIEW. The lower team row keeps starting score only; Casual shows CUSTOM SETTINGS instead of fixed values. Types, lint, 39 gameplay checks, privacy/counter regressions and build pass. Browser checks verify all five badge colours, configured duration, no duplicate fields, Casual handling and non-overlapping header placement down to 320px, plus existing gameplay/settings flows.
@@ -447,6 +449,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Ranked results offer a direct route to Casual setup through the existing scene, rather than replaying fixed challenge settings. Keep ranked saving/sharing and Casual results actions unchanged.
+
 - Use the short PRO display label everywhere through `DIFFICULTY_LABEL`; retain the existing stored `pro` ID for compatibility.
 
 - Header time is the configured match duration, not the AI demo countdown. Badge colours: Noob green, Easy teal, Normal yellow, Hard orange, Professional red. Casual has no fixed time/difficulty in the feed and uses CUSTOM SETTINGS instead.
@@ -689,6 +693,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Review the results-screen PLAY CASUAL button and playtest on Reddit before merging `codex/results-play-casual`; local desktop and mobile click-through checks pass.
+
 - Review the header changes with the shortened PRO label before merging `codex/preview-match-info`.
 
 - Review the top-right duration/difficulty header screenshots and playtest on Reddit before merging. All local and browser checks pass.
@@ -922,6 +928,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-10-24:** add PLAY CASUAL to Daily Challenge/Classic results on `codex/results-play-casual`. Types, lint, build and desktop/mobile browser click-through checks pass.
 
 - **2026-10-24:** rename the highest difficulty display label from PROFESSIONAL to PRO.
 
