@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Preview match information (2026-10-24):** moving configured match duration and a difficulty-coloured badge into the top-right header, replacing LIVE PREVIEW. The lower team row keeps starting score only; Casual shows CUSTOM SETTINGS instead of fixed values. Types, lint, 39 gameplay checks, privacy/counter regressions and build pass. Browser checks verify all five badge colours, configured duration, no duplicate fields, Casual handling and non-overlapping header placement down to 320px, plus existing gameplay/settings flows.
+
 **Overlay preview revision (2026-10-24):** restoring full-card live gameplay with native controls layered over a lower gradient, replacing the separate preview/panel layout. Reworking Casual setup without pitch diagrams; formation selectors remain. Adding Orange and Teal kits, kit selectors for both Casual teams, and 1-3 / 0-3-1 formations. Matching kit choices swap the teams’ colours to avoid clashes; saved preferences retain kit choices. Art baking and WebP alpha/colour validation passed; only the two new atlases are added, preserving existing release art. Types, lint, 39 gameplay checks, privacy/counter regressions, build and desktop/mobile browser flows pass, including saved kits, both new formations, overlay geometry and no-scroll safe-area layouts. Live Reddit playtesting remains outstanding.
 
 **Modern pixel match card and game count (2026-10-24):** replacing duplicated preview layouts with a responsive pixel-styled match card and a properly framed live gameplay stage. Casual setup uses compact two-column controls sized to the visual viewport. Adding anonymous per-post completed-match counts with expiring receipts and transactional deduplication, separate from rankings. Types, lint, 37 gameplay checks, privacy regressions, transactional-counter regressions and build pass. Browser checks cover desktop/mobile feed entry routes, completion-only counting, no-scroll setup at 320×480 / 390×600 / 360×640 / 844×390 / 640×320, safe-area padding, rotation, and counter failure fallback. Browser host/API calls are mocked; real Redis and Reddit playtesting remain outstanding.
@@ -443,6 +445,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Header time is the configured match duration, not the AI demo countdown. Badge colours: Noob green, Easy teal, Normal yellow, Hard orange, Professional red. Casual has no fixed time/difficulty in the feed and uses CUSTOM SETTINGS instead.
+
 - User rejected the framed split preview layout: gameplay must fill the card, with title and play/settings information overlaid as in the earlier version. Remove decorative formation diagrams from Casual setup, retaining accessible arrow selectors and the no-scroll requirement.
 
 - Games played means completed matches, including rematches and Casual; previews, abandoned matches and duplicate completion requests do not count. Store no usernames or scores for this metric; transient receipts expire in 24 hours. Keep lifetime aggregate counts per post, clear on post deletion, and block pending receipts from recreating deleted counts. One native preview UI serves desktop and mobile; only its stage reveals the existing Phaser AI match. Casual setup must fit short mobile webviews without scrolling or inaccessible controls.
@@ -681,6 +685,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Review the top-right duration/difficulty header screenshots and playtest on Reddit before merging. All local and browser checks pass.
+
 - Review overlay and text-only Casual setup screenshots, then playtest the branch on Reddit before merging. Check Orange/Teal visibility and the new 1-3 / 0-3-1 formations during full matches.
 
 - Review the modern pixel UI screenshots and playtest the feature branch on Reddit, especially actual Redis game counts, returning to the preview after a match, and short mobile viewports, before merging.
@@ -910,6 +916,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-10-24:** move preview time/difficulty into the top-right header with five colour-coded difficulty badges, replace LIVE PREVIEW, remove lower duplicates and place starting score beside team names on `codex/preview-match-info`. Casual shows CUSTOM SETTINGS. Local and browser checks pass.
 
 - **2026-10-24:** restore full-card overlay preview, replace Casual pitch diagrams with text-only selectors, add per-team kit selection plus Orange/Teal atlases and 1-3 / 0-3-1 formations on `codex/overlay-lobby`. All local and browser checks pass; Reddit playtesting pending.
 

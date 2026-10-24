@@ -20,12 +20,12 @@ export function createMobileLobby(
   element.id = 'mobile-lobby';
   element.innerHTML = `
     <div class="preview-stage" aria-label="Live AI match preview"></div>
-    <header class="mobile-lobby-header"><strong>STREET SOCCER</strong><span class="preview-live"><i></i>LIVE PREVIEW</span></header>
+    <header class="mobile-lobby-header"><strong>STREET SOCCER</strong><div class="preview-match-summary" aria-label="Match settings"><strong class="mobile-time" aria-label="Match duration"></strong><span class="mobile-difficulty preview-difficulty" aria-label="AI difficulty"></span><span class="preview-custom">CUSTOM SETTINGS</span></div></header>
     <div class="mobile-lobby-details">
       <div class="preview-card-top"><div class="mobile-match-tag"></div></div>
-      <div class="mobile-teams"><div class="mobile-home"></div><span>VS</span><div class="mobile-away"></div></div>
+      <div class="preview-teams-row"><div class="mobile-teams"><div class="mobile-home"></div><span>VS</span><div class="mobile-away"></div></div>
+      <div class="mobile-match-facts"><div><small>START SCORE</small><strong class="mobile-start"></strong></div></div></div>
       <div class="mobile-formations"></div>
-      <div class="mobile-match-facts"><div><small>TIME</small><strong class="mobile-time"></strong></div><div><small>AI LEVEL</small><strong class="mobile-difficulty"></strong></div><div><small>START SCORE</small><strong class="mobile-start"></strong></div></div>
       <p class="mobile-challenge"></p>
       <div class="preview-actions"><button class="mobile-play">PLAY MATCH</button><button class="mobile-casual">PLAY CASUAL</button></div>
       <div class="preview-activity"><span><i class="activity-icon"></i> GAMES PLAYED</span><strong class="preview-games" aria-label="Games played">—</strong></div>
@@ -57,6 +57,10 @@ export function createMobileLobby(
     `${config.home.formation}  vs  ${config.away.formation}`;
   get('.mobile-time').textContent = formatClock(config.durationSec);
   get('.mobile-difficulty').textContent = DIFFICULTY_LABEL[config.difficulty];
+  get('.mobile-difficulty').dataset.level = config.difficulty;
+  get('.mobile-time').hidden = type === 'casual';
+  get('.mobile-difficulty').hidden = type === 'casual';
+  get('.preview-custom').hidden = type !== 'casual';
   get('.mobile-start').textContent = `0 – ${config.startGoalsAgainst}`;
   get('.mobile-challenge').textContent =
     description ||
@@ -71,6 +75,7 @@ export function createMobileLobby(
     '.mobile-away',
     '.mobile-time',
     '.mobile-difficulty',
+    '.preview-custom',
     '.mobile-start',
     '.mobile-board-heading > strong',
     '.mobile-board-sheet header > strong',
@@ -114,9 +119,6 @@ export function createMobileLobby(
         count === null
           ? 'Game count unavailable'
           : `${count} completed matches on this post`;
-    },
-    setDifficulty(value: string) {
-      pixelLabel(get('.mobile-difficulty'), value);
     },
     setBoard(data: DailyLeadersResponse | string) {
       const list = get('.mobile-leaders');

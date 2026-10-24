@@ -4,7 +4,7 @@ A fast 5v5 arcade street football match against the AI, played right inside a Re
 
 ## How it works
 
-- **In the feed**, live AI-vs-AI gameplay fills the post, with the title and match details, Play buttons, games-played count and leaderboard layered over it.
+- **In the feed**, live AI-vs-AI gameplay fills the post, with the title and match details, Play buttons, games-played count and leaderboard layered over it. The top-right header shows the configured match duration above a colour-coded difficulty badge; Casual posts show CUSTOM SETTINGS instead. Starting score sits beside the team names.
 - **PLAY CHALLENGE / PLAY CLASSIC** opens the fixed match and controls panel. **PLAY CASUAL** opens free kit-colour, formation, difficulty and time selectors before the controls panel. Tap GOT IT, then pass to kick off. Golden goal applies if level at full time.
 - **After a ranked match**, the result screen shows the top 3 of the last 7 days for this post. Players can choose **POST MY SCORE** to share their result. The popup says it posts from their own account and shows their username. A score on its own is posted as a reply to the post's pinned **Scores** comment (made by the app with each post); a score with the player's own words is posted as a comment on the post. Sharing is always optional and never needed to play.
 - The (i) button in the match explains the controls. There is a pause menu and a sound on/off switch.

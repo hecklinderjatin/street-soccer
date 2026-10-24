@@ -92,31 +92,68 @@ body {
   left: 0;
   right: 0;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
   padding: 22px 24px 60px;
   background: linear-gradient(#06101ac9, transparent);
 }
 .mobile-lobby-header > strong {
+  min-width: 0;
+  flex: 1;
   color: #ffec27;
   font-size: clamp(16px, 4.5vw, 26px);
   filter: drop-shadow(2px 2px #000);
 }
-.preview-live {
+.preview-match-summary {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 9px;
-  letter-spacing: 1px;
-  white-space: nowrap;
-  text-shadow: 1px 1px #000;
+  flex-direction: column;
+  align-items: flex-end;
+  flex-shrink: 0;
+  gap: 7px;
+  max-width: 46%;
 }
-.preview-live i {
-  width: 7px;
-  height: 7px;
+.preview-match-summary .mobile-time {
+  display: block;
+  color: #fff1e8;
+  font-size: 24px;
+  line-height: 1;
+  filter: drop-shadow(2px 2px #000);
+}
+.preview-difficulty,
+.preview-custom {
+  display: block;
+  box-sizing: border-box;
+  max-width: 100%;
+  padding: 6px 7px;
+  border: 1px solid #ffffff55;
+  box-shadow: 2px 2px #0006;
+  color: #081019;
+  font-size: 10px;
+  line-height: 1;
+  background: #ffec27;
+}
+.preview-difficulty[data-level='noob'] {
   background: #00e436;
-  box-shadow: 0 0 0 3px #00e43620;
+}
+.preview-difficulty[data-level='easy'] {
+  background: #38b6b0;
+}
+.preview-difficulty[data-level='normal'] {
+  background: #ffec27;
+}
+.preview-difficulty[data-level='hard'] {
+  background: #ffa300;
+}
+.preview-difficulty[data-level='pro'] {
+  background: #ff004d;
+}
+.preview-custom {
+  font-size: 8px;
+  background: #29adff;
+}
+.preview-match-summary [hidden] {
+  display: none;
 }
 .mobile-lobby-details {
   position: absolute;
@@ -155,7 +192,9 @@ body {
   display: flex;
   align-items: center;
   gap: 14px;
-  margin-bottom: 12px;
+  margin-bottom: 0;
+  flex: 1;
+  min-width: 0;
 }
 .mobile-teams > div {
   min-width: 0;
@@ -172,31 +211,29 @@ body {
 .mobile-formations {
   display: none;
 }
-.mobile-match-facts {
-  display: grid;
-  grid-template-columns: 1fr 1.4fr 1fr;
+.preview-teams-row {
+  display: flex;
+  align-items: center;
   gap: 12px;
-  margin: 12px 0;
-  max-width: 520px;
+  margin-bottom: 12px;
 }
-.mobile-match-facts > div {
-  min-width: 0;
+.mobile-match-facts {
+  flex: 0 0 auto;
+  padding-left: 12px;
+  border-left: 1px solid #a8b6c94d;
+  text-align: right;
 }
 .mobile-match-facts small {
   display: block;
   color: #a8b6c9;
-  font-size: 9px;
-  letter-spacing: 1px;
+  font-size: 8px;
+  letter-spacing: 0.5px;
   margin-bottom: 5px;
 }
 .mobile-match-facts strong {
   display: block;
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 400;
-}
-.mobile-match-facts .mobile-difficulty {
-  font-size: 14px;
-  padding-top: 3px;
 }
 .mobile-challenge {
   display: -webkit-box;
@@ -434,10 +471,11 @@ body {
   .mobile-lobby-header > strong {
     font-size: clamp(15px, 4.3vw, 20px);
   }
-  .preview-live {
-    font-size: 8px;
-    letter-spacing: 0.4px;
-    gap: 6px;
+  .preview-match-summary .mobile-time {
+    font-size: 21px;
+  }
+  .preview-difficulty {
+    font-size: 9px;
   }
   .mobile-lobby-details {
     padding: 14px 16px 16px;
@@ -456,11 +494,8 @@ body {
   .preview-card-top {
     margin-bottom: 6px;
   }
-  .mobile-teams {
+  .preview-teams-row {
     margin-bottom: 8px;
-  }
-  .mobile-match-facts {
-    margin: 8px 0;
   }
   .mobile-leaders li:nth-child(n + 2),
   .mobile-best {
@@ -488,9 +523,6 @@ body {
   }
   .mobile-match-facts strong {
     font-size: 15px;
-  }
-  .mobile-match-facts .mobile-difficulty {
-    font-size: 12px;
   }
   #mobile-lobby .mobile-play,
   #mobile-lobby .mobile-casual {
