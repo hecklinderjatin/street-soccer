@@ -151,9 +151,7 @@ export class ResultScene extends Phaser.Scene {
       )
     );
     screen.panel.append(score, settings, stats, actions);
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () =>
-      screen.element.remove()
-    );
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => screen.destroy());
   }
 
   private stats(): MatchStats {

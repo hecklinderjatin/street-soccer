@@ -24,9 +24,15 @@ Moderators choose **Create Street Soccer match** in the subreddit menu, then sel
 
 Daily Challenge and Classic offer the same options: title, optional description, team names, jersey colours, formations, AI difficulty, match length (0:30–5:00), and opponent starting goals (0–5). These settings are fixed for ranked matches, with a separate 7-day leaderboard for each post. Existing custom posts are treated as Daily Challenges.
 
-Casual posts ask only for a title and optional description. Players tap **PLAY CASUAL**, select their own and the opponent's formations, difficulty and duration using left/right arrows, then tap **START MATCH**. All options are free; matches start 0–0. Preferences are remembered on the device when storage is available. The controls panel opens before the first Casual match in a page session. Results show match stats with **REMATCH**, **CHANGE SETTINGS** and **EXIT**, without ranked score submission or score sharing.
+Casual posts ask only for a title and optional description. Players tap **PLAY CASUAL**, select their own and the opponent's formations, difficulty and duration using left/right arrows, then tap **START MATCH**. All options are free; matches start 0–0. Preferences are remembered on the device when storage is available. The compact setup fits the webview without internal scrolling, including short portrait and landscape layouts. The controls panel opens before the first Casual match in a page session. Results show match stats with **REMATCH**, **CHANGE SETTINGS** and **EXIT**, without ranked score submission or score sharing.
 
 Daily Challenge and Classic cards also offer **PLAY CASUAL**. These matches stay unranked even when launched from a ranked post. Post labels do not automatically schedule daily posts. Installation still creates one default game post.
+
+## Games played
+
+Each preview card shows **GAMES PLAYED**: the number of completed matches on that post since this counter was introduced. It includes Casual and ranked matches, including rematches. Watching the AI preview, opening settings, quitting a match or refreshing the page does not increment it. This is a match count, not a count of unique people.
+
+A real match registers a random receipt after its assets are ready. The server validates the duration and only accepts completion after a minimum elapsed time. Receipt completion and the aggregate increment happen in one watched Redis transaction, so duplicate requests and network retries count once. Receipts contain no usernames or scores, expire after 24 hours, and cannot be reused after expiry. The aggregate remains for the post's lifetime and is deleted with the post; pending receipts cannot recreate it. Unavailable counters show a dash and never block gameplay. Earlier matches cannot be reconstructed reliably.
 
 ## Data and permissions
 
@@ -55,6 +61,7 @@ Run these in WSL from this folder:
 - `npm run dev`: build and playtest in the dev subreddit (`r/street_soccer_dev`)
 - `npm run test:local`: type check, lint, unit and logic checks, build
 - `npm run test:casual-browser`: browser interaction checks against a running local build (install Playwright Chromium first, or set `CHROMIUM_PATH` to a system Chromium)
+- `npm run test:games`: completed-game counter regression checks for concurrent retries, failed commits, lost replies, expiry and deletion
 - `npm run test:privacy`: regression checks for deletion isolation, account lookup failures and mandatory score-thread pinning
 - `npm run art:release`: rebuild the player atlases and release art after changing a sprite sheet (needs Python Pillow)
 - `npm run audio:release`: rebuild the compressed audio after changing a sound (needs `pip install lameenc miniaudio`)

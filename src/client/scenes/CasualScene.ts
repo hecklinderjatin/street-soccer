@@ -27,7 +27,8 @@ export class CasualScene extends Phaser.Scene {
     }
     const screen = casualScreen(
       'CASUAL MATCH',
-      'Your match. Your rules. All settings are free.'
+      'Pick your lineup. Set the pace. Own the street.',
+      true
     );
     const rows = document.createElement('div');
     rows.className = 'casual-settings';
@@ -134,8 +135,7 @@ export class CasualScene extends Phaser.Scene {
     );
     const note = document.createElement('p');
     note.className = 'casual-note';
-    note.textContent =
-      'Starts at 0–0 · Casual results do not enter leaderboards';
+    note.textContent = '0–0 KICKOFF · UNRANKED · ALL OPTIONS FREE';
     const actions = document.createElement('div');
     actions.className = 'casual-actions';
     actions.append(
@@ -157,8 +157,6 @@ export class CasualScene extends Phaser.Scene {
       )
     );
     screen.panel.append(note, actions);
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () =>
-      screen.element.remove()
-    );
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => screen.destroy());
   }
 }

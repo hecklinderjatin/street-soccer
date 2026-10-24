@@ -1,9 +1,9 @@
 import { pixelLabel } from './pixelLabel';
 
 // Native controls keep arrow targets readable in portrait and landscape.
-export function casualScreen(title: string, subtitle: string) {
+export function casualScreen(title: string, subtitle: string, setup = false) {
   const element = document.createElement('section');
-  element.className = 'casual-screen';
+  element.className = setup ? 'casual-screen is-setup' : 'casual-screen';
   element.setAttribute('aria-label', title);
   const panel = document.createElement('div');
   panel.className = 'casual-panel';
@@ -15,7 +15,26 @@ export function casualScreen(title: string, subtitle: string) {
   panel.append(heading, description);
   element.append(panel);
   document.body.append(element);
-  return { element, panel };
+  const resize = () => {
+    const viewport = window.visualViewport;
+    const height = viewport?.height ?? window.innerHeight;
+    element.style.height = `${height}px`;
+    element.style.top = `${viewport?.offsetTop ?? 0}px`;
+    const style = getComputedStyle(element);
+    const available =
+      height - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+    element.dataset.compact = String(available < 420);
+    element.dataset.minimal = String(available < 300);
+  };
+  resize();
+  window.addEventListener('resize', resize);
+  window.visualViewport?.addEventListener('resize', resize);
+  const destroy = () => {
+    window.removeEventListener('resize', resize);
+    window.visualViewport?.removeEventListener('resize', resize);
+    element.remove();
+  };
+  return { element, panel, destroy };
 }
 
 export function casualButton(

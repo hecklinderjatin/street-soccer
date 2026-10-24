@@ -1,3 +1,11 @@
+import {
+  beginGame,
+  finishGame,
+  gameId,
+  gameDuration,
+  gamesPlayed,
+  GameCountError,
+} from '../core/gamesPlayed';
 import { competitiveResultAllowed, postType } from '../../shared/postType';
 import { Hono } from 'hono';
 import { context, redis, reddit } from '@devvit/web/server';
@@ -12,6 +20,57 @@ type SimpleErrorResponse = {
 };
 
 export const api = new Hono();
+
+api.get('/games', async (c) => {
+  if (!context.postId) return c.json({ error: 'Missing postId' }, 400);
+  c.header('Cache-Control', 'no-store');
+  try {
+    return c.json({ gamesPlayed: await gamesPlayed(redis, context.postId) });
+  } catch (error) {
+    return c.json(
+      { error: 'Game count unavailable' },
+      error instanceof GameCountError ? error.status : 503
+    );
+  }
+});
+
+for (const action of ['start', 'complete'] as const) {
+  api.post(`/games/${action}`, async (c) => {
+    if (!context.postId) return c.json({ error: 'Missing postId' }, 400);
+    try {
+      const body: unknown = await c.req.json();
+      if (!body || typeof body !== 'object')
+        return c.json({ error: 'Invalid request' }, 400);
+      const id = gameId(Reflect.get(body, 'id'));
+      if (action === 'start') {
+        await beginGame(
+          redis,
+          context.postId,
+          id,
+          gameDuration(Reflect.get(body, 'config'), context.postData)
+        );
+        return c.json({ registered: true });
+      }
+      return c.json({
+        gamesPlayed: await finishGame(redis, context.postId, id),
+      });
+    } catch (error) {
+      if (error instanceof SyntaxError)
+        return c.json({ error: 'Invalid JSON' }, 400);
+      if (!(error instanceof GameCountError))
+        console.warn('Game count request failed:', error);
+      return c.json(
+        {
+          error:
+            error instanceof GameCountError
+              ? error.message
+              : 'Game count unavailable',
+        },
+        error instanceof GameCountError ? error.status : 503
+      );
+    }
+  });
+}
 
 // Abuse limits, per player and post (Redis keys that expire): a result is
 // saved at most once per real match length (so a script can't flood the

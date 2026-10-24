@@ -30,15 +30,31 @@ export function forceLandscape(
     const vh = window.innerHeight;
     lastW = vw;
     lastH = vh;
+    const preview =
+      game.registry.get('menuPreview') === true
+        ? document.querySelector('.preview-stage')?.getBoundingClientRect()
+        : undefined;
     const mobileLobby = game.registry.get('mobileLobby') === true;
     const rotated = rotatePortrait && !mobileLobby && vh > vw;
     const availableW = rotated ? vh : vw;
     const availableH = rotated ? vw : vh;
-    const scale = mobileLobby
-      ? Math.max(availableW / VIEW.width, availableH / VIEW.height)
-      : Math.min(availableW / VIEW.width, availableH / VIEW.height);
-    layout = { rotated, scale, centerX: vw / 2, centerY: vh / 2 };
-    box.style.transform = `translate(-50%, -50%) ${rotated ? 'rotate(90deg) ' : ''}scale(${scale})`;
+    const scale = preview
+      ? Math.max(preview.width / VIEW.width, preview.height / VIEW.height)
+      : mobileLobby
+        ? Math.max(availableW / VIEW.width, availableH / VIEW.height)
+        : Math.min(availableW / VIEW.width, availableH / VIEW.height);
+    layout = {
+      rotated: preview ? false : rotated,
+      scale,
+      centerX: preview ? preview.left + preview.width / 2 : vw / 2,
+      centerY: preview ? preview.top + preview.height / 2 : vh / 2,
+    };
+    box.style.left = `${layout.centerX}px`;
+    box.style.top = `${layout.centerY}px`;
+    box.style.clipPath = preview
+      ? `inset(${Math.max(0, (VIEW.height - preview.height / scale) / 2)}px ${Math.max(0, (VIEW.width - preview.width / scale) / 2)}px)`
+      : '';
+    box.style.transform = `translate(-50%, -50%) ${layout.rotated ? 'rotate(90deg) ' : ''}scale(${scale})`;
   };
 
   apply();

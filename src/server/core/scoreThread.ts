@@ -1,3 +1,4 @@
+import { deleteGameCounts } from './gamesPlayed';
 import { reddit, redis } from '@devvit/web/server';
 import { boardKey, statsKey, today } from './daily';
 import { requirePinnedThread } from './pinnedThread';
@@ -32,7 +33,8 @@ export async function scoreThread(postId: `t3_${string}`) {
       } catch (error) {
         // The SDK uses this exact error for an absent comment. Network and
         // permission failures must fail closed, without creating duplicates.
-        if (error instanceof Error && error.message === 'not found') return null;
+        if (error instanceof Error && error.message === 'not found')
+          return null;
         throw error;
       }
     },
@@ -46,6 +48,7 @@ export async function scoreThread(postId: `t3_${string}`) {
 // days cover them all) and its scores comment id. Per-player cooldown keys
 // expire on their own within minutes.
 export async function forgetPost(postId: string) {
+  await deleteGameCounts(redis, postId);
   const keys = [threadKey(postId), `${threadKey(postId)}:pending`];
   const day = new Date(`${today()}T00:00:00Z`);
   for (let back = 0; back <= 9; back++) {

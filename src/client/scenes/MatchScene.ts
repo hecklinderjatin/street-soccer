@@ -1,3 +1,4 @@
+import { trackGame } from '../gameCount';
 import Phaser from 'phaser';
 import {
   AI,
@@ -193,6 +194,7 @@ export class MatchScene extends Phaser.Scene {
   private switchCycle: Player[] = [];
   private switchIndex = 0;
   private switchHoldArmed = false; // a SWITCH press that, held on, jumps to the keeper
+  private gameCount: ReturnType<typeof trackGame> | null = null;
   private resultShown = false;
   // Cost of the simulation per rendered frame (ms), for the debug overlay
   // (tap the FPS readout): a smoothed average and a slowly decaying peak.
@@ -236,6 +238,7 @@ export class MatchScene extends Phaser.Scene {
     this.switchCycle = [];
     this.switchIndex = 0;
     this.switchHoldArmed = false;
+    this.gameCount = null;
     this.resultShown = false;
     this.startSoundPlayed = false;
     this.overSoundPlayed = false;
@@ -261,10 +264,9 @@ export class MatchScene extends Phaser.Scene {
 
   create() {
     if (this.demo) {
-      const portrait = this.registry.get('mobileLobby') === true;
       this.cameras.main
-        .setViewport(portrait ? 0 : 528, 0, portrait ? 1280 : 752, 720)
-        .setZoom(portrait ? 1 : 0.92)
+        .setViewport(0, 0, VIEW.width, VIEW.height)
+        .setZoom(1)
         .centerOn(640, 360);
       this.input.enabled = false;
       this.scene.bringToTop('Menu');
@@ -484,6 +486,7 @@ export class MatchScene extends Phaser.Scene {
       this.loadingText = null;
       this.finishCreate();
       this.ready = true;
+      if (!this.demo) this.gameCount = trackGame(this.config);
       markTiming('match ready');
       return;
     }
@@ -1885,6 +1888,7 @@ export class MatchScene extends Phaser.Scene {
     if (this.demo) return;
     if (this.resultShown) return;
     this.resultShown = true;
+    void this.gameCount?.complete();
     const result: MatchResult = {
       config: this.config,
       goalsFor: this.flow.score.home,

@@ -35,3 +35,6 @@ export type PostScoreRequest = {
 export type PostScoreResponse = {
   commentId: string;
 };
+
+// Aggregate completed matches for this post, independent of rankings.
+export type GamesPlayedResponse = { gamesPlayed: number };

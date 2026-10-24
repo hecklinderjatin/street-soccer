@@ -70,141 +70,228 @@ body {
   }
 }
 
-/* Portrait lobby uses native-size text and touch targets over a full-card
-   live match. Expanded gameplay keeps its existing landscape layout. */
+/* Native match card: one layout and one set of controls on every device. */
 #mobile-lobby {
-  display: none;
-}
-#mobile-lobby.is-portrait {
   position: fixed;
   inset: 0;
   z-index: 4;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
+  box-sizing: border-box;
+  display: grid;
+  grid-template: 'brand brand' auto 'details stage' minmax(0, 1fr) / minmax(
+      300px,
+      370px
+    ) minmax(0, 1fr);
+  gap: 14px;
+  padding: 18px;
   color: #fff1e8;
-  font:
-    13px/1.4 monospace,
-    monospace;
   pointer-events: none;
-  background: linear-gradient(
-    180deg,
-    #070e18a8 0%,
-    transparent 28%,
-    #070e1830 45%,
-    #070e18ee 68%,
-    #070e18 100%
-  );
+  font:
+    13px/1.4 ui-monospace,
+    monospace;
+  background: transparent;
 }
+
 .mobile-lobby-header {
+  grid-area: brand;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  padding: 18px 16px;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 1px solid #314159;
+  border-bottom: 3px solid #ffec27;
+  background: #101b2c;
 }
 .mobile-lobby-header > strong {
-  font: 400 clamp(13px, 3.6vw, 18px)/1 monospace;
-  letter-spacing: 0;
-  text-shadow: 2px 2px #000;
+  font-size: clamp(13px, 2vw, 22px);
+  color: #ffec27;
 }
-.mobile-lobby-header > span {
-  font-size: 9px;
-  letter-spacing: 0.8px;
-  white-space: nowrap;
-}
-.mobile-lobby-header i {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  margin-right: 4px;
-  background: #00e436;
-}
-.mobile-lobby-details {
-  padding: 12px 16px 14px;
-  pointer-events: auto;
-}
-.mobile-match-tag {
-  display: inline-block;
-  background: #ffec27;
-  color: #000000;
-  border-radius: 0;
-  padding: 4px 8px;
-  font-size: 9px;
-  font-weight: 900;
+.preview-edition {
+  color: #91a4bb;
+  font-size: 10px;
   letter-spacing: 1px;
-  margin-bottom: 10px;
 }
-.mobile-teams {
+.preview-stage {
+  grid-area: stage;
+  min-height: 0;
+  position: relative;
+  border: 2px solid #45556c;
+  box-shadow: 0 4px #0008;
+}
+.preview-stage-header {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: #d4dfeb;
+  font-size: 10px;
+  text-shadow: 1px 2px #000;
+}
+.preview-stage-header > span {
+  background: #081321db;
+  padding: 6px 9px;
+  border: 1px solid #ffffff25;
+}
+.preview-live {
   display: flex;
   align-items: center;
-  gap: 12px;
-  font-weight: 900;
-  font-size: 18px;
+  gap: 7px;
+  letter-spacing: 1px;
 }
-.mobile-teams > div {
-  border-left: 6px solid;
-  padding-left: 8px;
+.preview-live i {
+  width: 6px;
+  height: 6px;
+  background: #00e436;
+  box-shadow: 0 0 0 3px #00e43624;
+}
+.preview-scorebar {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  background: #081321dd;
+  border-left: 3px solid #ffec27;
+  color: #fff1e8;
+  font-size: 12px;
+}
+.preview-score {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.mobile-teams > span {
+.preview-clock {
+  color: #ffec27;
+  font-variant-numeric: tabular-nums;
+}
+.mobile-lobby-details {
+  grid-area: details;
+  align-self: center;
+  padding: 18px;
+  border: 1px solid #314159;
+  border-top: 3px solid #ff77a8;
+  background: #101b2cf5;
+  box-shadow: 0 5px #0008;
+  pointer-events: auto;
+  min-width: 0;
+}
+.preview-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.mobile-match-tag {
   font-size: 9px;
-  color: #c2c3c7;
+  padding: 6px 8px;
+  color: #ffec27;
+  background: #ffec2714;
+  border: 1px solid #ffec2740;
+}
+.preview-status {
+  font-size: 8px;
+  color: #91a4bb;
+  letter-spacing: 0.7px;
+}
+.preview-headline {
+  font-size: clamp(12px, 1.5vw, 16px);
+  color: #fff1e8;
+  margin: 0 0 16px;
+}
+.mobile-teams {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0;
+  border-top: 1px solid #ffffff12;
+  border-bottom: 1px solid #ffffff12;
+}
+.mobile-teams > div {
+  font-size: clamp(13px, 2.5vw, 18px);
+  border-left: 4px solid;
+  padding-left: 8px;
+  min-width: 0;
+  overflow: hidden;
+}
+.mobile-teams > span {
+  font-size: 10px;
+  color: #91a4bb;
+  text-align: center;
 }
 .mobile-formations {
-  margin: 4px 0 10px;
-  color: #c2c3c7;
-  font: 11px monospace;
+  font-size: 10px;
+  color: #91a4bb;
+  margin: 6px 0 0;
+  text-align: center;
 }
 .mobile-match-facts {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  margin: 9px 0;
+  grid-template-columns: 0.8fr 1.5fr 1fr;
+  margin: 12px 0;
+  gap: 6px;
+}
+.mobile-match-facts > div {
+  min-width: 0;
+  background: #081321;
+  padding: 8px;
+  border: 1px solid #263750;
 }
 .mobile-match-facts small {
   display: block;
-  font-size: 9px;
-  color: #c2c3c7;
+  font-size: 8px;
+  color: #91a4bb;
   letter-spacing: 0.5px;
+  margin-bottom: 6px;
 }
 .mobile-match-facts strong {
   display: block;
-  font-weight: 900;
-  font-size: 18px;
+  font-size: 13px;
+  font-weight: 400;
 }
 .mobile-match-facts .mobile-difficulty {
-  font-size: 14px;
-  padding-top: 3px;
+  font-size: 11px;
 }
 .mobile-challenge {
-  margin: 8px 0 10px;
-  color: #c2c3c7;
+  color: #b2bfd0;
   font-size: 12px;
+  line-height: 1.5;
+  margin: 12px 0;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 #mobile-lobby button {
-  touch-action: manipulation;
-  cursor: pointer;
-  font: inherit;
   color: inherit;
+  font: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.preview-actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
 }
 #mobile-lobby .mobile-play {
+  min-height: 52px;
   width: 100%;
-  min-height: 50px;
-  border: 0;
-  border-bottom: 4px solid #ab5236;
-  border-radius: 0;
+  padding: 12px;
   background: #ffa300;
-  color: white;
+  color: #101521;
+  border: 0;
+  border-top: 2px solid #ffd16b;
+  border-bottom: 4px solid #a45a12;
+  box-shadow: 3px 3px #0007;
   font-size: 14px;
-  font-weight: 900;
-  box-shadow: 3px 4px #000;
   clip-path: polygon(
     4px 0,
     calc(100% - 4px) 0,
@@ -220,27 +307,77 @@ body {
     4px 4px
   );
 }
-#mobile-lobby .mobile-play:active {
+#mobile-lobby .mobile-casual {
+  min-height: 44px;
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #40526d;
+  border-bottom: 3px solid #263750;
+  background: #1b2b43;
+  font-size: 11px;
+}
+#mobile-lobby button:active {
   transform: translateY(2px);
+}
+#mobile-lobby button:focus-visible {
+  outline: 3px solid #ffec27;
+  outline-offset: 3px;
+}
+.preview-activity {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 0 0;
+  color: #91a4bb;
+  font-size: 9px;
+  letter-spacing: 0.8px;
+}
+.preview-activity > span {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.preview-games {
+  color: #fff1e8;
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+.activity-icon {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  background: #29adff;
+  box-shadow:
+    7px 0 #29adff,
+    0 7px #29adff,
+    7px 7px #29adff;
+  margin: 0 7px 7px 0;
+}
+.preview-ranking {
+  border-top: 1px solid #314159;
+  margin-top: 12px;
+  padding-top: 4px;
 }
 .mobile-board-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 8px;
+  gap: 8px;
 }
 .mobile-board-heading > strong {
   font-size: 9px;
   color: #ffec27;
-  letter-spacing: 0.7px;
+  font-weight: 400;
 }
 #mobile-lobby .mobile-more {
-  min-width: 56px;
-  min-height: 38px;
+  min-height: 44px;
+  padding: 0 4px 0 12px;
+  color: #ffec27;
   border: 0;
   background: transparent;
-  color: #ffec27;
-  font-weight: 800;
+  font-size: 9px;
 }
 .mobile-leaders,
 .mobile-board-rows {
@@ -252,10 +389,10 @@ body {
 .mobile-board-rows li {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
   padding: 5px 0;
-  border-bottom: 1px solid #ffffff10;
-  font-size: 12px;
+  font-size: 11px;
+  border-bottom: 1px solid #ffffff0c;
 }
 .mobile-leaders li span,
 .mobile-board-rows li span {
@@ -270,91 +407,168 @@ body {
 }
 .mobile-best {
   font-size: 9px;
-  color: #c2c3c7;
-  padding-top: 6px;
+  color: #91a4bb;
+  padding-top: 5px;
 }
 .mobile-best:empty {
   display: none;
 }
+#mobile-lobby.is-casual .mobile-match-facts,
+#mobile-lobby.is-casual .mobile-formations,
+#mobile-lobby.is-casual .preview-ranking {
+  display: none;
+}
+#mobile-lobby.is-casual .mobile-lobby-details {
+  border-top-color: #29adff;
+}
+#mobile-lobby.is-casual .mobile-match-tag {
+  color: #6cc9ff;
+  border-color: #29adff40;
+  background: #29adff14;
+}
 .mobile-board-modal {
   position: absolute;
   inset: 0;
-  background: #000c;
+  background: #050b16dd;
   display: flex;
   align-items: center;
-  padding: 16px;
+  justify-content: center;
+  padding: 18px;
   pointer-events: auto;
 }
-.mobile-board-modal[hidden] {
+.mobile-board-modal[hidden],
+#mobile-lobby button[hidden] {
   display: none;
 }
 .mobile-board-sheet {
   width: 100%;
-  border: 4px solid #5f574f;
-  box-shadow: 4px 4px #000;
-  border-radius: 0;
+  max-width: 560px;
+  max-height: 100%;
+  overflow: auto;
+  box-sizing: border-box;
+  border: 1px solid #40526d;
+  border-top: 3px solid #ffec27;
   padding: 16px;
-  background: #1d2b53;
+  background: #101b2c;
+  box-shadow: 5px 5px #0008;
 }
 .mobile-board-sheet header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 8px;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
   font-size: 12px;
   color: #ffec27;
 }
 #mobile-lobby .mobile-board-close {
-  min-width: 40px;
-  min-height: 40px;
-  border: 0;
-  background: #ffffff10;
-  border-radius: 0;
+  min-width: 44px;
+  min-height: 44px;
+  border: 1px solid #314159;
+  background: #1b2b43;
 }
 .mobile-board-sheet footer {
   display: flex;
   justify-content: space-between;
 }
 .mobile-board-sheet footer button {
-  border: 0;
-  border-radius: 0;
-  background: #ffffff10;
-  padding: 12px;
+  border: 1px solid #314159;
+  background: #1b2b43;
+  padding: 10px 16px;
   min-height: 44px;
 }
 .mobile-board-status {
-  color: #c2c3c7;
+  color: #91a4bb;
   font-size: 12px;
 }
-@media (max-height: 560px) {
+@media (max-width: 699px), (orientation: portrait) {
+  #mobile-lobby {
+    grid-template: 'brand' auto 'stage' minmax(
+        100px,
+        1fr
+      ) 'details' auto / minmax(0, 1fr);
+    padding: 10px;
+    gap: 8px;
+  }
   .mobile-lobby-header {
-    padding: 12px 14px;
+    padding: 10px 12px;
+  }
+  .mobile-lobby-header > strong {
+    font-size: clamp(12px, 3.8vw, 18px);
+  }
+  .preview-edition {
+    font-size: 7px;
+    letter-spacing: 0.4px;
   }
   .mobile-lobby-details {
-    padding: 8px 14px 10px;
+    align-self: stretch;
+    padding: 14px;
   }
-  .mobile-challenge,
-  .mobile-formations {
-    display: none;
+  .preview-card-top {
+    margin-bottom: 10px;
   }
-  .mobile-match-tag {
-    margin-bottom: 5px;
-    padding: 3px 6px;
+  .preview-headline {
+    font-size: clamp(12px, 3.2vw, 16px);
+    margin-bottom: 10px;
   }
-  .mobile-match-facts {
-    margin: 6px 0;
+  .mobile-teams {
+    padding: 9px 0;
   }
-  .mobile-leaders li {
-    padding: 3px 0;
-    font-size: 11px;
+  .mobile-challenge {
+    margin: 8px 0;
   }
-  .mobile-leaders li:nth-child(n + 2) {
-    display: none;
+  .preview-actions {
+    margin-top: 10px;
   }
 }
-
-/* Same glyph pixels as the Phaser HUD, at a readable phone size. */
+@media (max-height: 650px) {
+  #mobile-lobby {
+    padding: 8px;
+    gap: 6px;
+  }
+  .mobile-lobby-details {
+    padding: 10px;
+  }
+  .mobile-lobby-header {
+    padding: 8px 10px;
+  }
+  .mobile-challenge,
+  .mobile-formations,
+  .preview-status {
+    display: none;
+  }
+  .preview-card-top {
+    margin-bottom: 8px;
+  }
+  .preview-headline {
+    font-size: 12px;
+    margin-bottom: 8px;
+  }
+  .mobile-match-facts {
+    margin: 8px 0;
+  }
+  .mobile-match-facts > div {
+    padding: 6px;
+  }
+  .mobile-teams {
+    padding: 6px 0;
+  }
+  .mobile-leaders li:nth-child(n + 2),
+  .mobile-best {
+    display: none;
+  }
+  .preview-ranking {
+    margin-top: 8px;
+  }
+  .preview-activity {
+    padding-top: 8px;
+  }
+  .preview-actions {
+    margin-top: 8px;
+    gap: 6px;
+  }
+}
+/* Same glyph pixels as the Phaser HUD; readable text remains accessible. */
 .lobby-pixel {
   display: inline-block;
   height: 1em;
@@ -362,7 +576,6 @@ body {
   vertical-align: middle;
   overflow: visible;
   shape-rendering: crispEdges;
-  filter: drop-shadow(1px 1px #000);
 }
 .lobby-readable {
   position: absolute;
@@ -370,35 +583,6 @@ body {
   height: 1px;
   overflow: hidden;
   clip-path: inset(50%);
-}
-.mobile-lobby-header > strong {
-  color: #ffec27;
-}
-.mobile-match-tag .lobby-pixel {
-  filter: none;
-}
-.mobile-lobby-details {
-  background: linear-gradient(180deg, transparent, #000c 24%, #000e);
-  border-bottom: 4px solid #5f574f;
-}
-.mobile-board-heading {
-  border-top: 2px solid #5f574f;
-}
-.mobile-match-facts > div {
-  min-width: 0;
-}
-.mobile-match-facts small {
-  font-size: 8px;
-}
-.mobile-teams > div {
-  min-width: 0;
-}
-.mobile-board-sheet {
-  box-sizing: border-box;
-}
-#mobile-lobby button:focus-visible {
-  outline: 3px solid #ffec27;
-  outline-offset: 3px;
 }
 
 /* Casual configuration and results use native, accessible touch controls. */
@@ -570,19 +754,187 @@ body {
     font-size: 14px;
   }
 }
-#mobile-lobby .mobile-casual {
-  width: 100%;
-  min-height: 44px;
-  margin-top: 7px;
-  background: #263755;
-  border: 2px solid #5f718a;
-  color: #fff1e8;
-  font-size: 11px;
+/* Compact setup is measured against the webview's visual viewport. */
+.casual-screen {
+  bottom: auto;
+  height: 100dvh;
+  background: radial-gradient(ellipse at top, #1c2d48, #080f1c 75%);
 }
-#mobile-lobby.is-casual .mobile-match-facts,
-#mobile-lobby.is-casual .mobile-formations,
-#mobile-lobby.is-casual .mobile-board-heading,
-#mobile-lobby.is-casual .mobile-leaders,
-#mobile-lobby.is-casual .mobile-best {
+.casual-screen.is-setup {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  touch-action: manipulation;
+  padding: max(12px, env(safe-area-inset-top))
+    max(12px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom))
+    max(12px, env(safe-area-inset-left));
+}
+.is-setup .casual-panel {
+  width: 100%;
+  max-width: 760px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.is-setup .casual-panel h1 {
+  margin: 0;
+  font-size: clamp(18px, 3vw, 26px);
+}
+.is-setup .casual-subtitle {
+  margin: 0;
+  font-size: 12px;
+  color: #91a4bb;
+}
+.is-setup .casual-settings {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.is-setup .casual-setting {
+  padding: 8px;
+  border: 1px solid #314159;
+  border-top: 2px solid #405777;
+  background: #101d30;
+}
+.is-setup .casual-setting:nth-child(1) {
+  border-top-color: #ff77a8;
+}
+.is-setup .casual-setting:nth-child(2) {
+  border-top-color: #29adff;
+}
+.is-setup .casual-setting h2 {
+  font-size: 10px;
+  letter-spacing: 0.3px;
+  margin-bottom: 8px;
+}
+.is-setup .casual-selector {
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  gap: 2px;
+}
+.is-setup .casual-selector output {
+  font-size: clamp(10px, 2vw, 15px);
+}
+.is-setup .casual-button {
+  min-height: 44px;
+  padding: 8px;
+}
+.is-setup .casual-selector .casual-button {
+  border: 1px solid #405777;
+  background: #21344d;
+  padding: 6px;
+}
+.is-setup .casual-pitch {
+  height: clamp(44px, 10dvh, 88px);
+  margin-top: 8px;
+  border: 1px solid #628f83;
+  background: repeating-linear-gradient(90deg, #183e3c 0 25%, #1b4742 25% 50%);
+}
+.is-setup .casual-pitch i {
+  width: 7px;
+  height: 7px;
+  border-width: 1px;
+}
+.is-setup .casual-note {
+  margin: 0;
+  font-size: 10px;
+  color: #91a4bb;
+  letter-spacing: 0.3px;
+}
+.is-setup .casual-actions {
+  margin: 0;
+  gap: 10px;
+  flex-wrap: nowrap;
+}
+.is-setup .casual-actions > button {
+  min-width: 0;
+  font-size: 12px;
+}
+.is-setup .casual-actions > button:first-child {
+  flex: 2;
+}
+.is-setup[data-compact='true'] {
+  padding: 8px;
+}
+.is-setup[data-compact='true'] .casual-panel {
+  gap: 6px;
+}
+.is-setup[data-compact='true'] .casual-subtitle {
   display: none;
+}
+.is-setup[data-compact='true'] .casual-settings {
+  gap: 6px;
+}
+.is-setup[data-compact='true'] .casual-setting {
+  padding: 6px;
+}
+.is-setup[data-compact='true'] .casual-setting h2 {
+  margin-bottom: 4px;
+}
+.is-setup[data-compact='true'] .casual-pitch {
+  height: 24px;
+  margin-top: 4px;
+}
+.is-setup[data-compact='true'] .casual-note {
+  font-size: 9px;
+}
+@media (max-width: 480px) {
+  .is-setup .casual-setting:nth-child(-n + 2) {
+    padding: 6px;
+  }
+  .is-setup .casual-setting:nth-child(n + 3) {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: 64px minmax(0, 1fr);
+    gap: 8px;
+    align-items: center;
+  }
+  .is-setup .casual-setting:nth-child(n + 3) h2 {
+    margin: 0;
+  }
+  .is-setup .casual-setting:nth-child(n + 3) output {
+    font-size: 13px;
+  }
+}
+@media (max-height: 560px) and (max-width: 699px) {
+  .preview-headline,
+  .mobile-leaders {
+    display: none;
+  }
+  .preview-actions {
+    grid-template-columns: 1fr 1fr;
+  }
+  #mobile-lobby.is-casual .preview-actions {
+    grid-template-columns: 1fr;
+  }
+  #mobile-lobby .mobile-play {
+    min-height: 48px;
+    font-size: 10px;
+    padding: 8px;
+  }
+  #mobile-lobby .mobile-casual {
+    font-size: 9px;
+  }
+  .mobile-board-heading {
+    min-height: 32px;
+  }
+}
+/* Extremely short safe-area viewports keep every control; only decorative
+   pitch diagrams yield space. Formation values remain visible. */
+.is-setup[data-minimal='true'] .casual-pitch {
+  display: none;
+}
+.is-setup[data-minimal='true'] .casual-panel,
+.is-setup[data-minimal='true'] .casual-settings {
+  gap: 4px;
+}
+.is-setup[data-minimal='true'] .casual-panel h1 {
+  font-size: 16px;
+}
+.is-setup[data-minimal='true'] .casual-setting {
+  padding: 4px;
+}
+.is-setup[data-minimal='true'] .casual-setting h2 {
+  margin-bottom: 2px;
+}
+.is-setup[data-minimal='true'] .casual-note {
+  font-size: 8px;
 }

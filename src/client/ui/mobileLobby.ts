@@ -19,20 +19,27 @@ export function createMobileLobby(
   const element = document.createElement('section');
   element.id = 'mobile-lobby';
   element.innerHTML = `
-    <header class="mobile-lobby-header"><strong>STREET SOCCER</strong><span><i></i> LIVE PREVIEW</span></header>
+    <header class="mobile-lobby-header"><strong>STREET SOCCER</strong><span class="preview-edition">5 A SIDE / ALL STREET</span></header>
+    <div class="preview-stage" aria-label="Live AI match preview">
+      <div class="preview-stage-header"><span class="preview-live"><i></i>LIVE MATCH</span><span>CPU vs CPU</span></div>
+      <div class="preview-scorebar"><strong class="preview-score">WARMING UP</strong><span class="preview-clock">LIVE</span></div>
+    </div>
     <div class="mobile-lobby-details">
-      <div class="mobile-match-tag"></div>
+      <div class="preview-card-top"><div class="mobile-match-tag"></div><span class="preview-status">READY TO PLAY</span></div>
+      <h1 class="preview-headline"></h1>
       <div class="mobile-teams"><div class="mobile-home"></div><span>VS</span><div class="mobile-away"></div></div>
       <div class="mobile-formations"></div>
-      <div class="mobile-match-facts"><div><small>MATCH TIME</small><strong class="mobile-time"></strong></div><div><small>DIFFICULTY</small><strong class="mobile-difficulty"></strong></div><div><small>START SCORE</small><strong class="mobile-start"></strong></div></div>
+      <div class="mobile-match-facts"><div><small>TIME</small><strong class="mobile-time"></strong></div><div><small>AI LEVEL</small><strong class="mobile-difficulty"></strong></div><div><small>START SCORE</small><strong class="mobile-start"></strong></div></div>
       <p class="mobile-challenge"></p>
-      <button class="mobile-play">▶ PLAY MATCH</button>
-      <button class="mobile-casual">PLAY CASUAL</button>
-      <div class="mobile-board-heading"><strong>7-DAY TOP 3</strong><button class="mobile-more">ALL ›</button></div>
-      <ol class="mobile-leaders"><li>Leaderboard available on Reddit</li></ol>
-      <div class="mobile-best"></div>
+      <div class="preview-actions"><button class="mobile-play">PLAY MATCH</button><button class="mobile-casual">PLAY CASUAL</button></div>
+      <div class="preview-activity"><span><i class="activity-icon"></i> GAMES PLAYED</span><strong class="preview-games" aria-label="Games played">—</strong></div>
+      <div class="preview-ranking">
+        <div class="mobile-board-heading"><strong>7-DAY TOP 3</strong><button class="mobile-more">ALL ›</button></div>
+        <ol class="mobile-leaders"><li>Leaderboard available on Reddit</li></ol>
+        <div class="mobile-best"></div>
+      </div>
     </div>
-    <div class="mobile-board-modal" hidden role="dialog" aria-label="Today's leaderboard">
+    <div class="mobile-board-modal" hidden role="dialog" aria-label="7-day leaderboard">
       <div class="mobile-board-sheet"><header><strong>7-DAY LEADERBOARD</strong><button class="mobile-board-close" aria-label="Close leaderboard">✕</button></header><ol class="mobile-board-rows"></ol><p class="mobile-board-status"></p><footer><button class="mobile-board-prev">‹ PREV</button><button class="mobile-board-next">NEXT ›</button></footer></div>
     </div>`;
   const get = (selector: string) => {
@@ -42,6 +49,10 @@ export function createMobileLobby(
   };
   element.classList.toggle('is-casual', type === 'casual');
   get('.mobile-match-tag').textContent = POST_TYPE_LABEL[type];
+  pixelLabel(
+    get('.preview-headline'),
+    type === 'casual' ? 'YOUR STREET. YOUR RULES.' : 'STEP UP. PLAY TO WIN.'
+  );
   get('.mobile-home').textContent = config.home.name;
   get('.mobile-home').style.borderColor = css(
     JERSEY_SWATCH[config.home.jersey]
@@ -103,6 +114,18 @@ export function createMobileLobby(
   };
   return {
     element,
+    setGamesPlayed(count: number | null) {
+      get('.preview-games').textContent =
+        count === null ? '—' : count.toLocaleString();
+      get('.preview-games').title =
+        count === null
+          ? 'Game count unavailable'
+          : `${count} completed matches on this post`;
+    },
+    setPreviewScore(score: string, clock: string) {
+      get('.preview-score').textContent = score;
+      get('.preview-clock').textContent = clock;
+    },
     setDifficulty(value: string) {
       pixelLabel(get('.mobile-difficulty'), value);
     },

@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Modern pixel match card and game count (2026-10-24):** replacing duplicated preview layouts with a responsive pixel-styled match card and a properly framed live gameplay stage. Casual setup uses compact two-column controls sized to the visual viewport. Adding anonymous per-post completed-match counts with expiring receipts and transactional deduplication, separate from rankings. Types, lint, 37 gameplay checks, privacy regressions, transactional-counter regressions and build pass. Browser checks cover desktop/mobile feed entry routes, completion-only counting, no-scroll setup at 320×480 / 390×600 / 360×640 / 844×390 / 640×320, safe-area padding, rotation, and counter failure fallback. Browser host/API calls are mocked; real Redis and Reddit playtesting remain outstanding.
+
 **Casual mode and post types (2026-10-24):** implementing Daily Challenge, Classic and Casual posts. Daily and Classic share creator-defined fixed settings; the Casual entry point opens formation/difficulty/time arrow selectors with device-local preferences and unranked results. Legacy custom posts remain Daily Challenges. Local types, lint, 37 logic checks, privacy checks and build pass. Browser checks pass at 390px and 1280px for settings, help-before-play, match/result transitions, rematch, change settings, exit, all post-type feed routes and legacy posts; guest play also works with storage disabled. Browser checks mock Reddit host messages and API responses; native forms, actual post creation and live expansion still need Reddit playtesting.
 
 **Dependency refresh (2026-10-24):** updating Devvit together to 0.15.0, Hono Node adapter to 2.1.5, ESLint to 10.13.0, Prettier to 3.9.10, typescript-eslint to 8.72.0 and Vite to 8.3.5; refreshing Playwright to ^1.64.1 and Node 24 types to ^24.19.2 and reconciling the lockfile. All Devvit packages are pinned exactly to 0.15.0. A clean `npm ci`, type check, lint, 31 gameplay logic checks, privacy regressions, build and Chromium gameplay smoke check pass. The unit runner discovers zero tests; Reddit playtesting remains outstanding.
@@ -439,6 +441,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Games played means completed matches, including rematches and Casual; previews, abandoned matches and duplicate completion requests do not count. Store no usernames or scores for this metric; transient receipts expire in 24 hours. Keep lifetime aggregate counts per post, clear on post deletion, and block pending receipts from recreating deleted counts. One native preview UI serves desktop and mobile; only its stage reveals the existing Phaser AI match. Casual setup must fit short mobile webviews without scrolling or inaccessible controls.
+
 - Daily Challenge and Classic expose identical creation fields and keep per-post rankings; Casual starts 0–0, accepts free preset choices, and never calls ranked result/sharing endpoints. Both server mutation routes reject explicitly Casual results and all Casual posts. A dedicated `casual` entry point preserves the feed button intent across Reddit expansion without relying on shared browser storage. Native Reddit forms use a type-selection step followed by the relevant fields because live conditional fields are unsupported. Preferences contain settings only and stay on the device.
 
 - Dependency refresh keeps Phaser 3.90.0 because the custom trimmed build imports Phaser 3 internals. Keep TypeScript 6.0.3 within typescript-eslint 8.72.0's supported range (<6.1), and Node types on the pinned Node 24 runtime line. Phaser 4 and TypeScript 7 require separate migrations.
@@ -673,6 +677,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Review the modern pixel UI screenshots and playtest the feature branch on Reddit, especially actual Redis game counts, returning to the preview after a match, and short mobile viewports, before merging.
+
 - Playtest all three native creation forms, actual post creation and both feed buttons in Reddit before release. Local and mocked-host browser checks pass.
 
 - Playtest Devvit 0.15.0 in the Reddit dev subreddit before release; clean install, full local checks and browser gameplay smoke validation passed.
@@ -898,6 +904,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-10-24:** modern pixel preview card, compact no-scroll Casual setup and anonymous completed-games counter implemented on `codex/modern-pixel-ui`. Local checks and desktop/mobile browser regressions pass; live Redis/Reddit playtesting pending.
 
 - **2026-10-24:** add three post types, Casual setup with premade arrow selectors and formation diagrams, remembered settings, help-before-play, rematch/change-settings/exit, and client/server ranked-result separation. Types, lint, 37 logic checks, privacy regressions, build and desktop/mobile browser flows pass. Reddit-native integration remains to be playtested.
 

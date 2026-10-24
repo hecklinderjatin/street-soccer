@@ -30,11 +30,39 @@ async function pageFor(viewport, postData) {
   const page = await context.newPage();
   const errors = [];
   const mutations = [];
+  const gameRequests = [];
+  const completed = new Set();
   page.on('pageerror', (error) => errors.push(error.message));
   await page.route('**/api/**', (route) => {
-    if (route.request().method() === 'POST')
-      mutations.push(new URL(route.request().url()).pathname);
-    return route.fulfill({ json: { day: '2026-10-24', top: [], me: null } });
+    const request = route.request();
+    const path = new URL(request.url()).pathname;
+    if (path.startsWith('/api/games')) {
+      if (request.method() === 'POST') {
+        const body = request.postDataJSON();
+        gameRequests.push({ path, id: body.id });
+        if (path.endsWith('/complete')) completed.add(body.id);
+      }
+      return route.fulfill({
+        json: { registered: true, gamesPlayed: 127 + completed.size },
+      });
+    }
+    if (request.method() === 'POST') mutations.push(path);
+    return route.fulfill({
+      json: {
+        day: '2026-10-24',
+        top: [
+          { rank: 1, username: 'street_legend', goalsFor: 4, goalsAgainst: 1 },
+          { rank: 2, username: 'backheel_hero', goalsFor: 3, goalsAgainst: 1 },
+          {
+            rank: 3,
+            username: 'a_very_long_reddit_username',
+            goalsFor: 2,
+            goalsAgainst: 0,
+          },
+        ],
+        me: null,
+      },
+    });
   });
   if (postData)
     await page.addInitScript((data) => {
@@ -57,7 +85,7 @@ async function pageFor(viewport, postData) {
           window.hostMessages.push(event.data);
       });
     }, postData);
-  return { page, context, errors, mutations };
+  return { page, context, errors, mutations, gameRequests };
 }
 
 async function waitForMatch(page, paused = false) {
@@ -80,10 +108,13 @@ try {
     { width: 1280, height: 720 },
     { width: 390, height: 844 },
   ]) {
-    const { page, context, errors, mutations } = await pageFor(viewport, {
-      matchType: 'daily',
-      match: config,
-    });
+    const { page, context, errors, mutations, gameRequests } = await pageFor(
+      viewport,
+      {
+        matchType: 'daily',
+        match: config,
+      }
+    );
     await page.goto(new URL('casual.html?debug', base).href);
     await page
       .getByRole('button', { name: 'START MATCH', exact: true })
@@ -232,6 +263,32 @@ try {
     );
     assert.deepEqual(errors, []);
     assert.deepEqual(mutations, []);
+    for (
+      let wait = 0;
+      wait < 40 &&
+      gameRequests.filter((request) => request.path.endsWith('/complete'))
+        .length < 3;
+      wait++
+    )
+      await page.waitForTimeout(50);
+    const starts = gameRequests.filter((request) =>
+      request.path.endsWith('/start')
+    );
+    assert.equal(
+      new Set(starts.map((request) => request.id)).size,
+      4,
+      'new receipt per match, including rematches'
+    );
+    assert.equal(
+      gameRequests.filter((request) => request.path.endsWith('/complete'))
+        .length,
+      3,
+      'abandoned match does not complete'
+    );
+    await page.goto(new URL('splash.html?debug', base).href);
+    await page.waitForFunction(
+      () => document.querySelector('.preview-games')?.textContent === '130'
+    );
     await context.close();
     console.log(
       `ok Casual setup, persisted settings, help, match, results, rematch and exit (${viewport.width}px)`
@@ -247,7 +304,7 @@ try {
         type === 'legacy'
           ? { match: config }
           : { matchType: type, match: config };
-      const { page, context, errors, mutations } = await pageFor(
+      const { page, context, errors, mutations, gameRequests } = await pageFor(
         viewport,
         postData
       );
@@ -262,9 +319,7 @@ try {
           : type === 'classic'
             ? 'PLAY CLASSIC'
             : 'PLAY CHALLENGE';
-      if (viewport.width < 700)
-        await page.getByRole('button', { name: label, exact: true }).click();
-      else await page.mouse.click(256, 435);
+      await page.getByRole('button', { name: label, exact: true }).click();
       await page.waitForFunction(() =>
         window.hostMessages.some((message) => message.immersiveMode?.entryUrl)
       );
@@ -278,11 +333,9 @@ try {
         type === 'casual' ? '/casual.html' : '/index.html'
       );
       if (type !== 'casual') {
-        if (viewport.width < 700)
-          await page
-            .getByRole('button', { name: 'PLAY CASUAL', exact: true })
-            .click();
-        else await page.mouse.click(256, 494);
+        await page
+          .getByRole('button', { name: 'PLAY CASUAL', exact: true })
+          .click();
         await page.waitForFunction(() =>
           window.hostMessages.some((message) =>
             message.immersiveMode?.entryUrl?.includes('/casual.html')
@@ -293,6 +346,20 @@ try {
           await page.locator('.mobile-board-heading').isVisible(),
           false
         );
+      }
+      assert.deepEqual(
+        gameRequests,
+        [],
+        'AI preview never registers or completes a game'
+      );
+      assert.equal(await page.locator('.preview-games').textContent(), '127');
+      if (process.env.CASUAL_SCREENSHOTS) {
+        await page.waitForFunction(
+          () => window.__game.scene.getScene('Match').ready
+        );
+        await page.screenshot({
+          path: `${process.env.CASUAL_SCREENSHOTS}/preview-${type}-${viewport.width}.png`,
+        });
       }
       await page.goto(new URL('index.html?debug', base).href);
       if (type === 'casual')
@@ -316,6 +383,163 @@ try {
         `ok ${type} feed buttons, entry routing and legacy compatibility (${viewport.width}px)`
       );
     }
+  }
+
+  for (const viewport of [
+    { width: 320, height: 480 },
+    { width: 390, height: 600 },
+    { width: 360, height: 640 },
+    { width: 844, height: 390 },
+    { width: 640, height: 320 },
+  ]) {
+    const { page, context, errors } = await pageFor(viewport);
+    await page.goto(new URL('casual.html?debug', base).href);
+    await page
+      .getByRole('button', { name: 'START MATCH', exact: true })
+      .waitFor();
+    const layout = await page.evaluate(() => {
+      const root = document.querySelector('.casual-screen');
+      const panel = document
+        .querySelector('.casual-panel')
+        .getBoundingClientRect();
+      const buttons = [...root.querySelectorAll('button')].map((button) => {
+        const rect = button.getBoundingClientRect();
+        return (
+          rect.top >= 0 &&
+          rect.bottom <= innerHeight &&
+          rect.left >= 0 &&
+          rect.right <= innerWidth &&
+          rect.height >= 44
+        );
+      });
+      return {
+        scroll: root.scrollHeight > root.clientHeight + 1,
+        fits: panel.bottom <= innerHeight && panel.top >= 0,
+        buttons: buttons.every(Boolean),
+      };
+    });
+    assert.deepEqual(
+      layout,
+      { scroll: false, fits: true, buttons: true },
+      `${viewport.width}x${viewport.height}: every control fits without scrolling`
+    );
+    await page
+      .getByRole('button', { name: 'Next match time', exact: true })
+      .click();
+    if (process.env.CASUAL_SCREENSHOTS)
+      await page.screenshot({
+        path: `${process.env.CASUAL_SCREENSHOTS}/setup-${viewport.width}x${viewport.height}.png`,
+      });
+    if (viewport.width === 320) {
+      await page.evaluate(() => {
+        document.querySelector('.casual-screen').style.padding =
+          '40px 12px 34px';
+        dispatchEvent(new Event('resize'));
+      });
+      assert.equal(
+        await page.evaluate(() => {
+          const root = document.querySelector('.casual-screen');
+          return root.scrollHeight > root.clientHeight;
+        }),
+        false,
+        'safe-area padding must not introduce scrolling'
+      );
+      await page.setViewportSize({ width: 640, height: 320 });
+      assert.equal(
+        await page.evaluate(() => {
+          const root = document.querySelector('.casual-screen');
+          return root.scrollHeight > root.clientHeight;
+        }),
+        false,
+        'rotation must refit the setup'
+      );
+    }
+    assert.deepEqual(errors, []);
+    await context.close();
+    console.log(
+      `ok no-scroll setup and visible touch controls (${viewport.width}x${viewport.height})`
+    );
+  }
+
+  for (const viewport of [
+    { width: 320, height: 480 },
+    { width: 390, height: 600 },
+  ]) {
+    for (const type of ['daily', 'casual']) {
+      const { page, context, errors, gameRequests } = await pageFor(viewport, {
+        matchType: type,
+        match: config,
+      });
+      await page.goto(new URL('splash.html?debug', base).href);
+      await page.waitForFunction(
+        () => document.querySelector('.preview-games')?.textContent === '127'
+      );
+      const fits = await page.evaluate(() => {
+        const root = document.querySelector('#mobile-lobby');
+        const stage = document
+          .querySelector('.preview-stage')
+          .getBoundingClientRect();
+        const panel = document
+          .querySelector('.mobile-lobby-details')
+          .getBoundingClientRect();
+        const buttons = [
+          ...document.querySelectorAll('.preview-actions button'),
+        ].filter((button) => !button.hidden);
+        return (
+          root.scrollHeight <= root.clientHeight + 1 &&
+          panel.bottom <= innerHeight &&
+          stage.height >= 100 &&
+          buttons.every(
+            (button) => button.getBoundingClientRect().bottom <= innerHeight
+          )
+        );
+      });
+      assert.equal(
+        fits,
+        true,
+        `${type} card fits ${viewport.width}x${viewport.height}`
+      );
+      assert.deepEqual(gameRequests, []);
+      assert.deepEqual(errors, []);
+      if (process.env.CASUAL_SCREENSHOTS) {
+        await page.waitForFunction(
+          () => window.__game.scene.getScene('Match').ready
+        );
+        await page.screenshot({
+          path: `${process.env.CASUAL_SCREENSHOTS}/preview-${type}-${viewport.width}x${viewport.height}.png`,
+        });
+      }
+      await context.close();
+    }
+  }
+  {
+    const { page, context, errors } = await pageFor(
+      { width: 390, height: 600 },
+      { matchType: 'casual', match: config }
+    );
+    await page.route('**/api/games', (route) =>
+      route.fulfill({ status: 503, json: { error: 'unavailable' } })
+    );
+    await page.goto(new URL('splash.html?debug', base).href);
+    await page
+      .getByRole('button', { name: 'PLAY CASUAL', exact: true })
+      .waitFor();
+    assert.equal(
+      await page.locator('.preview-games').textContent(),
+      '—',
+      'an unavailable count must not pretend to be zero'
+    );
+    await page
+      .getByRole('button', { name: 'PLAY CASUAL', exact: true })
+      .click();
+    await page.waitForFunction(() =>
+      window.hostMessages.some((message) => message.immersiveMode?.entryUrl)
+    );
+    assert.deepEqual(errors, []);
+    await context.close();
+    console.log(
+      'ok compact preview cards, no preview counting, and unavailable counter fallback'
+    );
   }
 
   const { page, context, errors } = await pageFor({ width: 390, height: 844 });
