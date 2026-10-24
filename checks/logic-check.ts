@@ -34,6 +34,13 @@ import {
   DEFAULT_MATCH_CONFIG,
   parseMatchConfig,
 } from '../src/shared/matchConfig';
+import {
+  CASUAL_OPTIONS,
+  casualConfig,
+  cycleOption,
+} from '../src/shared/casual';
+import { competitiveResultAllowed, postType } from '../src/shared/postType';
+import { challengeFormFor } from '../src/server/core/challengeForm';
 import { DIFFICULTIES } from '../src/shared/types';
 import { readChallenge } from '../src/server/core/challengeForm';
 import { postConfig, readStats } from '../src/server/core/matchStats';
@@ -608,6 +615,7 @@ check('custom match: a valid form becomes a locked config', () => {
   assert.ok(typeof c !== 'string', String(c));
   assert.equal(c.title, 'Comeback night');
   assert.deepEqual(c.config, {
+    mode: 'competitive',
     difficulty: 'hard',
     durationSec: 300,
     startGoalsAgainst: 2,
@@ -717,5 +725,123 @@ check('POST MY SCORE: comment text with and without stats', () => {
     /^\*\*u\/kicker:\*\*\n\n/
   );
 });
+
+check(
+  'post types: old challenges and install posts retain their entry flow',
+  () => {
+    assert.equal(
+      postType({ match: { ...DEFAULT_MATCH_CONFIG, locked: true } }),
+      'daily'
+    );
+    assert.equal(postType(undefined), 'classic');
+    for (const type of ['daily', 'classic', 'casual'])
+      assert.equal(postType({ matchType: type }), type);
+  }
+);
+check(
+  'Daily Challenge and Classic expose identical settings and save fixed matches',
+  () => {
+    const fields = (type: 'daily' | 'classic') =>
+      challengeFormFor(type).fields.filter(
+        (field) => field.type !== 'select' || field.name !== 'matchType'
+      );
+    assert.deepEqual(fields('daily'), fields('classic'));
+    for (const type of ['daily', 'classic']) {
+      const result = readChallenge(
+        formValues({ matchType: [type] }),
+        parseMatchConfig
+      );
+      assert.ok(typeof result !== 'string');
+      assert.equal(result.matchType, type);
+      assert.equal(result.config.locked, true);
+      assert.equal(result.config.mode, 'competitive');
+    }
+  }
+);
+check(
+  'Casual posts need only title and description; reject invalid post types',
+  () => {
+    const result = readChallenge(
+      { title: 'Free play', matchType: ['casual'] },
+      parseMatchConfig
+    );
+    assert.ok(typeof result !== 'string');
+    assert.equal(result.config.mode, 'casual');
+    assert.equal(result.config.locked, false);
+    assert.equal(result.config.startGoalsAgainst, 0);
+    assert.equal(challengeFormFor('casual').fields.length, 3);
+    assert.equal(
+      typeof readChallenge(
+        formValues({ matchType: ['unknown'] }),
+        parseMatchConfig
+      ),
+      'string'
+    );
+  }
+);
+check(
+  'Casual settings normalize persisted data and never inherit challenge advantages',
+  () => {
+    const result = casualConfig({
+      ...DEFAULT_MATCH_CONFIG,
+      difficulty: 'pro',
+      durationSec: 300,
+      locked: true,
+      startGoalsAgainst: 5,
+      home: { ...DEFAULT_MATCH_CONFIG.home, formation: '3-1' },
+    });
+    assert.equal(result.difficulty, 'pro');
+    assert.equal(result.durationSec, 300);
+    assert.equal(result.home.formation, '3-1');
+    assert.equal(result.startGoalsAgainst, 0);
+    assert.equal(result.locked, false);
+    assert.equal(result.mode, 'casual');
+    assert.equal(
+      casualConfig({}).durationSec,
+      DEFAULT_MATCH_CONFIG.durationSec
+    );
+    assert.equal(
+      casualConfig({ ...DEFAULT_MATCH_CONFIG, durationSec: 31 }).durationSec,
+      DEFAULT_MATCH_CONFIG.durationSec
+    );
+  }
+);
+check(
+  'Casual selectors wrap through every premade option in both directions',
+  () => {
+    for (const choices of Object.values(CASUAL_OPTIONS)) {
+      const values: readonly (string | number)[] = choices;
+      const first = values[0]!;
+      let value = first;
+      for (const expected of values.slice(1)) {
+        value = cycleOption(values, value, 1);
+        assert.equal(value, expected);
+      }
+      assert.equal(cycleOption(values, value, 1), first);
+      assert.equal(cycleOption(values, first, -1), values.at(-1));
+    }
+  }
+);
+check(
+  'ranked result and sharing policy rejects Casual on every post type',
+  () => {
+    for (const type of ['daily', 'classic', 'casual']) {
+      const post = { matchType: type };
+      assert.equal(competitiveResultAllowed(post, { mode: 'casual' }), false);
+      assert.equal(
+        competitiveResultAllowed(post, { mode: 'competitive' }),
+        type !== 'casual'
+      );
+      assert.equal(competitiveResultAllowed(post, {}), type !== 'casual');
+      assert.equal(competitiveResultAllowed(post, { mode: 'unknown' }), false);
+    }
+    assert.equal(
+      competitiveResultAllowed(undefined, {}),
+      true,
+      'legacy clients'
+    );
+    assert.equal(competitiveResultAllowed(undefined, null), false);
+  }
+);
 
 console.log(`\n${passed} checks passed`);

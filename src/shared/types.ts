@@ -53,6 +53,7 @@ export type TeamSetup = {
 };
 
 export type MatchConfig = {
+  mode?: 'competitive' | 'casual'; // omitted by legacy posts: competitive
   difficulty: Difficulty;
   durationSec: number; // regular time
   startGoalsAgainst: number; // the AI's score at kickoff (a comeback challenge)

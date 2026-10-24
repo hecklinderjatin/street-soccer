@@ -5,8 +5,8 @@ A fast 5v5 arcade street football match against the AI, played right inside a Re
 ## How it works
 
 - **In the feed**, the post shows a live AI-vs-AI preview match with the match info and a **PLAY** button.
-- **PLAY** opens the game full-screen and starts a match against the AI: 90 seconds by default, golden goal if level. Pass to kick off.
-- **After the match**, the result screen shows the top 3 of the last 7 days for this post. Players can choose **POST MY SCORE** to share their result. The popup says it posts from their own account and shows their username. A score on its own is posted as a reply to the post's pinned **Scores** comment (made by the app with each post); a score with the player's own words is posted as a comment on the post. Sharing is always optional and never needed to play.
+- **PLAY CHALLENGE / PLAY CLASSIC** opens the fixed match and controls panel. **PLAY CASUAL** opens free formation, difficulty and time selectors before the controls panel. Tap GOT IT, then pass to kick off. Golden goal applies if level at full time.
+- **After a ranked match**, the result screen shows the top 3 of the last 7 days for this post. Players can choose **POST MY SCORE** to share their result. The popup says it posts from their own account and shows their username. A score on its own is posted as a reply to the post's pinned **Scores** comment (made by the app with each post); a score with the player's own words is posted as a comment on the post. Sharing is always optional and never needed to play.
 - The (i) button in the match explains the controls. There is a pause menu and a sound on/off switch.
 
 ## Controls
@@ -20,17 +20,17 @@ A fast 5v5 arcade street football match against the AI, played right inside a Re
 
 ## For moderators
 
-Moderators can choose **Create Street Soccer match** in the subreddit menu. It opens a form to create a game post from their Reddit account with fixed settings:
+Moderators choose **Create Street Soccer match** in the subreddit menu, then select **Daily Challenge**, **Classic**, or **Casual** and continue to the post form.
 
-- post title and an optional challenge text;
-- each team's name, jersey colour and formation;
-- bot difficulty (easy / normal / hard);
-- match length (0:30 to 5:00);
-- goals the AI starts with (0 to 5), for comeback challenges.
+Daily Challenge and Classic offer the same options: title, optional description, team names, jersey colours, formations, AI difficulty, match length (0:30–5:00), and opponent starting goals (0–5). These settings are fixed for ranked matches, with a separate 7-day leaderboard for each post. Existing custom posts are treated as Daily Challenges.
 
-Every player of that post plays those settings, and the post has its own 7-day leaderboard. Installing the app also creates one default game post.
+Casual posts ask only for a title and optional description. Players tap **PLAY CASUAL**, select their own and the opponent's formations, difficulty and duration using left/right arrows, then tap **START MATCH**. All options are free; matches start 0–0. Preferences are remembered on the device when storage is available. The controls panel opens before the first Casual match in a page session. Results show match stats with **REMATCH**, **CHANGE SETTINGS** and **EXIT**, without ranked score submission or score sharing.
+
+Daily Challenge and Classic cards also offer **PLAY CASUAL**. These matches stay unranked even when launched from a ranked post. Post labels do not automatically schedule daily posts. Installation still creates one default game post.
 
 ## Data and permissions
+
+- **Local Casual preferences:** formations, difficulty and time are saved in browser storage on the device when available. These settings contain no account identifiers and are not uploaded. Casual results are not saved to leaderboards or shared as score comments.
 
 - **Redis:** each post stores each player's best result of the day (Reddit username, goals for and against, shots, passes, tackles won, difficulty), plus short-lived rate limits. The leaderboard shows each player's best of today and the previous 6 UTC days; each day's results are deleted at the start of the 8th UTC day. Board IDs, cleanup cursors and Scores comment IDs support deletion and sharing. A deletion marker containing the username expires after 60 seconds to block concurrent result writes.
 - **Reddit API:** reads usernames for leaderboards and checks account availability for cleanup. Comments use `SUBMIT_COMMENT` only after the player confirms POST MY SCORE, limited to one per player per post every 10 minutes. Custom match creation uses `SUBMIT_POST`, `runAs: 'USER'` and `userGeneratedContent` containing all moderator-entered text/settings. The form identifies that it creates a post from the moderator's account. Reddit approval of user actions is needed for attribution for all users; verify with a non-owner moderator before release. Installation still creates the default post as the app.
@@ -54,6 +54,7 @@ Run these in WSL from this folder:
 - `npm start`: build and play locally at http://localhost:4173 (as a guest, outside Reddit)
 - `npm run dev`: build and playtest in the dev subreddit (`r/street_soccer_dev`)
 - `npm run test:local`: type check, lint, unit and logic checks, build
+- `npm run test:casual-browser`: browser interaction checks against a running local build (install Playwright Chromium first, or set `CHROMIUM_PATH` to a system Chromium)
 - `npm run test:privacy`: regression checks for deletion isolation, account lookup failures and mandatory score-thread pinning
 - `npm run art:release`: rebuild the player atlases and release art after changing a sprite sheet (needs Python Pillow)
 - `npm run audio:release`: rebuild the compressed audio after changing a sound (needs `pip install lameenc miniaudio`)

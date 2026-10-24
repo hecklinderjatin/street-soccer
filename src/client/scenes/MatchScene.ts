@@ -209,6 +209,7 @@ export class MatchScene extends Phaser.Scene {
   init(data: MatchConfig & { demo?: boolean }) {
     this.demo = data.demo === true;
     this.config = data;
+    if (!this.demo) this.registry.set('activeMode', data.mode ?? 'competitive');
     this.homeShape = FORMATIONS[data.home.formation];
     this.awayShape = FORMATIONS[data.away.formation];
     this.ready = false;

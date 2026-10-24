@@ -8,7 +8,7 @@ import {
   queueAssets,
   type Asset,
 } from '../art/gameAssets';
-import { startingConfig } from '../challenge';
+import { currentPostType, startingConfig } from '../challenge';
 import { releaseEarlyDownloads, withEarlyDownloads } from '../earlyAssets';
 import { createPixelFont } from '../ui/pixelFont';
 import { markTiming } from '../ui/timing';
@@ -40,7 +40,12 @@ export class BootScene extends Phaser.Scene {
     // The feed lobby already offered PLAY: expanded Reddit opens a fresh
     // player match. Localhost and the inline card open the live lobby.
     // That first match opens with how to play (HudScene clears the flag).
-    if (!this.registry.get('inline') && context?.postId) {
+    if (
+      !this.registry.get('inline') &&
+      (this.registry.get('casualEntry') || currentPostType() === 'casual')
+    ) {
+      this.scene.launch('Casual');
+    } else if (!this.registry.get('inline') && context?.postId) {
       this.registry.set('helpAtStart', true);
       this.scene.launch('Match', startingConfig());
     } else this.scene.launch('Menu');

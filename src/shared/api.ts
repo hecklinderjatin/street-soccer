@@ -4,6 +4,7 @@ import type { Difficulty } from './types';
 
 // One finished match, as the client reports it (the server re-checks it).
 export type MatchStats = {
+  mode?: 'competitive' | 'casual';
   difficulty: Difficulty;
   goalsFor: number;
   goalsAgainst: number;

@@ -5,7 +5,7 @@ import { scoreThread } from './scoreThread';
 // A Street Soccer post. With a challenge (a moderator's custom match) its
 // settings are saved as the post's postData, which the splash and the game
 // read from their context (client/challenge.ts); without one (the install
-// post) the game plays the default match with a difficulty picker.
+// post) the game plays the default Classic match. Casual posts have no ranked scores.
 export const createPost = async (challenge?: Challenge) => {
   const post = challenge
     ? await reddit.submitCustomPost({
@@ -13,12 +13,14 @@ export const createPost = async (challenge?: Challenge) => {
         runAs: 'USER',
         userGeneratedContent: {
           text: [
+            challenge.matchType,
             challenge.title,
             challenge.description,
             JSON.stringify(challenge.config),
           ].join('\n\n'),
         },
         postData: {
+          matchType: challenge.matchType,
           match: challenge.config,
           description: challenge.description,
         },
@@ -26,7 +28,7 @@ export const createPost = async (challenge?: Challenge) => {
     : await reddit.submitCustomPost({ title: 'Street Soccer' });
   // The stickied comment score-only shares reply to (Devvit Rules).
   try {
-    await scoreThread(post.id);
+    if (challenge?.matchType !== 'casual') await scoreThread(post.id);
   } catch (error) {
     console.warn('Could not create the scores comment:', error);
   }

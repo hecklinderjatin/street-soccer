@@ -1,16 +1,23 @@
 import Phaser from 'phaser';
-import { context, showForm, showToast } from '@devvit/web/client';
+import {
+  context,
+  exitExpandedMode,
+  showForm,
+  showToast,
+} from '@devvit/web/client';
 import type {
   DailyLeader,
   DailyLeadersResponse,
   MatchStats,
   PostScoreRequest,
 } from '../../shared/api';
+import { formatClock } from '../../shared/matchConfig';
 import { VIEW } from '../../shared/tuning';
 import { DIFFICULTY_LABEL, type MatchResult } from '../../shared/types';
 import { addStreetBackdrop } from '../ui/backdrop';
 import { PAL, PX } from '../ui/palette';
 import { pixelText } from '../ui/pixelFont';
+import { casualButton, casualScreen } from '../ui/casualScreen';
 import { TextButton } from '../ui/TextButton';
 
 // Full time: the score and stats, the last 7 days' top 3 on this post (the result
@@ -45,6 +52,10 @@ export class ResultScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => (this.alive = false));
     const cx = VIEW.width / 2;
     const r = this.result;
+    if (r.config.mode === 'casual') {
+      this.casualResult();
+      return;
+    }
     const won = r.goalsFor > r.goalsAgainst;
     const lost = r.goalsFor < r.goalsAgainst;
     const headline = won ? 'YOU WIN!' : lost ? 'YOU LOSE' : 'DRAW';
@@ -98,9 +109,57 @@ export class ResultScene extends Phaser.Scene {
     void this.saveResult(board);
   }
 
+  private casualResult() {
+    const r = this.result;
+    const title =
+      r.goalsFor > r.goalsAgainst
+        ? 'YOU WIN!'
+        : r.goalsFor < r.goalsAgainst
+          ? 'YOU LOSE'
+          : 'DRAW';
+    const screen = casualScreen(title, 'CASUAL MATCH · Unranked');
+    const score = document.createElement('div');
+    score.className = 'casual-score';
+    score.textContent = `${r.config.home.name} ${r.goalsFor} – ${r.goalsAgainst} ${r.config.away.name}`;
+    const settings = document.createElement('p');
+    settings.textContent = `${DIFFICULTY_LABEL[r.config.difficulty]} AI · ${formatClock(r.config.durationSec)} · ${r.config.home.formation} vs ${r.config.away.formation}`;
+    const stats = document.createElement('div');
+    stats.className = 'casual-stats';
+    for (const [label, value] of [
+      ['Shots', r.shots],
+      ['Passes', r.passes],
+      ['Tackles won', r.tacklesWon],
+    ]) {
+      const item = document.createElement('div');
+      const number = document.createElement('strong');
+      number.textContent = String(value);
+      item.append(number, document.createTextNode(String(label)));
+      stats.append(item);
+    }
+    const actions = document.createElement('div');
+    actions.className = 'casual-actions';
+    actions.append(
+      casualButton('REMATCH', () => this.scene.start('Match', r.config)),
+      casualButton('CHANGE SETTINGS', () => this.scene.start('Casual'), true),
+      casualButton(
+        'EXIT',
+        (event) => {
+          if (context?.postId) exitExpandedMode(event);
+          else this.scene.start('Menu');
+        },
+        true
+      )
+    );
+    screen.panel.append(score, settings, stats, actions);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () =>
+      screen.element.remove()
+    );
+  }
+
   private stats(): MatchStats {
     const r = this.result;
     return {
+      mode: r.config.mode ?? 'competitive',
       difficulty: r.config.difficulty,
       goalsFor: r.goalsFor,
       goalsAgainst: r.goalsAgainst,

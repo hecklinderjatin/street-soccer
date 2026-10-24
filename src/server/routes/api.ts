@@ -1,3 +1,4 @@
+import { competitiveResultAllowed, postType } from '../../shared/postType';
 import { Hono } from 'hono';
 import { context, redis, reddit } from '@devvit/web/server';
 import type { DailyLeadersResponse, PostScoreResponse } from '../../shared/api';
@@ -40,7 +41,13 @@ api.post('/result', async (c) => {
     return c.json<SimpleErrorResponse>({ error: 'Missing postId' }, 400);
   try {
     const config = postConfig(context.postData);
-    const stats = readStats(await c.req.json(), config);
+    const body: unknown = await c.req.json();
+    if (!competitiveResultAllowed(context.postData, body))
+      return c.json<SimpleErrorResponse>(
+        { error: 'Casual matches do not submit ranked results' },
+        400
+      );
+    const stats = readStats(body, config);
     if (typeof stats === 'string')
       return c.json<SimpleErrorResponse>({ error: stats }, 400);
     const username = await reddit.getCurrentUsername();
@@ -63,6 +70,11 @@ api.post('/result', async (c) => {
 });
 
 api.get('/daily-leaders', async (c) => {
+  if (postType(context.postData) === 'casual')
+    return c.json<SimpleErrorResponse>(
+      { error: 'Casual posts have no leaderboard' },
+      400
+    );
   const { postId } = context;
   if (!postId)
     return c.json<SimpleErrorResponse>({ error: 'Missing postId' }, 400);
@@ -98,6 +110,13 @@ api.post('/post-score', async (c) => {
     if (typeof body !== 'object' || body === null)
       return c.json<SimpleErrorResponse>({ error: 'Invalid request' }, 400);
     const config = postConfig(context.postData);
+    if (
+      !competitiveResultAllowed(context.postData, Reflect.get(body, 'result'))
+    )
+      return c.json<SimpleErrorResponse>(
+        { error: 'Casual matches do not share ranked scores' },
+        400
+      );
     const stats = readStats(Reflect.get(body, 'result'), config);
     if (typeof stats === 'string')
       return c.json<SimpleErrorResponse>({ error: stats }, 400);

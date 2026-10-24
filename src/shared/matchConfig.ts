@@ -93,6 +93,7 @@ export function parseMatchConfig(value: unknown): MatchConfig | string {
   if (home.jersey === away.jersey)
     return 'the two teams need different jersey colours';
   return {
+    mode: Reflect.get(value, 'mode') === 'casual' ? 'casual' : 'competitive',
     difficulty,
     durationSec,
     startGoalsAgainst,

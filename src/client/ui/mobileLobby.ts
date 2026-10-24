@@ -1,4 +1,5 @@
 import type { DailyLeadersResponse } from '../../shared/api';
+import { POST_TYPE_LABEL, type PostType } from '../../shared/postType';
 import { formatClock } from '../../shared/matchConfig';
 import { DIFFICULTY_LABEL, type MatchConfig } from '../../shared/types';
 import { css } from './menuCard';
@@ -11,7 +12,9 @@ export function createMobileLobby(
   config: MatchConfig,
   description: string,
   onPlay: (event: MouseEvent) => void,
-  onMore: () => void
+  onMore: () => void,
+  type: PostType,
+  onCasual: (event: MouseEvent) => void
 ) {
   const element = document.createElement('section');
   element.id = 'mobile-lobby';
@@ -24,6 +27,7 @@ export function createMobileLobby(
       <div class="mobile-match-facts"><div><small>MATCH TIME</small><strong class="mobile-time"></strong></div><div><small>DIFFICULTY</small><strong class="mobile-difficulty"></strong></div><div><small>START SCORE</small><strong class="mobile-start"></strong></div></div>
       <p class="mobile-challenge"></p>
       <button class="mobile-play">▶ PLAY MATCH</button>
+      <button class="mobile-casual">PLAY CASUAL</button>
       <div class="mobile-board-heading"><strong>7-DAY TOP 3</strong><button class="mobile-more">ALL ›</button></div>
       <ol class="mobile-leaders"><li>Leaderboard available on Reddit</li></ol>
       <div class="mobile-best"></div>
@@ -36,9 +40,8 @@ export function createMobileLobby(
     if (!node) throw new Error(`Missing lobby element ${selector}`);
     return node;
   };
-  get('.mobile-match-tag').textContent = config.locked
-    ? 'COMMUNITY CHALLENGE'
-    : 'QUICK MATCH';
+  element.classList.toggle('is-casual', type === 'casual');
+  get('.mobile-match-tag').textContent = POST_TYPE_LABEL[type];
   get('.mobile-home').textContent = config.home.name;
   get('.mobile-home').style.borderColor = css(
     JERSEY_SWATCH[config.home.jersey]
@@ -53,17 +56,36 @@ export function createMobileLobby(
   get('.mobile-difficulty').textContent = DIFFICULTY_LABEL[config.difficulty];
   get('.mobile-start').textContent = `0 – ${config.startGoalsAgainst}`;
   get('.mobile-challenge').textContent =
-    description || 'Outplay the opposition. Own the street.';
+    description ||
+    (type === 'casual'
+      ? 'Choose your formations, difficulty and match time.'
+      : 'Outplay the opposition. Own the street.');
   const pixelSelectors = [
-    '.mobile-lobby-header > strong', '.mobile-match-tag', '.mobile-home',
-    '.mobile-away', '.mobile-time', '.mobile-difficulty', '.mobile-start',
-    '.mobile-board-heading > strong', '.mobile-board-sheet header > strong',
+    '.mobile-lobby-header > strong',
+    '.mobile-match-tag',
+    '.mobile-home',
+    '.mobile-away',
+    '.mobile-time',
+    '.mobile-difficulty',
+    '.mobile-start',
+    '.mobile-board-heading > strong',
+    '.mobile-board-sheet header > strong',
   ];
   pixelSelectors.forEach((selector) => {
     const node = get(selector);
     pixelLabel(node, node.textContent ?? '');
   });
-  pixelLabel(get('.mobile-play'), 'PLAY MATCH');
+  pixelLabel(
+    get('.mobile-play'),
+    type === 'casual'
+      ? 'PLAY CASUAL'
+      : type === 'classic'
+        ? 'PLAY CLASSIC'
+        : 'PLAY CHALLENGE'
+  );
+  pixelLabel(get('.mobile-casual'), 'PLAY CASUAL');
+  get('.mobile-casual').hidden = type === 'casual';
+  get('.mobile-casual').addEventListener('click', onCasual);
   pixelLabel(get('.mobile-more'), 'ALL >');
   get('.mobile-play').addEventListener('click', onPlay);
   get('.mobile-more').addEventListener('click', onMore);

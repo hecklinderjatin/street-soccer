@@ -3,12 +3,12 @@ import { context, requestExpandedMode } from '@devvit/web/client';
 import type { DailyLeadersResponse } from '../../shared/api';
 import { formatClock } from '../../shared/matchConfig';
 import {
-  DIFFICULTIES,
   DIFFICULTY_LABEL,
   type Difficulty,
   type MatchConfig,
 } from '../../shared/types';
-import { postChallenge, startingConfig } from '../challenge';
+import { POST_TYPE_LABEL } from '../../shared/postType';
+import { currentPostType, postChallenge, startingConfig } from '../challenge';
 import { JERSEY_SWATCH, PAL } from '../ui/palette';
 import { pixelText } from '../ui/pixelFont';
 import { TextButton } from '../ui/TextButton';
@@ -34,15 +34,23 @@ export class MenuScene extends Phaser.Scene {
     this.board = this.add.container(0, 0).setDepth(2);
     const inline = this.registry.get('inline') === true;
     const challenge = postChallenge();
+    const type = currentPostType();
     this.mobileLobby = createMobileLobby(
       this.config,
       challenge?.description ?? '',
       (event) => {
-        if (inline && context?.postId) requestExpandedMode(event, 'game');
+        if (inline && context?.postId)
+          requestExpandedMode(event, type === 'casual' ? 'casual' : 'game');
+        else if (type === 'casual') this.casual();
         else this.play();
       },
       () => {
         void this.mobileLobby?.showBoard(Boolean(context?.postId));
+      },
+      type,
+      (event) => {
+        if (inline && context?.postId) requestExpandedMode(event, 'casual');
+        else this.casual();
       }
     );
     document.body.append(this.mobileLobby.element);
@@ -75,22 +83,17 @@ export class MenuScene extends Phaser.Scene {
     this.add.rectangle(526, 360, 4, 720, PAL.yellow);
     text(32, 45, 'STREET', 5, PAL.yellow);
     text(32, 100, 'SOCCER', 5);
-    text(
-      34,
-      149,
-      this.config.locked ? 'COMMUNITY CHALLENGE' : 'QUICK MATCH',
-      1.8,
-      PAL.yellow
-    );
+    text(34, 149, POST_TYPE_LABEL[type], 1.8, PAL.yellow);
     this.add.rectangle(256, 244, 448, 152, PAL.black, 0.6);
     const team = (side: 'home' | 'away', y: number) => {
       const setup = this.config[side];
       this.add.rectangle(54, y, 12, 28, JERSEY_SWATCH[setup.jersey]);
       text(75, y, setup.name, 2.5);
-      pixelText(this, 460, y, setup.formation, 1.8, PAL.lightGray).setOrigin(
-        1,
-        0.5
-      );
+      if (type !== 'casual')
+        pixelText(this, 460, y, setup.formation, 1.8, PAL.lightGray).setOrigin(
+          1,
+          0.5
+        );
     };
     team('home', 200);
     text(75, 227, 'VS', 1.5, PAL.lightGray);
@@ -98,12 +101,17 @@ export class MenuScene extends Phaser.Scene {
     text(
       48,
       293,
-      `${formatClock(this.config.durationSec)}  /  START 0-${this.config.startGoalsAgainst}`,
+      type === 'casual'
+        ? 'YOUR MATCH. YOUR RULES.'
+        : `${formatClock(this.config.durationSec)}  /  START 0-${this.config.startGoalsAgainst}`,
       2,
       PAL.yellow
     );
     const description =
-      challenge?.description || 'OUTPLAY THE OPPOSITION. OWN THE STREET.';
+      challenge?.description ||
+      (type === 'casual'
+        ? 'PICK YOUR FORMATIONS, LEVEL AND MATCH TIME.'
+        : 'OUTPLAY THE OPPOSITION. OWN THE STREET.');
     const lines =
       description.toUpperCase().match(/.{1,30}(?:\s|$)|.{1,30}/g) ?? [];
     lines
@@ -111,85 +119,71 @@ export class MenuScene extends Phaser.Scene {
       .forEach((line, i) =>
         text(34, 340 + i * 22, line.trim(), 1.8, PAL.lightGray)
       );
-    if (!this.config.locked && !inline) {
-      // < LEVEL >: the arrows step through DIFFICULTIES (easiest first),
-      // the middle cycles; five names don't fit as separate buttons.
-      const level = new TextButton(
-        this,
-        256,
-        386,
-        DIFFICULTY_LABEL[this.difficulty],
-        () => step(1, true),
-        { width: 304, height: 36, textSize: 1.8, fill: PAL.orange }
-      );
-      const step = (by: number, wrap = false) => {
-        const i = DIFFICULTIES.indexOf(this.difficulty) + by;
-        const next = wrap
-          ? DIFFICULTIES[(i + DIFFICULTIES.length) % DIFFICULTIES.length]
-          : DIFFICULTIES[Phaser.Math.Clamp(i, 0, DIFFICULTIES.length - 1)];
-        if (!next || next === this.difficulty) return;
-        this.difficulty = next;
-        level.setLabel(DIFFICULTY_LABEL[next]);
-        this.mobileLobby?.setDifficulty(DIFFICULTY_LABEL[next]);
-        this.restartDemo();
-      };
-      new TextButton(this, 56, 386, '<', () => step(-1), {
-        width: 64,
-        height: 36,
-        textSize: 1.8,
-        fill: PAL.darkGray,
-      });
-      new TextButton(this, 456, 386, '>', () => step(1), {
-        width: 64,
-        height: 36,
-        textSize: 1.8,
-        fill: PAL.darkGray,
-      });
-    } else
-      text(
-        34,
-        385,
-        `${DIFFICULTY_LABEL[this.config.difficulty]} AI  /  FIXED MATCH RULES`,
-        1.8,
-        PAL.lightGray
-      );
+    text(
+      34,
+      385,
+      type === 'casual'
+        ? 'CHOOSE YOUR SETTINGS'
+        : `${DIFFICULTY_LABEL[this.config.difficulty]} AI / FIXED MATCH RULES`,
+      1.8,
+      PAL.lightGray
+    );
     new TextButton(
       this,
       PLAY.x,
       PLAY.y,
-      'PLAY MATCH',
+      type === 'casual'
+        ? 'PLAY CASUAL'
+        : type === 'classic'
+          ? 'PLAY CLASSIC'
+          : 'PLAY CHALLENGE',
       () => {
-        if (!inline || !context?.postId) this.play();
+        if (!inline || !context?.postId) {
+          if (type === 'casual') this.casual();
+          else this.play();
+        }
       },
-      { width: PLAY.w, height: PLAY.h, textSize: 3, fill: PAL.orange }
+      { width: PLAY.w, height: PLAY.h, textSize: 2.5, fill: PAL.orange }
     );
-    text(34, 502, '7-DAY LEADERBOARD', 2.3, PAL.yellow);
-    new TextButton(
-      this,
-      425,
-      500,
-      'MORE',
-      () => {
-        void this.openBoard();
-      },
-      {
-        width: 100,
-        height: 32,
-        textSize: 1.6,
-        fill: PAL.darkGray,
-      }
-    );
-    text(34, 528, 'BEST MATCH PER PLAYER / THIS POST', 1.45, PAL.lightGray);
-    this.board.add(
-      text(
-        34,
-        575,
-        context?.postId ? 'LOADING SCORES...' : 'PLAY ON REDDIT TO RANK',
-        1.8,
-        PAL.lightGray
-      )
-    );
-    void this.fillBoard();
+    if (type !== 'casual') {
+      new TextButton(
+        this,
+        256,
+        494,
+        'PLAY CASUAL',
+        () => {
+          if (!inline || !context?.postId) this.casual();
+        },
+        { width: 448, height: 40, textSize: 2, fill: PAL.darkGray }
+      );
+      text(34, 548, '7-DAY LEADERBOARD', 2.3, PAL.yellow);
+      new TextButton(
+        this,
+        425,
+        546,
+        'MORE',
+        () => {
+          void this.openBoard();
+        },
+        {
+          width: 100,
+          height: 32,
+          textSize: 1.6,
+          fill: PAL.darkGray,
+        }
+      );
+      text(34, 576, 'BEST MATCH PER PLAYER / THIS POST', 1.45, PAL.lightGray);
+      this.board.add(
+        text(
+          34,
+          610,
+          context?.postId ? 'LOADING SCORES...' : 'PLAY ON REDDIT TO RANK',
+          1.8,
+          PAL.lightGray
+        )
+      );
+      void this.fillBoard();
+    }
     const timer = this.time.addEvent({
       delay: 30000,
       loop: true,
@@ -239,7 +233,13 @@ export class MenuScene extends Phaser.Scene {
         Math.abs(pointer.x - PLAY.x) <= PLAY.w / 2 &&
         Math.abs(pointer.y - PLAY.y) <= PLAY.h / 2
       )
-        requestExpandedMode(event, 'game');
+        requestExpandedMode(event, type === 'casual' ? 'casual' : 'game');
+      else if (
+        type !== 'casual' &&
+        Math.abs(pointer.x - 256) <= 224 &&
+        Math.abs(pointer.y - 494) <= 20
+      )
+        requestExpandedMode(event, 'casual');
     };
     if (inline && context?.postId)
       this.game.canvas.addEventListener('click', expand);
@@ -256,13 +256,16 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private matchConfig() {
-    return { ...this.config, difficulty: this.difficulty };
+    return {
+      ...this.config,
+      mode: 'competitive' as const,
+      difficulty: this.difficulty,
+    };
   }
 
-  private restartDemo() {
+  private casual() {
     this.scene.stop('Match');
-    this.scene.launch('Match', { ...this.matchConfig(), demo: true });
-    this.scene.bringToTop();
+    this.scene.start('Casual');
   }
 
   private play() {
@@ -413,7 +416,7 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private async fillBoard() {
-    if (!context?.postId) return;
+    if (currentPostType() === 'casual' || !context?.postId) return;
     try {
       const res = await fetch('/api/daily-leaders');
       if (!res.ok) throw new Error('Leaderboard unavailable');
@@ -426,7 +429,7 @@ export class MenuScene extends Phaser.Scene {
           pixelText(
             this,
             34,
-            574,
+            610,
             'NO SCORES YET. SET THE FIRST!',
             1.8,
             PAL.lightGray
@@ -434,7 +437,7 @@ export class MenuScene extends Phaser.Scene {
         );
       else
         data.top.forEach((leader, i) => {
-          const y = 570 + i * 34;
+          const y = 609 + i * 28;
           this.board.add(
             pixelText(
               this,
@@ -460,7 +463,7 @@ export class MenuScene extends Phaser.Scene {
         pixelText(
           this,
           34,
-          683,
+          702,
           data.me
             ? `YOUR BEST: #${data.me.rank}  ${data.me.goalsFor}-${data.me.goalsAgainst}`
             : 'YOU: NO 7-DAY SCORE',

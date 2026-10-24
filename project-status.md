@@ -8,6 +8,10 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Casual mode and post types (2026-10-24):** implementing Daily Challenge, Classic and Casual posts. Daily and Classic share creator-defined fixed settings; the Casual entry point opens formation/difficulty/time arrow selectors with device-local preferences and unranked results. Legacy custom posts remain Daily Challenges. Local types, lint, 37 logic checks, privacy checks and build pass. Browser checks pass at 390px and 1280px for settings, help-before-play, match/result transitions, rematch, change settings, exit, all post-type feed routes and legacy posts; guest play also works with storage disabled. Browser checks mock Reddit host messages and API responses; native forms, actual post creation and live expansion still need Reddit playtesting.
+
+**Dependency refresh (2026-10-24):** updating Devvit together to 0.15.0, Hono Node adapter to 2.1.5, ESLint to 10.13.0, Prettier to 3.9.10, typescript-eslint to 8.72.0 and Vite to 8.3.5; refreshing Playwright to ^1.64.1 and Node 24 types to ^24.19.2 and reconciling the lockfile. All Devvit packages are pinned exactly to 0.15.0. A clean `npm ci`, type check, lint, 31 gameplay logic checks, privacy regressions, build and Chromium gameplay smoke check pass. The unit runner discovers zero tests; Reddit playtesting remains outstanding.
+
 **Remotion promo video (2026-10-20):** a separate Remotion project at `F:\code ball\promo` (not part of the game or the Devvit upload) edits recorder clips into a vertical 1080x1920 and a landscape 1920x1080 promo, cut to the beat of `bgm.mp3` (164 BPM), in the game's pixel font. Clips come from `node tools/trailer/trailer.mjs render tools/trailer/promo-plan.json`, then `node scripts/import-clips.mjs` in the promo folder.
 
 **How-to-play panel at game start (2026-10-18):** a match opened from the post's PLAY (expanded Reddit, `BootScene` sets registry `helpAtStart`) starts with the (i) help panel open; the match waits paused until GOT IT. Once per page load (the flag is cleared), not on localhost or matches started from the menu / lobby, and not remembered across visits. Type check, lint and build pass; not yet seen on Reddit.
@@ -435,6 +439,10 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Daily Challenge and Classic expose identical creation fields and keep per-post rankings; Casual starts 0–0, accepts free preset choices, and never calls ranked result/sharing endpoints. Both server mutation routes reject explicitly Casual results and all Casual posts. A dedicated `casual` entry point preserves the feed button intent across Reddit expansion without relying on shared browser storage. Native Reddit forms use a type-selection step followed by the relevant fields because live conditional fields are unsupported. Preferences contain settings only and stay on the device.
+
+- Dependency refresh keeps Phaser 3.90.0 because the custom trimmed build imports Phaser 3 internals. Keep TypeScript 6.0.3 within typescript-eslint 8.72.0's supported range (<6.1), and Node types on the pinned Node 24 runtime line. Phaser 4 and TypeScript 7 require separate migrations.
+
 - **Keep every Devvit package on one exact version** (`devvit`, `@devvit/web`, `@devvit/start`): a mismatch installs two copies of `@devvit/server`, and server code then can't find its request context ("No context found" in playtest logs). Upgrade them together.
 - User feedback on the first teaser prioritizes continuity and smooth motion: use one complete real-game passage, keep the camera following play, remove flashes/replay cuts, and reveal branding over the existing celebration. Continue to omit match-duration marketing copy.
 
@@ -665,6 +673,10 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Playtest all three native creation forms, actual post creation and both feed buttons in Reddit before release. Local and mocked-host browser checks pass.
+
+- Playtest Devvit 0.15.0 in the Reddit dev subreddit before release; clean install, full local checks and browser gameplay smoke validation passed.
+
 - On Reddit: tapping PLAY in the post opens the match with the how-to-play panel; GOT IT starts play; the next match does not show it again. Decide whether it should show only on a player's first visit ever (would need a stored flag).
 
 - Playtest the 120 px AI gap in defence: if the back line now looks too open, lower `AI.mateMinGap` (100); if still bunched, raise it (140).
@@ -886,6 +898,10 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-10-24:** add three post types, Casual setup with premade arrow selectors and formation diagrams, remembered settings, help-before-play, rematch/change-settings/exit, and client/server ranked-result separation. Types, lint, 37 logic checks, privacy regressions, build and desktop/mobile browser flows pass. Reddit-native integration remains to be playtested.
+
+- **2026-10-24:** refresh compatible dependencies and repair manifest/lockfile synchronization on `codex/street-soccer-dev`; preserve Phaser 3, TypeScript 6 and Node 24 compatibility. Clean `npm ci`, types, lint, 31 gameplay checks, privacy, build and Chromium smoke check passed; unit runner found zero tests.
 
 - **2026-10-20:** trailer recorder also logs the ball's screen position per frame (`ball.json` next to each segment's frames, from `__film.stepCapture`), so a vertical cut can crop around the action; new `tools/trailer/promo-plan.json` records the clips for the Remotion promo in `F:\code ball\promo` (outside the repo)
 

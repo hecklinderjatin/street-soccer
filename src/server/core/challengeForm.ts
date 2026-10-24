@@ -4,6 +4,12 @@ import {
   DURATION_CHOICES,
   formatClock,
 } from '../../shared/matchConfig';
+import {
+  POST_TYPES,
+  POST_TYPE_LABEL,
+  parsePostType,
+  type PostType,
+} from '../../shared/postType';
 import { CUSTOM_MATCH } from '../../shared/tuning';
 import {
   DIFFICULTIES,
@@ -20,6 +26,7 @@ export const CHALLENGE_FORM = 'challengeForm'; // devvit.json "forms" key
 
 // What the form submits: text fields as strings, selects as one-item arrays.
 export type ChallengeValues = {
+  matchType?: string[];
   title?: string;
   description?: string;
   homeName?: string;
@@ -34,6 +41,7 @@ export type ChallengeValues = {
 };
 
 export type Challenge = {
+  matchType: PostType;
   title: string;
   description: string;
   config: MatchConfig;
@@ -67,67 +75,104 @@ const teamFields = (side: 'home' | 'away'): FormField[] => [
   },
 ];
 
-export const challengeForm: Form = {
+export const MATCH_TYPE_FORM = 'matchTypeForm';
+export const matchTypeForm: Form = {
   title: 'Create a Street Soccer match',
-  description:
-    'Create a post from your Reddit account. Players get exactly these settings; they cannot change them in the game.',
-  acceptLabel: 'Create post',
+  acceptLabel: 'Continue',
   fields: [
     {
-      type: 'string',
-      name: 'title',
-      label: 'Post title',
-      required: true,
-    },
-    {
-      type: 'paragraph',
-      name: 'description',
-      label: 'Challenge text (optional)',
-      helpText: `Shown on the post before playing, up to ${CUSTOM_MATCH.descriptionMaxLength} characters`,
-    },
-    { type: 'group', label: "Player's team", fields: teamFields('home') },
-    { type: 'group', label: 'AI team', fields: teamFields('away') },
-    {
       type: 'select',
-      name: 'difficulty',
-      label: 'Bot difficulty',
-      options: DIFFICULTIES.map((value) => ({
+      name: 'matchType',
+      label: 'Match type',
+      required: true,
+      defaultValue: ['daily'],
+      options: POST_TYPES.map((value) => ({
         value,
-        label: capital(DIFFICULTY_LABEL[value].toLowerCase()),
+        label: POST_TYPE_LABEL[value],
       })),
-      required: true,
-    },
-    {
-      type: 'select',
-      name: 'durationSec',
-      label: `Match length (max ${formatClock(CUSTOM_MATCH.maxDurationSec)})`,
-      options: DURATION_CHOICES.map((sec) => ({
-        value: String(sec),
-        label: formatClock(sec),
-      })),
-      required: true,
-    },
-    {
-      type: 'select',
-      name: 'startGoalsAgainst',
-      label: 'Goals already conceded at kickoff',
-      helpText: 'The AI starts this many goals up (0 = a normal 0-0 start)',
-      options: Array.from(
-        { length: CUSTOM_MATCH.maxStartGoals + 1 },
-        (_, n) => ({
-          value: String(n),
-          label: String(n),
-        })
-      ),
-      required: true,
     },
   ],
 };
+
+export function challengeFormFor(matchType: PostType): Form {
+  return {
+    title: 'Create a Street Soccer match',
+    description:
+      matchType === 'casual'
+        ? 'Create a Casual post from your Reddit account. Players freely choose their formations, difficulty and match time.'
+        : 'Create a post from your Reddit account. Ranked matches use these fixed settings; players can also choose unranked Casual.',
+    acceptLabel: 'Create post',
+    fields: [
+      {
+        type: 'select',
+        name: 'matchType',
+        label: 'Match type',
+        required: true,
+        defaultValue: [matchType],
+        options: [{ value: matchType, label: POST_TYPE_LABEL[matchType] }],
+        helpText:
+          'To choose a different type, cancel and reopen Create Street Soccer match.',
+      },
+      {
+        type: 'string',
+        name: 'title',
+        label: 'Post title',
+        required: true,
+      },
+      {
+        type: 'paragraph',
+        name: 'description',
+        label: 'Description (optional)',
+        helpText: `Shown on the post before playing, up to ${CUSTOM_MATCH.descriptionMaxLength} characters`,
+      },
+      ...(matchType === 'casual' ? [] : matchFields),
+    ],
+  };
+}
+
+const matchFields: FormField[] = [
+  { type: 'group', label: "Player's team", fields: teamFields('home') },
+  { type: 'group', label: 'AI team', fields: teamFields('away') },
+  {
+    type: 'select',
+    name: 'difficulty',
+    label: 'Bot difficulty',
+    options: DIFFICULTIES.map((value) => ({
+      value,
+      label: capital(DIFFICULTY_LABEL[value].toLowerCase()),
+    })),
+    required: true,
+  },
+  {
+    type: 'select',
+    name: 'durationSec',
+    label: `Match length (max ${formatClock(CUSTOM_MATCH.maxDurationSec)})`,
+    options: DURATION_CHOICES.map((sec) => ({
+      value: String(sec),
+      label: formatClock(sec),
+    })),
+    required: true,
+  },
+  {
+    type: 'select',
+    name: 'startGoalsAgainst',
+    label: 'Goals already conceded at kickoff',
+    helpText: 'The AI starts this many goals up (0 = a normal 0-0 start)',
+    options: Array.from({ length: CUSTOM_MATCH.maxStartGoals + 1 }, (_, n) => ({
+      value: String(n),
+      label: String(n),
+    })),
+    required: true,
+  },
+];
+
+export const challengeForm = challengeFormFor('daily');
 
 // The form's starting values: the default match, or a rejected submission.
 export function challengeFormData(values?: ChallengeValues): ChallengeValues {
   const d = DEFAULT_MATCH_CONFIG;
   return {
+    matchType: ['daily'],
     title: 'Street Soccer challenge',
     description: '',
     homeName: d.home.name,
@@ -149,12 +194,24 @@ export function readChallenge(
   values: ChallengeValues,
   parse: (raw: unknown) => MatchConfig | string
 ): Challenge | string {
+  const matchType =
+    values.matchType === undefined
+      ? 'daily'
+      : parsePostType(values.matchType[0]);
+  if (!matchType) return 'Choose a valid match type';
   const title = (values.title ?? '').trim();
   if (!title || title.length > CUSTOM_MATCH.titleMaxLength)
     return `Title: 1 to ${CUSTOM_MATCH.titleMaxLength} characters`;
   const description = (values.description ?? '').trim();
   if (description.length > CUSTOM_MATCH.descriptionMaxLength)
     return `Challenge text: at most ${CUSTOM_MATCH.descriptionMaxLength} characters`;
+  if (matchType === 'casual')
+    return {
+      title,
+      description,
+      matchType,
+      config: { ...DEFAULT_MATCH_CONFIG, mode: 'casual', locked: false },
+    };
   const config = parse({
     difficulty: values.difficulty?.[0],
     durationSec: Number(values.durationSec?.[0]),
@@ -170,7 +227,8 @@ export function readChallenge(
       formation: values.awayFormation?.[0],
     },
     locked: true,
+    mode: 'competitive',
   });
   if (typeof config === 'string') return capital(config);
-  return { title, description, config };
+  return { title, description, matchType, config };
 }

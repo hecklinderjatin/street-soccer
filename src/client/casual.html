@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="viewport-fit=cover, width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>Street Soccer</title>
+    <link rel="stylesheet" type="text/css" href="style.css" />
+  </head>
+  <body>
+    <div id="game"></div>
+    <!-- Shown until the game has booted (BootScene removes it), so the
+         screen is never blank while the game code downloads. -->
+    <div id="boot-loading">
+      <div class="boot-bar"></div>
+    </div>
+    <script type="module" src="casual.ts"></script>
+  </body>
+</html>

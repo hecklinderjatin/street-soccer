@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { VIEW } from '../shared/tuning';
+import { CasualScene } from './scenes/CasualScene';
 import { BootScene } from './scenes/BootScene';
 import { MatchScene } from './scenes/MatchScene';
 import { MenuScene } from './scenes/MenuScene';
@@ -9,7 +10,7 @@ import { forceLandscape } from './ui/landscape';
 import { PAL } from './ui/palette';
 import { markTiming } from './ui/timing';
 
-export function createGame(inline = false) {
+export function createGame(inline = false, casual = false) {
   markTiming('game code');
 
   const box = document.getElementById('game');
@@ -22,7 +23,10 @@ export function createGame(inline = false) {
     height: VIEW.height,
     backgroundColor: PAL.navy,
     callbacks: {
-      preBoot: (instance) => instance.registry.set('inline', inline),
+      preBoot: (instance) => {
+        instance.registry.set('inline', inline);
+        instance.registry.set('casualEntry', casual);
+      },
     },
     fps: { target: inline ? 30 : 60, limit: inline ? 30 : 0 },
     // Crisp pixel-art textures (nearest-neighbour filtering), but positions are
@@ -49,7 +53,14 @@ export function createGame(inline = false) {
     render: {
       powerPreference: 'high-performance',
     },
-    scene: [BootScene, MenuScene, MatchScene, ResultScene, HudScene], // Hud last so it draws on top
+    scene: [
+      BootScene,
+      MenuScene,
+      CasualScene,
+      MatchScene,
+      ResultScene,
+      HudScene,
+    ], // Hud last so it draws on top
   });
 
   forceLandscape(game, box, !inline);

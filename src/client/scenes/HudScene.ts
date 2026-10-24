@@ -333,7 +333,9 @@ export class HudScene extends Phaser.Scene {
       'QUIT',
       () => {
         this.scene.stop('Match');
-        this.scene.start('Menu');
+        this.scene.start(
+          this.registry.get('activeMode') === 'casual' ? 'Casual' : 'Menu'
+        );
       },
       { width: 320, fill: PAL.red }
     );

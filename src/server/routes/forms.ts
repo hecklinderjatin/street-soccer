@@ -4,11 +4,12 @@ import { context, reddit } from '@devvit/web/server';
 import { parseMatchConfig } from '../../shared/matchConfig';
 import {
   CHALLENGE_FORM,
-  challengeForm,
+  challengeFormFor,
   challengeFormData,
   readChallenge,
   type ChallengeValues,
 } from '../core/challengeForm';
+import { parsePostType, POST_TYPE_LABEL } from '../../shared/postType';
 import { createPost } from '../core/post';
 import { forgetPlayer } from '../core/privacy';
 
@@ -52,6 +53,35 @@ const isModerator = async () => {
   return permissions.length > 0;
 };
 
+forms.post('/match-type', async (c) => {
+  try {
+    if (!(await isModerator()))
+      return c.json<UiResponse>({
+        showToast: 'Only moderators can create matches',
+      });
+    const values = await c.req.json<ChallengeValues>();
+    const type = parsePostType(values.matchType?.[0]);
+    if (!type)
+      return c.json<UiResponse>({ showToast: 'Choose a valid match type' });
+    return c.json<UiResponse>({
+      showForm: {
+        name: CHALLENGE_FORM,
+        form: challengeFormFor(type),
+        data: challengeFormData({
+          matchType: [type],
+          title: `Street Soccer ${POST_TYPE_LABEL[type].toLowerCase()}`,
+        }),
+      },
+    });
+  } catch (error) {
+    console.error('Could not open match form:', error);
+    return c.json<UiResponse>(
+      { showToast: 'Could not open the match form. Please try again.' },
+      400
+    );
+  }
+});
+
 // The match settings form (menu: Create Street Soccer match). Invalid
 // answers reopen the form with them filled in and the reason in a toast.
 forms.post('/challenge-submit', async (c) => {
@@ -69,7 +99,9 @@ forms.post('/challenge-submit', async (c) => {
           showToast: challenge,
           showForm: {
             name: CHALLENGE_FORM,
-            form: challengeForm,
+            form: challengeFormFor(
+              parsePostType(values.matchType?.[0]) ?? 'daily'
+            ),
             data: challengeFormData(values),
           },
         },

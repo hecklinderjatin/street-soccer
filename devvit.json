@@ -9,6 +9,9 @@
         "height": "tall",
         "inline": true
       },
+      "casual": {
+        "entry": "casual.html"
+      },
       "game": {
         "entry": "index.html"
       }
@@ -44,6 +47,7 @@
     ]
   },
   "forms": {
+    "matchTypeForm": "/internal/form/match-type",
     "challengeForm": "/internal/form/challenge-submit",
     "deleteDataForm": "/internal/form/delete-data"
   },
