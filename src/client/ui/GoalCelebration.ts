@@ -81,9 +81,7 @@ export class GoalCelebration {
     this.tag = pixelText(scene, -160, 0, '', 0.55 * PX, PAL.black).setOrigin(
       0.5
     );
-    const speedPlate = scene.add
-      .rectangle(86, 0, 256, 50, PAL.navy)
-      .setStrokeStyle(2, PAL.yellow);
+    const speedPlate = scene.add.rectangle(86, 0, 256, 50, PAL.navy, 0.45);
     this.speed = pixelText(scene, 50, 4, '', 1.35 * PX, PAL.white).setOrigin(
       0.5
     );
