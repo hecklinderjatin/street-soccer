@@ -232,7 +232,7 @@ export class HudScene extends Phaser.Scene {
     this.clockText
       .setTint(urgent ? PAL.red : PAL.white)
       .setScale(urgent ? 1 + 0.08 * Math.sin(time / 80) : 1);
-    this.goldenText.setVisible(s.goldenGoal);
+    this.goldenText.setVisible(s.goldenGoal && !s.goalCelebration.active);
 
     this.goalCelebration.update(s.goalCelebration, this.hud.teams);
     const banner = s.banner === 'GOAL!' ? '' : s.banner.toUpperCase();

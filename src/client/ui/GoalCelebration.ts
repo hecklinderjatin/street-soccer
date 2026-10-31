@@ -17,7 +17,6 @@ export type GoalCelebrationState = {
 // frame is derived from this goal's age, including its final fade to kickoff.
 export class GoalCelebration {
   readonly root: Phaser.GameObjects.Container;
-  private readonly strip: Phaser.GameObjects.Graphics;
   private readonly streaks: Phaser.GameObjects.Graphics;
   private readonly kicker: Phaser.GameObjects.BitmapText;
   private readonly body: Phaser.GameObjects.BitmapText;
@@ -32,40 +31,41 @@ export class GoalCelebration {
   private readonly motion = window.matchMedia(
     '(prefers-reduced-motion: reduce)'
   );
-  private accent = -1;
 
   constructor(scene: Phaser.Scene) {
     this.root = scene.add
-      .container(VIEW.width / 2, 280)
+      .container(VIEW.width / 2, 150)
       .setDepth(5)
       .setVisible(false);
-    this.strip = scene.add.graphics();
     this.streaks = scene.add.graphics();
-    this.kicker = pixelText(scene, 0, -106, '', 0.7 * PX, PAL.white).setOrigin(
+    this.kicker = pixelText(scene, 0, -42, '', 0.55 * PX, PAL.white).setOrigin(
       0.5
     );
-    this.bodyShadow = pixelText(scene, 0, 0, '', 3.5 * PX, PAL.black).setOrigin(
+    this.bodyShadow = pixelText(
+      scene,
       0,
-      0.5
-    );
+      0,
+      '',
+      2.45 * PX,
+      PAL.black
+    ).setOrigin(0, 0.5);
     this.tailShadow = pixelText(
       scene,
       0,
       0,
       'L!',
-      3.5 * PX,
+      2.45 * PX,
       PAL.black
     ).setOrigin(0, 0.5);
-    this.body = pixelText(scene, 0, 0, '', 3.5 * PX, PAL.yellow).setOrigin(
+    this.body = pixelText(scene, 0, 0, '', 2.45 * PX, PAL.yellow).setOrigin(
       0,
       0.5
     );
-    this.tail = pixelText(scene, 0, 0, 'L!', 3.5 * PX, PAL.yellow).setOrigin(
+    this.tail = pixelText(scene, 0, 0, 'L!', 2.45 * PX, PAL.yellow).setOrigin(
       0,
       0.5
     );
     this.root.add([
-      this.strip,
       this.streaks,
       this.kicker,
       this.bodyShadow,
@@ -74,56 +74,44 @@ export class GoalCelebration {
       this.tail,
     ]);
 
-    this.details = scene.add.container(0, 110);
-    const detailShadow = scene.add.rectangle(5, 6, 620, 78, PAL.black, 0.5);
-    const detailPlate = scene.add
-      .rectangle(0, 0, 620, 78, PAL.navy, 0.95)
-      .setStrokeStyle(2, PAL.white, 0.25);
-    this.tagPlate = scene.add.rectangle(-154, 0, 284, 52, PAL.blue);
-    this.tag = pixelText(scene, -154, 0, '', 0.75 * PX, PAL.black).setOrigin(
+    // Keep all secondary feedback in one shallow row above the scorer.
+    // Only the coloured badges have fills; the pitch stays visible behind text.
+    this.details = scene.add.container(0, 80);
+    this.tagPlate = scene.add.rectangle(-119, 0, 206, 32, PAL.blue);
+    this.tag = pixelText(scene, -119, 0, '', 0.55 * PX, PAL.black).setOrigin(
       0.5
     );
-    this.speed = pixelText(scene, 83, 0, '', 1.9 * PX, PAL.white).setOrigin(
-      0.5
-    );
+    this.speed = pixelText(scene, 45, 2, '', PX, PAL.white).setOrigin(0.5);
     const unit = pixelText(
       scene,
-      187,
-      9,
+      107,
+      4,
       'KM/H',
-      0.7 * PX,
-      PAL.lightGray
+      0.48 * PX,
+      PAL.white
     ).setOrigin(0, 0.5);
-    this.details.add([
-      detailShadow,
-      detailPlate,
-      this.tagPlate,
-      this.tag,
-      this.speed,
-      unit,
-    ]);
+    this.details.add([this.tagPlate, this.tag, this.speed, unit]);
     this.root.add(this.details);
 
-    this.record = scene.add.container(0, 201);
-    const ribbonShadow = scene.add.rectangle(5, 5, 520, 62, PAL.black, 0.5);
-    const ribbon = scene.add.rectangle(0, 0, 520, 62, PAL.green);
+    this.record = scene.add.container(230, 80);
+    const ribbon = scene.add.rectangle(0, 0, 356, 40, PAL.green);
     const recordText = pixelText(
       scene,
       0,
-      -10,
+      -7,
       'NEW PERSONAL BEST!',
-      0.8 * PX,
+      0.52 * PX,
       PAL.black
     ).setOrigin(0.5);
     const caption = pixelText(
       scene,
       0,
-      17,
+      11,
       'ON THIS DEVICE',
-      0.45 * PX,
+      0.32 * PX,
       PAL.black
     ).setOrigin(0.5);
-    this.record.add([ribbonShadow, ribbon, recordText, caption]);
+    this.record.add([ribbon, recordText, caption]);
     this.root.add(this.record);
   }
 
@@ -135,18 +123,9 @@ export class GoalCelebration {
     const accent = state.team
       ? JERSEY_SWATCH[teams[state.team].jersey]
       : PAL.yellow;
-    if (this.accent !== accent) {
-      this.accent = accent;
-      this.strip
-        .clear()
-        .fillStyle(PAL.black, 0.68)
-        .fillRect(-492, -83, 984, 166)
-        .fillStyle(accent)
-        .fillRect(-492, -83, 984, 6)
-        .fillRect(-492, -77, 10, 160)
-        .fillStyle(PAL.yellow)
-        .fillRect(-492, 80, 984, 4);
-    }
+    this.kicker.setTint(
+      accent === JERSEY_SWATCH.black ? PAL.lightGray : accent
+    );
     this.kicker.setText(
       state.team ? `${teams[state.team].name} SCORES` : 'STREET SOCCER'
     );
@@ -157,28 +136,28 @@ export class GoalCelebration {
     this.bodyShadow.setText(this.body.text);
     const stretch = steady
       ? 1
-      : 1 + 0.52 * Math.sin(Math.PI * progress(age, 0.84, 1.22));
+      : 1 + 0.3 * Math.sin(Math.PI * progress(age, 0.84, 1.22));
     this.tail.setScale(stretch, 1);
     this.tailShadow.setScale(stretch, 1);
     const bodyWidth = this.body.getTextBounds().local.width;
     const tailWidth = this.tail.getTextBounds().local.width;
     const width = bodyWidth + tailWidth * stretch;
     const x = -width / 2;
-    this.body.setPosition(x, 20);
-    this.tail.setPosition(x + bodyWidth, 20);
-    this.bodyShadow.setPosition(x + 7, 28);
-    this.tailShadow.setPosition(x + bodyWidth + 7, 28);
+    this.body.setPosition(x, 18);
+    this.tail.setPosition(x + bodyWidth, 18);
+    this.bodyShadow.setPosition(x + 3, 21);
+    this.tailShadow.setPosition(x + bodyWidth + 3, 21);
     const hit = progress(age, 0, 0.25);
     const scale = steady
       ? 1
       : hit < 0.65
-        ? 0.72 + 0.4 * (hit / 0.65)
-        : 1.12 - 0.12 * ((hit - 0.65) / 0.35);
-    const shake = steady ? 0 : 7 * (1 - progress(age, 0, 0.23));
+        ? 0.8 + 0.25 * (hit / 0.65)
+        : 1.05 - 0.05 * ((hit - 0.65) / 0.35);
+    const shake = steady ? 0 : 4 * (1 - progress(age, 0, 0.23));
     this.root
       .setPosition(
         VIEW.width / 2 + Math.sin(age * 105) * shake,
-        280 + Math.cos(age * 87) * shake
+        150 + Math.cos(age * 87) * shake
       )
       .setScale(scale);
     const end = MATCH.goalHitStopSec + MATCH.celebrationSec;
@@ -188,7 +167,7 @@ export class GoalCelebration {
     this.details
       .setVisible(state.kmh > 0)
       .setAlpha(reveal)
-      .setX((1 - reveal) * 48);
+      .setX((state.personalBest ? -215 : 0) + (1 - reveal) * 18);
     this.tag.setText(state.tag);
     const color =
       state.tag === 'ROCKET'
@@ -204,7 +183,7 @@ export class GoalCelebration {
     this.record
       .setVisible(state.personalBest && state.kmh > 0)
       .setAlpha(recordReveal)
-      .setY(201 + (1 - recordReveal) * 18);
+      .setY(80 + (1 - recordReveal) * 8);
 
     this.streaks.clear();
     if (!steady) {
@@ -213,10 +192,10 @@ export class GoalCelebration {
       for (const side of [-1, 1])
         for (let i = 0; i < 4; i++)
           this.streaks.fillRect(
-            side * (320 + burst * 200 + i * 15),
-            -62 + i * 30,
-            side * (32 + i * 6),
-            4
+            side * (215 + burst * 95 + i * 9),
+            -5 + i * 12,
+            side * (18 + i * 4),
+            3
           );
     }
   }

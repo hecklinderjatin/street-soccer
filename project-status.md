@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Clear scorer celebration (2026-10-31):** removed the dark headline strip/border and wide metric backing, moved smaller animated lettering beneath the scoreboard and grouped compact tag/speed/personal-best feedback in one shallow row above the scorer on `codex/clear-goal-overlay`. Tightened text shadow, impact and stretch; team colour now accents the small scorer label. Hide the redundant golden-goal indicator during celebrations to avoid header overlap. Types, lint, 41 logic checks, privacy/counter/speed regressions and build pass. Focused Chromium checks and screenshots verify the actual near-goal celebrating scorer stays visible at desktop, landscape and portrait sizes (1280×720, 844×390, 390×600, 320×480), plus animation stages, reset, untagged goals, reduced motion and kickoff cleanup. Live Reddit playtesting remains outstanding.
+
 **Arcade goal celebration (2026-10-31):** large goal overlay now hits and shakes briefly, expands GOAL! into GOOOOAL!, stretches the final L!, then reveals a coloured goal tag, large speed readout and personal-best ribbon. Team accents and a translucent strip keep the celebration in the game style. Goal phase time drives the sequence within the existing 2.8-second pause; reduced motion shows steady text/metrics. Types, lint, 41 logic checks, privacy/counter/speed regressions and build pass. Focused browser checks verify animation stages, bounded stretch, desktop/portrait/landscape framing, consecutive-goal reset, untagged goals, fade, reduced motion and kickoff cleanup; actual ranked and Casual keyboard-shot/goal/results flows pass. Screenshots reviewed on `codex/goal-achievements`; live Reddit playtesting remains outstanding.
 
 **Goal achievements (2026-10-31):** launch-speed goal badges (CHIP/CURL/ROCKET/GREAT FINISH), separate local practice/ranked device bests, stronger goal audio and reduced-motion-aware camera impact are implemented on `codex/goal-achievements`, based on the package refresh. Results highlight the fastest human-controlled goal; fixed ranked matches submit to a separate per-post seven-day Fastest Goals board, available through results tabs and the preview ALL dialog. Independent transactional speed updates preserve records from lower-scoring matches and use existing account/post erasure and retention. Types, lint, 41 logic checks, privacy/counter/speed regressions and build pass (unit runner finds zero tests). Full mocked Chromium suite passes, including actual keyboard strike → goal → device best → results, ranked/Casual isolation, speed-board failure, preview tab switching, share consent, rematches and guest play. Strict layout checks pass for all three modes at 390×844, 320×480, 844×390, 640×320 and 1280×720 with speed highlights and top-three boards. Real Reddit/Redis playtesting remains outstanding.
@@ -459,6 +461,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- The scorer’s animation takes visual priority: remove the dark headline plate, reduce headline/stretch/shadow/impact size, and keep secondary goal feedback in the upper HUD rather than stacking it over the player.
+
 - Use a dedicated Phaser HUD celebration with animation derived from goal age. It pauses with the match, resets on every goal, and needs no persistent timers/tweens. Preserve the existing 2.8-second goal sequence; reduced motion shows a steady full headline and metrics.
 
 - Goal speed is the calibrated arcade launch velocity in km/h, sampled before drag; only scoring shots without an intervening player touch qualify; personal/ranked records require the human-controlled shooter. Speed is a calibrated arcade measurement, and bounded client reports are not cheat-proof. Keep Casual and ranked device records separate. Only fixed competitive matches submit speed records; one best entry per player per post across seven UTC days, with existing privacy deletion/retention.
@@ -713,6 +717,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Review the clear-scorer overlay preview and playtest all celebration poses/positions on a real mobile Reddit webview before merging `codex/clear-goal-overlay`. Local and focused Chromium checks pass.
+
 - Review the animated goal UI screenshots and playtest the effect on a real mobile Reddit webview before merging `codex/goal-achievements`. Local and focused browser checks pass.
 
 - Review goal/results screenshots and playtest goal impact, speed calibration, both leaderboard categories and deletion on Reddit before merging `codex/goal-achievements` (includes package refresh). All local, browser and layout checks pass.
@@ -958,6 +964,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-10-31:** clear the goal overlay away from the scorer: remove dark backings, raise/reduce animated lettering, tighten shadow/stretch/impact and put compact goal feedback in one upper row. Local checks and focused mobile/desktop celebration checks pass on `codex/clear-goal-overlay`.
 
 - **2026-10-31:** replace the small goal badge with a dedicated arcade HUD overlay: one-shot impact, growing O sequence, final-letter stretch, team accents, tag/speed reveal, device-best ribbon and timed fade. Reduced motion and goal-age reset are covered; local and focused visual/gameplay browser checks pass.
 
