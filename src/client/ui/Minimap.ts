@@ -1,3 +1,4 @@
+import type { PitchGeometry } from '../../shared/chaos';
 import Phaser from 'phaser';
 import { PITCH, VIEW } from '../../shared/tuning';
 import { PAL, PX } from './palette';
@@ -32,11 +33,11 @@ const BALL = PX + 2;
 export class Minimap {
   private readonly dots: Phaser.GameObjects.Graphics;
 
-  constructor(scene: Phaser.Scene) {
+  constructor(scene: Phaser.Scene, pitch: PitchGeometry = PITCH) {
     const g = scene.add.graphics();
-    const goalH = PITCH.goalMouth * SCALE;
+    const goalH = pitch.goalMouth * SCALE;
     const boxW = PITCH.boxDepth * SCALE;
-    const boxH = PITCH.boxHeight * SCALE;
+    const boxH = pitch.boxHeight * SCALE;
     // Frame and a translucent pitch, so the match shows through.
     g.fillStyle(PAL.black, 0.55).fillRect(LEFT - 6, TOP - 6, W + 12, H + 12);
     g.fillStyle(PAL.darkGreen, 0.55).fillRect(LEFT, TOP, W, H);

@@ -1,3 +1,4 @@
+import type { PitchGeometry } from '../../shared/chaos';
 import Phaser from 'phaser';
 import { PITCH } from '../../shared/tuning';
 import { PAL, PX } from '../ui/palette';
@@ -22,9 +23,13 @@ export class PitchLines {
   private readonly g: Phaser.GameObjects.Graphics;
   private readonly lines: Pt[][];
 
-  constructor(scene: Phaser.Scene, depth: number) {
+  constructor(
+    scene: Phaser.Scene,
+    depth: number,
+    pitch: PitchGeometry = PITCH
+  ) {
     this.g = scene.add.graphics().setDepth(depth);
-    this.lines = buildMarkings();
+    this.lines = buildMarkings(pitch);
   }
 
   update(projector: Projector) {
@@ -66,9 +71,9 @@ export class PitchLines {
 }
 
 // All markings as world-space polylines on the ground.
-function buildMarkings(): Pt[][] {
-  const W = PITCH.width;
-  const H = PITCH.height;
+function buildMarkings(pitch: PitchGeometry): Pt[][] {
+  const W = pitch.width;
+  const H = pitch.height;
   const rect = (x0: number, y0: number, x1: number, y1: number): Pt[] => [
     { x: x0, y: y0 },
     { x: x1, y: y0 },
@@ -82,12 +87,12 @@ function buildMarkings(): Pt[][] {
       return { x: cx + Math.cos(t) * r, y: cy + Math.sin(t) * r };
     });
 
-  const bd = PITCH.boxDepth;
-  const by0 = (H - PITCH.boxHeight) / 2;
-  const by1 = (H + PITCH.boxHeight) / 2;
-  const gd = PITCH.goalAreaDepth;
-  const gy0 = (H - PITCH.goalAreaHeight) / 2;
-  const gy1 = (H + PITCH.goalAreaHeight) / 2;
+  const bd = pitch.boxDepth;
+  const by0 = (H - pitch.boxHeight) / 2;
+  const by1 = (H + pitch.boxHeight) / 2;
+  const gd = pitch.goalAreaDepth;
+  const gy0 = (H - pitch.goalAreaHeight) / 2;
+  const gy1 = (H + pitch.goalAreaHeight) / 2;
   const spot = bd - 80; // penalty spot distance from the goal line
 
   return [
@@ -96,7 +101,7 @@ function buildMarkings(): Pt[][] {
       { x: W / 2, y: 0 },
       { x: W / 2, y: H },
     ],
-    circle(W / 2, H / 2, PITCH.centerCircle, 64),
+    circle(W / 2, H / 2, pitch.centerCircle, 64),
     circle(W / 2, H / 2, 5, 8),
     rect(0, by0, bd, by1),
     rect(W - bd, by0, W, by1),

@@ -1,3 +1,4 @@
+import { rulesOf } from '../../shared/chaos';
 import { launchSpeedKmh } from '../../shared/goalSpeed';
 import { AI, BALL, PASS, PITCH, SHOOT, SIM, STICK } from '../../shared/tuning';
 import type { Ball } from '../entities/Ball';
@@ -333,14 +334,15 @@ export function kickShot(
   const lobSpeed = lerp(SHOOT.chipMinSpeed, SHOOT.chipMaxSpeed, charge);
   const lobLift = lerp(SHOOT.chipMinLift, SHOOT.chipMaxLift, charge);
 
-  const speed = lerp(drivenSpeed, lobSpeed, shape.chip);
+  const speed =
+    lerp(drivenSpeed, lobSpeed, shape.chip) * rulesOf(shooter).power;
   const lift =
     lerp(drivenLift, lobLift, shape.chip) +
     SHOOT.overHitLift * overHit * (1 + SHOOT.powerOverHit * shape.power);
 
   ball.vx = Math.cos(launch) * speed;
   ball.vy = Math.sin(launch) * speed;
-  ball.vz = lift;
+  ball.vz = lift * rulesOf(shooter).power;
   ball.spin = shape.curl * SHOOT.curlSpin;
   ball.dip = SHOOT.powerDip * shape.power;
   ball.lastTouch = shooter;
@@ -404,7 +406,7 @@ export function assistedShotDirection(
   const aim = shotDirection(shooter, move);
   const dx = (shooter.team === 'home' ? PITCH.width : 0) - shooter.x;
   const gy = PITCH.height / 2;
-  const half = PITCH.goalMouth / 2;
+  const half = rulesOf(shooter).pitch.goalMouth / 2;
   const dist = Math.hypot(dx, gy - shooter.y);
   const along = Math.cos(aim) * Math.sign(dx);
   if (Math.abs(dx) < 1 || along < 0.2 || dist > SHOOT.assistRange) return aim;
@@ -450,7 +452,7 @@ export function isPerfectCharge(charge: number) {
 // ground distances `at` along the way (0 once it has come down) and where it
 // first lands. The AI uses it to pick a chip that clears a keeper off its
 // line and still dips under the bar.
-export function chipFlight(charge: number, at: readonly number[]) {
+export function chipFlight(charge: number, at: readonly number[], power = 1) {
   const overHit = Math.max(
     0,
     (charge - SHOOT.sweetSpot) / (1 - SHOOT.sweetSpot)
@@ -461,6 +463,8 @@ export function chipFlight(charge: number, at: readonly number[]) {
   let vz =
     lerp(SHOOT.chipMinLift, SHOOT.chipMaxLift, charge) +
     SHOOT.overHitLift * overHit;
+  v *= power;
+  vz *= power;
   const heights = at.map(() => 0);
   let x = 0;
   let z = 0;

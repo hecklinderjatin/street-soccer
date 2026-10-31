@@ -14,11 +14,15 @@ export function launchSpeedKmh(vx: number, vy: number, vz: number) {
   return Math.round(Math.hypot(vx, vy, vz) * GOAL_FEEDBACK.kmhPerUnit);
 }
 
-export function qualifyingGoal(strike: GoalStrike | null, scoring: Team) {
+export function qualifyingGoal(
+  strike: GoalStrike | null,
+  scoring: Team,
+  maximum: number = GOAL_FEEDBACK.maxKmh
+) {
   return strike?.team === scoring &&
     Number.isInteger(strike.kmh) &&
     strike.kmh > 0 &&
-    strike.kmh <= GOAL_FEEDBACK.maxKmh
+    strike.kmh <= maximum
     ? strike
     : null;
 }

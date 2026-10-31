@@ -7,7 +7,13 @@ import {
 import { postType } from '../../shared/postType';
 import type { MatchStats } from '../../shared/api';
 import { parseMatchConfig } from '../../shared/matchConfig';
-import { GOAL_FEEDBACK, MATCH, DAILY, CUSTOM_MATCH } from '../../shared/tuning';
+import {
+  GOAL_FEEDBACK,
+  MATCH,
+  DAILY,
+  CUSTOM_MATCH,
+  CHAOS,
+} from '../../shared/tuning';
 import { DIFFICULTIES, type MatchConfig } from '../../shared/types';
 
 // Checking a match result a client reports (pure: no Redis, so the logic
@@ -128,7 +134,12 @@ export function readStats(
     return 'Challenge must reach the whistle';
   const rawSpeed = Reflect.get(body, 'fastestGoalKmh');
   const fastestGoalKmh =
-    rawSpeed === undefined ? undefined : count(rawSpeed, GOAL_FEEDBACK.maxKmh);
+    rawSpeed === undefined
+      ? undefined
+      : count(
+          rawSpeed,
+          dailyMode === 'chaos' ? CHAOS.maxGoalKmh : GOAL_FEEDBACK.maxKmh
+        );
   if (
     fastestGoalKmh === null ||
     (fastestGoalKmh &&

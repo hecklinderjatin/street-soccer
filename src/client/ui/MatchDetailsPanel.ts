@@ -1,3 +1,4 @@
+import { chaosLabel } from '../../shared/chaos';
 import Phaser from 'phaser';
 import type { MatchConfig } from '../../shared/types';
 import { DIFFICULTY_LABEL } from '../../shared/types';
@@ -62,12 +63,14 @@ export function buildMatchDetailsLayer(
     ['OPP FORMATION', config.away.formation],
     ['START SCORE', `${score.home} - ${score.away}`],
     [
-      'MATCH RULE',
-      config.dailyMode === 'survival'
-        ? `${survivalLimits(config).goals} GOALS / ${survivalLimits(config).conceded} CONCEDED`
-        : config.dailyMode
-          ? 'FINISH AHEAD'
-          : 'GOLDEN GOAL IF LEVEL',
+      config.dailyMode === 'chaos' ? 'CHAOS EFFECT' : 'MATCH RULE',
+      config.dailyMode === 'chaos'
+        ? chaosLabel(config)
+        : config.dailyMode === 'survival'
+          ? `${survivalLimits(config).goals} GOALS / ${survivalLimits(config).conceded} CONCEDED`
+          : config.dailyMode
+            ? 'FINISH AHEAD'
+            : 'GOLDEN GOAL IF LEVEL',
     ],
   ];
   for (const [i, [label, value]] of entries.entries()) {

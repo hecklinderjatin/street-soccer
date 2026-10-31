@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Chaos Daily (2026-10-31):** implemented on `codex/chaos-daily`, based on the pending Journeys branch. Creators choose one fixed Power Surge/Slippery Street/Goal Resize effect and whole-number strength (100 normal). Power/goals accept 50–150%; Slippery accepts 100–150%. Chaos defaults to 0–0, with configurable conceded goals, duration, skill, kits and formations. Per-match rules scale both teams’ shots/kicks or speed/tackle lunge/reach; goal resizing updates rendered posts/nets/end walls, scoring/crossbars, player bounds, keeper coverage/boxes, chalk lines and minimap. Side walls/pitch size remain fixed. Graphics reuse the ball trail plus one weather buffer: boosted-shot pixel flames, faint low-power trails, capped sparse rain/foot splashes, goal-frame kickoff highlight; mobile rain density is halved and reduced motion removes extra rain/flames. Preview, briefing, HUD, results and score sharing show effect/percent. Regulation-only Daily ranking is retained; Chaos speed bounds extend to 300 km/h only on Chaos posts and device bests use a separate bucket. Full local checks (46 logic cases, posting handler mocks, privacy/count/speed/Journeys regressions, types/lint/build), six actual-shot/goal Chaos browser scenarios, all existing Daily scenarios and the complete Casual/legacy browser suite pass. Screenshots/geometry probes verify walls/openings and mobile no-scroll results at 320x480, 390x600 and 844x390; replay/Casual isolation and reduced motion pass. npm audit is zero. Live Reddit/Redis and on-device balance review remain outstanding.
+
 **Journeys enabled by default (2026-10-31):** the user explicitly requested enabling now. Normal client/server builds attempt tracking; Reddit’s allowlist still controls actual ingestion. Set `STREET_SOCCER_JOURNEYS_ENABLED=false` to disable. No deployment or review submission performed. Types, lint, Journeys boundary/lifecycle checks, normal-enabled and explicit-disabled browser flows, all Daily scenarios and the full Casual/legacy suite pass on `codex/match-journeys`. The final local client/server build is enabled.
 
 **Match Journeys (2026-10-31):** implemented on `codex/match-journeys` with official @devvit/analytics 0.15.1 and an allowlisted Hono adapter. The minimal map covers interactive ready (once/page), committed match start/rematch, terminal results and explicit quit. `STREET_SOCCER_JOURNEYS_ENABLED` now defaults on in both client/server builds at the user’s request; explicit `false` disables it; Journeys permission is declared for review. Custom metadata contains only fixed mode/difficulty/duration/outcome/goals/time fields, not names/IDs/free text. Reddit supplies standard SDK context. Per-attempt IDs stay in memory; requests time out after two seconds with no retries and never block gameplay. No preview starts, passive quit inference or per-input tracking. Rematch markers are kept outside match settings. Clean npm ci, full local checks/build, actual Hono/SDK-boundary tests with a mock transport, default-off browser checks, all Daily scenarios and the full Casual/legacy/goal-achievement browser suite pass. Enabled mocked browser tests cover passive preview exclusion, committed release, result/rematch/quit, denied approval, offline and timed-out requests; no page errors. npm audit remains zero; no PostHog code is present in the browser bundle. The local build now follows the enabled-by-default choice described above. Review map and activation instructions are in docs/journeys-review-map.md. No live telemetry, review submission, upload or publication was performed.
@@ -479,6 +481,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Chaos rules are per-match, never mutable global tuning. Power/goals accept 50–150%, Slippery 100–150%; both teams share the saved effect. Goal size scales width/height, end-wall height and keeper/chalk boxes together; side walls stay fixed.
+
 - User’s latest instruction supersedes the earlier default-off choice: enable normal builds now, preserve an explicit false kill switch and nonblocking denial handling. Reddit continues to enforce approval/allowlisting.
 
 - Journeys is now enabled by default at the user’s request; Reddit still gates ingestion until approval/allowlisting. Track one attempt per explicit play, each rematch gets a fresh ID; bounded requests and failures never block gameplay. Only whitelisted mode/difficulty/duration/outcome/score/time fields reach the SDK.
@@ -759,6 +763,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Playtest newly created Chaos posts on Reddit and a physical mobile device before merging `codex/chaos-daily`. Local/mocked checks pass; review percentage balance and lightweight visual feel. Branch also contains the pending Journeys integration.
+
 - Review/allowlisting and deployment remain separate steps. Normal enabled builds, explicit false kill switch, denial/offline/timeout handling and existing game browser suites pass.
 
 - Review docs/journeys-review-map.md and submit the concrete map through Reddit’s current review channel. Normal builds are enabled now; after approval/allowlisting and deployment, verify accepted receipts on the approved app (playtest may be denied). Disabled and enabled implementations pass local/mocked checks; live ingestion is not verified.
@@ -1020,6 +1026,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-10-31:** implement fixed-effect, percentage-controlled Chaos Daily creation and per-match physics/geometry. Add lightweight flame/rain/highlight graphics, explicit UI labels, Chaos speed-record isolation and backward-compatible rules. Validate 100% baseline, low/high strengths, shots/tackles/walls/goals, native posting retries, actual browser goals, mobile results, reduced motion, rematches and Casual/legacy separation. Full local and browser suites pass; audit zero; live Reddit testing remains outstanding.
 
 - **2026-10-31:** enable Journeys in normal builds at the user’s explicit request, preserve `STREET_SOCCER_JOURNEYS_ENABLED=false` as a kill switch and update review/activation documentation. Types, lint, lifecycle/API checks, enabled/disabled tracking browser cases and both existing game browser suites pass. Keep the final local build enabled; no live deployment or review submission.
 

@@ -1,12 +1,14 @@
-import { GOAL_FEEDBACK } from '../shared/tuning';
+import { GOAL_FEEDBACK, CHAOS } from '../shared/tuning';
 
 // Device-local, anonymous records; Casual and fixed ranked matches are separate.
-export function recordGoalSpeed(kmh: number, casual: boolean) {
-  const key = `street-soccer:fastest-goal:v1:${casual ? 'casual' : 'ranked'}`;
+export function recordGoalSpeed(kmh: number, casual: boolean, chaos = false) {
+  const key = `street-soccer:fastest-goal:v1:${chaos ? 'chaos' : casual ? 'casual' : 'ranked'}`;
   try {
     const raw = Number(localStorage.getItem(key) ?? 0);
     const previous =
-      Number.isInteger(raw) && raw >= 0 && raw <= GOAL_FEEDBACK.maxKmh
+      Number.isInteger(raw) &&
+      raw >= 0 &&
+      raw <= (chaos ? CHAOS.maxGoalKmh : GOAL_FEEDBACK.maxKmh)
         ? raw
         : 0;
     if (kmh <= previous) return false;

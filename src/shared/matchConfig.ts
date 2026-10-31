@@ -1,3 +1,4 @@
+import { parseChaosEffect, chaosStrengthValid } from './chaos';
 import { parseDailyMode } from './dailyMode';
 import { CUSTOM_MATCH, MATCH, DAILY } from './tuning';
 import {
@@ -133,6 +134,13 @@ export function parseMatchConfig(value: unknown): MatchConfig | string {
     (survivalGoals === null || survivalConceded === null)
   )
     return 'invalid Rampage goal limits';
+  const chaosEffect = parseChaosEffect(Reflect.get(value, 'chaosEffect'));
+  const chaosStrength: unknown = Reflect.get(value, 'chaosStrength') ?? 100;
+  if (
+    dailyMode === 'chaos' &&
+    (!chaosEffect || !chaosStrengthValid(chaosEffect, chaosStrength))
+  )
+    return 'Choose a Chaos effect and whole-number strength: 50-150%, or 100-150% for Slippery Street';
   const home = parseTeam(Reflect.get(value, 'home'));
   if (typeof home === 'string') return home;
   const away = parseTeam(Reflect.get(value, 'away'));
@@ -147,6 +155,11 @@ export function parseMatchConfig(value: unknown): MatchConfig | string {
           survivalGoals: survivalGoals ?? DAILY.survivalGoals,
           survivalConceded: survivalConceded ?? DAILY.survivalConceded,
         }
+      : {}),
+    ...(dailyMode === 'chaos' &&
+    chaosEffect &&
+    typeof chaosStrength === 'number'
+      ? { chaosEffect, chaosStrength }
       : {}),
     difficulty,
     durationSec,

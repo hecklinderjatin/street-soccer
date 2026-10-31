@@ -1,3 +1,4 @@
+import { chaosLabel } from '../../shared/chaos';
 import {
   DAILY_LABEL,
   resultLabel,
@@ -30,7 +31,7 @@ export function statsLine(stats: MatchStats, config: MatchConfig | null) {
   return (
     `⚽ **${outcome(stats)} ${stats.dailyMode ? `${DAILY_LABEL[stats.dailyMode]} · ${resultLabel(stats)}` : `${stats.goalsFor}-${stats.goalsAgainst}`}** ` +
     `(${teams}${stats.dailyMode === 'survival' ? survivalRange(config ?? stats) : capital(DIFFICULTY_LABEL[stats.difficulty])} AI) · ` +
-    `Shots ${stats.shots} · Passes ${stats.passes} · Tackles won ${stats.tacklesWon}`
+    `${config?.dailyMode === 'chaos' ? `${chaosLabel(config)} · ` : ''}Shots ${stats.shots} · Passes ${stats.passes} · Tackles won ${stats.tacklesWon}`
   );
 }
 

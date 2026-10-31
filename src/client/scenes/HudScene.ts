@@ -1,3 +1,4 @@
+import { chaosRules } from '../../shared/chaos';
 import { buildMatchDetailsLayer } from '../ui/MatchDetailsPanel';
 import { currentPostType } from '../challenge';
 import {
@@ -89,7 +90,7 @@ export class HudScene extends Phaser.Scene {
     });
 
     this.buildScoreboard();
-    this.minimap = new Minimap(this);
+    this.minimap = new Minimap(this, chaosRules(this.hud.config).pitch);
     this.missionText = pixelText(
       this,
       VIEW.width / 2,

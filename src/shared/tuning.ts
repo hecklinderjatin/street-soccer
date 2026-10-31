@@ -810,3 +810,11 @@ export const DAILY = {
   lateShare: 0.25, // last quarter of Shield: chasing CPU goes all-out
   earlyFinishMinSec: 12, // minimal real-time receipt/cooldown for Survival runs
 } as const;
+
+export const CHAOS = {
+  minPercent: 50, // bounded creator strength for power/goal dimensions
+  maxPercent: 150, // prevents unplayable movement and geometry
+  rainDrops: 28, // fixed graphics budget, no particle allocations per frame
+  splashes: 5, // at most five tiny foot splashes per frame
+  maxGoalKmh: 300, // permits legal boosted goals, isolated to Chaos
+} as const;

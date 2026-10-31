@@ -1,3 +1,4 @@
+import { CHAOS_EFFECTS, CHAOS_LABEL } from '../../shared/chaos';
 import {
   DAILY_MODES,
   DAILY_LABEL,
@@ -32,6 +33,8 @@ export const CHALLENGE_FORM = 'challengeForm'; // devvit.json "forms" key
 
 // What the form submits: text fields as strings, selects as one-item arrays.
 export type ChallengeValues = {
+  chaosEffect?: string[];
+  chaosStrength?: number;
   matchType?: string[];
   dailyMode?: string[];
   startGoalsFor?: string[];
@@ -120,7 +123,7 @@ export const dailyModeForm: Form = {
         label: DAILY_LABEL[value],
       })),
       helpText:
-        'Comeback: recover a deficit. Shield: defend your head start. Rampage: race to a goal target with rising difficulty and a concession limit.',
+        'Comeback: recover a deficit. Shield: defend your head start. Rampage: rising difficulty. Chaos: one fixed effect with creator-set percentage.',
     },
   ],
 };
@@ -230,13 +233,14 @@ export function challengeFormFor(
               )
                 return false;
               if (field.type === 'select' && field.name === 'startGoalsAgainst')
-                return dailyMode === 'comeback';
+                return dailyMode === 'comeback' || dailyMode === 'chaos';
               return true;
             })
             .map((field) =>
               field.type === 'select' &&
               field.name === 'startGoalsAgainst' &&
-              matchType === 'daily'
+              matchType === 'daily' &&
+              dailyMode === 'comeback'
                 ? {
                     ...field,
                     options: field.options.filter(
@@ -247,6 +251,31 @@ export function challengeFormFor(
             )),
       ...leadFields,
       ...survivalFields,
+      ...(matchType === 'daily' && dailyMode === 'chaos'
+        ? ([
+            {
+              type: 'select',
+              name: 'chaosEffect',
+              label: 'Chaos effect',
+              required: true,
+              options: CHAOS_EFFECTS.map((value) => ({
+                value,
+                label: CHAOS_LABEL[value],
+              })),
+              helpText:
+                'One effect for the whole match, identical for both teams.',
+            },
+            {
+              type: 'number',
+              name: 'chaosStrength',
+              label: 'Effect strength (%)',
+              required: true,
+              defaultValue: 100,
+              helpText:
+                '100% = normal. Power/goals: 50-150%. Slippery speed + tackle reach: 100-150%. Goal size also scales end-wall height.',
+            },
+          ] satisfies FormField[])
+        : []),
     ],
   };
 }
@@ -294,6 +323,8 @@ export function challengeFormData(values?: ChallengeValues): ChallengeValues {
   const d = DEFAULT_MATCH_CONFIG;
   const dailyMode = parseDailyMode(values?.dailyMode?.[0]) ?? 'comeback';
   return {
+    chaosEffect: ['power'],
+    chaosStrength: 100,
     dailyMode: [dailyMode],
     startGoalsFor: ['1'],
     survivalGoals: [String(DAILY.survivalGoals)],
@@ -309,7 +340,9 @@ export function challengeFormData(values?: ChallengeValues): ChallengeValues {
     awayFormation: [d.away.formation],
     difficulty: [d.difficulty],
     durationSec: [String(d.durationSec)],
-    startGoalsAgainst: [values?.matchType?.[0] === 'daily' ? '2' : '0'],
+    startGoalsAgainst: [
+      values?.matchType?.[0] === 'daily' && dailyMode !== 'chaos' ? '2' : '0',
+    ],
     ...values,
   };
 }
@@ -356,13 +389,19 @@ export function readChallenge(
           survivalConceded: Number(values.survivalConceded?.[0]),
         }
       : {}),
+    ...(dailyMode === 'chaos'
+      ? {
+          chaosEffect: values.chaosEffect?.[0],
+          chaosStrength: values.chaosStrength,
+        }
+      : {}),
     difficulty: dailyMode === 'survival' ? 'noob' : values.difficulty?.[0],
     durationSec:
       dailyMode === 'survival'
         ? DAILY.survivalCapSec
         : Number(values.durationSec?.[0]),
     startGoalsAgainst:
-      dailyMode && dailyMode !== 'comeback'
+      dailyMode && dailyMode !== 'comeback' && dailyMode !== 'chaos'
         ? 0
         : Number(values.startGoalsAgainst?.[0]),
     home: {

@@ -1,3 +1,6 @@
+import { chaosRules, NORMAL_RULES, chaosLabel } from '../src/shared/chaos';
+import { collideBall } from '../src/client/systems/ballPhysics';
+import { stepPlayer, constrainMove } from '../src/client/systems/movement';
 import {
   launchSpeedKmh,
   qualifyingGoal,
@@ -962,6 +965,164 @@ check(
     const legacy = readStats(stats(), null);
     assert.ok(typeof legacy !== 'string');
     assert.equal(legacy.fastestGoalKmh, undefined);
+  }
+);
+
+check(
+  'Chaos creation percentages are validated and Casual strips rules',
+  () => {
+    for (const effect of ['power', 'slippery', 'goals']) {
+      const raw = {
+        ...DEFAULT_MATCH_CONFIG,
+        dailyMode: 'chaos',
+        chaosEffect: effect,
+        chaosStrength: 100,
+      };
+      const parsed = parseMatchConfig(raw);
+      assert.notEqual(typeof parsed, 'string');
+      if (typeof parsed === 'string') throw new Error(parsed);
+      const rules = chaosRules(parsed);
+      assert.deepEqual(rules.pitch, PITCH);
+      assert.equal(rules.power, 1);
+      assert.equal(rules.movement, 1);
+      assert.equal(rules.tackle, 1);
+      assert.equal(casualConfig(parsed).chaosEffect, undefined);
+      assert.equal(chaosRules(casualConfig(parsed)), NORMAL_RULES);
+      for (const percent of [0, 49, 151, 100.5, '125'])
+        assert.equal(
+          typeof parseMatchConfig({ ...raw, chaosStrength: percent }),
+          'string'
+        );
+    }
+    assert.equal(
+      typeof parseMatchConfig({
+        ...DEFAULT_MATCH_CONFIG,
+        dailyMode: 'chaos',
+        chaosEffect: 'slippery',
+        chaosStrength: 75,
+      }),
+      'string'
+    );
+  }
+);
+const makeChaos = (effect: 'power' | 'slippery' | 'goals', percent: number) =>
+  chaosRules({
+    dailyMode: 'chaos',
+    chaosEffect: effect,
+    chaosStrength: percent,
+  });
+check(
+  'Chaos shot power scales the actual strike and leaves ordinary shots alone',
+  () => {
+    const fire = (percent: number) => {
+      const rules = makeChaos('power', percent),
+        p = player({ rules }),
+        b = ball({ rules });
+      kickShot(b, p, { x: 1, y: 0, r: 1 }, 0.7, [], () => 0.5);
+      return b;
+    };
+    const base = fire(100),
+      high = fire(150),
+      low = fire(50);
+    assert.equal(high.vx, base.vx * 1.5);
+    assert.equal(high.vz, base.vz * 1.5);
+    assert.equal(low.vx, base.vx * 0.5);
+    assert.equal(
+      chaosLabel({
+        dailyMode: 'chaos',
+        chaosEffect: 'power',
+        chaosStrength: 125,
+      }),
+      'POWER SURGE 125%'
+    );
+  }
+);
+check(
+  'Chaos slippery speed and contact reach increase equally for both teams',
+  () => {
+    for (const team of ['home', 'away']) {
+      const base = player({ team, x: 500, y: 500 }),
+        fast = player({
+          team,
+          x: 500,
+          y: 500,
+          rules: makeChaos('slippery', 150),
+        });
+      for (let i = 0; i < 30; i++) {
+        stepPlayer(base, { x: 1, y: 0, r: 1 }, true, 1 / 60, false);
+        stepPlayer(fast, { x: 1, y: 0, r: 1 }, true, 1 / 60, false);
+      }
+      assert.ok(Math.abs(fast.speed - base.speed * 1.5) < 0.00001);
+    }
+    const attempt = (percent: number) => {
+      const carrier = player({
+        team: 'away',
+        x: TACKLE.reach * 1.2,
+        heading: Math.PI,
+      });
+      const p = player({ rules: makeChaos('slippery', percent) }),
+        b = ball({ x: carrier.x, owner: carrier });
+      startTackle(p, 0, 10, carrier);
+      return resolveTackle(p, b, 10.15, () => 0);
+    };
+    assert.equal(attempt(100), null);
+    assert.equal(attempt(150), 'won');
+  }
+);
+check(
+  'Chaos resized opening, crossbar, end wall and player bounds agree',
+  () => {
+    const wide = makeChaos('goals', 150),
+      small = makeChaos('goals', 50);
+    assert.equal(wide.pitch.goalHeight, PITCH.goalHeight * 1.5);
+    assert.equal(wide.pitch.endWallHeight, PITCH.endWallHeight * 1.5);
+    assert.equal(wide.pitch.wallHeight, PITCH.wallHeight);
+    const probe = (rules = NORMAL_RULES, y = PITCH.height / 2 + 190, z = 20) =>
+      collideBall(ball({ rules, x: PITCH.width + 20, y, z, vx: 30 }));
+    assert.equal(probe().goal, 0);
+    assert.equal(probe(wide).goal, 1);
+    assert.equal(probe(small, PITCH.height / 2 + 100).goal, 0);
+    assert.equal(probe(wide, PITCH.height / 2, 140).goal, 1);
+    assert.equal(probe(NORMAL_RULES, PITCH.height / 2, 140).out, 1);
+    assert.equal(probe(NORMAL_RULES, 100, 170).out, 1);
+    assert.equal(probe(wide, 100, 170).hitWall, true);
+    const y = PITCH.height / 2 + 190;
+    assert.ok(
+      constrainMove(y, PITCH.width + 20, y, 10, wide.pitch)[0] > PITCH.width
+    );
+    assert.ok(constrainMove(y, PITCH.width + 20, y)[0] < PITCH.width);
+    assert.deepEqual(chaosRules(DEFAULT_MATCH_CONFIG), NORMAL_RULES);
+  }
+);
+check(
+  'Chaos uses regulation-only Daily outcomes and legal boosted speed bounds',
+  () => {
+    const config = {
+      ...DEFAULT_MATCH_CONFIG,
+      dailyMode: 'chaos',
+      chaosEffect: 'power',
+      chaosStrength: 150,
+    };
+    const parsed = parseMatchConfig(config);
+    if (typeof parsed === 'string') throw new Error(parsed);
+    const flow = new MatchFlow(30, { home: 0, away: 0 }, 'chaos');
+    flow.phase = 'live';
+    flow.clockRunning = true;
+    flow.tickClock(30);
+    assert.equal(flow.goldenGoal, false);
+    assert.equal(flow.phase, 'fulltime');
+    const stats = {
+      difficulty: 'normal',
+      elapsedSec: parsed.durationSec,
+      goalsFor: 2,
+      goalsAgainst: 1,
+      shots: 2,
+      passes: 0,
+      tacklesWon: 0,
+      fastestGoalKmh: 260,
+    };
+    assert.notEqual(typeof readStats(stats, parsed), 'string');
+    assert.equal(typeof readStats(stats, DEFAULT_MATCH_CONFIG), 'string');
   }
 );
 console.log(`\n${passed} checks passed`);

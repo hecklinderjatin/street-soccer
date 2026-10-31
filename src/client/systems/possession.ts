@@ -1,3 +1,4 @@
+import { rulesOf } from '../../shared/chaos';
 import { BALL, DRIBBLE, PLAYER, POSSESSION } from '../../shared/tuning';
 import type { Ball } from '../entities/Ball';
 import type { Player } from '../entities/Player';
@@ -150,7 +151,11 @@ function deflect(ball: Ball, p: Player) {
 // camera look-ahead and later tackles all see a real moving ball.
 function dribble(ball: Ball, p: Player, dt: number) {
   const moving = p.speed > 20;
-  const walkFrac = clamp(p.speed / PLAYER.walkWithBallSpeed, 0, 1);
+  const walkFrac = clamp(
+    p.speed / (PLAYER.walkWithBallSpeed * rulesOf(p).movement),
+    0,
+    1
+  );
   const base = p.sprinting
     ? DRIBBLE.sprintLead
     : lerp(DRIBBLE.closeLead, DRIBBLE.walkLead, walkFrac);

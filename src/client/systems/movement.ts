@@ -1,3 +1,4 @@
+import { rulesOf, type PitchGeometry } from '../../shared/chaos';
 import { PITCH, PLAYER, STAMINA, STICK } from '../../shared/tuning';
 import type { Player } from '../entities/Player';
 import type { StickInput } from './Controls';
@@ -19,6 +20,7 @@ export function stepPlayer(
   regenScale = 1,
   maxSpeed = Infinity // a cap on top (receiver hold); faster players slow down to it
 ) {
+  const rules = rulesOf(player);
   const active = move.r > STICK.deadZone;
 
   // Sprint only while moving, with stamina left and not locked out.
@@ -26,8 +28,11 @@ export function stepPlayer(
     active && wantsSprint && !player.sprintLocked && player.stamina > 0;
 
   // Analog walk below the sprint ring; flat sprint speed past it.
-  const walkSpeed = hasBall ? PLAYER.walkWithBallSpeed : PLAYER.walkSpeed;
-  const sprintSpeed = hasBall ? PLAYER.sprintWithBallSpeed : PLAYER.sprintSpeed;
+  const walkSpeed =
+    (hasBall ? PLAYER.walkWithBallSpeed : PLAYER.walkSpeed) * rules.movement;
+  const sprintSpeed =
+    (hasBall ? PLAYER.sprintWithBallSpeed : PLAYER.sprintSpeed) *
+    rules.movement;
   let targetSpeed = 0;
   if (sprinting) {
     targetSpeed = sprintSpeed;
@@ -42,7 +47,10 @@ export function stepPlayer(
 
   if (active) {
     const desired = Math.atan2(move.y, move.x);
-    const speedFrac = Math.min(1, player.speed / PLAYER.sprintSpeed);
+    const speedFrac = Math.min(
+      1,
+      player.speed / (PLAYER.sprintSpeed * rules.movement)
+    );
     const turnRate =
       player.speed < PLAYER.pivotBelowSpeed
         ? PLAYER.pivotRate
@@ -71,7 +79,8 @@ export function stepPlayer(
   }
 
   targetSpeed = Math.min(targetSpeed, maxSpeed);
-  const accel = hasBall ? PLAYER.accelWithBall : PLAYER.accel;
+  const accel =
+    (hasBall ? PLAYER.accelWithBall : PLAYER.accel) * rules.movement;
   player.speed =
     targetSpeed >= player.speed
       ? Math.min(targetSpeed, player.speed + accel * dt)
@@ -80,16 +89,15 @@ export function stepPlayer(
   const [x, y] = constrainMove(
     player.y,
     player.x + Math.cos(player.heading) * player.speed * dt,
-    player.y + Math.sin(player.heading) * player.speed * dt
+    player.y + Math.sin(player.heading) * player.speed * dt,
+    PLAYER.radius,
+    rules.pitch
   );
   player.x = x;
   player.y = y;
 
   stepStamina(player, sprinting && player.speed > 0, dt, regenScale);
 }
-
-const GOAL_TOP = (PITCH.height - PITCH.goalMouth) / 2;
-const GOAL_BOTTOM = (PITCH.height + PITCH.goalMouth) / 2;
 
 // Moves feet from row fromY toward (toX, toY) inside the court, which
 // includes both goals: the pitch rectangle plus each net's area behind the
@@ -102,8 +110,11 @@ export function constrainMove(
   fromY: number,
   toX: number,
   toY: number,
-  r: number = PLAYER.radius
+  r: number = PLAYER.radius,
+  pitch: PitchGeometry = PITCH
 ): [number, number] {
+  const GOAL_TOP = (pitch.height - pitch.goalMouth) / 2;
+  const GOAL_BOTTOM = (pitch.height + pitch.goalMouth) / 2;
   // X first, using the current row: only the goal-mouth band reaches into a net.
   const inMouthBand = fromY >= GOAL_TOP + r && fromY <= GOAL_BOTTOM - r;
   const x = inMouthBand

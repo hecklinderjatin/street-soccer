@@ -1,3 +1,4 @@
+import { rulesOf } from '../../shared/chaos';
 import { TACKLE } from '../../shared/tuning';
 import type { Ball } from '../entities/Ball';
 import type { Player } from '../entities/Player';
@@ -60,7 +61,7 @@ export function startTackle(
 export function stepLunge(p: Player, time: number, dt: number) {
   p.lying = time < p.tackleUntil && p.stumbling;
   if (tacklePhase(p, time) !== 'active') return false;
-  const speed = TACKLE.lungeDist / TACKLE.activeSec;
+  const speed = (TACKLE.lungeDist * rulesOf(p).tackle) / TACKLE.activeSec;
   p.heading = p.tackleDir;
   p.speed = speed;
   p.x += Math.cos(p.tackleDir) * speed * dt;
@@ -80,7 +81,7 @@ export function resolveTackle(
   if (!carrier || carrier.team === p.team || carrier.holding) return null;
   const dx = ball.x - p.x;
   const dy = ball.y - p.y;
-  if (Math.hypot(dx, dy) > TACKLE.reach) return null;
+  if (Math.hypot(dx, dy) > TACKLE.reach * rulesOf(p).tackle) return null;
   if (
     Math.abs(angleDiff(Math.atan2(dy, dx), p.tackleDir)) >
     TACKLE.arcDeg * DEG

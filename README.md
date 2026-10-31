@@ -20,13 +20,17 @@ A fast 5v5 arcade street football match against the AI, played right inside a Re
 
 ## For moderators
 
-Moderators choose **Create Street Soccer match** in the subreddit menu, then select **Daily Challenge**, **Classic**, or **Casual**. Daily Challenge opens a second choice: **Comeback**, **Shield**, or **Rampage**, followed by settings for that template.
+Moderators choose **Create Street Soccer match** in the subreddit menu, then select **Daily Challenge**, **Classic**, or **Casual**. Daily Challenge opens a second choice: **Comeback**, **Shield**, **Rampage**, or **Chaos**, followed by settings for that template.
 
 Classic keeps its existing title, description, teams, colours, formations, difficulty, match length (0:30–5:00) and opponent starting goals (0–5). New Daily templates use fixed creator settings:
 
 - **Comeback:** start 0–1 through 0–5 behind and finish ahead. The opponent protects its lead, balances when level and attacks when behind.
 - **Shield:** start 1–0 through 5–0 ahead and finish ahead. The opponent attacks, goes all-out late while chasing, balances when level and defends if it takes the lead. Your AI teammates defend more cautiously while ahead, keeping one counterattacking outlet.
 - **Rampage:** start 0–0 against Noob; each player-team goal raises the opponent to Easy, Normal, Hard, then Pro at the next kickoff. Creators choose **Goals to win** (1–15, default 5) and **Conceding goal limit** (1–10, default 3). Reach the goal target before the conceding limit to clear. New Rampage posts have a fixed **5:00 cap**; timing out fails even if ahead. Difficulty rises per goal until Pro; difficulty and starting score are automatic. Older saved Rampage posts retain their shorter time cap and default 5/3 limits.
+
+- **Chaos:** one fixed effect for the whole match, chosen when posting. **Power Surge** scales shot/kick launch power from 50–150%; **Slippery Street** scales movement speed, tackle lunge and reach together from 100–150%; **Goal Resize** scales opening width/height and associated end-wall height from 50–150%, along with keeper/chalk boxes. **100% means normal mechanics**. Side walls and pitch dimensions stay fixed. Both teams receive the same setting. Difficulty, time, teams, formations and starting goals conceded remain creator-controlled. Regulation only, no golden goal; finish ahead to clear and use the usual Daily result ordering.
+
+Chaos uses reusable graphics: pixel flame trails for boosted shots, faint trails for weakened shots, sparse rain (half density on mobile), a capped number of foot splashes and a brief goal-frame highlight at kickoff. Extra flames/rain respect reduced motion. There are no new texture downloads, particle emitters or shaders. Preview, match info, HUD, results and score comments show the saved effect/percentage. Mode-local rules prevent effects leaking into previews of other posts, rematches or Casual. Boosted goal speeds are accepted up to 300 km/h on Chaos posts only; device bests use a separate Chaos bucket, and the existing per-post Fastest Goals board compares the same post settings.
 
 Rampage uses a purple/pink **RISING AI** badge. Match Details explains the actual difficulty tiers for the saved goal target, per-goal opponent/goalkeeper upgrades, the conceding limit, timeout failure and fastest-clear ranking. Existing posts keep their stored `survival` mode ID and limits for compatibility; the name change does not edit Reddit post titles.
 
@@ -89,6 +93,7 @@ Run these in WSL from this folder:
 - `npm run dev`: build and playtest in the dev subreddit (`r/street_soccer_dev`)
 - `npm run test:local`: type check, lint, dependency compatibility, unit and logic checks, build
 - `npm run test:casual-browser`: browser interaction checks against a running local build (install Playwright Chromium first, or set `CHROMIUM_PATH` to a system Chromium)
+- `npm run test:chaos-browser`: test Chaos preview geometry, actual shots/goals, percentage rules, replay and Casual isolation with mocked Reddit APIs
 - `npm run test:journeys`: check tracking boundaries, privacy allowlists, denial/failure handling and rematch lifecycle
 - `npm run test:journeys-browser`: check a local build’s tracking hooks with mocked Reddit endpoints
 - `npm run test:games`: completed-game counter regression checks for concurrent retries, failed commits, lost replies, expiry and deletion

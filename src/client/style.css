@@ -1303,3 +1303,12 @@ body {
   background: linear-gradient(110deg, #653aa0, #a22468);
   border-color: #ff77a880;
 }
+
+.results-meta.has-chaos {
+  flex-wrap: wrap;
+  row-gap: 6px;
+}
+.results-chaos-effect {
+  color: #ff77a8;
+  font-size: 8px;
+}

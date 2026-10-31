@@ -14,6 +14,7 @@ export const JOURNEY_MODES = [
   'comeback',
   'shield',
   'rampage',
+  'chaos',
 ] as const;
 export const JOURNEY_OUTCOMES = [
   'win',
@@ -47,11 +48,13 @@ export function journeySettings(
         ? 'shield'
         : config.dailyMode === 'survival'
           ? 'rampage'
-          : config.dailyMode === 'comeback'
-            ? 'comeback'
-            : post === 'daily'
-              ? 'daily'
-              : 'classic';
+          : config.dailyMode === 'chaos'
+            ? 'chaos'
+            : config.dailyMode === 'comeback'
+              ? 'comeback'
+              : post === 'daily'
+                ? 'daily'
+                : 'classic';
   return {
     mode,
     difficulty: mode === 'rampage' ? 'rising' : config.difficulty,

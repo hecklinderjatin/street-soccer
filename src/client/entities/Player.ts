@@ -1,3 +1,4 @@
+import { NORMAL_RULES, type ChaosRules } from '../../shared/chaos';
 import Phaser from 'phaser';
 import { AI, SIM, STAMINA, TACKLE } from '../../shared/tuning';
 import type { JerseyColor, Team } from '../../shared/types';
@@ -48,6 +49,7 @@ const head = newProjected();
 // draws an interpolated frame through the perspective Projector, as a
 // camera-facing sprite scaled by distance and depth-sorted by ground y.
 export class Player {
+  rules: ChaosRules = NORMAL_RULES;
   x: number;
   y: number;
   z = 0;

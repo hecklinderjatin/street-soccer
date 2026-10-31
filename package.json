@@ -14,6 +14,7 @@
     "prettier": "prettier --write .",
     "start": "npm run build && node scripts/serve.mjs",
     "serve": "node scripts/serve.mjs",
+    "test:chaos-browser": "node checks/chaos-browser.mjs",
     "test:daily-browser": "node checks/daily-browser.mjs",
     "test:casual-browser": "node checks/casual-browser.mjs",
     "test:games": "rolldown checks/games-check.ts --platform node --format esm -o node_modules/.cache/games-check.mjs && node node_modules/.cache/games-check.mjs",

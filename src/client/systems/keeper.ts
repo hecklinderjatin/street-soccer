@@ -1,3 +1,4 @@
+import { rulesOf } from '../../shared/chaos';
 import {
   BALL,
   KEEPER,
@@ -38,8 +39,8 @@ const STAND: KeeperSteer = { move: { x: 0, y: 0, r: 0 }, sprint: false };
 // The keeper's own big box, where it may use its hands. Outside it the
 // keeper is free to roam but plays the ball with its feet like anyone else.
 function boxBounds(keeper: Player, inset: number) {
-  const top = (PITCH.height - PITCH.boxHeight) / 2 + inset;
-  const bottom = (PITCH.height + PITCH.boxHeight) / 2 - inset;
+  const top = (PITCH.height - rulesOf(keeper).pitch.boxHeight) / 2 + inset;
+  const bottom = (PITCH.height + rulesOf(keeper).pitch.boxHeight) / 2 - inset;
   const [minX, maxX] =
     keeper.team === 'home'
       ? [inset, PITCH.boxDepth - inset]
@@ -104,7 +105,7 @@ export function keeperStick(
         return toward(k, meet.x, meet.y, true);
     }
   }
-  const halfMouth = PITCH.goalMouth / 2;
+  const halfMouth = rulesOf(k).pitch.goalMouth / 2;
   if (!ball.owner && ball.speed > KEEPER.setAbove) {
     // Where the ball will cross the keeper's line, if it is coming at the
     // goal (on target, or just wide); otherwise it holds.
@@ -351,9 +352,9 @@ function distribute(
   const tx = clamp(keeper.x + outward * 1100, 0, PITCH.width);
   const ty = front ? front.y : PITCH.height / 2;
   const angle = Math.atan2(ty - ball.y, tx - ball.x);
-  ball.vx = Math.cos(angle) * KEEPER.puntSpeed;
-  ball.vy = Math.sin(angle) * KEEPER.puntSpeed;
-  ball.vz = KEEPER.puntLift;
+  ball.vx = Math.cos(angle) * KEEPER.puntSpeed * rulesOf(keeper).power;
+  ball.vy = Math.sin(angle) * KEEPER.puntSpeed * rulesOf(keeper).power;
+  ball.vz = KEEPER.puntLift * rulesOf(keeper).power;
   ball.spin = 0;
   ball.dip = 0;
   return 'punted';
@@ -449,8 +450,8 @@ function keeperThreat(
   // Where and how high the ball passes the keeper.
   const y = ball.y + ball.vy * t;
   const z = ball.z + ball.vz * t - 0.5 * BALL.gravity * (1 + ball.dip) * t * t;
-  const mouthTop = (PITCH.height - PITCH.goalMouth) / 2;
-  const mouthBottom = (PITCH.height + PITCH.goalMouth) / 2;
+  const mouthTop = (PITCH.height - rulesOf(keeper).pitch.goalMouth) / 2;
+  const mouthBottom = (PITCH.height + rulesOf(keeper).pitch.goalMouth) / 2;
   const onTarget =
     y > mouthTop - KEEPER.reactMargin && y < mouthBottom + KEEPER.reactMargin;
   const offset = y - keeper.y;

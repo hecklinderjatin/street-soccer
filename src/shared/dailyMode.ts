@@ -1,3 +1,4 @@
+import { chaosLabel } from './chaos';
 import type { DailyMode, MatchConfig } from './types';
 import { DIFFICULTIES } from './types';
 import { DAILY, TACTICS } from './tuning';
@@ -7,11 +8,13 @@ export const DAILY_MODES: readonly DailyMode[] = [
   'comeback',
   'hold-lead',
   'survival',
+  'chaos',
 ];
 export const DAILY_LABEL: Record<DailyMode, string> = {
   comeback: 'COMEBACK',
   'hold-lead': 'SHIELD',
   survival: 'RAMPAGE',
+  chaos: 'CHAOS',
 };
 export const parseDailyMode = (value: unknown) =>
   DAILY_MODES.find((mode) => mode === value);
@@ -58,6 +61,8 @@ export function survivalProgression(
     .join(' > ');
 }
 export function dailyObjective(config: MatchConfig) {
+  if (config.dailyMode === 'chaos')
+    return `${chaosLabel(config)}. Both teams. Win in regulation.`;
   if (config.dailyMode === 'survival')
     return `Score ${survivalLimits(config).goals} to win. Concede ${survivalLimits(config).conceded} and the run ends.`;
   if (config.dailyMode === 'hold-lead')
@@ -77,7 +82,7 @@ export function dailyPlans(
   const chasing = score.away < score.home;
   const late = clock <= config.durationSec * DAILY.lateShare;
   const away =
-    !mode || mode === 'survival'
+    !mode || mode === 'survival' || mode === 'chaos'
       ? 'balanced'
       : score.away > score.home
         ? 'defensive'
@@ -125,6 +130,8 @@ export function withoutDailyMode(config: MatchConfig): MatchConfig {
   const copy = { ...config };
   delete copy.survivalGoals;
   delete copy.survivalConceded;
+  delete copy.chaosEffect;
+  delete copy.chaosStrength;
   delete copy.dailyMode;
   delete copy.startGoalsFor;
   return copy;

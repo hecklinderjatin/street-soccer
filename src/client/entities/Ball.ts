@@ -1,3 +1,4 @@
+import { NORMAL_RULES, type ChaosRules } from '../../shared/chaos';
 import Phaser from 'phaser';
 import type { GoalStrike } from '../../shared/goalSpeed';
 import {
@@ -22,6 +23,7 @@ const TRAIL_LENGTH = 14; // render frames of trail
 // While a player owns it, systems/possession.ts steers it in dribble touches
 // instead of free physics; it is never simply glued to the feet.
 export class Ball {
+  rules: ChaosRules = NORMAL_RULES;
   goalStrike: GoalStrike | null = null;
   strikes = 0; // increments on an actual pass/shot, consumed by match audio
   pendingShot = false; // one unresolved shot for miss/save audio
@@ -46,6 +48,9 @@ export class Ball {
   priorityUntil = 0; // ... until this sim time (a won tackle)
   inNet: -1 | 0 | 1 = 0; // which net the ball is in (-1 left, 1 right)
   out: -1 | 0 | 1 = 0; // went out over the bar / end wall behind this goal (until the restart)
+  private readonly reducedMotion = window.matchMedia(
+    '(prefers-reduced-motion: reduce)'
+  );
   private rolled = 0; // signed distance rolled, drives the spinning frames
   private rollDir = 1; // +1 rolling right (frames forward), -1 left (reversed)
   shotAnimationAge = Infinity; // seconds since strike; brief squash/stretch effect
@@ -163,7 +168,31 @@ export class Ball {
     pts.forEach((p, i) => {
       const f = (i + 1) / (pts.length + 1); // older points fainter and smaller
       projector.project(p.x, p.y, p.z, at);
-      g.fillStyle(PAL.white, 0.45 * f).fillCircle(
+      if (
+        this.rules.effect === 'power' &&
+        this.rules.power > 1 &&
+        this.goalStrike &&
+        !this.reducedMotion.matches
+      ) {
+        const size = Math.max(2, 5 * at.scale * f);
+        const y = at.y - (BALL_W / 2) * PX * at.scale;
+        g.fillStyle(PAL.orange, 0.6 * f).fillRect(
+          at.x - size,
+          y - size,
+          size * 2,
+          size * 2
+        );
+        g.fillStyle(PAL.yellow, 0.8 * f).fillRect(
+          at.x - size / 2,
+          y - size / 2,
+          size,
+          size
+        );
+        return;
+      }
+      const opacity =
+        this.rules.effect === 'power' && this.rules.power < 1 ? 0.2 : 0.45;
+      g.fillStyle(PAL.white, opacity * f).fillCircle(
         at.x,
         at.y - (BALL_W / 2) * PX * at.scale, // sprite is drawn from its bottom
         Math.max(1, 2.5 * PX * at.scale * f)

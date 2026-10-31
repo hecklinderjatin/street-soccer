@@ -1,11 +1,9 @@
+import { rulesOf } from '../../shared/chaos';
 import { BALL, PITCH } from '../../shared/tuning';
 import type { Ball } from '../entities/Ball';
 
 const W = PITCH.width;
 const H = PITCH.height;
-const G_TOP = (H - PITCH.goalMouth) / 2;
-const G_BOT = (H + PITCH.goalMouth) / 2;
-const NET_TOP = PITCH.goalHeight * 0.7; // the net's roof slopes down to this at the back
 
 export type BallContact = {
   goal: -1 | 0 | 1; // a goal was just scored in the left (-1) or right (1) net
@@ -64,6 +62,9 @@ export function stepFreeBall(ball: Ball, dt: number) {
 // - over the bar, or over an end wall: the ball is out behind that goal
 //   (the match restarts with the defending keeper).
 export function collideBall(ball: Ball): BallContact {
+  const pitch = rulesOf(ball).pitch;
+  const G_TOP = (H - pitch.goalMouth) / 2,
+    G_BOT = (H + pitch.goalMouth) / 2;
   const r = BALL.radius;
   const wb = BALL.wallBounce;
   const contact: BallContact = {
@@ -89,19 +90,19 @@ export function collideBall(ball: Ball): BallContact {
       const touchingLine = side < 0 ? ball.x < r : ball.x > W - r;
       if (!touchingLine) continue;
       const inMouthY = ball.y > G_TOP && ball.y < G_BOT;
-      if (inMouthY && ball.z < PITCH.goalHeight - r) {
+      if (inMouthY && ball.z < pitch.goalHeight - r) {
         const overLine = side < 0 ? ball.x < -r : ball.x > W + r;
         if (overLine) {
           ball.inNet = side;
           contact.goal = side;
         }
-      } else if (inMouthY && ball.z < PITCH.goalHeight + r) {
+      } else if (inMouthY && ball.z < pitch.goalHeight + r) {
         // Crossbar: back into play; under the bar it is knocked down, over it up.
         ball.x = side < 0 ? r : W - r;
         ball.vx = side < 0 ? Math.abs(ball.vx) * wb : -Math.abs(ball.vx) * wb;
-        ball.vz = (ball.z < PITCH.goalHeight ? -1 : 1) * Math.abs(ball.vz) * wb;
+        ball.vz = (ball.z < pitch.goalHeight ? -1 : 1) * Math.abs(ball.vz) * wb;
         contact.hitPost = true;
-      } else if (inMouthY || ball.z > PITCH.endWallHeight) {
+      } else if (inMouthY || ball.z > pitch.endWallHeight) {
         ball.out = side;
         contact.out = side;
         return contact;
@@ -117,7 +118,7 @@ export function collideBall(ball: Ball): BallContact {
 
   for (const lineX of [0, W]) {
     for (const postY of [G_TOP, G_BOT]) {
-      if (ball.z < PITCH.goalHeight && bounceOffPost(ball, lineX, postY))
+      if (ball.z < pitch.goalHeight && bounceOffPost(ball, lineX, postY))
         contact.hitPost = true;
     }
   }
@@ -126,6 +127,10 @@ export function collideBall(ball: Ball): BallContact {
 
 // Keeps a scored ball inside the net box; the net soaks up most of its speed.
 function holdInNet(ball: Ball, side: -1 | 1) {
+  const pitch = rulesOf(ball).pitch;
+  const G_TOP = (H - pitch.goalMouth) / 2,
+    G_BOT = (H + pitch.goalMouth) / 2;
+  const NET_TOP = pitch.goalHeight * 0.7;
   const r = BALL.radius;
   const nb = BALL.netBounce;
   const lineX = side < 0 ? 0 : W;

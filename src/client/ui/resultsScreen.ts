@@ -1,3 +1,4 @@
+import { chaosLabel } from '../../shared/chaos';
 import {
   DAILY_LABEL,
   challengeCleared,
@@ -146,6 +147,13 @@ export function resultsScreen(result: MatchResult, type: PostType) {
     )
   );
   metadata.append(difficulty, duration);
+  if (dailyMode === 'chaos') {
+    metadata.classList.add('has-chaos');
+    const effect = document.createElement('span');
+    effect.className = 'results-chaos-effect';
+    pixelLabel(effect, chaosLabel(result.config));
+    metadata.append(effect);
+  }
   summary.append(metadata);
 
   const stats = document.createElement('div');

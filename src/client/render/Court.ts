@@ -1,3 +1,4 @@
+import type { PitchGeometry } from '../../shared/chaos';
 import Phaser from 'phaser';
 import { PITCH } from '../../shared/tuning';
 import {
@@ -21,7 +22,7 @@ import {
 import { seededRandom } from '../ui/backdrop';
 import { Billboard } from './Billboard';
 import { Crowd } from './Crowd';
-import { Goal, NEAR_WALL_DEPTH } from './Goal';
+import { Goal } from './Goal';
 import { PitchLines } from './PitchLines';
 import { ProjectedPlane, type PlaneCorners } from './ProjectedPlane';
 import type { Projector } from './Projector';
@@ -53,12 +54,18 @@ export class Court {
   private readonly crowd: Crowd;
   private readonly lines: PitchLines;
 
-  constructor(private readonly scene: Phaser.Scene) {
+  constructor(
+    private readonly scene: Phaser.Scene,
+    private readonly pitch: PitchGeometry = PITCH
+  ) {
     createCourtTextures(scene);
     createSceneryTextures(scene);
     this.buildSurfaces();
-    this.lines = new PitchLines(scene, DEPTH_GROUND + 1);
-    this.goals = [new Goal(scene, -1), new Goal(scene, 1)];
+    this.lines = new PitchLines(scene, DEPTH_GROUND + 1, this.pitch);
+    this.goals = [
+      new Goal(scene, -1, this.pitch),
+      new Goal(scene, 1, this.pitch),
+    ];
     this.crowd = new Crowd(
       scene,
       DEPTH_CROWD,
@@ -69,12 +76,12 @@ export class Court {
     this.buildProps();
   }
 
-  update(projector: Projector, timeSec: number) {
+  update(projector: Projector, timeSec: number, highlightGoals = false) {
     for (const plane of this.planes) plane.update(projector);
     this.lines.update(projector);
     for (const prop of this.props) prop.update(projector);
     this.crowd.update(projector, timeSec);
-    for (const goal of this.goals) goal.update(projector);
+    for (const goal of this.goals) goal.update(projector, highlightGoals);
   }
 
   private quad(
@@ -161,9 +168,9 @@ export class Court {
     // End walls on each goal line, either side of the goal mouth (the goal
     // stands in the gap). Each segment is a thick block from ya to yb whose
     // end face at yb points toward the camera.
-    const eh = PITCH.endWallHeight;
-    const gTop = (H - PITCH.goalMouth) / 2;
-    const gBot = (H + PITCH.goalMouth) / 2;
+    const eh = this.pitch.endWallHeight;
+    const gTop = (H - this.pitch.goalMouth) / 2;
+    const gBot = (H + this.pitch.goalMouth) / 2;
     const endWall = (
       lineX: number,
       side: -1 | 1,
@@ -218,7 +225,7 @@ export class Court {
       endWall(lineX, side, 0, gTop, DEPTH_END_WALLS);
       // The near segment is closer to the camera than a player inside the
       // net, so it sorts in with the goal layers.
-      endWall(lineX, side, gBot, H, NEAR_WALL_DEPTH);
+      endWall(lineX, side, gBot, H, gBot + 2);
     }
 
     // Chain-link fence on the near touchline: in front of play, see-through.

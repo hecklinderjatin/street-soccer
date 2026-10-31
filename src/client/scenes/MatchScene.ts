@@ -1,3 +1,5 @@
+import { ChaosWeather } from '../render/ChaosWeather';
+import { chaosRules, chaosLabel, NORMAL_RULES } from '../../shared/chaos';
 import { currentPostType } from '../challenge';
 import { createMatchJourney } from '../matchJourney';
 import { journeyAppReady, sendJourney } from '../journeys';
@@ -9,6 +11,7 @@ import { trackGame } from '../gameCount';
 import Phaser from 'phaser';
 import {
   AI,
+  CHAOS,
   GOAL_FEEDBACK,
   DAILY,
   BALL,
@@ -19,6 +22,7 @@ import {
   MATCH,
   PASS,
   PITCH,
+  PLAYER,
   SHOOT,
   LEVELS,
   STAMINA,
@@ -205,6 +209,8 @@ export class MatchScene extends Phaser.Scene {
   private switchHoldArmed = false; // a SWITCH press that, held on, jumps to the keeper
   private journey: ReturnType<typeof createMatchJourney> | null = null;
   private rematch = false;
+  private rules = NORMAL_RULES;
+  private weather: ChaosWeather | null = null;
   private gameCount: ReturnType<typeof trackGame> | null = null;
   private resultShown = false;
   private botDifficulty: MatchConfig['difficulty'] = 'normal';
@@ -233,6 +239,8 @@ export class MatchScene extends Phaser.Scene {
     const { demo, rematch, ...config } = data;
     this.demo = demo === true;
     this.config = config;
+    this.rules = chaosRules(config);
+    this.weather = null;
     this.rematch = rematch === true;
     this.journey = null;
     if (!this.demo) this.registry.set('activeMode', data.mode ?? 'competitive');
@@ -329,7 +337,8 @@ export class MatchScene extends Phaser.Scene {
     // Court first: painted and shown from the first frame (no downloads
     // needed); the players join when their art is in.
     for (const [, paint] of PAINT_STEPS) paint(this);
-    this.court = new Court(this);
+    this.court = new Court(this, this.rules.pitch);
+    this.weather = new ChaosWeather(this, this.rules);
     this.rig = new CameraRig(this.projector);
     this.rig.snapTo(PITCH.width / 2, PITCH.height / 2);
     // The court fades in from the navy the page opens with (index.html,
@@ -423,7 +432,9 @@ export class MatchScene extends Phaser.Scene {
     );
     this.outfield = [...this.home, ...this.away];
     this.everyone = [...this.outfield, this.homeKeeper, this.awayKeeper];
+    for (const player of this.everyone) player.rules = this.rules;
     this.ball = new Ball(this);
+    this.ball.rules = this.rules;
     this.marker = this.add.graphics();
     this.shotText = pixelText(this, 0, 0, '', 0.6 * PX, PAL.white)
       .setOrigin(0.5, 1)
@@ -672,7 +683,14 @@ export class MatchScene extends Phaser.Scene {
     });
 
     const t = time / 1000;
-    this.court.update(this.projector, t);
+    this.court.update(
+      this.projector,
+      t,
+      this.rules.effect === 'goals' &&
+        this.flow.phase === 'kickoff' &&
+        this.flow.phaseTime < 1.2
+    );
+    this.weather?.update(this.projector, this.everyone, this.simTime);
     for (const p of this.everyone) p.render(this.projector, t, this.simTime);
     b.render(this.projector, realDt * timeScale);
     this.updateHud();
@@ -787,12 +805,25 @@ export class MatchScene extends Phaser.Scene {
     // Bodies can't overlap; then everyone back inside their limits.
     separatePlayers(this.everyone);
     for (const p of this.outfield)
-      [p.x, p.y] = constrainMove(p.prevY, p.x, p.y);
+      [p.x, p.y] = constrainMove(
+        p.prevY,
+        p.x,
+        p.y,
+        PLAYER.radius,
+        this.rules.pitch
+      );
     // Keepers may leave their box (playing with their feet), but not while
     // holding the ball in their hands.
     for (const k of [this.homeKeeper, this.awayKeeper]) {
       if (k.holding) keepInBox(k);
-      else [k.x, k.y] = constrainMove(k.prevY, k.x, k.y);
+      else
+        [k.x, k.y] = constrainMove(
+          k.prevY,
+          k.x,
+          k.y,
+          PLAYER.radius,
+          this.rules.pitch
+        );
     }
     // What the other side's AI will see of everyone a moment later
     // (LEVELS.readSec: it reacts late, so feints work).
@@ -888,7 +919,11 @@ export class MatchScene extends Phaser.Scene {
       if (scorer && !scorer.celebrating)
         scorer.celebrate(Math.floor(Math.random() * CELEBRATION_STYLES));
       if (this.flow.phase === 'live') {
-        const strike = qualifyingGoal(ball.goalStrike, scoring);
+        const strike = qualifyingGoal(
+          ball.goalStrike,
+          scoring,
+          this.rules.effect ? CHAOS.maxGoalKmh : GOAL_FEEDBACK.maxKmh
+        );
         this.goalDetail = strike
           ? `${goalStyle(strike)}  ${strike.kmh} KM/H`
           : '';
@@ -899,7 +934,8 @@ export class MatchScene extends Phaser.Scene {
           this.fastestGoalKmh = Math.max(this.fastestGoalKmh, strike.kmh);
           const best = recordGoalSpeed(
             strike.kmh,
-            this.config.mode === 'casual' || !this.config.locked
+            this.config.mode === 'casual' || !this.config.locked,
+            this.config.dailyMode === 'chaos'
           );
           this.newSpeedBest ||= best;
           if (best) this.goalRecord = 'NEW DEVICE BEST!';
@@ -927,7 +963,8 @@ export class MatchScene extends Phaser.Scene {
       this.chargeSince = null;
       this.passChargeSince = null;
       this.clearReceivers();
-      const overBar = Math.abs(ball.y - PITCH.height / 2) < PITCH.goalMouth / 2;
+      const overBar =
+        Math.abs(ball.y - PITCH.height / 2) < this.rules.pitch.goalMouth / 2;
       this.flow.flash(
         overBar ? 'OVER THE BAR' : 'OUT',
         SHOOT.outRestartSec + 0.4
@@ -1221,12 +1258,14 @@ export class MatchScene extends Phaser.Scene {
       const speed =
         (KEEPER.kickMinSpeed +
           (KEEPER.kickSpeed - KEEPER.kickMinSpeed) * charge) *
-        speedScale;
+        speedScale *
+        this.rules.power;
       ball.vx = Math.cos(dir) * speed;
       ball.vy = Math.sin(dir) * speed;
       ball.vz =
         (KEEPER.kickMinLift + (KEEPER.kickLift - KEEPER.kickMinLift) * charge) *
-        liftScale;
+        liftScale *
+        this.rules.power;
       ball.spin = shape.curl * KEEPER.curlKickSpin;
       k.playShoot();
       ball.shotAnimationAge = 0;
@@ -1361,7 +1400,7 @@ export class MatchScene extends Phaser.Scene {
     if (this.demo) return;
     const { x, y } = this.ball;
     const inGoalArea =
-      Math.abs(y - PITCH.height / 2) <= PITCH.boxHeight / 2 &&
+      Math.abs(y - PITCH.height / 2) <= this.rules.pitch.boxHeight / 2 &&
       ((x >= -PITCH.goalDepth - BALL.radius && x <= PITCH.boxDepth) ||
         (x >= PITCH.width - PITCH.boxDepth &&
           x <= PITCH.width + PITCH.goalDepth + BALL.radius));
@@ -1983,13 +2022,15 @@ export class MatchScene extends Phaser.Scene {
     s.goldenGoal = this.flow.goldenGoal;
     s.banner = this.flow.banner;
     s.mission =
-      this.config.dailyMode === 'survival'
-        ? `${Math.min(survivalLimits(this.config).goals, this.flow.score.home)}/${survivalLimits(this.config).goals} GOALS  ${this.botDifficulty.toUpperCase()}  ${Math.max(0, survivalLimits(this.config).conceded - this.flow.score.away)} LIVES`
-        : this.config.dailyMode === 'hold-lead'
-          ? 'SHIELD - FINISH AHEAD'
-          : this.config.dailyMode === 'comeback'
-            ? 'COMEBACK - FINISH AHEAD'
-            : '';
+      this.config.dailyMode === 'chaos'
+        ? chaosLabel(this.config)
+        : this.config.dailyMode === 'survival'
+          ? `${Math.min(survivalLimits(this.config).goals, this.flow.score.home)}/${survivalLimits(this.config).goals} GOALS  ${this.botDifficulty.toUpperCase()}  ${Math.max(0, survivalLimits(this.config).conceded - this.flow.score.away)} LIVES`
+          : this.config.dailyMode === 'hold-lead'
+            ? 'SHIELD - FINISH AHEAD'
+            : this.config.dailyMode === 'comeback'
+              ? 'COMEBACK - FINISH AHEAD'
+              : '';
     s.goalCelebration = {
       active: this.flow.phase === 'goal',
       age: this.flow.phaseTime,

@@ -49,9 +49,9 @@ const daily = await post('/match-type', { matchType: ['daily'] });
 assert.equal(daily.showForm.name, 'dailyModeForm');
 assert.deepEqual(
   daily.showForm.form.fields[0].options.map((o) => o.value),
-  ['comeback', 'hold-lead', 'survival']
+  ['comeback', 'hold-lead', 'survival', 'chaos']
 );
-for (const mode of ['comeback', 'hold-lead', 'survival']) {
+for (const mode of ['comeback', 'hold-lead', 'survival', 'chaos']) {
   const response = await post('/daily-mode', { dailyMode: [mode] });
   const form = response.showForm;
   assert.equal(form.name, 'challengeForm');
@@ -62,15 +62,29 @@ for (const mode of ['comeback', 'hold-lead', 'survival']) {
   assert.equal(names.includes('survivalGoals'), mode === 'survival');
   assert.equal(names.includes('survivalConceded'), mode === 'survival');
   assert.equal(names.includes('startGoalsFor'), mode === 'hold-lead');
-  assert.equal(names.includes('startGoalsAgainst'), mode === 'comeback');
+  assert.equal(
+    names.includes('startGoalsAgainst'),
+    mode === 'comeback' || mode === 'chaos'
+  );
   if (mode === 'survival') {
     form.data.survivalGoals = ['7'];
     form.data.survivalConceded = ['4'];
+  }
+  if (mode === 'chaos') {
+    assert.ok(names.includes('chaosEffect') && names.includes('chaosStrength'));
+    assert.equal(form.data.chaosStrength, 100);
+    assert.deepEqual(form.data.startGoalsAgainst, ['0']);
+    form.data.chaosEffect = ['goals'];
+    form.data.chaosStrength = 150;
   }
   const created = await post('/challenge-submit', form.data);
   assert.ok(created.navigateTo?.includes('t3_new'), JSON.stringify(created));
   const saved = globalThis.formPosts.at(-1);
   assert.equal(saved.postData.match.dailyMode, mode);
+  if (mode === 'chaos') {
+    assert.equal(saved.postData.match.chaosEffect, 'goals');
+    assert.equal(saved.postData.match.chaosStrength, 150);
+  }
   assert.equal(saved.runAs, 'USER');
   if (mode === 'survival') {
     assert.equal(saved.postData.match.survivalGoals, 7);
@@ -79,6 +93,14 @@ for (const mode of ['comeback', 'hold-lead', 'survival']) {
   }
   assert.ok(saved.userGeneratedContent.text.includes(mode));
 }
+const chaosForm = await post('/daily-mode', { dailyMode: ['chaos'] });
+const invalidChaos = await post('/challenge-submit', {
+  ...chaosForm.showForm.data,
+  chaosEffect: ['slippery'],
+  chaosStrength: 75,
+});
+assert.ok(invalidChaos.showToast);
+assert.equal(invalidChaos.showForm.data.chaosStrength, 75);
 const invalid = await post('/challenge-submit', {
   ...(await post('/daily-mode', { dailyMode: ['hold-lead'] })).showForm.data,
   startGoalsFor: ['0'],

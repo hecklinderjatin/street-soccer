@@ -1,3 +1,4 @@
+import { rulesOf } from '../../shared/chaos';
 import {
   AI,
   BALL,
@@ -1136,7 +1137,8 @@ export class TeamBrain {
     const bx = s.x + Math.cos(s.heading) * ballGap + s.vx * lead;
     const by = s.y + Math.sin(s.heading) * ballGap + s.vy * lead;
     const d = Math.hypot(bx - p.x, by - p.y);
-    if (d > TACKLE.lungeDist + TACKLE.reach * 0.6) return null;
+    if (d > (TACKLE.lungeDist + TACKLE.reach * 0.6) * rulesOf(p).tackle)
+      return null;
     const behind =
       Math.abs(angleDiff(Math.atan2(p.y - s.y, p.x - s.x), s.heading)) >
       TACKLE.frontArcDeg * DEG;
@@ -1301,7 +1303,8 @@ export class TeamBrain {
       if (reach < AI.passMin || reach > AI.passMax) continue;
       const ours = Math.max(
         passTravelTime(Math.hypot(spot.x - ball.x, spot.y - ball.y)),
-        Math.hypot(spot.x - q.x, spot.y - q.y) / PLAYER.sprintSpeed
+        Math.hypot(spot.x - q.x, spot.y - q.y) /
+          (PLAYER.sprintSpeed * rulesOf(q).movement)
       );
       let theirs = Infinity;
       for (const o of others)
@@ -1310,7 +1313,8 @@ export class TeamBrain {
           Math.max(
             0,
             Math.hypot(spot.x - o.x, spot.y - o.y) - POSSESSION.controlRadius
-          ) / PLAYER.sprintSpeed
+          ) /
+            (PLAYER.sprintSpeed * rulesOf(o).movement)
         );
       const margin = theirs - ours;
       if (margin < this.style.throughMargin) continue;
@@ -1389,7 +1393,7 @@ export class TeamBrain {
   // in degrees.
   private shotTarget(view: TeamView, c: Player, oppGoalX: number) {
     const goalY = PITCH.height / 2;
-    const spread = PITCH.goalMouth / 2 - AI.shootInside;
+    const spread = rulesOf(c).pitch.goalMouth / 2 - AI.shootInside;
     const blockers = [...view.opponents, view.oppKeeper].filter(
       (o) => Math.abs(oppGoalX - o.x) < Math.abs(oppGoalX - c.x)
     );
@@ -1448,12 +1452,12 @@ export class TeamBrain {
     if (along < AI.chipMinGap || along >= len || lateral > AI.chipLateral)
       return null;
     const over = KEEPER.standReachHeight + AI.chipClearance;
-    const under = PITCH.goalHeight - AI.chipUnderBar;
+    const under = rulesOf(ball).pitch.goalHeight - AI.chipUnderBar;
     const at = [along - KEEPER.reach, along, along + KEEPER.reach, len];
     for (let i = 0; ; i++) {
       const charge = AI.chipChargeMin + i * AI.chipChargeStep;
       if (charge > SHOOT.sweetSpot + 1e-6) break;
-      const flight = chipFlight(charge, at);
+      const flight = chipFlight(charge, at, rulesOf(ball).power);
       const clears = flight.heights.slice(0, 3).every((z) => z > over);
       const atLine = flight.heights[3] ?? 0;
       const goes =
@@ -1612,7 +1616,11 @@ export function pressureOn(
 export function interceptPoint(p: Player, ball: Ball) {
   if (ball.owner) {
     const d = Math.hypot(ball.owner.x - p.x, ball.owner.y - p.y);
-    return { x: ball.owner.x, y: ball.owner.y, t: d / PLAYER.sprintSpeed };
+    return {
+      x: ball.owner.x,
+      y: ball.owner.y,
+      t: d / (PLAYER.sprintSpeed * rulesOf(p).movement),
+    };
   }
   let bx = ball.x;
   let by = ball.y;
@@ -1621,11 +1629,16 @@ export function interceptPoint(p: Player, ball: Ball) {
   const keep = Math.pow(BALL.groundDrag, PREDICT_STEP);
   for (let t = 0; t <= AI.interceptMaxSec; t += PREDICT_STEP) {
     const gap = Math.hypot(bx - p.x, by - p.y) - POSSESSION.controlRadius;
-    if (gap <= PLAYER.sprintSpeed * t) return { x: bx, y: by, t };
+    if (gap <= PLAYER.sprintSpeed * rulesOf(p).movement * t)
+      return { x: bx, y: by, t };
     const speed = Math.hypot(vx, vy);
     if (speed < 1) {
       // It has stopped: run the rest of the way.
-      return { x: bx, y: by, t: t + gap / PLAYER.sprintSpeed };
+      return {
+        x: bx,
+        y: by,
+        t: t + gap / (PLAYER.sprintSpeed * rulesOf(p).movement),
+      };
     }
     const next = Math.max(0, speed * keep - BALL.rollFriction * PREDICT_STEP);
     vx *= next / speed;
@@ -1634,7 +1647,11 @@ export function interceptPoint(p: Player, ball: Ball) {
     by = clamp(by + vy * PREDICT_STEP, 0, PITCH.height);
   }
   const gap = Math.hypot(bx - p.x, by - p.y);
-  return { x: bx, y: by, t: AI.interceptMaxSec + gap / PLAYER.sprintSpeed };
+  return {
+    x: bx,
+    y: by,
+    t: AI.interceptMaxSec + gap / (PLAYER.sprintSpeed * rulesOf(p).movement),
+  };
 }
 
 // Stick toward a target: stand when there, walk slower when close, sprint

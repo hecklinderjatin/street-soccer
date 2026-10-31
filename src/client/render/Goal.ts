@@ -1,3 +1,4 @@
+import type { PitchGeometry } from '../../shared/chaos';
 import Phaser from 'phaser';
 import { BALL, PITCH } from '../../shared/tuning';
 import { PAL } from '../ui/palette';
@@ -23,22 +24,30 @@ export class Goal {
   private readonly back: Phaser.GameObjects.Graphics;
   private readonly sideNet: Phaser.GameObjects.Graphics;
   private readonly frame: Phaser.GameObjects.Graphics;
+  private highlight = false;
   private readonly lineX: number;
   private readonly backX: number;
-  private readonly top = (PITCH.height - PITCH.goalMouth) / 2;
-  private readonly bottom = (PITCH.height + PITCH.goalMouth) / 2;
+  private readonly top: number;
+  private readonly bottom: number;
 
   // side -1 = left goal (net behind x = 0), 1 = right goal (net behind x = width).
-  constructor(scene: Phaser.Scene, side: -1 | 1) {
+  constructor(
+    scene: Phaser.Scene,
+    side: -1 | 1,
+    private readonly pitch: PitchGeometry = PITCH
+  ) {
+    this.top = (pitch.height - pitch.goalMouth) / 2;
+    this.bottom = (pitch.height + pitch.goalMouth) / 2;
     this.lineX = side < 0 ? 0 : PITCH.width;
     this.backX = this.lineX + side * PITCH.goalDepth;
     this.back = scene.add.graphics().setDepth(this.top - 1);
-    this.sideNet = scene.add.graphics().setDepth(NEAR_WALL_DEPTH - 1);
-    this.frame = scene.add.graphics().setDepth(NEAR_WALL_DEPTH + 1);
+    this.sideNet = scene.add.graphics().setDepth(this.bottom + 1);
+    this.frame = scene.add.graphics().setDepth(this.bottom + 3);
   }
 
-  update(projector: Projector) {
-    const H = PITCH.goalHeight;
+  update(projector: Projector, highlight = false) {
+    this.highlight = highlight;
+    const H = this.pitch.goalHeight;
     const HB = H * 0.7; // the net slopes down to the back
     const { lineX: lx, backX: bx, top, bottom } = this;
     const p = (x: number, y: number, z: number): Vec3 => ({ x, y, z });
@@ -128,7 +137,12 @@ export class Goal {
     projector.project(to.x, to.y, to.z, b);
     const width = Math.max(3, (BALL.postRadius * (a.scale + b.scale)) / 2);
     g.lineStyle(width + 4, PAL.black, 1).lineBetween(a.x, a.y, b.x, b.y);
-    g.lineStyle(width, PAL.white, 1).lineBetween(a.x, a.y, b.x, b.y);
+    g.lineStyle(width, this.highlight ? PAL.yellow : PAL.white, 1).lineBetween(
+      a.x,
+      a.y,
+      b.x,
+      b.y
+    );
   }
 
   private line(

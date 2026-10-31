@@ -1,3 +1,4 @@
+export type ChaosEffect = 'power' | 'slippery' | 'goals';
 // Ids are stored in posts' saved matches and score lines, so 'easy' /
 // 'normal' / 'hard' keep their old ids; players see DIFFICULTY_LABEL.
 export type Difficulty = 'noob' | 'easy' | 'normal' | 'hard' | 'pro';
@@ -55,9 +56,11 @@ export type TeamSetup = {
   formation: FormationName;
 };
 
-export type DailyMode = 'comeback' | 'hold-lead' | 'survival';
+export type DailyMode = 'comeback' | 'hold-lead' | 'survival' | 'chaos';
 
 export type MatchConfig = {
+  chaosEffect?: ChaosEffect;
+  chaosStrength?: number; // percent, 100 = unchanged mechanics
   survivalGoals?: number; // defaults to five for existing Survival posts
   survivalConceded?: number; // defaults to three
   dailyMode?: DailyMode; // explicit new Daily templates; absent on legacy/Classic/Casual

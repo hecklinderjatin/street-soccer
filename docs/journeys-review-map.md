@@ -23,7 +23,7 @@ There are no progress events or per-input events in this version.
 
 ## Allowed custom fields
 
-- `mode`: classic, daily (legacy), casual, comeback, shield, rampage.
+- `mode`: classic, daily (legacy), casual, comeback, shield, rampage, chaos.
 - `difficulty`: noob, easy, normal, hard, pro, rising (Rampage).
 - `durationSec`: configured integer, 30–300.
 - `rematch`: boolean, true only for the result screen's rematch action.
