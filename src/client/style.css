@@ -1296,3 +1296,10 @@ body {
     margin: 4px 0;
   }
 }
+
+/* Rampage has changing skill, so it does not inherit the Noob badge. */
+.preview-difficulty[data-level='rising'] {
+  color: #fff1e8;
+  background: linear-gradient(110deg, #653aa0, #a22468);
+  border-color: #ff77a880;
+}

@@ -6,7 +6,7 @@ import {
   dailyObjective,
   startScore,
   survivalLimits,
-  survivalRange,
+  survivalProgression,
 } from '../../shared/dailyMode';
 import { formatClock } from '../../shared/matchConfig';
 import { POST_TYPE_LABEL, type PostType } from '../../shared/postType';
@@ -55,7 +55,7 @@ export function buildMatchDetailsLayer(
     [
       'DIFFICULTY',
       config.dailyMode === 'survival'
-        ? survivalRange(config)
+        ? 'RISING AI - YOUR GOALS'
         : DIFFICULTY_LABEL[config.difficulty],
     ],
     ['YOUR FORMATION', config.home.formation],
@@ -93,19 +93,37 @@ export function buildMatchDetailsLayer(
     dailyObjective(config) ||
     'Win the match. Golden goal if level at full time.';
   root.add(
-    pixelText(scene, 640, 510, objective, 0.5 * PX, PAL.yellow).setOrigin(0.5)
+    pixelText(
+      scene,
+      640,
+      config.dailyMode === 'survival' ? 497 : 510,
+      objective,
+      0.5 * PX,
+      PAL.yellow
+    ).setOrigin(0.5)
   );
-  if (config.dailyMode === 'survival')
+  if (config.dailyMode === 'survival') {
     root.add(
       pixelText(
         scene,
         640,
-        546,
-        'MAIN BOARD: FASTEST FINISHERS - FAILED RUNS DO NOT RANK',
+        526,
+        `${survivalProgression(config)}${survivalLimits(config).goals > 5 ? ' (THEN STAYS PRO)' : ''}`,
+        0.5 * PX,
+        PAL.pink
+      ).setOrigin(0.5)
+    );
+    root.add(
+      pixelText(
+        scene,
+        640,
+        554,
+        'YOUR GOALS LEVEL UP AI + KEEPER. TIMEOUT FAILS. FASTEST CLEARS RANK.',
         0.5 * PX,
         PAL.lightGray
       ).setOrigin(0.5)
     );
+  }
   root.add(
     pixelText(
       scene,

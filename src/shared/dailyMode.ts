@@ -11,7 +11,7 @@ export const DAILY_MODES: readonly DailyMode[] = [
 export const DAILY_LABEL: Record<DailyMode, string> = {
   comeback: 'COMEBACK',
   'hold-lead': 'HOLD THE LEAD',
-  survival: 'SURVIVAL',
+  survival: 'RAMPAGE',
 };
 export const parseDailyMode = (value: unknown) =>
   DAILY_MODES.find((mode) => mode === value);
@@ -47,6 +47,15 @@ export function survivalRange(config: Pick<MatchConfig, 'survivalGoals'>) {
     survivalLimits(config).goals - 1
   ).toUpperCase();
   return last === 'NOOB' ? 'NOOB' : `NOOB-${last}`;
+}
+// Explain the actual opponent tiers for this target, not a fixed skill label.
+export function survivalProgression(
+  config: Pick<MatchConfig, 'survivalGoals'>
+) {
+  const count = Math.min(survivalLimits(config).goals, DIFFICULTIES.length);
+  return DIFFICULTIES.slice(0, count)
+    .map((level) => level.toUpperCase())
+    .join(' > ');
 }
 export function dailyObjective(config: MatchConfig) {
   if (config.dailyMode === 'survival')

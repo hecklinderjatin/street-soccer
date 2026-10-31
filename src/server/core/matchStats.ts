@@ -96,7 +96,7 @@ export function readStats(
     dailyMode === 'survival' &&
     (goals === null || goals < 1 || conceded === null || conceded < 1)
   )
-    return 'Invalid Survival limits';
+    return 'Invalid Rampage limits';
   const goalLimit = goals ?? DAILY.survivalGoals,
     concedeLimit = conceded ?? DAILY.survivalConceded;
   const elapsedSec = dailyMode
@@ -116,14 +116,14 @@ export function readStats(
       goalsAgainst > concedeLimit ||
       (goalsFor === goalLimit && goalsAgainst === concedeLimit)
     )
-      return 'Invalid Survival result';
+      return 'Invalid Rampage result';
     if (
       config &&
       goalsFor < goalLimit &&
       goalsAgainst < concedeLimit &&
       (elapsedSec ?? 0) < config.durationSec - 1
     )
-      return 'Survival must finish at a goal limit or the whistle';
+      return 'Rampage must finish at a goal limit or the whistle';
   } else if (dailyMode && config && (elapsedSec ?? 0) < config.durationSec - 1)
     return 'Challenge must reach the whistle';
   const rawSpeed = Reflect.get(body, 'fastestGoalKmh');

@@ -3,7 +3,7 @@ import {
   dailyObjective,
   resultLabel,
   survivalLimits,
-  survivalRange,
+  survivalProgression,
 } from '../../shared/dailyMode';
 import type {
   DailyLeadersResponse,
@@ -75,9 +75,15 @@ export function createMobileLobby(
   get('.mobile-time').textContent = formatClock(config.durationSec);
   get('.mobile-difficulty').textContent =
     config.dailyMode === 'survival'
-      ? survivalRange(config)
+      ? 'RISING AI'
       : DIFFICULTY_LABEL[config.difficulty];
-  get('.mobile-difficulty').dataset.level = config.difficulty;
+  get('.mobile-difficulty').dataset.level =
+    config.dailyMode === 'survival' ? 'rising' : config.difficulty;
+  if (config.dailyMode === 'survival') {
+    const description = `Opponent difficulty: ${survivalProgression(config)}. Each goal you score raises the outfield AI and goalkeeper, up to Pro.`;
+    get('.mobile-difficulty').title = description;
+    get('.mobile-difficulty').setAttribute('aria-label', description);
+  }
   get('.mobile-time').hidden = type === 'casual';
   get('.mobile-difficulty').hidden = type === 'casual';
   get('.preview-custom').hidden = type !== 'casual';

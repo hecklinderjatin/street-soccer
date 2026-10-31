@@ -3,7 +3,7 @@ import {
   challengeCleared,
   resultLabel,
   survivalLimits,
-  survivalRange,
+  survivalProgression,
 } from '../../shared/dailyMode';
 import type {
   DailyLeadersResponse,
@@ -125,11 +125,14 @@ export function resultsScreen(result: MatchResult, type: PostType) {
   metadata.className = 'results-meta';
   const difficulty = document.createElement('span');
   difficulty.className = 'preview-difficulty';
-  difficulty.dataset.level = result.config.difficulty;
+  difficulty.dataset.level =
+    dailyMode === 'survival' ? 'rising' : result.config.difficulty;
+  if (dailyMode === 'survival')
+    difficulty.title = `Opponent progression: ${survivalProgression(result.config)}`;
   pixelLabel(
     difficulty,
     dailyMode === 'survival'
-      ? survivalRange(result.config)
+      ? 'RISING AI'
       : `${DIFFICULTY_LABEL[result.config.difficulty]} AI`
   );
   const duration = document.createElement('span');

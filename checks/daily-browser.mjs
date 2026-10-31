@@ -241,12 +241,33 @@ try {
     await page.locator('.mobile-play').waitFor();
     const tag = await page.locator('.mobile-match-tag').textContent();
     assert.ok(
-      tag.includes(mode === 'hold-lead' ? 'HOLD THE LEAD' : mode.toUpperCase())
+      tag.includes(
+        mode === 'hold-lead'
+          ? 'HOLD THE LEAD'
+          : mode === 'survival'
+            ? 'RAMPAGE'
+            : mode.toUpperCase()
+      )
     );
     assert.equal(
       await page.locator('.mobile-start').textContent(),
       mode === 'survival' ? '7 / 4' : mode === 'hold-lead' ? '2 – 0' : '0 – 2'
     );
+    if (mode === 'survival') {
+      assert.equal(
+        await page.locator('.mobile-difficulty').textContent(),
+        'RISING AI'
+      );
+      assert.equal(
+        await page.locator('.mobile-difficulty').getAttribute('data-level'),
+        'rising'
+      );
+      assert.ok(
+        (
+          await page.locator('.mobile-difficulty').getAttribute('aria-label')
+        ).includes('goalkeeper')
+      );
+    }
     const feed = await page
       .locator('#mobile-lobby')
       .evaluate((e) => ({ width: e.clientWidth, scroll: e.scrollWidth }));

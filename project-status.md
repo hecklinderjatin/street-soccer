@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Rampage and goal burst (2026-10-31):** implemented on `codex/rampage-goal-burst`. Survival is now named Rampage in creator forms, previews, results, shares and validation messages; existing stored `survival` IDs/limits remain compatible. Purple/pink RISING AI badges replace the static Noob/range label. The info briefing explains your-goal opponent/keeper upgrades, the actual tiers for the goal target, concession limit, timeout failure and fastest-clear ranking. Goal text now pops, shakes, tilts and expands with black outlines, cyan/pink offsets and diagonal repeated text trails; it sweeps/fades before the existing kickoff, without a background box. Speed/record feedback stays steady and the burst remains in the upper pitch area. Full local checks, Daily mode browser suite and existing Casual/legacy/achievement browser suite pass. Focused Chromium checks and desktop/portrait/landscape screenshots cover animation phases, bounded placement, fade, consecutive-goal reset, reduced motion and real kickoff cleanup. Reddit/Redis checks use mocks; live playtesting remains outstanding.
+
 **Main merge (2026-10-31):** merged `codex/daily-challenge-modes` through `8ce99b7` into `main` by fast-forward at the user’s request. Includes the three Daily templates, minimal goal-speed backing, configurable Survival limits/time leaderboard and two-page briefing. Existing local and browser checks passed on this exact application code; live Reddit testing remains outstanding.
 
 **Survival time board and briefing (2026-10-31):** implemented on `codex/daily-challenge-modes`. Survival creators select goals to win (1–15) and conceding limit (1–10); new posts have a fixed five-minute cap. The main board includes finishers only, fastest live-clock time first, with fewer conceded then username breaking ties. Older stored rows are re-ranked on read, and watched transactions preserve personal bests during concurrent submissions/deletion. Match Details → How to Play → Play Match stays paused on first entry; the info button reopens both pages. All local checks and Daily browser scenarios pass, including custom 7/4 limits, fixed cap, progression, clear/failure/timeout and replay. Focused desktop/portrait/landscape screenshots and midgame info navigation pass. The full existing Casual/legacy/goal-achievement browser suite also passes. All Reddit/Redis integration checks use mocks; live playtesting remains outstanding.
@@ -469,6 +471,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Rampage is a display rename: retain the stored `survival` ID and limits for old posts/results. Explain per-goal opponent/keeper progression. Keep the goal burst above the scorer, speed steady, and reduced-motion feedback static.
+
 - Merge the tested Daily branch into main at the user’s request; continue real Reddit playtesting from main.
 
 - Survival’s main board is finishers only, fastest live-clock time first, then fewer conceded and username. Recompute older stored rows under this order. New posts use a fixed 5:00 cap, configurable target (1–15) and concession limit (1–10); old posts retain saved caps/default 5/3 limits. Difficulty rises per goal until Pro.
@@ -735,6 +739,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Playtest Rampage labels/briefing and the reference-inspired goal burst in a real Reddit mobile webview before merging `codex/rampage-goal-burst`. Local and mocked browser checks pass; verify visual feel and scorer visibility on-device.
+
 - Review screenshots and playtest newly created posts for all three Daily templates on Reddit from `main`. Verify creator limits/fixed 5:00 cap, fastest-clear persistence, Survival balance, early completion counts and the two-page briefing against real Reddit/Redis. All local and mocked browser checks pass; legacy posts retain old rules.
 
 - Review the minimal translucent speed backing and playtest on a real mobile Reddit webview from `main`. Types, lint, build and focused browser checks pass.
@@ -986,6 +992,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-10-31:** rename the visible Survival mode to Rampage while preserving saved IDs; add rising-AI badges and explicit per-goal opponent/keeper progression in match info. Replace the old headline stretch with outlined chromatic text, tilt/shake and diagonal repeated trails fading into kickoff; keep speed steady and reduced motion static. Local and both browser suites pass; focused screenshots/checks cover reset, fade, bounds and kickoff cleanup. Live Reddit testing remains outstanding.
 
 - **2026-10-31:** fast-forward `main` through `8ce99b7`, bringing in the tested Daily modes, Survival time ranking/custom limits, two-page match briefing and minimal goal-speed backing at the user’s request.
 

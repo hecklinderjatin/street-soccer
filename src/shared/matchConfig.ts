@@ -132,7 +132,7 @@ export function parseMatchConfig(value: unknown): MatchConfig | string {
     dailyMode === 'survival' &&
     (survivalGoals === null || survivalConceded === null)
   )
-    return 'invalid Survival goal limits';
+    return 'invalid Rampage goal limits';
   const home = parseTeam(Reflect.get(value, 'home'));
   if (typeof home === 'string') return home;
   const away = parseTeam(Reflect.get(value, 'away'));

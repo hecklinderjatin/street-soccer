@@ -207,7 +207,7 @@ assert.equal(clear.dailyMode, 'survival');
 const lost = readStats({ ...stats, goalsFor: 4, goalsAgainst: 3 }, survival);
 assert.ok(typeof lost !== 'string');
 assert.equal(lost.cleared, false);
-assert.ok(statsLine(lost, survival).includes('Failed SURVIVAL'));
+assert.ok(statsLine(lost, survival).includes('Failed RAMPAGE'));
 assert.equal(typeof readStats({ ...stats, goalsFor: 6 }, survival), 'string');
 assert.equal(
   typeof readStats({ ...stats, goalsAgainst: 3 }, survival),

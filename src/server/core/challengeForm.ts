@@ -120,7 +120,7 @@ export const dailyModeForm: Form = {
         label: DAILY_LABEL[value],
       })),
       helpText:
-        'Comeback: recover a deficit. Hold the Lead: defend your head start. Survival: race to a goal target with rising difficulty and a concession limit.',
+        'Comeback: recover a deficit. Hold the Lead: defend your head start. Rampage: race to a goal target with rising difficulty and a concession limit.',
     },
   ],
 };
@@ -141,7 +141,7 @@ export function challengeFormFor(
             options: [{ value: dailyMode, label: DAILY_LABEL[dailyMode] }],
             helpText:
               dailyMode === 'survival'
-                ? 'Start at Noob, rise after goals up to Pro. Finish your goal target before your concession limit or the fixed five-minute cap. Fastest finishers rank first.'
+                ? 'Start at Noob. Each goal you score raises the opponent and keeper up to Pro. Finish your goal target before your concession limit or the fixed five-minute cap. Fastest finishers rank first.'
                 : 'Finish ahead at the whistle. No golden goal. To change type, cancel and reopen the creation menu.',
           },
         ]
