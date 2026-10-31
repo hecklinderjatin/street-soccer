@@ -2,6 +2,8 @@ import {
   DAILY_LABEL,
   dailyObjective,
   resultLabel,
+  survivalLimits,
+  survivalRange,
 } from '../../shared/dailyMode';
 import type {
   DailyLeadersResponse,
@@ -53,6 +55,10 @@ export function createMobileLobby(
   };
   element.classList.toggle('is-casual', type === 'casual');
   element.classList.toggle('is-daily-template', Boolean(config.dailyMode));
+  if (config.dailyMode === 'survival')
+    get('.mobile-board-match').textContent = 'FASTEST CLEARS';
+  if (config.dailyMode === 'survival')
+    get('.mobile-board-heading > strong').textContent = 'FASTEST CLEARS';
   get('.mobile-match-tag').textContent = config.dailyMode
     ? DAILY_LABEL[config.dailyMode]
     : POST_TYPE_LABEL[type];
@@ -69,7 +75,7 @@ export function createMobileLobby(
   get('.mobile-time').textContent = formatClock(config.durationSec);
   get('.mobile-difficulty').textContent =
     config.dailyMode === 'survival'
-      ? 'NOOB-PRO'
+      ? survivalRange(config)
       : DIFFICULTY_LABEL[config.difficulty];
   get('.mobile-difficulty').dataset.level = config.difficulty;
   get('.mobile-time').hidden = type === 'casual';
@@ -79,7 +85,7 @@ export function createMobileLobby(
     get('.mobile-match-facts small').textContent = 'GOALS / LIVES';
   get('.mobile-start').textContent =
     config.dailyMode === 'survival'
-      ? '5 / 3'
+      ? `${survivalLimits(config).goals} / ${survivalLimits(config).conceded}`
       : `${config.startGoalsFor ?? 0} – ${config.startGoalsAgainst}`;
   get('.mobile-challenge').textContent =
     [dailyObjective(config), description].filter(Boolean).join(' ') ||
@@ -151,7 +157,11 @@ export function createMobileLobby(
       if (typeof data === 'string' || !data.top.length) {
         const li = document.createElement('li');
         li.textContent =
-          typeof data === 'string' ? data : 'No scores yet. Set the first!';
+          typeof data === 'string'
+            ? data
+            : config.dailyMode === 'survival'
+              ? 'No finishers yet. Set the first time!'
+              : 'No scores yet. Set the first!';
         list.append(li);
       } else data.top.slice(0, 3).forEach((leader) => list.append(row(leader)));
       get('.mobile-best').textContent =
@@ -163,7 +173,11 @@ export function createMobileLobby(
       const speed = category === 'speed';
       pixelLabel(
         get('.mobile-board-sheet header > strong'),
-        speed ? '7-DAY FASTEST GOALS' : '7-DAY LEADERBOARD'
+        speed
+          ? '7-DAY FASTEST GOALS'
+          : config.dailyMode === 'survival'
+            ? '7-DAY FASTEST CLEARS'
+            : '7-DAY LEADERBOARD'
       );
       get('.mobile-board-match').setAttribute('aria-pressed', String(!speed));
       get('.mobile-board-speed').setAttribute('aria-pressed', String(speed));

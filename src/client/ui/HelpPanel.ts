@@ -28,7 +28,8 @@ type Item = Phaser.GameObjects.GameObject;
 
 export function buildHelpLayer(
   scene: Phaser.Scene,
-  onClose: () => void
+  onClose: () => void,
+  options: { label?: string; back?: () => void } = {}
 ): Phaser.GameObjects.Container {
   const items: Item[] = [];
   const cx = VIEW.width / 2;
@@ -48,6 +49,13 @@ export function buildHelpLayer(
   items.push(
     pixelText(scene, cx, 62, 'HOW TO PLAY', PX, PAL.yellow).setOrigin(0.5)
   );
+
+  if (options.back)
+    items.push(
+      pixelText(scene, 1140, 64, '2 / 2', 0.6 * PX, PAL.lightGray).setOrigin(
+        0.5
+      )
+    );
 
   // --- Left column: moving, the ball, keyboard ---
   const left = 80;
@@ -84,7 +92,7 @@ export function buildHelpLayer(
     'WASD / ARROWS: MOVE  SHIFT: SPRINT',
     'J: LEFT BUTTON  K: RIGHT BUTTON',
     'T G F H: SHOOT + SWIPE',
-    'ESC: PAUSE  I: THIS HELP',
+    'ESC: PAUSE  I: MATCH INFO',
   ]) {
     items.push(pixelText(scene, left, y, line, BODY, PAL.lightGray));
     y += LINE;
@@ -152,12 +160,27 @@ export function buildHelpLayer(
   );
 
   items.push(
-    new TextButton(scene, cx, 660, 'GOT IT', onClose, {
-      width: 280,
-      height: 56,
-      fill: PAL.green,
-    })
+    new TextButton(
+      scene,
+      options.back ? cx + 160 : cx,
+      660,
+      options.label ?? 'GOT IT',
+      onClose,
+      {
+        width: options.back ? 340 : 280,
+        height: 56,
+        fill: PAL.green,
+      }
+    )
   );
+  if (options.back)
+    items.push(
+      new TextButton(scene, cx - 210, 660, 'BACK', options.back, {
+        width: 220,
+        height: 56,
+        fill: PAL.darkGray,
+      })
+    );
   return scene.add.container(0, 0, items).setDepth(10);
 }
 

@@ -1,4 +1,6 @@
-import { resultRankScore } from '../../shared/dailyMode';
+import { saveFinisher } from './finishBoard';
+import type { MatchConfig } from '../../shared/types';
+import { resultRankScore, rankSurvivalFinishers } from '../../shared/dailyMode';
 import { rankSpeeds, saveSpeed, speedKey } from './speedBoard';
 import { gamesDeletedKey } from './gamesPlayed';
 import { redis } from '@devvit/web/server';
@@ -77,9 +79,21 @@ export async function saveResult(
       console.warn('Speed record unavailable; retaining match result:', error);
     }
   }
+  if (stats.dailyMode === 'survival') {
+    await saveFinisher(redis, board, username, stats, boardExpiry(day), [
+      `privacy:deleting:${username}`,
+      gamesDeletedKey(postId),
+    ]);
+    return;
+  }
   const score = rankScore(stats);
   const best = await redis.zScore(board, username);
-  if (best !== undefined && best !== null && best >= score) return;
+  if (best !== undefined && best !== null) {
+    const previous = readSaved(
+      await redis.hGet(statsKey(postId, day), username)
+    );
+    if (previous && rankScore(previous) >= score) return;
+  }
   await redis.zAdd(board, { member: username, score });
   await redis.hSet(statsKey(postId, day), {
     [username]: JSON.stringify(stats),
@@ -96,11 +110,26 @@ export async function saveResult(
 export async function dailyLeaders(
   postId: string,
   username: string | null,
-  limit = TOP
+  limit = TOP,
+  config: MatchConfig | null = null
 ): Promise<DailyLeadersResponse> {
   const count = Number.isFinite(limit)
     ? Math.max(1, Math.min(25, Math.floor(limit)))
     : TOP;
+  if (config?.dailyMode === 'survival') {
+    const rows: { username: string; stats: MatchStats }[] = [];
+    for (const day of windowDays()) {
+      const [entries, values] = await Promise.all([
+        redis.zRange(boardKey(postId, day), 0, -1, { by: 'rank' }),
+        redis.hGetAll(statsKey(postId, day)),
+      ]);
+      for (const { member } of entries) {
+        const stats = readSaved(values[member]);
+        if (stats) rows.push({ username: member, stats });
+      }
+    }
+    return rankSurvivalFinishers(rows, today(), username, count);
+  }
   // Each player's best score across the window, and the day it was set.
   const best = new Map<string, { score: number; day: string }>();
   for (const day of windowDays()) {

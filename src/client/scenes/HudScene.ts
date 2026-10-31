@@ -1,10 +1,12 @@
+import { buildMatchDetailsLayer } from '../ui/MatchDetailsPanel';
+import { currentPostType } from '../challenge';
 import {
   GoalCelebration,
   type GoalCelebrationState,
 } from '../ui/GoalCelebration';
 import Phaser from 'phaser';
 import { VIEW } from '../../shared/tuning';
-import type { Team, TeamSetup } from '../../shared/types';
+import type { Team, TeamSetup, MatchConfig } from '../../shared/types';
 import type { Controls } from '../systems/Controls';
 import { ActionButtons, type ButtonContext } from '../ui/ActionButtons';
 import { buildHelpLayer } from '../ui/HelpPanel';
@@ -31,6 +33,7 @@ export type MatchHudState = {
 };
 
 export type HudData = {
+  config: MatchConfig;
   controls: Controls;
   state: MatchHudState;
   teams: Record<Team, TeamSetup>; // scoreboard names and chip colours
@@ -54,6 +57,8 @@ export class HudScene extends Phaser.Scene {
   private debugText!: Phaser.GameObjects.BitmapText;
   private showDebug = false;
   private pauseLayer!: Phaser.GameObjects.Container;
+  private introPending = false;
+  private detailsLayer!: Phaser.GameObjects.Container;
   private helpLayer!: Phaser.GameObjects.Container; // how to play (the i button)
 
   constructor() {
@@ -63,6 +68,7 @@ export class HudScene extends Phaser.Scene {
   init(data: HudData) {
     this.hud = data;
     this.showDebug = false;
+    this.introPending = false;
   }
 
   create() {
@@ -141,7 +147,7 @@ export class HudScene extends Phaser.Scene {
       VIEW.width - 144,
       48,
       '',
-      () => this.setOverlay('help'),
+      () => this.setOverlay('details'),
       {
         width: 72,
         height: 64,
@@ -197,19 +203,29 @@ export class HudScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-ESC', () =>
       this.setOverlay(this.overlayOpen() ? null : 'pause')
     );
-    this.input.keyboard?.on('keydown-I', () =>
-      this.setOverlay(this.helpLayer.visible ? null : 'help')
-    );
+    this.input.keyboard?.on('keydown-I', () => this.advanceInfo());
 
+    this.input.keyboard?.on('keydown-ENTER', () => {
+      if (this.detailsLayer.visible || this.helpLayer.visible)
+        this.advanceInfo();
+    });
     this.pauseLayer = this.buildPauseLayer().setVisible(false);
-    this.helpLayer = buildHelpLayer(this, () =>
-      this.setOverlay(null)
+    this.helpLayer = buildHelpLayer(this, () => this.setOverlay(null), {
+      label: 'PLAY MATCH',
+      back: () => this.setOverlay('details'),
+    }).setVisible(false);
+    this.detailsLayer = buildMatchDetailsLayer(
+      this,
+      this.hud.config,
+      currentPostType(),
+      () => this.setOverlay('help')
     ).setVisible(false);
-    // The match opened from the post's PLAY starts with how to play (it
-    // waits paused until closed); once per page load.
+    // First entry stays paused for match details, then how to play;
+    // once per page load.
     if (this.registry.get('helpAtStart') === true) {
       this.registry.set('helpAtStart', false);
-      this.setOverlay('help');
+      this.introPending = true;
+      this.setOverlay('details');
     }
   }
 
@@ -300,12 +316,25 @@ export class HudScene extends Phaser.Scene {
   }
 
   private overlayOpen() {
-    return this.pauseLayer.visible || this.helpLayer.visible;
+    return (
+      this.pauseLayer.visible ||
+      this.detailsLayer.visible ||
+      this.helpLayer.visible
+    );
   }
 
-  // Shows the pause menu or the help (either pauses the match), or closes
-  // both and resumes.
-  private setOverlay(which: 'pause' | 'help' | null) {
+  // Advance the two-page briefing without resuming between its pages.
+  private advanceInfo() {
+    if (this.detailsLayer.visible) this.setOverlay('help');
+    else if (this.helpLayer.visible) this.setOverlay(null);
+    else this.setOverlay('details');
+  }
+
+  private setOverlay(which: 'pause' | 'details' | 'help' | null) {
+    if (which === null && this.introPending && !this.helpLayer.visible)
+      which = 'help';
+    else if (which === null) this.introPending = false;
+    this.detailsLayer.setVisible(which === 'details');
     this.pauseLayer.setVisible(which === 'pause');
     this.helpLayer.setVisible(which === 'help');
     const paused = which !== null;

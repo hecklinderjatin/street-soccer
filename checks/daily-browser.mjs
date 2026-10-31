@@ -99,6 +99,63 @@ async function pageFor(viewport, postData) {
   return { page, context, errors, mutations, gameRequests };
 }
 
+async function finishBriefing(page) {
+  await page.waitForFunction(
+    () => window.__game.scene.getScene('Hud').detailsLayer.visible
+  );
+  // Startup Escape advances to controls rather than skipping both pages.
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(
+    () => window.__game.scene.getScene('Hud').helpLayer.visible
+  );
+  assert.equal(
+    await page.evaluate(() => window.__game.scene.isPaused('Match')),
+    true
+  );
+  await page.evaluate(() => {
+    const h = window.__game.scene.getScene('Hud');
+    const back = h.helpLayer.list.find(
+      (item) => item.x === 430 && item.y === 660
+    );
+    back.emit('pointerdown');
+    back.emit('pointerup');
+  });
+  await page.waitForFunction(
+    () => window.__game.scene.getScene('Hud').detailsLayer.visible
+  );
+  const clock = await page.evaluate(
+    () => window.__game.scene.getScene('Match').flow.clock
+  );
+  await page.evaluate(() => {
+    const h = window.__game.scene.getScene('Hud');
+    const next = h.detailsLayer.list.find(
+      (item) => item.x === 640 && item.y === 647
+    );
+    next.emit('pointerdown');
+    next.emit('pointerup');
+  });
+  await page.waitForFunction(
+    () => window.__game.scene.getScene('Hud').helpLayer.visible
+  );
+  assert.equal(
+    await page.evaluate(() => window.__game.scene.isPaused('Match')),
+    true
+  );
+  assert.equal(
+    await page.evaluate(() => window.__game.scene.getScene('Match').flow.clock),
+    clock
+  );
+  await page.evaluate(() => {
+    const h = window.__game.scene.getScene('Hud');
+    const play = h.helpLayer.list.find(
+      (item) => item.x === 800 && item.y === 660
+    );
+    play.emit('pointerdown');
+    play.emit('pointerup');
+  });
+  await waitForMatch(page);
+}
+
 async function waitForMatch(page, paused = false) {
   await page.waitForFunction(
     () => {
@@ -166,7 +223,8 @@ try {
       ...config,
       dailyMode: mode,
       difficulty: mode === 'survival' ? 'noob' : 'hard',
-      durationSec: 120,
+      durationSec: mode === 'survival' ? 300 : 120,
+      ...(mode === 'survival' ? { survivalGoals: 7, survivalConceded: 4 } : {}),
       startGoalsFor: mode === 'hold-lead' ? 2 : 0,
       startGoalsAgainst: mode === 'comeback' ? 2 : 0,
     };
@@ -187,7 +245,7 @@ try {
     );
     assert.equal(
       await page.locator('.mobile-start').textContent(),
-      mode === 'survival' ? '5 / 3' : mode === 'hold-lead' ? '2 – 0' : '0 – 2'
+      mode === 'survival' ? '7 / 4' : mode === 'hold-lead' ? '2 – 0' : '0 – 2'
     );
     const feed = await page
       .locator('#mobile-lobby')
@@ -209,13 +267,11 @@ try {
             .classList.contains('is-portrait') ===
           innerHeight > innerWidth
       );
-      const geometry = await page
-        .locator('#mobile-lobby')
-        .evaluate((e) => ({
-          scroll: e.scrollWidth - e.clientWidth,
-          play: e.querySelector('.mobile-play').getBoundingClientRect().bottom,
-          height: innerHeight,
-        }));
+      const geometry = await page.locator('#mobile-lobby').evaluate((e) => ({
+        scroll: e.scrollWidth - e.clientWidth,
+        play: e.querySelector('.mobile-play').getBoundingClientRect().bottom,
+        height: innerHeight,
+      }));
       assert.ok(
         geometry.scroll <= 1 && geometry.play <= geometry.height,
         JSON.stringify({ mode, viewport, geometry })
@@ -224,7 +280,7 @@ try {
     await page.setViewportSize({ width: 390, height: 600 });
     await page.goto(new URL('index.html?debug', base).href);
     await waitForMatch(page, true);
-    await page.keyboard.press('i');
+    await finishBriefing(page);
     await waitForMatch(page);
     let state = await capture(page);
     assert.deepEqual(state.score, {
@@ -303,25 +359,26 @@ try {
         'CLEARED!'
       );
     } else {
-      const levels = ['noob', 'easy', 'normal', 'hard', 'pro'];
+      const levels = ['noob', 'easy', 'normal', 'hard', 'pro', 'pro', 'pro'];
       let previous = Infinity;
       const homeSkill = (await capture(page)).homeSkill;
-      for (let i = 0; i < 5; i++) {
+      for (let i = 0; i < 7; i++) {
         state = await capture(page);
         assert.equal(state.difficulty, levels[i]);
-        assert.ok(state.awaySkill < previous);
+        if (i < 5) assert.ok(state.awaySkill < previous);
+        else assert.equal(state.awaySkill, previous);
         previous = state.awaySkill;
         assert.equal(state.homeSkill, homeSkill, 'home teammates stay Normal');
-        assert.ok(state.mission.includes(`${i}/5 GOALS`));
-        await goal(page, 'home', i === 4);
+        assert.ok(state.mission.includes(`${i}/7 GOALS`));
+        await goal(page, 'home', i === 6);
       }
       assert.equal(
         await page.locator('.results-hero h1').textContent(),
         'CLEARED!'
       );
-      assert.equal(reports.at(-1).goalsFor, 5);
+      assert.equal(reports.at(-1).goalsFor, 7);
       assert.ok(
-        reports.at(-1).elapsedSec >= 50 && reports.at(-1).elapsedSec <= 55
+        reports.at(-1).elapsedSec >= 70 && reports.at(-1).elapsedSec <= 75
       );
       assert.equal(reports.at(-1).difficulty, 'noob');
       await page
@@ -333,7 +390,7 @@ try {
       assert.deepEqual(state.score, { home: 0, away: 0 });
       await page.evaluate(() => {
         const s = window.__game.scene.getScene('Match');
-        s.flow.score = { home: 4, away: 2 };
+        s.flow.score = { home: 6, away: 3 };
         s.resetForKickoff();
       });
       await goal(page, 'away', true);
@@ -341,19 +398,19 @@ try {
         await page.locator('.results-hero h1').textContent(),
         'TRY AGAIN'
       );
-      assert.equal(reports.at(-1).goalsFor, 4);
-      assert.equal(reports.at(-1).goalsAgainst, 3);
+      assert.equal(reports.at(-1).goalsFor, 6);
+      assert.equal(reports.at(-1).goalsAgainst, 4);
       await page
         .getByRole('button', { name: 'PLAY AGAIN', exact: true })
         .click();
       await waitForMatch(page);
       await page.evaluate(() => {
         const s = window.__game.scene.getScene('Match');
-        s.flow.score = { home: 4, away: 0 };
+        s.flow.score = { home: 6, away: 0 };
         s.flow.phase = 'live';
         s.flow.clockRunning = true;
         s.flow.clock = 0.01;
-        s.flow.elapsedSec = 119.99;
+        s.flow.elapsedSec = 299.99;
       });
       await page
         .getByRole('button', { name: 'PLAY AGAIN', exact: true })

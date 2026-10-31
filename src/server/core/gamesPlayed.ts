@@ -1,4 +1,4 @@
-import { DAILY } from '../../shared/tuning';
+import { survivalReceiptMinimum } from '../../shared/dailyMode';
 import {
   DURATION_CHOICES,
   DEFAULT_MATCH_CONFIG,
@@ -78,7 +78,7 @@ export function gameMinimumSeconds(value: unknown, postData: unknown) {
     config.mode !== 'casual' &&
     typeof stored !== 'string' &&
     stored.dailyMode === 'survival'
-    ? DAILY.earlyFinishMinSec
+    ? survivalReceiptMinimum(stored)
     : gameDuration(value, postData) * 0.8;
 }
 

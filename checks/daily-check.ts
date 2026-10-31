@@ -1,3 +1,7 @@
+import {
+  saveFinisher,
+  type FinisherStore,
+} from '../src/server/core/finishBoard';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
@@ -10,6 +14,8 @@ import {
   challengeCleared,
   dailyPlans,
   resultRankScore,
+  rankSurvivalFinishers,
+  survivalRange,
   startScore,
   withoutDailyMode,
 } from '../src/shared/dailyMode';
@@ -244,7 +250,7 @@ assert.equal(
 );
 assert.ok(resultRankScore(clear) > resultRankScore(lost));
 assert.ok(
-  resultRankScore({ ...clear, goalsAgainst: 0, elapsedSec: 90 }) >
+  resultRankScore({ ...clear, goalsAgainst: 0, elapsedSec: 90 }) <
     resultRankScore({ ...clear, goalsAgainst: 1, elapsedSec: 20 })
 );
 assert.ok(
@@ -261,4 +267,166 @@ assert.equal(
 );
 console.log(
   `Daily modes passed: ${Object.values(DAILY_LABEL).join(', ')}; forms, tactics, progression, endings, rankings, validation and early receipts`
+);
+
+const custom = { ...survival, survivalGoals: 7, survivalConceded: 2 };
+const targetRun = new MatchFlow(300, { home: 6, away: 0 }, 'survival', 7, 2);
+targetRun.phase = 'live';
+targetRun.onGoal('home');
+targetRun.update(MATCH.goalHitStopSec + MATCH.celebrationSec);
+assert.equal(targetRun.phase, 'fulltime');
+assert.equal(
+  typeof parseMatchConfig({ ...custom, survivalGoals: 0 }),
+  'string'
+);
+assert.equal(
+  typeof parseMatchConfig({ ...custom, survivalConceded: 11 }),
+  'string'
+);
+const customClear = readStats(
+  { ...stats, goalsFor: 7, goalsAgainst: 1, elapsedSec: 50, survivalGoals: 1 },
+  custom
+);
+assert.ok(typeof customClear !== 'string');
+assert.equal(customClear.cleared, true);
+assert.equal(customClear.survivalGoals, 7);
+const customFail = readStats(
+  { ...stats, goalsFor: 6, goalsAgainst: 2, elapsedSec: 30 },
+  custom
+);
+assert.ok(typeof customFail !== 'string');
+assert.equal(customFail.cleared, false);
+assert.equal(survivalRange({ ...survival, survivalGoals: 3 }), 'NOOB-NORMAL');
+assert.equal(
+  gameMinimumSeconds(
+    { ...custom, survivalConceded: 1 },
+    { matchType: 'daily', match: { ...custom, survivalConceded: 1 } }
+  ),
+  4
+);
+const timeBoard = rankSurvivalFinishers(
+  [
+    {
+      username: 'slow_clean',
+      stats: { ...clear, elapsedSec: 90, goalsAgainst: 0 },
+    },
+    { username: 'fast', stats: { ...clear, elapsedSec: 20, goalsAgainst: 2 } },
+    { username: 'fast', stats: { ...clear, elapsedSec: 40, goalsAgainst: 0 } },
+    { username: 'failed', stats: lost },
+  ],
+  '2026-10-31',
+  'slow_clean',
+  3
+);
+assert.deepEqual(
+  timeBoard.top.map((row) => row.username),
+  ['fast', 'slow_clean']
+);
+assert.equal(timeBoard.me?.rank, 2);
+assert.ok(
+  !challengeFormFor('daily', 'survival').fields.some(
+    (f) => f.type === 'select' && f.name === 'durationSec'
+  )
+);
+assert.equal(survival.durationSec, 300);
+
+// Atomic time records: two runs for the same player must keep the faster one.
+const hashes = new Map<string, string>(),
+  versions = new Map<string, number>(),
+  scores = new Map<string, number>();
+const markers = new Map<string, string>();
+const change = (key: string) => versions.set(key, (versions.get(key) ?? 0) + 1);
+let failCommit = false,
+  deleteAtCommit = false;
+const finishStore: FinisherStore = {
+  get: async (key) => markers.get(key),
+  hGet: async (key, name) => hashes.get(`${key}:${name}`),
+  watch: async (...keys) => {
+    const snapshot = keys.map((key) => versions.get(key) ?? 0),
+      ops: (() => number)[] = [];
+    let queued = false;
+    return {
+      multi: async () => {
+        queued = true;
+      },
+      discard: async () => {
+        assert.ok(queued);
+        ops.length = 0;
+      },
+      zAdd: async (key, value) => {
+        ops.push(() => {
+          scores.set(key, value.score);
+          change(key);
+          return 1;
+        });
+      },
+      hSet: async (key, value) => {
+        ops.push(() => {
+          for (const [name, json] of Object.entries(value))
+            hashes.set(`${key}:${name}`, json);
+          change(key);
+          return 1;
+        });
+      },
+      expire: async () => {
+        ops.push(() => 1);
+      },
+      exec: async () => {
+        assert.ok(queued);
+        if (failCommit) {
+          failCommit = false;
+          throw new Error('commit failed');
+        }
+        if (deleteAtCommit) {
+          deleteAtCommit = false;
+          markers.set('deleting', '1');
+          change('deleting');
+        }
+        if (keys.some((key, i) => (versions.get(key) ?? 0) !== snapshot[i]))
+          return [];
+        return ops.map((fn) => fn());
+      },
+    };
+  },
+};
+const saveTime = (time: number) =>
+  saveFinisher(
+    finishStore,
+    'board',
+    'alice',
+    { ...clear, elapsedSec: time },
+    10000,
+    ['deleting'],
+    0
+  );
+await Promise.all([saveTime(50), saveTime(20)]);
+assert.equal(
+  JSON.parse(hashes.get('board:stats:alice') ?? '{}').elapsedSec,
+  20
+);
+await saveTime(80);
+assert.equal(
+  JSON.parse(hashes.get('board:stats:alice') ?? '{}').elapsedSec,
+  20
+);
+assert.equal(
+  scores.get('board'),
+  resultRankScore({ ...clear, elapsedSec: 20 })
+);
+failCommit = true;
+await assert.rejects(saveTime(10), /commit failed/);
+assert.equal(
+  JSON.parse(hashes.get('board:stats:alice') ?? '{}').elapsedSec,
+  20
+);
+deleteAtCommit = true;
+await saveTime(10);
+assert.equal(
+  JSON.parse(hashes.get('board:stats:alice') ?? '{}').elapsedSec,
+  20
+);
+await saveFinisher(finishStore, 'failed', 'alice', lost, 10000, [], 0);
+assert.equal(scores.has('failed'), false);
+console.log(
+  'Survival fastest-finisher records passed: time-first ordering, failed exclusion, legacy rows, concurrent writes, failure and deletion'
 );

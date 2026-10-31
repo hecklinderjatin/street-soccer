@@ -1,5 +1,5 @@
 import { parseDailyMode } from './dailyMode';
-import { CUSTOM_MATCH, MATCH } from './tuning';
+import { CUSTOM_MATCH, MATCH, DAILY } from './tuning';
 import {
   DIFFICULTIES,
   FORMATION_NAMES,
@@ -118,6 +118,21 @@ export function parseMatchConfig(value: unknown): MatchConfig | string {
     (startGoalsAgainst !== 0 || difficulty !== 'noob')
   )
     return 'survival starts 0-0 at Noob';
+  const survivalGoals = wholeIn(
+    Reflect.get(value, 'survivalGoals') ?? DAILY.survivalGoals,
+    1,
+    DAILY.maxSurvivalGoals
+  );
+  const survivalConceded = wholeIn(
+    Reflect.get(value, 'survivalConceded') ?? DAILY.survivalConceded,
+    1,
+    DAILY.maxSurvivalConceded
+  );
+  if (
+    dailyMode === 'survival' &&
+    (survivalGoals === null || survivalConceded === null)
+  )
+    return 'invalid Survival goal limits';
   const home = parseTeam(Reflect.get(value, 'home'));
   if (typeof home === 'string') return home;
   const away = parseTeam(Reflect.get(value, 'away'));
@@ -127,6 +142,12 @@ export function parseMatchConfig(value: unknown): MatchConfig | string {
   return {
     mode: casual ? 'casual' : 'competitive',
     ...(dailyMode ? { dailyMode, startGoalsFor } : {}),
+    ...(dailyMode === 'survival'
+      ? {
+          survivalGoals: survivalGoals ?? DAILY.survivalGoals,
+          survivalConceded: survivalConceded ?? DAILY.survivalConceded,
+        }
+      : {}),
     difficulty,
     durationSec,
     startGoalsAgainst,

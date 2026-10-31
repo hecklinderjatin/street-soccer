@@ -4,6 +4,8 @@ import type { Difficulty, DailyMode } from './types';
 
 // One finished match, as the client reports it (the server re-checks it).
 export type MatchStats = {
+  survivalGoals?: number;
+  survivalConceded?: number;
   dailyMode?: DailyMode; // derived from the post by the server
   elapsedSec?: number;
   cleared?: boolean; // derived from the objective, never trusted from the client

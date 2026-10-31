@@ -1,5 +1,9 @@
 import { withoutDailyMode } from '../../shared/dailyMode';
-import { challengeCleared, parseDailyMode } from '../../shared/dailyMode';
+import {
+  challengeCleared,
+  parseDailyMode,
+  survivalLimits,
+} from '../../shared/dailyMode';
 import { postType } from '../../shared/postType';
 import type { MatchStats } from '../../shared/api';
 import { parseMatchConfig } from '../../shared/matchConfig';
@@ -76,6 +80,25 @@ export function readStats(
   const dailyMode =
     config?.dailyMode ??
     (trustedSaved ? parseDailyMode(Reflect.get(body, 'dailyMode')) : undefined);
+  const goals = config
+    ? survivalLimits(config).goals
+    : count(
+        Reflect.get(body, 'survivalGoals') ?? DAILY.survivalGoals,
+        DAILY.maxSurvivalGoals
+      );
+  const conceded = config
+    ? survivalLimits(config).conceded
+    : count(
+        Reflect.get(body, 'survivalConceded') ?? DAILY.survivalConceded,
+        DAILY.maxSurvivalConceded
+      );
+  if (
+    dailyMode === 'survival' &&
+    (goals === null || goals < 1 || conceded === null || conceded < 1)
+  )
+    return 'Invalid Survival limits';
+  const goalLimit = goals ?? DAILY.survivalGoals,
+    concedeLimit = conceded ?? DAILY.survivalConceded;
   const elapsedSec = dailyMode
     ? count(
         Reflect.get(body, 'elapsedSec'),
@@ -89,16 +112,15 @@ export function readStats(
     return 'Invalid challenge time';
   if (dailyMode === 'survival') {
     if (
-      goalsFor > DAILY.survivalGoals ||
-      goalsAgainst > DAILY.survivalConceded ||
-      (goalsFor === DAILY.survivalGoals &&
-        goalsAgainst === DAILY.survivalConceded)
+      goalsFor > goalLimit ||
+      goalsAgainst > concedeLimit ||
+      (goalsFor === goalLimit && goalsAgainst === concedeLimit)
     )
       return 'Invalid Survival result';
     if (
       config &&
-      goalsFor < DAILY.survivalGoals &&
-      goalsAgainst < DAILY.survivalConceded &&
+      goalsFor < goalLimit &&
+      goalsAgainst < concedeLimit &&
       (elapsedSec ?? 0) < config.durationSec - 1
     )
       return 'Survival must finish at a goal limit or the whistle';
@@ -115,11 +137,20 @@ export function readStats(
     return 'Invalid goal speed';
   const difficulty = config ? config.difficulty : asked;
   return {
+    ...(dailyMode === 'survival'
+      ? { survivalGoals: goalLimit, survivalConceded: concedeLimit }
+      : {}),
     ...(dailyMode
       ? {
           dailyMode,
           elapsedSec: elapsedSec ?? 0,
-          cleared: challengeCleared(dailyMode, goalsFor, goalsAgainst),
+          cleared: challengeCleared(
+            dailyMode,
+            goalsFor,
+            goalsAgainst,
+            goalLimit,
+            concedeLimit
+          ),
         }
       : {}),
     difficulty,

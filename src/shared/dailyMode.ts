@@ -1,7 +1,7 @@
 import type { DailyMode, MatchConfig } from './types';
 import { DIFFICULTIES } from './types';
 import { DAILY, TACTICS } from './tuning';
-import type { MatchStats } from './api';
+import type { MatchStats, DailyLeadersResponse } from './api';
 
 export const DAILY_MODES: readonly DailyMode[] = [
   'comeback',
@@ -22,18 +22,35 @@ export const startScore = (config: MatchConfig) => ({
 export const challengeCleared = (
   mode: DailyMode,
   home: number,
-  away: number
-) =>
-  mode === 'survival'
-    ? home >= DAILY.survivalGoals && away < DAILY.survivalConceded
-    : home > away;
+  away: number,
+  goals: number = DAILY.survivalGoals,
+  conceded: number = DAILY.survivalConceded
+) => (mode === 'survival' ? home >= goals && away < conceded : home > away);
 export const survivalDifficulty = (goals: number) =>
   DIFFICULTIES[
     Math.min(DIFFICULTIES.length - 1, Math.max(0, Math.floor(goals)))
   ] ?? 'noob';
+export const survivalLimits = (
+  config: Pick<MatchConfig, 'survivalGoals' | 'survivalConceded'>
+) => ({
+  goals: config.survivalGoals ?? DAILY.survivalGoals,
+  conceded: config.survivalConceded ?? DAILY.survivalConceded,
+});
+export const survivalReceiptMinimum = (config: MatchConfig) =>
+  Math.min(
+    DAILY.earlyFinishMinSec,
+    Math.min(survivalLimits(config).goals, survivalLimits(config).conceded) *
+      DAILY.minSecPerTerminalGoal
+  );
+export function survivalRange(config: Pick<MatchConfig, 'survivalGoals'>) {
+  const last = survivalDifficulty(
+    survivalLimits(config).goals - 1
+  ).toUpperCase();
+  return last === 'NOOB' ? 'NOOB' : `NOOB-${last}`;
+}
 export function dailyObjective(config: MatchConfig) {
   if (config.dailyMode === 'survival')
-    return 'Score 5 to win. Concede 3 and the run ends.';
+    return `Score ${survivalLimits(config).goals} to win. Concede ${survivalLimits(config).conceded} and the run ends.`;
   if (config.dailyMode === 'hold-lead')
     return `Protect a ${config.startGoalsFor ?? 0}-0 lead. Finish ahead. No extra time.`;
   if (config.dailyMode === 'comeback')
@@ -74,12 +91,11 @@ export function dailyPlans(
 // The server uses this for both saved ordering and the returned board.
 export function resultRankScore(stats: MatchStats) {
   if (stats.dailyMode === 'survival')
-    return (
-      (stats.cleared ? 1e9 : 0) +
-      stats.goalsFor * 1e6 +
-      (99 - stats.goalsAgainst) * 1000 +
-      (1000 - (stats.elapsedSec ?? 1000))
-    );
+    return stats.cleared
+      ? 1e9 +
+          (1000 - (stats.elapsedSec ?? 1000)) * 1000 +
+          (99 - stats.goalsAgainst)
+      : 0;
   const regular =
     (stats.goalsFor - stats.goalsAgainst + 1000) * 1000 + stats.goalsFor;
   return regular + (stats.dailyMode && stats.cleared ? 1e9 : 0);
@@ -88,14 +104,47 @@ export function resultRankScore(stats: MatchStats) {
 export function resultLabel(stats: MatchStats) {
   if (stats.dailyMode === 'survival') {
     const sec = stats.elapsedSec ?? 0;
-    return `${stats.cleared ? 'CLEAR' : `${stats.goalsFor}/5`} ${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+    const time = `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
+    return stats.cleared
+      ? time
+      : `${stats.goalsFor}/${stats.survivalGoals ?? DAILY.survivalGoals} ${time}`;
   }
   return `${stats.goalsFor}–${stats.goalsAgainst}`;
 }
 
 export function withoutDailyMode(config: MatchConfig): MatchConfig {
   const copy = { ...config };
+  delete copy.survivalGoals;
+  delete copy.survivalConceded;
   delete copy.dailyMode;
   delete copy.startGoalsFor;
   return copy;
+}
+
+// Recompute from stored stats so older concede-first ZSET scores cannot
+// override the new time-first order. Failed runs are excluded entirely.
+export function rankSurvivalFinishers(
+  rows: readonly { username: string; stats: MatchStats }[],
+  day: string,
+  username: string | null,
+  limit = 3
+): DailyLeadersResponse {
+  const best = new Map<string, MatchStats>();
+  for (const row of rows) {
+    if (row.stats.dailyMode !== 'survival' || !row.stats.cleared) continue;
+    const previous = best.get(row.username);
+    if (!previous || resultRankScore(row.stats) > resultRankScore(previous))
+      best.set(row.username, row.stats);
+  }
+  const ranked = [...best]
+    .sort(
+      ([a, x], [b, y]) =>
+        resultRankScore(y) - resultRankScore(x) || a.localeCompare(b)
+    )
+    .map(([name, stats], i) => ({ ...stats, username: name, rank: i + 1 }));
+  return {
+    day,
+    top: ranked.slice(0, limit),
+    me: ranked.find((row) => row.username === username) ?? null,
+  };
 }

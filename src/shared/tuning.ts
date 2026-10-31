@@ -800,6 +800,10 @@ export const GOAL_FEEDBACK = {
 } as const;
 
 export const DAILY = {
+  maxSurvivalGoals: 15, // creator target range: 1..15
+  maxSurvivalConceded: 10, // creator limit range: 1..10
+  survivalCapSec: 300, // new Survival posts have a five-minute cap
+  minSecPerTerminalGoal: 4, // bounded receipt/cooldown for small target/limit runs
   survivalGoals: 5, // score the fifth goal against Pro to clear
   survivalConceded: 3, // third conceded goal ends the run
   tacticSwitchSec: 2, // settle a live tactical change before applying it

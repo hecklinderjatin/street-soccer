@@ -1,4 +1,8 @@
-import { DAILY_LABEL, resultLabel } from '../../shared/dailyMode';
+import {
+  DAILY_LABEL,
+  resultLabel,
+  survivalRange,
+} from '../../shared/dailyMode';
 import type { MatchStats } from '../../shared/api';
 import { DIFFICULTY_LABEL, type MatchConfig } from '../../shared/types';
 
@@ -25,7 +29,7 @@ export function statsLine(stats: MatchStats, config: MatchConfig | null) {
   const teams = config ? `${config.home.name} vs ${config.away.name}, ` : '';
   return (
     `⚽ **${outcome(stats)} ${stats.dailyMode ? `${DAILY_LABEL[stats.dailyMode]} · ${resultLabel(stats)}` : `${stats.goalsFor}-${stats.goalsAgainst}`}** ` +
-    `(${teams}${stats.dailyMode === 'survival' ? 'Noob → Pro' : capital(DIFFICULTY_LABEL[stats.difficulty])} AI) · ` +
+    `(${teams}${stats.dailyMode === 'survival' ? survivalRange(config ?? stats) : capital(DIFFICULTY_LABEL[stats.difficulty])} AI) · ` +
     `Shots ${stats.shots} · Passes ${stats.passes} · Tackles won ${stats.tacklesWon}`
   );
 }

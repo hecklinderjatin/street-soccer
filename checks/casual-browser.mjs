@@ -99,6 +99,63 @@ async function pageFor(viewport, postData) {
   return { page, context, errors, mutations, gameRequests };
 }
 
+async function finishBriefing(page) {
+  await page.waitForFunction(
+    () => window.__game.scene.getScene('Hud').detailsLayer.visible
+  );
+  // Startup Escape advances to controls rather than skipping both pages.
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(
+    () => window.__game.scene.getScene('Hud').helpLayer.visible
+  );
+  assert.equal(
+    await page.evaluate(() => window.__game.scene.isPaused('Match')),
+    true
+  );
+  await page.evaluate(() => {
+    const h = window.__game.scene.getScene('Hud');
+    const back = h.helpLayer.list.find(
+      (item) => item.x === 430 && item.y === 660
+    );
+    back.emit('pointerdown');
+    back.emit('pointerup');
+  });
+  await page.waitForFunction(
+    () => window.__game.scene.getScene('Hud').detailsLayer.visible
+  );
+  const clock = await page.evaluate(
+    () => window.__game.scene.getScene('Match').flow.clock
+  );
+  await page.evaluate(() => {
+    const h = window.__game.scene.getScene('Hud');
+    const next = h.detailsLayer.list.find(
+      (item) => item.x === 640 && item.y === 647
+    );
+    next.emit('pointerdown');
+    next.emit('pointerup');
+  });
+  await page.waitForFunction(
+    () => window.__game.scene.getScene('Hud').helpLayer.visible
+  );
+  assert.equal(
+    await page.evaluate(() => window.__game.scene.isPaused('Match')),
+    true
+  );
+  assert.equal(
+    await page.evaluate(() => window.__game.scene.getScene('Match').flow.clock),
+    clock
+  );
+  await page.evaluate(() => {
+    const h = window.__game.scene.getScene('Hud');
+    const play = h.helpLayer.list.find(
+      (item) => item.x === 800 && item.y === 660
+    );
+    play.emit('pointerdown');
+    play.emit('pointerup');
+  });
+  await waitForMatch(page);
+}
+
 async function waitForMatch(page, paused = false) {
   await page.waitForFunction(
     () => {
@@ -217,7 +274,7 @@ try {
       { home: 0, away: 0 },
       'does not inherit the challenge head start'
     );
-    await page.keyboard.press('i'); // dismiss the existing help overlay
+    await finishBriefing(page); // dismiss the existing help overlay
     await waitForMatch(page);
     // Accelerate the clock into the final golden-goal period, then let the
     // real match update and full-time transition produce the result screen.
@@ -337,7 +394,7 @@ try {
         .getByRole('button', { name: 'START MATCH', exact: true })
         .click();
     await waitForMatch(page, true);
-    await page.keyboard.press('i');
+    await finishBriefing(page);
     await waitForMatch(page);
     await page.evaluate(() => {
       const scene = window.__game.scene.getScene('Match');
@@ -463,7 +520,7 @@ try {
     );
     await page.goto(new URL('index.html?debug', base).href);
     await waitForMatch(page, true);
-    await page.keyboard.press('i');
+    await finishBriefing(page);
     await waitForMatch(page);
     await page.evaluate(() => {
       window.__game.scene.getScene('Match').flow.finished = true;

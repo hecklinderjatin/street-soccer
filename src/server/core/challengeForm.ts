@@ -16,7 +16,7 @@ import {
   parsePostType,
   type PostType,
 } from '../../shared/postType';
-import { CUSTOM_MATCH } from '../../shared/tuning';
+import { CUSTOM_MATCH, DAILY } from '../../shared/tuning';
 import {
   DIFFICULTIES,
   DIFFICULTY_LABEL,
@@ -35,6 +35,8 @@ export type ChallengeValues = {
   matchType?: string[];
   dailyMode?: string[];
   startGoalsFor?: string[];
+  survivalGoals?: string[];
+  survivalConceded?: string[];
   title?: string;
   description?: string;
   homeName?: string;
@@ -118,7 +120,7 @@ export const dailyModeForm: Form = {
         label: DAILY_LABEL[value],
       })),
       helpText:
-        'Comeback: recover a deficit. Hold the Lead: defend your head start. Survival: five goals, rising difficulty, three concessions ends the run.',
+        'Comeback: recover a deficit. Hold the Lead: defend your head start. Survival: race to a goal target with rising difficulty and a concession limit.',
     },
   ],
 };
@@ -139,7 +141,7 @@ export function challengeFormFor(
             options: [{ value: dailyMode, label: DAILY_LABEL[dailyMode] }],
             helpText:
               dailyMode === 'survival'
-                ? 'Start at Noob. Each goal raises the bots a level. Score five before conceding three or time expires.'
+                ? 'Start at Noob, rise after goals up to Pro. Finish your goal target before your concession limit or the fixed five-minute cap. Fastest finishers rank first.'
                 : 'Finish ahead at the whistle. No golden goal. To change type, cancel and reopen the creation menu.',
           },
         ]
@@ -155,6 +157,32 @@ export function challengeFormFor(
             options: Array.from(
               { length: CUSTOM_MATCH.maxStartGoals },
               (_, i) => ({ value: String(i + 1), label: `${i + 1} - 0` })
+            ),
+          },
+        ]
+      : [];
+  const survivalFields: FormField[] =
+    matchType === 'daily' && dailyMode === 'survival'
+      ? [
+          {
+            type: 'select',
+            name: 'survivalGoals',
+            label: 'Goals to win',
+            required: true,
+            options: Array.from({ length: DAILY.maxSurvivalGoals }, (_, i) => ({
+              value: String(i + 1),
+              label: String(i + 1),
+            })),
+          },
+          {
+            type: 'select',
+            name: 'survivalConceded',
+            label: 'Conceding goal limit',
+            required: true,
+            helpText: 'The run ends when the opponent reaches this many goals.',
+            options: Array.from(
+              { length: DAILY.maxSurvivalConceded },
+              (_, i) => ({ value: String(i + 1), label: String(i + 1) })
             ),
           },
         ]
@@ -197,7 +225,7 @@ export function challengeFormFor(
               if (matchType !== 'daily') return true;
               if (
                 field.type === 'select' &&
-                field.name === 'difficulty' &&
+                ['difficulty', 'durationSec'].includes(field.name) &&
                 dailyMode === 'survival'
               )
                 return false;
@@ -218,6 +246,7 @@ export function challengeFormFor(
                 : field
             )),
       ...leadFields,
+      ...survivalFields,
     ],
   };
 }
@@ -267,6 +296,8 @@ export function challengeFormData(values?: ChallengeValues): ChallengeValues {
   return {
     dailyMode: [dailyMode],
     startGoalsFor: ['1'],
+    survivalGoals: [String(DAILY.survivalGoals)],
+    survivalConceded: [String(DAILY.survivalConceded)],
     matchType: ['daily'],
     title: 'Street Soccer challenge',
     description: '',
@@ -319,8 +350,17 @@ export function readChallenge(
             dailyMode === 'hold-lead' ? Number(values.startGoalsFor?.[0]) : 0,
         }
       : {}),
+    ...(dailyMode === 'survival'
+      ? {
+          survivalGoals: Number(values.survivalGoals?.[0]),
+          survivalConceded: Number(values.survivalConceded?.[0]),
+        }
+      : {}),
     difficulty: dailyMode === 'survival' ? 'noob' : values.difficulty?.[0],
-    durationSec: Number(values.durationSec?.[0]),
+    durationSec:
+      dailyMode === 'survival'
+        ? DAILY.survivalCapSec
+        : Number(values.durationSec?.[0]),
     startGoalsAgainst:
       dailyMode && dailyMode !== 'comeback'
         ? 0

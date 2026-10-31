@@ -58,6 +58,8 @@ export type TeamSetup = {
 export type DailyMode = 'comeback' | 'hold-lead' | 'survival';
 
 export type MatchConfig = {
+  survivalGoals?: number; // defaults to five for existing Survival posts
+  survivalConceded?: number; // defaults to three
   dailyMode?: DailyMode; // explicit new Daily templates; absent on legacy/Classic/Casual
   startGoalsFor?: number; // Hold the Lead head start; legacy defaults to zero
   mode?: 'competitive' | 'casual'; // omitted by legacy posts: competitive

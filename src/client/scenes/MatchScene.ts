@@ -1,4 +1,4 @@
-import { dailyPlans, startScore } from '../../shared/dailyMode';
+import { dailyPlans, startScore, survivalLimits } from '../../shared/dailyMode';
 import { qualifyingGoal, goalStyle } from '../../shared/goalSpeed';
 import { recordGoalSpeed } from '../goalRecords';
 import { trackGame } from '../gameCount';
@@ -453,7 +453,9 @@ export class MatchScene extends Phaser.Scene {
     this.flow = new MatchFlow(
       this.config.durationSec,
       startScore(this.config),
-      this.config.dailyMode
+      this.config.dailyMode,
+      survivalLimits(this.config).goals,
+      survivalLimits(this.config).conceded
     );
     this.controls = new Controls();
     if (!this.demo) this.controls.bindKeyboard(this);
@@ -496,6 +498,7 @@ export class MatchScene extends Phaser.Scene {
       },
     };
     const hud: HudData = {
+      config: this.config,
       controls: this.controls,
       state: this.hudState,
       teams: { home: this.config.home, away: this.config.away },
@@ -560,7 +563,9 @@ export class MatchScene extends Phaser.Scene {
         this.flow = new MatchFlow(
           this.config.durationSec,
           startScore(this.config),
-          this.config.dailyMode
+          this.config.dailyMode,
+          survivalLimits(this.config).goals,
+          survivalLimits(this.config).conceded
         );
         this.resetForKickoff();
       } else this.showResult();
@@ -1949,7 +1954,7 @@ export class MatchScene extends Phaser.Scene {
     s.banner = this.flow.banner;
     s.mission =
       this.config.dailyMode === 'survival'
-        ? `${Math.min(DAILY.survivalGoals, this.flow.score.home)}/5 GOALS  ${this.botDifficulty.toUpperCase()}  ${Math.max(0, DAILY.survivalConceded - this.flow.score.away)} LIVES`
+        ? `${Math.min(survivalLimits(this.config).goals, this.flow.score.home)}/${survivalLimits(this.config).goals} GOALS  ${this.botDifficulty.toUpperCase()}  ${Math.max(0, survivalLimits(this.config).conceded - this.flow.score.away)} LIVES`
         : this.config.dailyMode === 'hold-lead'
           ? 'HOLD THE LEAD - FINISH AHEAD'
           : this.config.dailyMode === 'comeback'

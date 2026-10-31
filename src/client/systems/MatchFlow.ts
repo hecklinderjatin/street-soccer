@@ -32,7 +32,9 @@ export class MatchFlow {
   constructor(
     durationSec: number = MATCH.durationSec,
     startScore: Readonly<Record<Team, number>> = { home: 0, away: 0 },
-    readonly dailyMode?: DailyMode
+    readonly dailyMode?: DailyMode,
+    readonly goalsToWin: number = DAILY.survivalGoals,
+    readonly concededLimit: number = DAILY.survivalConceded
   ) {
     this.clock = durationSec;
     this.score = { ...startScore };
@@ -167,8 +169,8 @@ export class MatchFlow {
     this.score[scorer] += 1;
     this.terminalGoal =
       this.dailyMode === 'survival' &&
-      (this.score.home >= DAILY.survivalGoals ||
-        this.score.away >= DAILY.survivalConceded);
+      (this.score.home >= this.goalsToWin ||
+        this.score.away >= this.concededLimit);
     this.lastScorer = scorer;
     this.kickoffTeam = scorer === 'home' ? 'away' : 'home';
     this.enter('goal');

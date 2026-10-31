@@ -2,6 +2,8 @@ import {
   DAILY_LABEL,
   challengeCleared,
   resultLabel,
+  survivalLimits,
+  survivalRange,
 } from '../../shared/dailyMode';
 import type {
   DailyLeadersResponse,
@@ -22,7 +24,13 @@ export function resultsScreen(result: MatchResult, type: PostType) {
   const casual = result.config.mode === 'casual';
   const dailyMode = casual ? undefined : result.config.dailyMode;
   const won = dailyMode
-    ? challengeCleared(dailyMode, result.goalsFor, result.goalsAgainst)
+    ? challengeCleared(
+        dailyMode,
+        result.goalsFor,
+        result.goalsAgainst,
+        survivalLimits(result.config).goals,
+        survivalLimits(result.config).conceded
+      )
     : result.goalsFor > result.goalsAgainst;
   const lost = dailyMode ? !won : result.goalsFor < result.goalsAgainst;
   const title = dailyMode
@@ -37,7 +45,7 @@ export function resultsScreen(result: MatchResult, type: PostType) {
   const screen = casualScreen(
     title,
     dailyMode === 'survival'
-      ? `${result.goalsFor}/5 GOALS - ${result.goalsAgainst}/3 CONCEDED`
+      ? `${result.goalsFor}/${survivalLimits(result.config).goals} GOALS - ${result.goalsAgainst}/${survivalLimits(result.config).conceded} CONCEDED`
       : casual
         ? 'UNRANKED MATCH'
         : 'RANKED MATCH',
@@ -121,7 +129,7 @@ export function resultsScreen(result: MatchResult, type: PostType) {
   pixelLabel(
     difficulty,
     dailyMode === 'survival'
-      ? 'NOOB-PRO'
+      ? survivalRange(result.config)
       : `${DIFFICULTY_LABEL[result.config.difficulty]} AI`
   );
   const duration = document.createElement('span');
@@ -184,7 +192,8 @@ export function resultsScreen(result: MatchResult, type: PostType) {
   const matchTab = document.createElement('button');
   const speedTab = document.createElement('button');
   matchTab.type = speedTab.type = 'button';
-  matchTab.textContent = 'MATCH RESULTS';
+  matchTab.textContent =
+    dailyMode === 'survival' ? 'FASTEST CLEARS' : 'MATCH RESULTS';
   speedTab.textContent = 'FASTEST GOALS';
   tabs.append(matchTab, speedTab);
   matchTab.onclick = () => {
@@ -224,7 +233,11 @@ export function resultsScreen(result: MatchResult, type: PostType) {
     speedTab.setAttribute('aria-pressed', String(selected === 'speed'));
     pixelLabel(
       boardTitle,
-      selected === 'match' ? '7-DAY TOP 3' : '7-DAY FASTEST'
+      selected === 'match'
+        ? dailyMode === 'survival'
+          ? 'FASTEST CLEARS'
+          : '7-DAY TOP 3'
+        : '7-DAY FASTEST'
     );
     const value = savedDaily;
     rows.replaceChildren();
@@ -262,7 +275,10 @@ export function resultsScreen(result: MatchResult, type: PostType) {
       return;
     }
     status.hidden = value.top.length > 0;
-    status.textContent = 'No scores in 7 days';
+    status.textContent =
+      dailyMode === 'survival'
+        ? 'No finishers in 7 days'
+        : 'No scores in 7 days';
     for (const leader of value.top.slice(0, 3)) {
       const row = document.createElement('li');
       const rank = document.createElement('span');

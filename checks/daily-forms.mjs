@@ -3,11 +3,14 @@ import assert from 'node:assert/strict';
 import { build } from 'rolldown';
 
 await build({
-  input: 'src/server/routes/forms.ts',
+  input: {
+    forms: 'src/server/routes/forms.ts',
+    daily: 'src/server/core/daily.ts',
+  },
   platform: 'node',
   output: {
     dir: 'node_modules/.cache/daily-forms',
-    entryFileNames: 'forms.mjs',
+    entryFileNames: '[name].mjs',
     format: 'esm',
   },
   plugins: [
@@ -20,8 +23,9 @@ await build({
         if (id !== '\0local-devvit') return;
         return `
         globalThis.formPosts = []; globalThis.formIsModerator = true;
+        globalThis.testBoards = {}; globalThis.testHashes = {};
         export const context = { subredditName: 'test' };
-        export const redis = { get: async () => 't1_scores', set: async () => {}, del: async () => {} };
+        export const redis = { get: async key => key.startsWith('scorethread:') ? 't1_scores' : undefined, set: async () => {}, del: async () => {}, zRange: async key => globalThis.testBoards[key] ?? [], hGetAll: async key => globalThis.testHashes[key] ?? {} };
         export const reddit = {
           getCurrentUser: async () => ({getModPermissionsForSubreddit: async () => globalThis.formIsModerator ? ['all'] : []}),
           getCommentById: async () => ({id:'t1_scores',postId:'t3_new',stickied:true,removed:false}),
@@ -54,13 +58,25 @@ for (const mode of ['comeback', 'hold-lead', 'survival']) {
   assert.deepEqual(form.data.dailyMode, [mode]);
   const names = form.form.fields.map((f) => f.name);
   assert.equal(names.includes('difficulty'), mode !== 'survival');
+  assert.equal(names.includes('durationSec'), mode !== 'survival');
+  assert.equal(names.includes('survivalGoals'), mode === 'survival');
+  assert.equal(names.includes('survivalConceded'), mode === 'survival');
   assert.equal(names.includes('startGoalsFor'), mode === 'hold-lead');
   assert.equal(names.includes('startGoalsAgainst'), mode === 'comeback');
+  if (mode === 'survival') {
+    form.data.survivalGoals = ['7'];
+    form.data.survivalConceded = ['4'];
+  }
   const created = await post('/challenge-submit', form.data);
   assert.ok(created.navigateTo?.includes('t3_new'), JSON.stringify(created));
   const saved = globalThis.formPosts.at(-1);
   assert.equal(saved.postData.match.dailyMode, mode);
   assert.equal(saved.runAs, 'USER');
+  if (mode === 'survival') {
+    assert.equal(saved.postData.match.survivalGoals, 7);
+    assert.equal(saved.postData.match.survivalConceded, 4);
+    assert.equal(saved.postData.match.durationSec, 300);
+  }
   assert.ok(saved.userGeneratedContent.text.includes(mode));
 }
 const invalid = await post('/challenge-submit', {
@@ -94,4 +110,54 @@ for (const [path, body] of [
 assert.equal(globalThis.formPosts.length, before);
 console.log(
   'Daily posting handlers passed: type/template/settings/create, canonical postData, invalid retry, Classic/Casual and moderator checks (mock SDK)'
+);
+
+const dailyStore = await import('../node_modules/.cache/daily-forms/daily.mjs');
+const day = dailyStore.today(),
+  board = dailyStore.boardKey('t3_surv', day),
+  hash = dailyStore.statsKey('t3_surv', day);
+const base = {
+  dailyMode: 'survival',
+  difficulty: 'noob',
+  goalsFor: 5,
+  goalsAgainst: 0,
+  shots: 5,
+  passes: 3,
+  tacklesWon: 1,
+  elapsedSec: 90,
+};
+globalThis.testBoards[board] = [
+  { member: 'clean_slow', score: 99999 },
+  { member: 'fast', score: 1 },
+  { member: 'failed', score: 1e10 },
+];
+globalThis.testHashes[hash] = {
+  clean_slow: JSON.stringify(base),
+  fast: JSON.stringify({ ...base, goalsAgainst: 2, elapsedSec: 20 }),
+  failed: JSON.stringify({
+    ...base,
+    goalsFor: 4,
+    goalsAgainst: 3,
+    elapsedSec: 20,
+  }),
+};
+const canonical = {
+  ...globalThis.formPosts.find((p) => p.postData.match.dailyMode === 'survival')
+    .postData.match,
+  survivalGoals: 5,
+  survivalConceded: 3,
+};
+const times = await dailyStore.dailyLeaders(
+  't3_surv',
+  'clean_slow',
+  25,
+  canonical
+);
+assert.deepEqual(
+  times.top.map((row) => row.username),
+  ['fast', 'clean_slow']
+);
+assert.equal(times.me.rank, 2);
+console.log(
+  'Actual leaderboard reader reorders legacy scores by time and excludes failed rows (mock Redis)'
 );

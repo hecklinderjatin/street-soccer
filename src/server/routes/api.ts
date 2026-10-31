@@ -1,4 +1,4 @@
-import { DAILY } from '../../shared/tuning';
+import { survivalReceiptMinimum } from '../../shared/dailyMode';
 import {
   beginGame,
   finishGame,
@@ -120,13 +120,13 @@ api.post('/result', async (c) => {
       (await takeCooldown(
         resultCooldownKey(postId, username),
         config?.dailyMode === 'survival'
-          ? DAILY.earlyFinishMinSec
+          ? survivalReceiptMinimum(config)
           : matchLengthSec(config) * 0.8
       ))
     )
       await saveResult(postId, username, stats, config !== null);
     return c.json<DailyLeadersResponse>({
-      ...(await dailyLeaders(postId, username ?? null)),
+      ...(await dailyLeaders(postId, username ?? null, 3, config)),
       fastest: await speedLeaders(postId, username ?? null).catch(
         () => undefined
       ),
@@ -152,7 +152,8 @@ api.get('/daily-leaders', async (c) => {
       await dailyLeaders(
         postId,
         username ?? null,
-        Number(c.req.query('limit') ?? 3)
+        Number(c.req.query('limit') ?? 3),
+        postConfig(context.postData)
       )
     );
   } catch (error) {
