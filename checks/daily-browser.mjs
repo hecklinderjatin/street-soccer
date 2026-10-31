@@ -243,7 +243,7 @@ try {
     assert.ok(
       tag.includes(
         mode === 'hold-lead'
-          ? 'HOLD THE LEAD'
+          ? 'SHIELD'
           : mode === 'survival'
             ? 'RAMPAGE'
             : mode.toUpperCase()

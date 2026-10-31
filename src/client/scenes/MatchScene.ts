@@ -1956,7 +1956,7 @@ export class MatchScene extends Phaser.Scene {
       this.config.dailyMode === 'survival'
         ? `${Math.min(survivalLimits(this.config).goals, this.flow.score.home)}/${survivalLimits(this.config).goals} GOALS  ${this.botDifficulty.toUpperCase()}  ${Math.max(0, survivalLimits(this.config).conceded - this.flow.score.away)} LIVES`
         : this.config.dailyMode === 'hold-lead'
-          ? 'HOLD THE LEAD - FINISH AHEAD'
+          ? 'SHIELD - FINISH AHEAD'
           : this.config.dailyMode === 'comeback'
             ? 'COMEBACK - FINISH AHEAD'
             : '';

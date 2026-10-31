@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Shield naming (2026-10-31):** renamed the visible Hold the Lead mode to Shield on `codex/shield-mode-name`, including creator choices, match briefing, preview, HUD, results, share text and validation messages. Stored `hold-lead` IDs, rules and leaderboard data stay compatible. Types, lint, Daily rule/form/leaderboard checks and build pass; Reddit/Redis tests use mocks.
+
 **Rampage and goal burst (2026-10-31):** merged into `main` through `2e53db0` by fast-forward at the user’s request. Survival is now named Rampage in creator forms, previews, results, shares and validation messages; existing stored `survival` IDs/limits remain compatible. Purple/pink RISING AI badges replace the static Noob/range label. The info briefing explains your-goal opponent/keeper upgrades, the actual tiers for the goal target, concession limit, timeout failure and fastest-clear ranking. Goal text now pops, shakes, tilts and expands with black outlines, cyan/pink offsets and diagonal repeated text trails; it sweeps/fades before the existing kickoff, without a background box. Speed/record feedback stays steady and the burst remains in the upper pitch area. Full local checks, Daily mode browser suite and existing Casual/legacy/achievement browser suite pass. Focused Chromium checks and desktop/portrait/landscape screenshots cover animation phases, bounded placement, fade, consecutive-goal reset, reduced motion and real kickoff cleanup. Reddit/Redis checks use mocks; live playtesting remains outstanding.
 
 **Main merge (2026-10-31):** merged `codex/daily-challenge-modes` through `8ce99b7` into `main` by fast-forward at the user’s request. Includes the three Daily templates, minimal goal-speed backing, configurable Survival limits/time leaderboard and two-page briefing. Existing local and browser checks passed on this exact application code; live Reddit testing remains outstanding.
@@ -471,6 +473,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Shield is a display rename only; retain the saved `hold-lead` ID and existing protect-the-lead rules.
+
 - Merge the tested Rampage/goal-burst branch into main at the user’s request; keep real Reddit visual playtesting as the next validation step.
 
 - Rampage is a display rename: retain the stored `survival` ID and limits for old posts/results. Explain per-goal opponent/keeper progression. Keep the goal burst above the scorer, speed steady, and reduced-motion feedback static.
@@ -741,6 +745,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Playtest Shield naming in old/new Daily posts on Reddit before merging `codex/shield-mode-name`; types, lint, Daily checks and build pass.
+
 - Playtest Rampage labels/briefing and the reference-inspired goal burst in a real Reddit mobile webview from `main`. Local and mocked browser checks pass; verify visual feel and scorer visibility on-device.
 
 - Review screenshots and playtest newly created posts for all three Daily templates on Reddit from `main`. Verify creator limits/fixed 5:00 cap, fastest-clear persistence, Survival balance, early completion counts and the two-page briefing against real Reddit/Redis. All local and mocked browser checks pass; legacy posts retain old rules.
@@ -994,6 +1000,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-10-31:** rename Hold the Lead to Shield across visible app text and documentation, preserving stored mode IDs and gameplay. Types, lint, Daily rule/form/leaderboard checks and build pass.
 
 - **2026-10-31:** fast-forward `main` through `2e53db0`, bringing in Rampage naming, rising-AI badges/briefing and the tested diagonal goal-text burst at the user’s request. Application code matches the tested branch.
 

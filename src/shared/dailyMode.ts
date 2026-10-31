@@ -10,7 +10,7 @@ export const DAILY_MODES: readonly DailyMode[] = [
 ];
 export const DAILY_LABEL: Record<DailyMode, string> = {
   comeback: 'COMEBACK',
-  'hold-lead': 'HOLD THE LEAD',
+  'hold-lead': 'SHIELD',
   survival: 'RAMPAGE',
 };
 export const parseDailyMode = (value: unknown) =>

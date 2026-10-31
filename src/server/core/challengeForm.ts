@@ -120,7 +120,7 @@ export const dailyModeForm: Form = {
         label: DAILY_LABEL[value],
       })),
       helpText:
-        'Comeback: recover a deficit. Hold the Lead: defend your head start. Rampage: race to a goal target with rising difficulty and a concession limit.',
+        'Comeback: recover a deficit. Shield: defend your head start. Rampage: race to a goal target with rising difficulty and a concession limit.',
     },
   ],
 };

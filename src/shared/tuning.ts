@@ -807,6 +807,6 @@ export const DAILY = {
   survivalGoals: 5, // score the fifth goal against Pro to clear
   survivalConceded: 3, // third conceded goal ends the run
   tacticSwitchSec: 2, // settle a live tactical change before applying it
-  lateShare: 0.25, // last quarter of Hold the Lead: chasing CPU goes all-out
+  lateShare: 0.25, // last quarter of Shield: chasing CPU goes all-out
   earlyFinishMinSec: 12, // minimal real-time receipt/cooldown for Survival runs
 } as const;

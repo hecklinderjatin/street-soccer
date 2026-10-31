@@ -108,9 +108,9 @@ export function parseMatchConfig(value: unknown): MatchConfig | string {
     dailyMode === 'hold-lead' &&
     (startGoalsFor < 1 || startGoalsAgainst !== 0)
   )
-    return 'hold the lead needs a player lead and no AI head start';
+    return 'Shield needs a player lead and no AI head start';
   if (dailyMode !== 'hold-lead' && startGoalsFor !== 0)
-    return 'only hold the lead can start with player goals';
+    return 'only Shield can start with player goals';
   if (dailyMode === 'comeback' && startGoalsAgainst < 1)
     return 'comeback needs an AI head start';
   if (
