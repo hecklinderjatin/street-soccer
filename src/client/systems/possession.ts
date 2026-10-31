@@ -96,6 +96,7 @@ export function gainBall(ball: Ball, p: Player) {
     Math.min(DRIBBLE.cushionMax, ball.speed * DRIBBLE.cushionPerSpeed);
   ball.owner = p;
   ball.lastTouch = p;
+  ball.goalStrike = null;
   ball.z = 0;
   ball.vz = 0;
   ball.spin = 0;
@@ -133,6 +134,7 @@ function deflect(ball: Ball, p: Player) {
   ball.spin = 0;
   ball.dip = 0;
   ball.lastTouch = p;
+  ball.goalStrike = null;
 }
 
 // Close-control dribbling (FIFA-like). The ball's place is kept relative to

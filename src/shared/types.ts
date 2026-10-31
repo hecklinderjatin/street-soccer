@@ -66,6 +66,8 @@ export type MatchConfig = {
 };
 
 export type MatchResult = {
+  fastestGoalKmh?: number; // fastest qualifying home goal this match
+  newSpeedBest?: boolean; // beat the device record during this match
   config: MatchConfig; // replayed as is by PLAY AGAIN
   goalsFor: number;
   goalsAgainst: number;

@@ -10,7 +10,7 @@ import { competitiveResultAllowed, postType } from '../../shared/postType';
 import { Hono } from 'hono';
 import { context, redis, reddit } from '@devvit/web/server';
 import type { DailyLeadersResponse, PostScoreResponse } from '../../shared/api';
-import { dailyLeaders, saveResult } from '../core/daily';
+import { dailyLeaders, saveResult, speedLeaders } from '../core/daily';
 import { matchLengthSec, postConfig, readStats } from '../core/matchStats';
 import { COMMENT_MAX, scoreComment } from '../core/scoreComment';
 import { scoreThread } from '../core/scoreThread';
@@ -118,10 +118,13 @@ api.post('/result', async (c) => {
         matchLengthSec(config) * 0.8
       ))
     )
-      await saveResult(postId, username, stats);
-    return c.json<DailyLeadersResponse>(
-      await dailyLeaders(postId, username ?? null)
-    );
+      await saveResult(postId, username, stats, config !== null);
+    return c.json<DailyLeadersResponse>({
+      ...(await dailyLeaders(postId, username ?? null)),
+      fastest: await speedLeaders(postId, username ?? null).catch(
+        () => undefined
+      ),
+    });
   } catch (error) {
     console.error('POST /api/result error:', error);
     return c.json<SimpleErrorResponse>({ error: 'Failed to save result' }, 500);
@@ -152,6 +155,26 @@ api.get('/daily-leaders', async (c) => {
       { error: 'Failed to fetch leaderboard' },
       500
     );
+  }
+});
+
+// Separate ranking: only fixed competitive matches can write speed records.
+api.get('/speed-leaders', async (c) => {
+  c.header('Cache-Control', 'no-store');
+  if (!context.postId) return c.json({ error: 'Missing postId' }, 400);
+  if (postType(context.postData) === 'casual')
+    return c.json({ error: 'Casual posts have no leaderboard' }, 400);
+  try {
+    const username = await reddit.getCurrentUsername();
+    return c.json(
+      await speedLeaders(
+        context.postId,
+        username ?? null,
+        Number(c.req.query('limit') ?? 3)
+      )
+    );
+  } catch {
+    return c.json({ error: 'Speed leaderboard unavailable' }, 503);
   }
 });
 

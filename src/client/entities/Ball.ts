@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import type { GoalStrike } from '../../shared/goalSpeed';
 import {
   BALL_KEY,
   BALL_SHADOW_KEY,
@@ -21,6 +22,7 @@ const TRAIL_LENGTH = 14; // render frames of trail
 // While a player owns it, systems/possession.ts steers it in dribble touches
 // instead of free physics; it is never simply glued to the feet.
 export class Ball {
+  goalStrike: GoalStrike | null = null;
   strikes = 0; // increments on an actual pass/shot, consumed by match audio
   pendingShot = false; // one unresolved shot for miss/save audio
   x = 0;
@@ -67,6 +69,7 @@ export class Ball {
 
   // Dead ball on a spot (kickoff).
   placeAt(x: number, y: number) {
+    this.goalStrike = null;
     this.pendingShot = false;
     this.x = this.prevX = this.renderX = x;
     this.y = this.prevY = this.renderY = y;

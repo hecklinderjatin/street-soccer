@@ -1,8 +1,11 @@
+import { rankSpeeds, saveSpeed, speedKey } from './speedBoard';
+import { gamesDeletedKey } from './gamesPlayed';
 import { redis } from '@devvit/web/server';
 import type {
   DailyLeader,
   DailyLeadersResponse,
   MatchStats,
+  SpeedLeadersResponse,
 } from '../../shared/api';
 import { readStats } from './matchStats';
 import {
@@ -51,12 +54,29 @@ function readSaved(json: string | undefined): MatchStats | null {
 export async function saveResult(
   postId: string,
   username: string,
-  stats: MatchStats
+  stats: MatchStats,
+  fixed = false
 ) {
   const day = today();
   const board = boardKey(postId, day);
   if (await deletionInProgress(username)) return;
   await registerBoard(board, day);
+  if (fixed && stats.fastestGoalKmh) {
+    const key = speedKey(postId, day);
+    try {
+      await registerBoard(key, day);
+      await saveSpeed(
+        redis,
+        key,
+        username,
+        stats.fastestGoalKmh,
+        boardExpiry(day),
+        [`privacy:deleting:${username}`, gamesDeletedKey(postId)]
+      );
+    } catch (error) {
+      console.warn('Speed record unavailable; retaining match result:', error);
+    }
+  }
   const score = rankScore(stats);
   const best = await redis.zScore(board, username);
   if (best !== undefined && best !== null && best >= score) return;
@@ -115,4 +135,20 @@ export async function dailyLeaders(
     if (index >= 0) me = await leader(username, index + 1);
   }
   return { day: today(), top: leaders, me };
+}
+
+export async function speedLeaders(
+  postId: string,
+  username: string | null,
+  limit = TOP
+): Promise<SpeedLeadersResponse> {
+  const count = Number.isFinite(limit)
+    ? Math.max(1, Math.min(25, Math.floor(limit)))
+    : TOP;
+  const days = await Promise.all(
+    windowDays().map((day) =>
+      redis.zRange(speedKey(postId, day), 0, -1, { by: 'rank' })
+    )
+  );
+  return rankSpeeds(days.flat(), today(), username, count);
 }

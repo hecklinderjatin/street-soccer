@@ -1,3 +1,4 @@
+import { launchSpeedKmh } from '../../shared/goalSpeed';
 import { AI, BALL, PASS, PITCH, SHOOT, SIM, STICK } from '../../shared/tuning';
 import type { Ball } from '../entities/Ball';
 import type { Player } from '../entities/Player';
@@ -217,6 +218,7 @@ function strikePass(
 ) {
   ball.strikes += 1;
   ball.pendingShot = false;
+  ball.goalStrike = null;
   const pressured = opponents.some(
     (o) => Math.hypot(o.x - passer.x, o.y - passer.y) < PASS.pressureRadius
   );
@@ -342,6 +344,17 @@ export function kickShot(
   ball.spin = shape.curl * SHOOT.curlSpin;
   ball.dip = SHOOT.powerDip * shape.power;
   ball.lastTouch = shooter;
+  ball.goalStrike = {
+    human: shooter.controlled,
+    team: shooter.team,
+    kmh: launchSpeedKmh(ball.vx, ball.vy, ball.vz),
+    style:
+      shape.chip >= 0.5
+        ? 'CHIP'
+        : Math.abs(shape.curl) >= 0.5
+          ? 'CURL'
+          : 'STRIKE',
+  };
 }
 
 // A swipe as amounts of each effect: chip and power 0..1 (up / down),

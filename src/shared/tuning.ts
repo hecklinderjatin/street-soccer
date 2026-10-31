@@ -764,3 +764,13 @@ export const CAMERA = {
   celebrateZoom: 1.6, // goal celebration: the camera closes in on the scorer ...
   celebrateLift: 80, // ... aiming this far beyond its feet (world px), so the whole body is centred
 } as const;
+
+// Goal celebrations and arcade speed display (no changes to shot physics).
+export const GOAL_FEEDBACK = {
+  kmhPerUnit: 0.08, // km/h displayed per world-unit/s of launch velocity
+  maxKmh: 200, // accepted record ceiling above current legal shot velocities
+  rocketKmh: 100, // powerful-strike celebration threshold
+  shakeMs: 140, // short world-camera impact; HUD stays still
+  shakeIntensity: 0.002, // subtle camera movement
+  celebrationVolume: 0.4, // goal cue, relative to the master sound switch
+} as const;

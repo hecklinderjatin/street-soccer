@@ -1,6 +1,6 @@
 import type { MatchStats } from '../../shared/api';
 import { parseMatchConfig } from '../../shared/matchConfig';
-import { MATCH } from '../../shared/tuning';
+import { GOAL_FEEDBACK, MATCH } from '../../shared/tuning';
 import { DIFFICULTIES, type MatchConfig } from '../../shared/types';
 
 // Checking a match result a client reports (pure: no Redis, so the logic
@@ -61,6 +61,22 @@ export function readStats(
     goalsAgainst > maxGoals + (config?.startGoalsAgainst ?? 0)
   )
     return 'Invalid result';
+  const rawSpeed = Reflect.get(body, 'fastestGoalKmh');
+  const fastestGoalKmh =
+    rawSpeed === undefined ? undefined : count(rawSpeed, GOAL_FEEDBACK.maxKmh);
+  if (
+    fastestGoalKmh === null ||
+    (fastestGoalKmh && (goalsFor < 1 || shots < 1))
+  )
+    return 'Invalid goal speed';
   const difficulty = config ? config.difficulty : asked;
-  return { difficulty, goalsFor, goalsAgainst, shots, passes, tacklesWon };
+  return {
+    difficulty,
+    goalsFor,
+    goalsAgainst,
+    shots,
+    passes,
+    tacklesWon,
+    ...(fastestGoalKmh === undefined ? {} : { fastestGoalKmh }),
+  };
 }

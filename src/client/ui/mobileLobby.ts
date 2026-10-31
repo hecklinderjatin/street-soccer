@@ -1,4 +1,7 @@
-import type { DailyLeadersResponse } from '../../shared/api';
+import type {
+  DailyLeadersResponse,
+  SpeedLeadersResponse,
+} from '../../shared/api';
 import { POST_TYPE_LABEL, type PostType } from '../../shared/postType';
 import { formatClock } from '../../shared/matchConfig';
 import { DIFFICULTY_LABEL, type MatchConfig } from '../../shared/types';
@@ -36,7 +39,7 @@ export function createMobileLobby(
       </div>
     </div>
     <div class="mobile-board-modal" hidden role="dialog" aria-label="7-day leaderboard">
-      <div class="mobile-board-sheet"><header><strong>7-DAY LEADERBOARD</strong><button class="mobile-board-close" aria-label="Close leaderboard">✕</button></header><ol class="mobile-board-rows"></ol><p class="mobile-board-status"></p><footer><button class="mobile-board-prev">‹ PREV</button><button class="mobile-board-next">NEXT ›</button></footer></div>
+      <div class="mobile-board-sheet"><header><strong>7-DAY LEADERBOARD</strong><button class="mobile-board-close" aria-label="Close leaderboard">✕</button></header><div class="leaderboard-tabs" role="group" aria-label="Leaderboard category"><button class="mobile-board-match">MATCH RESULTS</button><button class="mobile-board-speed">FASTEST GOALS</button></div><ol class="mobile-board-rows"></ol><p class="mobile-board-status"></p><footer><button class="mobile-board-prev">‹ PREV</button><button class="mobile-board-next">NEXT ›</button></footer></div>
     </div>`;
   const get = (selector: string) => {
     const node = element.querySelector<HTMLElement>(selector);
@@ -101,15 +104,22 @@ export function createMobileLobby(
   get('.mobile-board-close').addEventListener('click', () => {
     get('.mobile-board-modal').hidden = true;
   });
-  const row = (leader: DailyLeadersResponse['top'][number]) => {
+  const row = (
+    leader:
+      DailyLeadersResponse['top'][number] | SpeedLeadersResponse['top'][number]
+  ) => {
     const li = document.createElement('li');
     const name = document.createElement('span');
     name.textContent = `${leader.rank}. ${leader.username}`;
     const score = document.createElement('strong');
-    score.textContent = `${leader.goalsFor}–${leader.goalsAgainst}`;
+    score.textContent =
+      'kmh' in leader
+        ? `${leader.kmh} km/h`
+        : `${leader.goalsFor}–${leader.goalsAgainst}`;
     li.append(name, score);
     return li;
   };
+  let boardRequest = 0;
   return {
     element,
     setGamesPlayed(count: number | null) {
@@ -134,7 +144,19 @@ export function createMobileLobby(
           ? `Your best: #${data.me.rank} · ${data.me.goalsFor}–${data.me.goalsAgainst}`
           : '';
     },
-    async showBoard(onReddit: boolean) {
+    async showBoard(onReddit: boolean, category: 'match' | 'speed' = 'match') {
+      const speed = category === 'speed';
+      pixelLabel(
+        get('.mobile-board-sheet header > strong'),
+        speed ? '7-DAY FASTEST GOALS' : '7-DAY LEADERBOARD'
+      );
+      get('.mobile-board-match').setAttribute('aria-pressed', String(!speed));
+      get('.mobile-board-speed').setAttribute('aria-pressed', String(speed));
+      get('.mobile-board-match').onclick = () =>
+        void this.showBoard(onReddit, 'match');
+      get('.mobile-board-speed').onclick = () =>
+        void this.showBoard(onReddit, 'speed');
+      const requested = ++boardRequest;
       const modal = get('.mobile-board-modal');
       const list = get('.mobile-board-rows');
       const status = get('.mobile-board-status');
@@ -148,10 +170,13 @@ export function createMobileLobby(
         : 'Leaderboard available on Reddit';
       if (!onReddit) return;
       try {
-        const res = await fetch('/api/daily-leaders?limit=25');
+        const res = await fetch(
+          speed ? '/api/speed-leaders?limit=25' : '/api/daily-leaders?limit=25'
+        );
         if (!res.ok) throw new Error('Leaderboard unavailable');
-        const data: DailyLeadersResponse = await res.json();
-        if (!element.isConnected) return;
+        const data: DailyLeadersResponse | SpeedLeadersResponse =
+          await res.json();
+        if (!element.isConnected || requested !== boardRequest) return;
         let page = 0;
         const draw = () => {
           list.replaceChildren();
@@ -159,7 +184,9 @@ export function createMobileLobby(
             .slice(page * 5, page * 5 + 5)
             .forEach((leader) => list.append(row(leader)));
           status.textContent = !data.top.length
-            ? 'No scores yet. Set the first!'
+            ? speed
+              ? 'No goals recorded yet'
+              : 'No scores yet. Set the first!'
             : data.me
               ? `Your best: #${data.me.rank}`
               : 'You: no score in 7 days';
@@ -176,7 +203,8 @@ export function createMobileLobby(
         };
         draw();
       } catch {
-        status.textContent = 'Scores unavailable. Please try again.';
+        if (requested === boardRequest && element.isConnected)
+          status.textContent = 'Scores unavailable. Please try again.';
       }
     },
   };

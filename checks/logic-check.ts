@@ -1,3 +1,10 @@
+import {
+  launchSpeedKmh,
+  qualifyingGoal,
+  goalStyle,
+} from '../src/shared/goalSpeed';
+import { gainBall } from '../src/client/systems/possession';
+import { kickShot, kickPass } from '../src/client/systems/actions';
 // Logic checks for the Phase 3 rules (tackles, keeper reaction, AI brain,
 // pass weight): pure functions driven with hand-made players, no game and
 // no browser. Run with `npm run test:logic` (bundles this file with rolldown,
@@ -884,6 +891,67 @@ check(
       }).away.formation,
       '1-2-1'
     );
+  }
+);
+
+check(
+  'goal speed: sampled launch velocity survives flight, but not a new touch or pass',
+  () => {
+    const shooter = player({
+      x: 2000,
+      y: 715,
+      heading: 0,
+      team: 'home',
+      controlled: true,
+    });
+    const b = ball({ x: 2010, y: 715, owner: shooter });
+    kickShot(b, shooter, { x: 1, y: 0, r: 1 }, 0.7, [], () => 0.5);
+    const launch = b.goalStrike;
+    assert.equal(launch.human, true);
+    assert.equal(launch.kmh, launchSpeedKmh(b.vx, b.vy, b.vz));
+    b.vx *= 0.1;
+    b.vz = 0;
+    assert.equal(qualifyingGoal(b.goalStrike, 'home')?.kmh, launch.kmh);
+    assert.equal(
+      qualifyingGoal(b.goalStrike, 'away'),
+      null,
+      'own goals cannot qualify'
+    );
+    gainBall(b, shooter);
+    assert.equal(
+      b.goalStrike,
+      null,
+      'rebound possession cancels old attribution'
+    );
+    kickShot(b, shooter, { x: 1, y: 0, r: 1 }, 0.7, [], () => 0.5, {
+      x: 0,
+      y: -1,
+    });
+    assert.equal(goalStyle(b.goalStrike), 'CHIP');
+    kickPass(b, shooter, player({ x: 2200, y: 715 }), [], () => 0.5);
+    assert.equal(b.goalStrike, null, 'passes cannot inherit shot speed');
+    assert.equal(qualifyingGoal(null, 'home'), null);
+  }
+);
+check(
+  'goal speed: server rejects invalid values and records without a scored shot; old clients work',
+  () => {
+    for (const fastestGoalKmh of [-1, 201, Infinity, NaN, 99.5, '100'])
+      assert.equal(typeof readStats(stats({ fastestGoalKmh }), null), 'string');
+    assert.equal(
+      typeof readStats(stats({ fastestGoalKmh: 120, goalsFor: 0 }), null),
+      'string'
+    );
+    assert.equal(
+      typeof readStats(stats({ fastestGoalKmh: 120, shots: 0 }), null),
+      'string'
+    );
+    const valid = readStats(stats({ fastestGoalKmh: 120 }), null);
+    assert.ok(typeof valid !== 'string');
+    assert.equal(valid.fastestGoalKmh, 120);
+    const legacy = readStats(stats(), null);
+    assert.ok(typeof legacy !== 'string');
+    assert.equal(legacy.fastestGoalKmh, undefined);
   }
 );
 console.log(`\n${passed} checks passed`);

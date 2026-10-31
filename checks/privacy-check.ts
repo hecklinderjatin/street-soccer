@@ -72,7 +72,7 @@ await assert.rejects(
   /could not be pinned/
 );
 
-const boards = ['daily:t3_one:2026-10-17', 'daily:t3_two:2026-10-16'];
+const boards = ['daily:t3_one:2026-10-17', 'daily:t3_two:2026-10-16', 'speed:t3_one:2026-10-17'];
 const results = new Map(boards.map((b) => [b, new Set(['alice', 'bob'])]));
 const stats = new Map(
   boards.map((b) => [`${b}:stats`, new Set(['alice', 'bob'])])
@@ -96,7 +96,7 @@ await removePlayerResults(
 for (const names of [...results.values(), ...stats.values()]) {
   assert.deepEqual([...names], ['bob']);
 }
-assert.equal(deletedKeys.length, 4);
+assert.equal(deletedKeys.length, 6);
 assert.ok(deletedKeys.every((key) => key.endsWith(':alice')));
 const removed: string[] = [];
 await removeUnavailableAccounts(

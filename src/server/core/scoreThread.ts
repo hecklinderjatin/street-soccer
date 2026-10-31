@@ -1,3 +1,4 @@
+import { speedKey } from './speedBoard';
 import { deleteGameCounts } from './gamesPlayed';
 import { reddit, redis } from '@devvit/web/server';
 import { boardKey, statsKey, today } from './daily';
@@ -55,7 +56,11 @@ export async function forgetPost(postId: string) {
     const date = new Date(day.getTime() - back * 86_400_000)
       .toISOString()
       .slice(0, 10);
-    keys.push(boardKey(postId, date), statsKey(postId, date));
+    keys.push(
+      boardKey(postId, date),
+      statsKey(postId, date),
+      speedKey(postId, date)
+    );
   }
   await redis.del(...keys);
 }

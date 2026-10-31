@@ -72,6 +72,7 @@ export class ResultScene extends Phaser.Scene {
     return {
       mode: r.config.mode ?? 'competitive',
       difficulty: r.config.difficulty,
+      ...(r.config.locked ? { fastestGoalKmh: r.fastestGoalKmh ?? 0 } : {}),
       goalsFor: r.goalsFor,
       goalsAgainst: r.goalsAgainst,
       shots: r.shots,

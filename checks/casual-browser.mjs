@@ -36,6 +36,17 @@ async function pageFor(viewport, postData) {
   await page.route('**/api/**', (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
+    if (path === '/api/speed-leaders')
+      return route.fulfill({
+        json: {
+          day: '2026-10-31',
+          top: [
+            { rank: 1, username: 'rocket', kmh: 131 },
+            { rank: 2, username: 'tester', kmh: 112 },
+          ],
+          me: { rank: 2, username: 'tester', kmh: 112 },
+        },
+      });
     if (path.startsWith('/api/games')) {
       if (request.method() === 'POST') {
         const body = request.postDataJSON();
@@ -309,6 +320,140 @@ try {
     );
   }
 
+  // Real keyboard strike -> launch snapshot -> goal -> personal record -> results.
+  for (const type of ['daily', 'casual']) {
+    const { page, context, errors, mutations } = await pageFor(
+      { width: 390, height: 600 },
+      { matchType: type, match: config }
+    );
+    await page.goto(
+      new URL(
+        type === 'casual' ? 'casual.html?debug' : 'index.html?debug',
+        base
+      ).href
+    );
+    if (type === 'casual')
+      await page
+        .getByRole('button', { name: 'START MATCH', exact: true })
+        .click();
+    await waitForMatch(page, true);
+    await page.keyboard.press('i');
+    await waitForMatch(page);
+    await page.evaluate(() => {
+      const scene = window.__game.scene.getScene('Match');
+      scene.flow.phase = 'live';
+      scene.flow.awaitingKickoff = false;
+      scene.flow.clockRunning = true;
+      for (const p of scene.everyone) {
+        p.x = 400;
+        p.y = 400;
+        p.lockUntil = 99999;
+      }
+      const p = scene.home.find((p) => p.role !== 'keeper');
+      p.x = 1800;
+      p.y = 715;
+      p.heading = 0;
+      p.vx = p.vy = 0;
+      p.speed = 0;
+      p.lockUntil = 0;
+      scene.setControlled(p);
+      scene.ball.placeAt(1820, 715);
+      scene.ball.owner = p;
+      scene.ball.lastTouch = p;
+      p.dribbleAngle = 0;
+      p.dribbleDist = 20;
+    });
+    await page.keyboard.down('k');
+    await page.waitForFunction(
+      () => window.__game.scene.getScene('Match').chargeSince !== null
+    );
+    await page.waitForTimeout(350);
+    await page.keyboard.up('k');
+    await page.waitForFunction(
+      () =>
+        window.__game.scene.getScene('Match').ball.goalStrike?.team === 'home'
+    );
+    const speed = await page.evaluate(() => {
+      const s = window.__game.scene.getScene('Match');
+      const speed = s.ball.goalStrike.kmh;
+      s.ball.x = 2658;
+      s.ball.y = 715;
+      s.ball.z = 20;
+      s.ball.vx = 10;
+      s.ball.vy = s.ball.vz = 0;
+      s.ball.owner = null;
+      return speed;
+    });
+    await page.waitForFunction(
+      () => window.__game.scene.getScene('Match').flow.phase === 'goal'
+    );
+    const achievement = await page.evaluate(() => {
+      const s = window.__game.scene.getScene('Match');
+      return {
+        fastest: s.fastestGoalKmh,
+        detail: s.hudState.goalDetail,
+        record: s.hudState.goalRecord,
+      };
+    });
+    assert.equal(achievement.fastest, speed);
+    assert.ok(achievement.detail.includes(`${speed} KM/H`));
+    assert.equal(achievement.record, 'NEW DEVICE BEST!');
+    if (process.env.CASUAL_SCREENSHOTS)
+      await page.screenshot({
+        path: `${process.env.CASUAL_SCREENSHOTS}/goal-${type}.png`,
+      });
+    await page.evaluate(
+      () => (window.__game.scene.getScene('Match').flow.finished = true)
+    );
+    await page.locator('.results-speed-highlight').waitFor();
+    assert.ok(
+      (await page.locator('.results-speed-highlight').textContent()).includes(
+        `${speed} KM/H`
+      )
+    );
+    if (type === 'daily') {
+      await page
+        .getByRole('button', { name: 'FASTEST GOALS', exact: true })
+        .click();
+      await page
+        .locator('.results-board')
+        .getByText('131 km/h', { exact: true })
+        .waitFor();
+      await page
+        .getByRole('button', { name: 'MATCH RESULTS', exact: true })
+        .click();
+      await page.locator('.results-board li').nth(2).waitFor();
+      assert.deepEqual(mutations, ['/api/result']);
+    } else {
+      assert.equal(
+        await page
+          .getByRole('button', { name: 'FASTEST GOALS', exact: true })
+          .count(),
+        0
+      );
+      assert.deepEqual(mutations, []);
+    }
+    const geometry = await page.locator('.results-screen').evaluate((root) => ({
+      scroll: root.scrollHeight - root.clientHeight,
+      bottom: root.querySelector('.results-actions').getBoundingClientRect()
+        .bottom,
+      height: innerHeight,
+    }));
+    assert.ok(
+      geometry.scroll <= 1 && geometry.bottom <= geometry.height,
+      JSON.stringify(geometry)
+    );
+    if (process.env.CASUAL_SCREENSHOTS)
+      await page.screenshot({
+        path: `${process.env.CASUAL_SCREENSHOTS}/results-speed-${type}.png`,
+      });
+    assert.deepEqual(errors, []);
+    await context.close();
+    console.log(
+      `ok ${type} launch-speed goal, device best, results highlight and ranking isolation`
+    );
+  }
+
   // Ranked results now use native buttons too. Check that moving the UI
   // preserves ranked saving, rematches and the explicit sharing decision.
   for (const type of ['daily', 'classic']) {
@@ -344,6 +489,21 @@ try {
       .waitFor();
     await page.locator('.results-board li').nth(2).waitFor();
     assert.deepEqual(mutations, ['/api/result', '/api/result']);
+    if (type === 'classic') {
+      await page.route('**/api/speed-leaders', (route) =>
+        route.fulfill({ status: 503, json: { error: 'Unavailable' } })
+      );
+      await page
+        .getByRole('button', { name: 'FASTEST GOALS', exact: true })
+        .click();
+      await page
+        .getByText('SPEED BOARD UNAVAILABLE', { exact: true })
+        .waitFor();
+      await page
+        .getByRole('button', { name: 'MATCH RESULTS', exact: true })
+        .click();
+      await page.locator('.results-board li').nth(2).waitFor();
+    }
 
     await page
       .getByRole('button', { name: 'POST MY SCORE', exact: true })
@@ -462,6 +622,23 @@ try {
         await page.locator('#mobile-lobby.is-portrait').waitFor();
       else
         await page.waitForFunction(() => window.__game?.scene.isActive('Menu'));
+      if (type !== 'casual') {
+        await page.getByRole('button', { name: 'ALL >', exact: true }).click();
+        await page
+          .getByRole('button', { name: 'FASTEST GOALS', exact: true })
+          .click();
+        await page
+          .locator('.mobile-board-rows')
+          .getByText('131 km/h', { exact: true })
+          .waitFor();
+        await page
+          .getByRole('button', { name: 'MATCH RESULTS', exact: true })
+          .click();
+        await page.locator('.mobile-board-rows li').nth(2).waitFor();
+        await page
+          .getByRole('button', { name: 'Close leaderboard', exact: true })
+          .click();
+      }
       const label =
         type === 'casual'
           ? 'PLAY CASUAL'
@@ -735,6 +912,30 @@ try {
   assert.deepEqual(errors, []);
   await context.close();
   console.log('ok guest Casual gameplay with browser storage disabled');
+} catch (error) {
+  for (const context of browser.contexts())
+    for (const page of context.pages()) {
+      console.error(
+        'Browser failure state:',
+        await page
+          .evaluate(() => {
+            const game = window.__game;
+            const match = game?.scene.getScene('Match');
+            return {
+              scenes: game?.scene.getScenes(true).map((s) => s.scene.key),
+              phase: match?.flow?.phase,
+              clock: match?.flow?.clock,
+              owner: match?.ball?.owner?.role,
+              shots: match?.stats?.shots,
+              finished: match?.flow?.finished,
+              paused: game?.scene.isPaused('Match'),
+              results: document.querySelector('.results-screen')?.textContent,
+            };
+          })
+          .catch(() => 'Page unavailable')
+      );
+    }
+  throw error;
 } finally {
   await browser.close();
 }

@@ -121,6 +121,7 @@ export function resolveTackle(
   );
   ball.owner = null;
   ball.lastTouch = p;
+  ball.goalStrike = null;
   ball.vx = Math.cos(side) * TACKLE.popSpeed;
   ball.vy = Math.sin(side) * TACKLE.popSpeed;
   ball.vz = 0;

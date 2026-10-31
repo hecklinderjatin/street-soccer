@@ -1,7 +1,10 @@
+import { qualifyingGoal, goalStyle } from '../../shared/goalSpeed';
+import { recordGoalSpeed } from '../goalRecords';
 import { trackGame } from '../gameCount';
 import Phaser from 'phaser';
 import {
   AI,
+  GOAL_FEEDBACK,
   BALL,
   FORMATION,
   FORMATIONS,
@@ -196,6 +199,10 @@ export class MatchScene extends Phaser.Scene {
   private switchHoldArmed = false; // a SWITCH press that, held on, jumps to the keeper
   private gameCount: ReturnType<typeof trackGame> | null = null;
   private resultShown = false;
+  private fastestGoalKmh = 0;
+  private newSpeedBest = false;
+  private goalDetail = '';
+  private goalRecord = '';
   // Cost of the simulation per rendered frame (ms), for the debug overlay
   // (tap the FPS readout): a smoothed average and a slowly decaying peak.
   private simMsAvg = 0;
@@ -240,6 +247,10 @@ export class MatchScene extends Phaser.Scene {
     this.switchHoldArmed = false;
     this.gameCount = null;
     this.resultShown = false;
+    this.fastestGoalKmh = 0;
+    this.newSpeedBest = false;
+    this.goalDetail = '';
+    this.goalRecord = '';
     this.startSoundPlayed = false;
     this.overSoundPlayed = false;
   }
@@ -441,6 +452,8 @@ export class MatchScene extends Phaser.Scene {
       clock: this.flow.clock,
       goldenGoal: false,
       banner: '',
+      goalDetail: '',
+      goalRecord: '',
       buttons: { b1: 'TACKLE', b2: 'SWITCH', charge: -1, sweetSpot: true },
       // One dot per player (same order as everyone), moved in updateHud.
       minimap: {
@@ -560,7 +573,9 @@ export class MatchScene extends Phaser.Scene {
       !this.sound.locked
     ) {
       this.sound.stopByKey('goal-celebration');
-      this.sound.play('goal-celebration', { volume: EFFECTS_VOLUME });
+      this.sound.play('goal-celebration', {
+        volume: GOAL_FEEDBACK.celebrationVolume,
+      });
     }
     const simMs = performance.now() - simStart;
     if (this.demo)
@@ -812,6 +827,31 @@ export class MatchScene extends Phaser.Scene {
       const scorer = this.scorer(scoring, ball.lastTouch);
       if (scorer && !scorer.celebrating)
         scorer.celebrate(Math.floor(Math.random() * CELEBRATION_STYLES));
+      if (this.flow.phase === 'live') {
+        const strike = qualifyingGoal(ball.goalStrike, scoring);
+        this.goalDetail = strike
+          ? `${goalStyle(strike)}  ${strike.kmh} KM/H`
+          : '';
+        this.goalRecord = '';
+        if (!this.demo && scoring === 'home' && strike?.human) {
+          this.fastestGoalKmh = Math.max(this.fastestGoalKmh, strike.kmh);
+          const best = recordGoalSpeed(
+            strike.kmh,
+            this.config.mode === 'casual' || !this.config.locked
+          );
+          this.newSpeedBest ||= best;
+          if (best) this.goalRecord = 'NEW DEVICE BEST!';
+        }
+        if (
+          !this.demo &&
+          !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        )
+          this.cameras.main.shake(
+            GOAL_FEEDBACK.shakeMs,
+            GOAL_FEEDBACK.shakeIntensity
+          );
+      }
+      ball.goalStrike = null;
       this.flow.onGoal(scoring);
     }
     if (
@@ -1856,6 +1896,8 @@ export class MatchScene extends Phaser.Scene {
     s.clock = this.flow.clock;
     s.goldenGoal = this.flow.goldenGoal;
     s.banner = this.flow.banner;
+    s.goalDetail = this.flow.phase === 'goal' ? this.goalDetail : '';
+    s.goalRecord = this.flow.phase === 'goal' ? this.goalRecord : '';
     this.everyone.forEach((p, i) => {
       const dot = s.minimap.dots[i];
       if (!dot) return;
@@ -1891,6 +1933,8 @@ export class MatchScene extends Phaser.Scene {
     void this.gameCount?.complete();
     const result: MatchResult = {
       config: this.config,
+      fastestGoalKmh: this.fastestGoalKmh,
+      newSpeedBest: this.newSpeedBest,
       goalsFor: this.flow.score.home,
       goalsAgainst: this.flow.score.away,
       shots: this.stats.shots,

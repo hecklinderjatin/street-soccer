@@ -276,6 +276,7 @@ export function stepKeeperHands(
     ball.spin = 0;
     ball.dip = 0;
     ball.lastTouch = keeper;
+    ball.goalStrike = null;
     keeper.lockUntil = time + KEEPER.lockAfterSec;
     if (standing) startBlock(keeper, time, false);
     return 'parried';
@@ -289,6 +290,7 @@ export function stepKeeperHands(
 function take(ball: Ball, keeper: Player) {
   ball.owner = keeper;
   ball.lastTouch = keeper;
+  ball.goalStrike = null;
   ball.spin = 0;
   ball.dip = 0;
   keeper.holdTimer = 0;
@@ -337,6 +339,7 @@ function distribute(
 
   ball.owner = null;
   ball.lastTouch = keeper;
+  ball.goalStrike = null;
   keeper.holdTimer = 0;
   keeper.holding = false;
   keeper.lockUntil = time + KEEPER.lockAfterSec;

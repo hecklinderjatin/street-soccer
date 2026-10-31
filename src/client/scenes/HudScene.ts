@@ -17,6 +17,8 @@ export type MatchHudState = {
   away: number;
   clock: number; // seconds left
   goldenGoal: boolean;
+  goalDetail: string;
+  goalRecord: string;
   banner: string; // big centre message, '' for none
   buttons: ButtonContext;
   minimap: MinimapState;
@@ -40,6 +42,9 @@ export class HudScene extends Phaser.Scene {
   private clockText!: Phaser.GameObjects.BitmapText;
   private goldenText!: Phaser.GameObjects.BitmapText;
   private bannerText!: Phaser.GameObjects.BitmapText;
+  private goalDetail!: Phaser.GameObjects.BitmapText;
+  private goalRecord!: Phaser.GameObjects.BitmapText;
+  private goalPlate!: Phaser.GameObjects.Rectangle;
   private bannerShadow!: Phaser.GameObjects.BitmapText;
   private debugText!: Phaser.GameObjects.BitmapText;
   private showDebug = false;
@@ -100,6 +105,27 @@ export class HudScene extends Phaser.Scene {
       '',
       3 * PX,
       PAL.yellow
+    ).setOrigin(0.5);
+
+    this.goalPlate = this.add
+      .rectangle(VIEW.width / 2, 345, 660, 112, PAL.black, 0.85)
+      .setStrokeStyle(3, PAL.yellow, 0.8)
+      .setVisible(false);
+    this.goalDetail = pixelText(
+      this,
+      VIEW.width / 2,
+      325,
+      '',
+      1.15 * PX,
+      PAL.white
+    ).setOrigin(0.5);
+    this.goalRecord = pixelText(
+      this,
+      VIEW.width / 2,
+      370,
+      '',
+      0.85 * PX,
+      PAL.green
     ).setOrigin(0.5);
 
     new TextButton(
@@ -225,9 +251,21 @@ export class HudScene extends Phaser.Scene {
     this.goldenText.setVisible(s.goldenGoal);
 
     const banner = s.banner.toUpperCase();
+    this.goalDetail.setText(this.hud.state.goalDetail);
+    this.goalDetail.setScale(1);
+    if (this.goalDetail.displayWidth > 600)
+      this.goalDetail.setScale(600 / this.goalDetail.width);
+    this.goalDetail.setY(this.hud.state.goalRecord ? 325 : 345);
+    this.goalPlate.setDisplaySize(660, this.hud.state.goalRecord ? 112 : 72);
+    this.goalRecord.setText(this.hud.state.goalRecord);
+    this.goalPlate.setVisible(Boolean(this.hud.state.goalDetail));
     this.bannerText.setText(banner);
     this.bannerShadow.setText(banner);
-    const pop = banner === 'GOAL!' ? 1 + 0.06 * Math.sin(time / 60) : 1;
+    const pop =
+      banner === 'GOAL!' &&
+      !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        ? 1 + 0.06 * Math.sin(time / 60)
+        : 1;
     this.bannerText.setScale(pop);
     this.bannerShadow.setScale(pop);
 

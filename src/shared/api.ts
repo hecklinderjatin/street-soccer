@@ -4,6 +4,7 @@ import type { Difficulty } from './types';
 
 // One finished match, as the client reports it (the server re-checks it).
 export type MatchStats = {
+  fastestGoalKmh?: number; // optional for older clients; launch speed, goals only
   mode?: 'competitive' | 'casual';
   difficulty: Difficulty;
   goalsFor: number;
@@ -19,7 +20,15 @@ export type DailyLeader = MatchStats & {
 };
 
 // POST /api/result (body: MatchStats) and GET /api/daily-leaders.
+export type SpeedLeader = { rank: number; username: string; kmh: number };
+export type SpeedLeadersResponse = {
+  day: string;
+  top: SpeedLeader[];
+  me: SpeedLeader | null;
+};
+
 export type DailyLeadersResponse = {
+  fastest?: SpeedLeadersResponse; // returned after saving a completed match
   day: string; // today's UTC date, YYYY-MM-DD (the window's last day)
   top: DailyLeader[]; // the best 3 of the last 7 days, each player's best match
   me: DailyLeader | null; // the caller's best of the last 7 days, if any
