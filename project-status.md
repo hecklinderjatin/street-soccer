@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Main merge (2026-10-31):** fast-forwarded `codex/subtle-difficulty-label` through `f6dd497` into `main` at the user’s request. Includes the smaller, muted/translucent Rampage tier badge and softer text. Existing TypeScript/lint checks pass; no application build/browser checks run.
+
 **Subtle difficulty label (2026-10-31):** soften the persistent Rampage tier badge with muted, translucent tier colours, a smaller borderless fill and regular off-white pixel lettering without the heavy outline. Level-up celebration styling and gameplay remain unchanged. TypeScript and lint checks pass; no application build/browser checks run.
 
 **Main merge (2026-10-31):** fast-forwarded `codex/rampage-level-up-kits` through `4c61b5e` into `main` at the user’s request. Includes the unboxed Rampage counters, borderless readable tier badge, level-up feedback and Yellow/Cyan/Maroon kits. Existing type/lint/49-case logic and Daily checks passed; no application build or browser checks run.
@@ -495,6 +497,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Merge the subtler difficulty label into main as requested, preserving the no-build instruction.
+
 - Use a quieter persistent difficulty label while retaining bright accents for the brief level-up celebration. Keep the goals/lives labels unboxed.
 
 - Merge the refined Rampage HUD, tier animation and three new kits into main together as requested, preserving the no-build instruction.
@@ -793,6 +797,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Pull main in Codespaces and review the subtler difficulty label on mobile after the next user-run build.
+
 - Review the softened tier label on mobile after the next user-run build.
 
 - Pull main in Codespaces and review the new HUD, tier animation and kit contrast on Reddit/mobile after a user-run build.
@@ -1070,6 +1076,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-10-31:** fast-forward main through `f6dd497` with the subtler Rampage difficulty label. No application build, browser check or deployment performed.
 
 - **2026-10-31:** mute Rampage difficulty badge colours/opacity, reduce badge/text size and remove the heavy text outline. No gameplay or level-up animation changes; no application build run.
 
