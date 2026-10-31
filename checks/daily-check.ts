@@ -190,7 +190,21 @@ for (let goal = 1; goal <= 5; goal++) {
   run.awaitingKickoff = false;
   run.onGoal('home');
   assert.equal(run.phase, 'goal');
-  run.update(MATCH.goalHitStopSec + MATCH.celebrationSec);
+  assert.equal(
+    run.update(MATCH.goalHitStopSec + MATCH.celebrationSec - 0.01),
+    false
+  );
+  assert.equal(
+    run.phase,
+    'goal',
+    'no kickoff/upgrade before goal feedback finishes'
+  );
+  const restart = run.update(0.02);
+  assert.equal(
+    restart,
+    goal < 5,
+    'only continuing goals trigger the upgrade kickoff'
+  );
   assert.equal(run.phase, goal === 5 ? 'fulltime' : 'kickoff');
 }
 assert.equal(challengeCleared('survival', 5, 2), true);

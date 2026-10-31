@@ -180,6 +180,8 @@ export class MatchScene extends Phaser.Scene {
   private shotText!: Phaser.GameObjects.BitmapText; // the swipe shape, above the shooter
 
   private simTime = 0;
+  private feedbackTime = 0; // active real seconds: UI feedback pauses with the scene
+  private rampageUpgradeSince: number | null = null;
   private stats = { shots: 0, passes: 0, tacklesWon: 0 };
   private followShotUntil = -Infinity; // sim time: until then control follows the player closest to the loose ball (after a shot)
   private liveSince = Infinity; // sim time play last became live (AI tackle grace)
@@ -262,6 +264,8 @@ export class MatchScene extends Phaser.Scene {
     this.simMsPeak = 0;
     this.everyone = [];
     this.simTime = 0;
+    this.feedbackTime = 0;
+    this.rampageUpgradeSince = null;
     this.stats = { shots: 0, passes: 0, tacklesWon: 0 };
     this.pendingPass = null;
     this.followShotUntil = -Infinity;
@@ -603,6 +607,7 @@ export class MatchScene extends Phaser.Scene {
       this.startSoundPlayed = true;
     }
     const realDt = delta / 1000;
+    this.feedbackTime += realDt;
     this.controls.sample();
     if (this.flow.update(realDt)) this.resetForKickoff();
     if (this.flow.finished) {
@@ -1762,7 +1767,16 @@ export class MatchScene extends Phaser.Scene {
   }
 
   private resetForKickoff() {
+    const previousDifficulty = this.botDifficulty;
     this.updateDailyTactics(this.simTime, true);
+    // Announce the actual upgrade only after the goal scene has finished.
+    this.rampageUpgradeSince =
+      this.config.dailyMode === 'survival' &&
+      this.flow.lastScorer === 'home' &&
+      survivalUpgrade(this.config, this.flow.score.home, previousDifficulty) ===
+        this.botDifficulty
+        ? this.feedbackTime
+        : null;
     this.ball.placeAt(PITCH.width / 2, PITCH.height / 2);
     this.homeShape.forEach((s, i) => this.home[i]?.placeAt(s.x, s.y));
     this.awayShape.forEach((s, i) =>
@@ -2031,24 +2045,16 @@ export class MatchScene extends Phaser.Scene {
       this.config.dailyMode === 'survival'
         ? {
             difficulty: this.botDifficulty,
-            nextDifficulty: null,
+            upgradeAge:
+              this.rampageUpgradeSince === null
+                ? null
+                : this.feedbackTime - this.rampageUpgradeSince,
             lives: Math.max(
               0,
               survivalLimits(this.config).conceded - this.flow.score.away
             ),
           }
         : null;
-    if (
-      s.rampage &&
-      this.flow.phase === 'goal' &&
-      this.flow.lastScorer === 'home'
-    ) {
-      s.rampage.nextDifficulty = survivalUpgrade(
-        this.config,
-        this.flow.score.home,
-        this.botDifficulty
-      );
-    }
     s.mission =
       this.config.dailyMode === 'chaos'
         ? chaosLabel(this.config)

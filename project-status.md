@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Post-goal Rampage upgrade feedback (2026-10-31):** remove the outlined two-line level-up graphic from the goal celebration. Show one small LEVEL UP > tier line beneath the HUD only after the goal finishes and the actual new difficulty is applied at kickoff. A gentle short slide/fade lasts 1.6 active seconds across kickoff/live; reduced motion uses a steady line. No feedback for opponent goals, final clear goals or the Pro cap. Active-time state resets on rematch and pauses with the scene. TypeScript, lint and Daily rules/posting checks pass, including goal-to-kickoff timing boundaries. No application build/browser checks run.
+
 **Main merge (2026-10-31):** fast-forwarded `codex/subtle-difficulty-label` through `f6dd497` into `main` at the user’s request. Includes the smaller, muted/translucent Rampage tier badge and softer text. Existing TypeScript/lint checks pass; no application build/browser checks run.
 
 **Subtle difficulty label (2026-10-31):** soften the persistent Rampage tier badge with muted, translucent tier colours, a smaller borderless fill and regular off-white pixel lettering without the heavy outline. Level-up celebration styling and gameplay remain unchanged. TypeScript and lint checks pass; no application build/browser checks run.
@@ -497,6 +499,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Separate Rampage upgrade feedback from goal graphics entirely: announce the applied tier at kickoff in one quiet line, without extra outlines, stacked text or a box.
+
 - Merge the subtler difficulty label into main as requested, preserving the no-build instruction.
 
 - Use a quieter persistent difficulty label while retaining bright accents for the brief level-up celebration. Keep the goals/lives labels unboxed.
@@ -797,6 +801,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Review the quieter post-goal upgrade timing after a user-run build, including pause/resume, consecutive goals and rematches.
+
 - Pull main in Codespaces and review the subtler difficulty label on mobile after the next user-run build.
 
 - Review the softened tier label on mobile after the next user-run build.
@@ -1076,6 +1082,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-10-31:** move Rampage upgrade feedback to the actual post-goal kickoff and replace the crowded two-line outlined animation with one short subtle line. Preserve existing progression and pause/reduced-motion handling; no application build/browser checks run.
 
 - **2026-10-31:** fast-forward main through `f6dd497` with the subtler Rampage difficulty label. No application build, browser check or deployment performed.
 
