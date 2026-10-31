@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Hard/Pro near-goal defence (2026-10-31):** reduce pressing stand-off near the defended goal (Hard 80%, Pro 65%) and relax teammate separation for marking/backup/rest-cover roles (Hard 67%, Pro 53% of the normal gap). Both adjustments fade between 330 and 560 px from goal centre and retain delayed carrier observations. Lower levels, general shape spacing, movement physics and goalkeeper settings stay unchanged. TypeScript, lint and all 48 logic checks pass, including the new near-goal cases. No application build run.
+
 **Chaos match briefing (2026-10-31):** the info screen now explains the selected effect with its exact percentage of normal and relative increase/decrease, including goal width/height and end-wall height for Goal Resize. It states that one fixed effect applies to both teams for the whole match, 100% is normal, and the player must finish ahead with draws failing and no extra time. Start-score ordering and opponent AI labels are explicit. TypeScript and lint checks pass; build/browser checks remain skipped per user instruction.
 
 **Rampage difficulty badges (2026-10-31):** renamed RISING AI to RAMPAGE in feed previews, results and briefing. Live Rampage HUD separates goal progress, actual current AI tier and remaining lives, with a tier-coloured badge and compact dark backing. All three hide during goal celebrations. Gameplay progression and stored survival IDs remain unchanged. TypeScript and lint checks pass. Build/browser checks intentionally skipped at the user’s request.
@@ -485,6 +487,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Strengthen only Hard/Pro defensive decisions near goal. Keep a nonzero gap for urgent cover instead of disabling spacing, and preserve normal spacing with our possession or outside danger.
+
 - Explain Chaos settings in the existing match briefing: show actual saved strength relative to normal, shared full-match scope, and regulation win conditions without introducing another page.
 
 - Use RAMPAGE for the mode badge; retain the actual dynamic difficulty in the live HUD, highlighted from green through red. Read the tier directly from match state rather than parsing display text.
@@ -773,6 +777,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Playtest Hard/Pro close-down and near-goal cover after the next user-run build; check that tighter defence feels fair and does not crowd the box excessively.
+
 - Review Chaos briefing readability on mobile after the next user-run build, including all three effects at 100% and percentage bounds.
 
 - Review the Rampage badge on Reddit/mobile after the next user-run build. No build or browser validation is run for this cosmetic change, as requested.
@@ -1040,6 +1046,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-10-31:** improve Hard/Pro near-goal pressure and allow tighter marker/backup/rest-cover spacing during opposing possession. Add behavioural checks for both goal directions, difficulty isolation, distance fade and possession isolation. No application build run.
 
 - **2026-10-31:** clarify Chaos match details with effect-specific mechanics, percentage meaning, both-team/full-match scope, explicit start-score ordering and regulation-only clear conditions. No gameplay changes; build/browser checks skipped per user instruction.
 

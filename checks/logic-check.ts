@@ -523,6 +523,70 @@ check(
     assert.ok(Math.abs(o2!.y - straightPress(c2).y) < 1, 'no shift in the box');
   }
 );
+check(
+  'Hard/Pro close down near either goal without changing build-up pressure',
+  () => {
+    for (const side of ['home', 'away'] as const) {
+      const dir = side === 'home' ? 1 : -1;
+      const goalX = side === 'home' ? 0 : PITCH.width;
+      const gy = PITCH.height / 2;
+      const gapAt = (level: keyof typeof LEVELS, distance: number) => {
+        const c = carrierAt(goalX + dir * distance, gy);
+        c.team = side === 'home' ? 'away' : 'home';
+        const m = player({ team: side, x: c.x - dir * 100, y: gy });
+        const brain = new TeamBrain(side, LEVELS[level]);
+        brain.think(view([m], [c], ball({ x: c.x, y: gy, owner: c })), 1);
+        const order = brain.orders.get(m);
+        assert.equal(order?.role, 'press');
+        return Math.abs(order!.x - c.x);
+      };
+      for (const level of ['noob', 'easy', 'normal'] as const)
+        assert.equal(gapAt(level, 250), AI.pressGapClose);
+      assert.ok(gapAt('hard', 250) < gapAt('normal', 250));
+      assert.ok(gapAt('pro', 250) < gapAt('hard', 250));
+      assert.ok(gapAt('hard', 440) > gapAt('hard', 250), 'smooth transition');
+      for (const level of DIFFICULTIES)
+        assert.equal(gapAt(level, 900), AI.pressGapClose);
+    }
+  }
+);
+check(
+  'Hard/Pro cover holds a near-goal target instead of being pushed away',
+  () => {
+    const gy = PITCH.height / 2;
+    const direction = (
+      level: keyof typeof LEVELS,
+      carrierX: number,
+      ownBall = false
+    ) => {
+      const p = player({ x: 200, y: gy });
+      const q = player({ x: 300, y: gy });
+      const c = carrierAt(carrierX, gy);
+      if (ownBall) c.team = 'home';
+      const brain = new TeamBrain('home', LEVELS[level]);
+      brain.orders.set(p, {
+        role: 'backup',
+        mark: null,
+        x: 260,
+        y: gy,
+        sprint: false,
+        relax: false,
+        goalSide: false,
+      });
+      return brain.steer(p, view([p, q], [c], ball({ owner: c }))).move.x;
+    };
+    for (const level of ['noob', 'easy', 'normal'] as const)
+      assert.ok(direction(level, 300) < 0, 'existing separation retained');
+    for (const level of ['hard', 'pro'] as const) {
+      assert.ok(direction(level, 300) > 0, 'cover can approach its target');
+      assert.ok(direction(level, 900) < 0, 'normal gap outside danger');
+      assert.ok(
+        direction(level, 300, true) < 0,
+        'normal gap with our possession'
+      );
+    }
+  }
+);
 check('defending: AI players keep AI.mateMinGap apart (chaser exempt)', () => {
   // Three attackers bunched in front of our goal pull markers and zones
   // together; walk the defenders for 4 s and measure the gaps.

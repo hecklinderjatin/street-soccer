@@ -127,6 +127,8 @@ export type BrainSkill = {
   aimSpread: number; // shot placement pulled toward the centre by up to this (px)
   markGapScale: number; // x AI.markGap
   posError: number; // px, each player's positioning error (renewed every AI.posErrorSec)
+  dangerPressScale: number; // near-goal stand-off multiplier
+  dangerSpacingScale: number; // near-goal teammate spacing multiplier for defending roles
   recoverSlack: number; // px a defender may be upfield of the ball before it sprints back goal-side
 };
 
@@ -423,32 +425,38 @@ export class TeamBrain {
     } else {
       this.aims.delete(p);
     }
-    // Hard minimum gap (user request: defence got too crowded): whoever
-    // goes for the ball (chase, press) runs straight there; every other
-    // AI player's target stays at least AI.mateMinGap from each teammate,
-    // whatever its job. Already too close, it moves off even when calm.
+    // Preserve team shape, but let skilled markers and cover stay closer
+    // together when an opposing carrier threatens our goal. Never remove
+    // separation completely; pressing/chasing already go straight to the ball.
     const free = order.role === 'chase' || order.role === 'press';
+    const defending =
+      order.role === 'mark' || order.role === 'backup' || order.role === 'rest';
+    const danger =
+      defending && ball.owner && ball.owner.team !== this.team
+        ? this.goalDanger(ball.owner)
+        : 0;
+    const gap = AI.mateMinGap * lerp(1, this.skill.dangerSpacingScale, danger);
     let crowded = false;
     if (!free) {
-      const spaced = this.keepApart(p, view.mates, tx, ty);
+      const spaced = this.keepApart(p, view.mates, tx, ty, gap);
       tx = spaced.x;
       ty = spaced.y;
       crowded = view.mates.some(
-        (q) => q !== p && Math.hypot(q.x - p.x, q.y - p.y) < AI.mateMinGap
+        (q) => q !== p && Math.hypot(q.x - p.x, q.y - p.y) < gap
       );
     }
     return arrive(p, tx, ty, urgent, order.relax, calm && !crowded);
   }
 
-  // (tx, ty) pushed out of every teammate's AI.mateMinGap circle (a few
+  // (tx, ty) pushed out of every teammate's spacing circle (a few
   // passes, since leaving one circle can enter another), kept on the pitch.
   private keepApart(
     p: Player,
     mates: readonly Player[],
     tx: number,
-    ty: number
+    ty: number,
+    gap: number
   ) {
-    const gap = AI.mateMinGap;
     const margin = PLAYER.radius;
     for (let pass = 0; pass < 3; pass++) {
       let moved = false;
@@ -886,6 +894,21 @@ export class TeamBrain {
     return this.idleSince === null ? 0 : time - this.idleSince;
   }
 
+  private goalDanger(carrier: Player) {
+    // Use the same delayed observation as pressing, so feints still work.
+    const seen = carrier.seenAgo(this.skill.readSec);
+    return (
+      1 -
+      clamp(
+        (Math.hypot(seen.x - this.goalX, seen.y - PITCH.height / 2) -
+          AI.dangerNear) /
+          (AI.dangerFar - AI.dangerNear),
+        0,
+        1
+      )
+    );
+  }
+
   // Where the presser goes (worked out when thinking, so it reacts rather
   // than mirroring every step), from the carrier as it saw it skill.readSec
   // ago (a feint or a sudden turn isn't followed at once): goal-side of
@@ -915,14 +938,15 @@ export class TeamBrain {
           0,
           1
         );
-    const gap = lerp(
-      (AI.pressGapClose +
-        (AI.pressGap - AI.pressGapClose) *
-          clamp(Math.hypot(s.vx, s.vy) / PLAYER.walkWithBallSpeed, 0, 1)) *
-        this.style.pressGapScale,
-      AI.pressGapDeep,
-      deep
-    );
+    const gap =
+      lerp(
+        (AI.pressGapClose +
+          (AI.pressGap - AI.pressGapClose) *
+            clamp(Math.hypot(s.vx, s.vy) / PLAYER.walkWithBallSpeed, 0, 1)) *
+          this.style.pressGapScale,
+        AI.pressGapDeep,
+        deep
+      ) * lerp(1, this.skill.dangerPressScale, this.goalDanger(c));
     let lx = s.vx * AI.pressLeadSec;
     let ly = s.vy * AI.pressLeadSec;
     const along = lx * toGoal.x + ly * toGoal.y; // < 0: retreating

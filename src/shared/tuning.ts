@@ -402,6 +402,8 @@ export const AI = {
   // carrier like a shadow and cut out every pass back). Its spot is worked
   // out when its team thinks (it reacts, it doesn't mirror every step) and
   // doesn't follow a carrier retreating toward its own goal.
+  dangerNear: 330, // full close-down/spacing adjustment within this radius of our goal centre
+  dangerFar: 560, // adjustment fades to zero by this radius; leave build-up space elsewhere
   pressGap: 95, // the presser jockeys this far goal-side of a carrier on the move ...
   pressGapDeep: 170, // ... and this far off one deep in its own half (room to play out) ...
   pressDeepFrom: 1200, // ... from this far from the presser's goal line ...
@@ -618,6 +620,8 @@ export const LEVELS = {
     aimSpread: 140,
     markGapScale: 2,
     posError: 100,
+    dangerPressScale: 1, // near-goal stand-off multiplier; 1 keeps existing behaviour
+    dangerSpacingScale: 1, // near-goal teammate gap for markers/cover; retain separation
     recoverSlack: 260,
     keeperReactSec: 0.6,
     keeperDiveError: 45,
@@ -633,6 +637,8 @@ export const LEVELS = {
     aimSpread: 110, // shots aimed up to this much in from the AI.shootInside spot toward the centre (keeper-side misses)
     markGapScale: 1.5, // x AI.markGap: looser marking
     posError: 70, // px each player's spot is off by at most (renewed every AI.posErrorSec): natural gaps
+    dangerPressScale: 1, // near-goal stand-off multiplier; 1 keeps existing behaviour
+    dangerSpacingScale: 1, // near-goal teammate gap for markers/cover; retain separation
     recoverSlack: 150, // px a defender may be upfield of the ball before he sprints back goal-side (AI recovery runs)
     keeperReactSec: 0.5, // keeper reaction to a shot / a carrier through on goal (+- KEEPER.reactJitter)
     keeperDiveError: 30, // px a keeper's dive may fall short or overshoot by
@@ -648,6 +654,8 @@ export const LEVELS = {
     aimSpread: 70,
     markGapScale: 1,
     posError: 30,
+    dangerPressScale: 1, // near-goal stand-off multiplier; 1 keeps existing behaviour
+    dangerSpacingScale: 1, // near-goal teammate gap for markers/cover; retain separation
     recoverSlack: 60,
     keeperReactSec: 0.4,
     keeperDiveError: 12,
@@ -663,6 +671,8 @@ export const LEVELS = {
     aimSpread: 40,
     markGapScale: 0.85,
     posError: 12,
+    dangerPressScale: 0.8, // near-goal stand-off multiplier; 1 keeps existing behaviour
+    dangerSpacingScale: 0.67, // near-goal teammate gap for markers/cover; retain separation
     recoverSlack: 20,
     keeperReactSec: 0.32,
     keeperDiveError: 5,
@@ -678,6 +688,8 @@ export const LEVELS = {
     aimSpread: 20,
     markGapScale: 0.75,
     posError: 6,
+    dangerPressScale: 0.65, // near-goal stand-off multiplier; 1 keeps existing behaviour
+    dangerSpacingScale: 0.53, // near-goal teammate gap for markers/cover; retain separation
     recoverSlack: 0,
     keeperReactSec: 0.26,
     keeperDiveError: 2,
