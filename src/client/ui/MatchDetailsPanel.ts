@@ -1,4 +1,4 @@
-import { chaosLabel } from '../../shared/chaos';
+import { chaosLabel, chaosRules } from '../../shared/chaos';
 import Phaser from 'phaser';
 import type { MatchConfig } from '../../shared/types';
 import { DIFFICULTY_LABEL } from '../../shared/types';
@@ -54,14 +54,17 @@ export function buildMatchDetailsLayer(
     ['OPPONENT', `${config.away.name} (${config.away.jersey.toUpperCase()})`],
     ['TIME LIMIT', formatClock(config.durationSec)],
     [
-      'DIFFICULTY',
+      config.dailyMode === 'chaos' ? 'OPPONENT AI' : 'DIFFICULTY',
       config.dailyMode === 'survival'
         ? 'RAMPAGE'
         : DIFFICULTY_LABEL[config.difficulty],
     ],
     ['YOUR FORMATION', config.home.formation],
     ['OPP FORMATION', config.away.formation],
-    ['START SCORE', `${score.home} - ${score.away}`],
+    [
+      config.dailyMode === 'chaos' ? 'START SCORE (YOU - CPU)' : 'START SCORE',
+      `${score.home} - ${score.away}`,
+    ],
     [
       config.dailyMode === 'chaos' ? 'CHAOS EFFECT' : 'MATCH RULE',
       config.dailyMode === 'chaos'
@@ -92,19 +95,51 @@ export function buildMatchDetailsLayer(
       );
     root.add(pixelText(scene, x + 16, y + 34, value, 0.65 * PX, PAL.white));
   }
-  const objective =
-    dailyObjective(config) ||
-    'Win the match. Golden goal if level at full time.';
+  const chaos = config.dailyMode === 'chaos';
+  const objective = chaos
+    ? 'FINISH AHEAD AT FULL TIME. DRAWS FAIL. NO EXTRA TIME.'
+    : dailyObjective(config) ||
+      'Win the match. Golden goal if level at full time.';
   root.add(
     pixelText(
       scene,
       640,
-      config.dailyMode === 'survival' ? 497 : 510,
+      config.dailyMode === 'survival' || chaos ? 497 : 510,
       objective,
       0.5 * PX,
       PAL.yellow
     ).setOrigin(0.5)
   );
+  if (chaos) {
+    const { effect, strength } = chaosRules(config);
+    const delta = Math.abs(strength - 100);
+    const comparison =
+      strength === 100
+        ? 'NORMAL'
+        : `${delta}% ${strength > 100 ? 'HIGHER' : 'LOWER'}`;
+    const setting =
+      effect === 'power'
+        ? 'SHOT POWER'
+        : effect === 'slippery'
+          ? 'MOVEMENT SPEED + TACKLE REACH'
+          : 'GOAL WIDTH/HEIGHT + END WALL HEIGHT';
+    const description = effect
+      ? `${setting}: ${strength}% OF NORMAL (${comparison}).`
+      : 'STANDARD SETTINGS - NO CHAOS EFFECT SELECTED.';
+    root.add(
+      pixelText(scene, 640, 526, description, 0.5 * PX, PAL.pink).setOrigin(0.5)
+    );
+    root.add(
+      pixelText(
+        scene,
+        640,
+        554,
+        'ONE FIXED EFFECT. BOTH TEAMS. WHOLE MATCH. 100% = NORMAL.',
+        0.5 * PX,
+        PAL.lightGray
+      ).setOrigin(0.5)
+    );
+  }
   if (config.dailyMode === 'survival') {
     root.add(
       pixelText(

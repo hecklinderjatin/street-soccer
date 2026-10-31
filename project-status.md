@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Chaos match briefing (2026-10-31):** the info screen now explains the selected effect with its exact percentage of normal and relative increase/decrease, including goal width/height and end-wall height for Goal Resize. It states that one fixed effect applies to both teams for the whole match, 100% is normal, and the player must finish ahead with draws failing and no extra time. Start-score ordering and opponent AI labels are explicit. TypeScript and lint checks pass; build/browser checks remain skipped per user instruction.
+
 **Rampage difficulty badges (2026-10-31):** renamed RISING AI to RAMPAGE in feed previews, results and briefing. Live Rampage HUD separates goal progress, actual current AI tier and remaining lives, with a tier-coloured badge and compact dark backing. All three hide during goal celebrations. Gameplay progression and stored survival IDs remain unchanged. TypeScript and lint checks pass. Build/browser checks intentionally skipped at the user’s request.
 
 **Chaos Daily (2026-10-31):** merged `codex/chaos-daily` through `ca9cb2d` into `main` by fast-forward at the user’s request, including the Journeys integration enabled by default. Creators choose one fixed Power Surge/Slippery Street/Goal Resize effect and whole-number strength (100 normal). Power/goals accept 50–150%; Slippery accepts 100–150%. Chaos defaults to 0–0, with configurable conceded goals, duration, skill, kits and formations. Per-match rules scale both teams’ shots/kicks or speed/tackle lunge/reach; goal resizing updates rendered posts/nets/end walls, scoring/crossbars, player bounds, keeper coverage/boxes, chalk lines and minimap. Side walls/pitch size remain fixed. Graphics reuse the ball trail plus one weather buffer: boosted-shot pixel flames, faint low-power trails, capped sparse rain/foot splashes, goal-frame kickoff highlight; mobile rain density is halved and reduced motion removes extra rain/flames. Preview, briefing, HUD, results and score sharing show effect/percent. Regulation-only Daily ranking is retained; Chaos speed bounds extend to 300 km/h only on Chaos posts and device bests use a separate bucket. Full local checks (46 logic cases, posting handler mocks, privacy/count/speed/Journeys regressions, types/lint/build), six actual-shot/goal Chaos browser scenarios, all existing Daily scenarios and the complete Casual/legacy browser suite pass. Screenshots/geometry probes verify walls/openings and mobile no-scroll results at 320x480, 390x600 and 844x390; replay/Casual isolation and reduced motion pass. npm audit is zero. Live Reddit/Redis and on-device balance review remain outstanding.
@@ -483,6 +485,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Explain Chaos settings in the existing match briefing: show actual saved strength relative to normal, shared full-match scope, and regulation win conditions without introducing another page.
+
 - Use RAMPAGE for the mode badge; retain the actual dynamic difficulty in the live HUD, highlighted from green through red. Read the tier directly from match state rather than parsing display text.
 
 - Merge the tested Chaos and Journeys changes into main at the user’s request. Code matches the validated branch; Reddit approval/allowlisting still gates analytics ingestion.
@@ -769,6 +773,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Review Chaos briefing readability on mobile after the next user-run build, including all three effects at 100% and percentage bounds.
+
 - Review the Rampage badge on Reddit/mobile after the next user-run build. No build or browser validation is run for this cosmetic change, as requested.
 
 - Playtest newly created Chaos posts on Reddit and a physical mobile device from `main`. Local/mocked checks pass; review percentage balance and lightweight visual feel. Main also includes Journeys, enabled by default; live ingestion awaits Reddit allowlisting.
@@ -1034,6 +1040,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-10-31:** clarify Chaos match details with effect-specific mechanics, percentage meaning, both-team/full-match scope, explicit start-score ordering and regulation-only clear conditions. No gameplay changes; build/browser checks skipped per user instruction.
 
 - **2026-10-31:** rename RISING AI badges to RAMPAGE and add a colour-coded live difficulty badge with a dark goals/lives strip. Preserve AI progression, mode compatibility and goal celebration visibility. Update existing browser label expectation; skip build/browser checks as requested.
 
