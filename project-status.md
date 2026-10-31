@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Main merge (2026-10-31):** fast-forwarded `codex/rampage-difficulty-badge` through `91426db` into `main` at the user’s request. Includes Rampage badge/readability changes, clearer Chaos match settings, and stronger Hard/Pro near-goal defending. TypeScript, lint and all 48 logic checks passed on the application changes. No application build or browser checks run, as requested.
+
 **Hard/Pro near-goal defence (2026-10-31):** reduce pressing stand-off near the defended goal (Hard 80%, Pro 65%) and relax teammate separation for marking/backup/rest-cover roles (Hard 67%, Pro 53% of the normal gap). Both adjustments fade between 330 and 560 px from goal centre and retain delayed carrier observations. Lower levels, general shape spacing, movement physics and goalkeeper settings stay unchanged. TypeScript, lint and all 48 logic checks pass, including the new near-goal cases. No application build run.
 
 **Chaos match briefing (2026-10-31):** the info screen now explains the selected effect with its exact percentage of normal and relative increase/decrease, including goal width/height and end-wall height for Goal Resize. It states that one fixed effect applies to both teams for the whole match, 100% is normal, and the player must finish ahead with draws failing and no extra time. Start-score ordering and opponent AI labels are explicit. TypeScript and lint checks pass; build/browser checks remain skipped per user instruction.
@@ -487,6 +489,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Merge the Rampage, Chaos briefing and Hard/Pro defence changes together into main as requested; preserve the instruction to skip application builds.
+
 - Strengthen only Hard/Pro defensive decisions near goal. Keep a nonzero gap for urgent cover instead of disabling spacing, and preserve normal spacing with our possession or outside danger.
 
 - Explain Chaos settings in the existing match briefing: show actual saved strength relative to normal, shared full-match scope, and regulation win conditions without introducing another page.
@@ -777,6 +781,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Pull main in Codespaces and playtest the updated UI and Hard/Pro defence on Reddit/mobile after a user-run build.
+
 - Playtest Hard/Pro close-down and near-goal cover after the next user-run build; check that tighter defence feels fair and does not crowd the box excessively.
 
 - Review Chaos briefing readability on mobile after the next user-run build, including all three effects at 100% and percentage bounds.
@@ -1046,6 +1052,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-10-31:** fast-forward main through `91426db`, including Rampage badge styling, Chaos briefing explanations and Hard/Pro near-goal defence. Existing type/lint/48-case logic validation passes; no application build or deployment performed.
 
 - **2026-10-31:** improve Hard/Pro near-goal pressure and allow tighter marker/backup/rest-cover spacing during opposing possession. Add behavioural checks for both goal directions, difficulty isolation, distance fade and possession isolation. No application build run.
 
