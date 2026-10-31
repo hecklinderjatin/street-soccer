@@ -8,9 +8,9 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
-**Dependency security fixes (2026-10-31):** fixed all 48 npm audit findings on `codex/shield-mode-name`, alongside the pending Shield rename. Pin patched minimatch 11.0.3 and tmp 0.2.7 through overrides; keep stable Devvit 0.15.1. Because glob 7 expects old RegExp matcher internals, a checked/idempotent postinstall adapts its field lookup to `pattern` and matching to `test()` without changing the nonrecursive security fix or callback/EventEmitter API. Resolve through production dependencies so both full and --omit=dev installs work. Clean full/production npm ci, both audits (zero findings), full local checks/build, Devvit version/upload/playtest/publish help and all Daily browser scenarios pass. New dependency checks exercise sync/async/event glob, braces/extglobs/dotfiles/ignore/nocase, filelist, editor temp cleanup and traversal rejection; included in test:local. Reddit/Redis integration uses mocks; no live upload/publish was performed.
+**Dependency security fixes (2026-10-31):** fixed all 48 npm audit findings; merged `codex/shield-mode-name` through `a97f467` into `main` by fast-forward at the user’s request, including the Shield rename. Pin patched minimatch 11.0.3 and tmp 0.2.7 through overrides; keep stable Devvit 0.15.1. Because glob 7 expects old RegExp matcher internals, a checked/idempotent postinstall adapts its field lookup to `pattern` and matching to `test()` without changing the nonrecursive security fix or callback/EventEmitter API. Resolve through production dependencies so both full and --omit=dev installs work. Clean full/production npm ci, both audits (zero findings), full local checks/build, Devvit version/upload/playtest/publish help and all Daily browser scenarios pass. New dependency checks exercise sync/async/event glob, braces/extglobs/dotfiles/ignore/nocase, filelist, editor temp cleanup and traversal rejection; included in test:local. Reddit/Redis integration uses mocks; no live upload/publish was performed.
 
-**Shield naming (2026-10-31):** renamed the visible Hold the Lead mode to Shield on `codex/shield-mode-name`, including creator choices, match briefing, preview, HUD, results, share text and validation messages. Stored `hold-lead` IDs, rules and leaderboard data stay compatible. Types, lint, Daily rule/form/leaderboard checks and build pass; Reddit/Redis tests use mocks.
+**Shield naming (2026-10-31):** renamed the visible Hold the Lead mode to Shield, now merged into `main`, including creator choices, match briefing, preview, HUD, results, share text and validation messages. Stored `hold-lead` IDs, rules and leaderboard data stay compatible. Types, lint, Daily rule/form/leaderboard checks and build pass; Reddit/Redis tests use mocks.
 
 **Rampage and goal burst (2026-10-31):** merged into `main` through `2e53db0` by fast-forward at the user’s request. Survival is now named Rampage in creator forms, previews, results, shares and validation messages; existing stored `survival` IDs/limits remain compatible. Purple/pink RISING AI badges replace the static Noob/range label. The info briefing explains your-goal opponent/keeper upgrades, the actual tiers for the goal target, concession limit, timeout failure and fastest-clear ranking. Goal text now pops, shakes, tilts and expands with black outlines, cyan/pink offsets and diagonal repeated text trails; it sweeps/fades before the existing kickoff, without a background box. Speed/record feedback stays steady and the burst remains in the upper pitch area. Full local checks, Daily mode browser suite and existing Casual/legacy/achievement browser suite pass. Focused Chromium checks and desktop/portrait/landscape screenshots cover animation phases, bounded placement, fade, consecutive-goal reset, reduced motion and real kickoff cleanup. Reddit/Redis checks use mocks; live playtesting remains outstanding.
 
@@ -475,6 +475,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Merge the tested Shield/security branch into main at the user’s request. Application code matches the branch validated with zero-finding audits, clean installs, local checks and Daily browser tests.
+
 - Resolve all audit findings with patched minimatch/tmp overrides and a guarded postinstall compatibility fix for legacy glob 7. Preserve nonrecursive Matcher.test() rather than converting to regex. Retain stable Devvit; avoid audit-suggested toolchain downgrades. Remove/review the shim when upstream glob/Devvit changes.
 
 - Shield is a display rename only; retain the saved `hold-lead` ID and existing protect-the-lead rules.
@@ -749,9 +751,9 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
-- Playtest the Shield/security branch in real Reddit before merging. Clean full/production installs, zero-finding audits, local suite, Daily browser scenarios and Devvit CLI help pass; keep install scripts enabled so the compatibility fix applies.
+- Playtest Shield and the security fixes from `main` in real Reddit. Clean full/production installs, zero-finding audits, local suite, Daily browser scenarios and Devvit CLI help pass; keep install scripts enabled so the compatibility fix applies.
 
-- Playtest Shield naming in old/new Daily posts on Reddit before merging `codex/shield-mode-name`; types, lint, Daily checks and build pass.
+- Playtest Shield naming in old/new Daily posts on Reddit from `main`; types, lint, Daily checks and build pass.
 
 - Playtest Rampage labels/briefing and the reference-inspired goal burst in a real Reddit mobile webview from `main`. Local and mocked browser checks pass; verify visual feel and scorer visibility on-device.
 
@@ -1006,6 +1008,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-10-31:** fast-forward `main` through `a97f467`, bringing in Shield naming and all 48 npm audit fixes at the user’s request. Preserve the tested application code and installation compatibility fix.
 
 - **2026-10-31:** eliminate all 48 npm audit findings with patched minimatch/tmp overrides, a guarded glob 7 compatibility postinstall and regression checks. Validate clean full/production installs, both zero-finding audits, full local suite, Daily browser scenarios and Devvit CLI commands in help mode. No live upload/publish.
 
