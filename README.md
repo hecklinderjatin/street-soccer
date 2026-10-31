@@ -78,10 +78,10 @@ Players can report a problem from the game's (i) help screen, which tells them t
 
 Run these in WSL from this folder:
 
-- `npm install`: install dependencies
+- `npm ci`: install the locked dependencies and apply the glob compatibility fix
 - `npm start`: build and play locally at http://localhost:4173 (as a guest, outside Reddit)
 - `npm run dev`: build and playtest in the dev subreddit (`r/street_soccer_dev`)
-- `npm run test:local`: type check, lint, unit and logic checks, build
+- `npm run test:local`: type check, lint, dependency compatibility, unit and logic checks, build
 - `npm run test:casual-browser`: browser interaction checks against a running local build (install Playwright Chromium first, or set `CHROMIUM_PATH` to a system Chromium)
 - `npm run test:games`: completed-game counter regression checks for concurrent retries, failed commits, lost replies, expiry and deletion
 - `npm run test:privacy`: regression checks for deletion isolation, account lookup failures and mandatory score-thread pinning
@@ -89,6 +89,12 @@ Run these in WSL from this folder:
 - `npm run audio:release`: rebuild the compressed audio after changing a sound (needs `pip install lameenc miniaudio`)
 - `npm run deploy`: type check, lint and upload a new version
 - `npm run launch`: deploy and submit for Reddit review
+
+## Dependency security
+
+The lockfile pins patched `minimatch@11.0.3` and `tmp@0.2.7` through npm overrides. These remove the 48 npm audit findings present on 2026-10-31 without changing the stable Devvit release. Both full and production-only installs report zero known vulnerabilities at that date.
+
+Devvit’s transitive `glob@7.2.3` expects the old minimatch matcher shape. The root `postinstall` script applies a checked, idempotent compatibility fix: use the new matcher’s public `pattern` and `test()` APIs. It retains glob’s callback/EventEmitter API and minimatch’s nonrecursive matching. Keep install scripts enabled; if an install intentionally used `--ignore-scripts`, run `npm run postinstall` afterward. Review/remove the fix when upstream glob/Devvit updates. `npm run test:dependencies` verifies actual legacy glob/filelist consumers, async/event matching, temporary-file cleanup and path traversal rejection; it also runs in `test:local`.
 
 ## Layout
 
