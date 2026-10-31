@@ -19,12 +19,21 @@ const TIER_COLOR: Record<Difficulty, number> = {
   pro: PAL.red,
 };
 
+// Muted fills for the persistent HUD; celebrations keep their brighter accents.
+const TIER_FILL: Record<Difficulty, number> = {
+  noob: 0x456750,
+  easy: 0x416569,
+  normal: 0x716744,
+  hard: 0x79583e,
+  pro: 0x75424e,
+};
+
 // Fixed text pools, driven by match phase age: pausing and restarting cannot
 // leave a tween or timer running, and there is no background behind the counters.
 export class RampageFeedback {
   private readonly badge: Phaser.GameObjects.Container;
   private readonly fill: Phaser.GameObjects.Rectangle;
-  private readonly tier: Phaser.GameObjects.BitmapText[];
+  private readonly tier: Phaser.GameObjects.BitmapText;
   private readonly levelUp: Phaser.GameObjects.Container;
   private readonly transition: Phaser.GameObjects.BitmapText[];
   private readonly motion = window.matchMedia(
@@ -59,9 +68,12 @@ export class RampageFeedback {
       return layers;
     };
     this.badge = scene.add.container(VIEW.width / 2, 112).setVisible(false);
-    this.fill = scene.add.rectangle(0, 0, 152, 36, PAL.green);
+    this.fill = scene.add.rectangle(0, 0, 140, 30, TIER_FILL.noob, 0.65);
     this.badge.add(this.fill);
-    this.tier = outlined(this.badge, 0, 0.75 * PX, '');
+    this.tier = pixelText(scene, 0, 0, '', 0.65 * PX, PAL.white)
+      .setOrigin(0.5)
+      .setAlpha(0.9);
+    this.badge.add(this.tier);
 
     this.levelUp = scene.add
       .container(VIEW.width / 2, 310)
@@ -74,9 +86,8 @@ export class RampageFeedback {
   update(state: RampageHudState | null, goal: GoalCelebrationState) {
     this.badge.setVisible(state !== null && !goal.active);
     if (state) {
-      this.fill.setFillStyle(TIER_COLOR[state.difficulty]);
-      for (const layer of this.tier)
-        layer.setText(DIFFICULTY_LABEL[state.difficulty]);
+      this.fill.setFillStyle(TIER_FILL[state.difficulty], 0.65);
+      this.tier.setText(DIFFICULTY_LABEL[state.difficulty]);
     }
 
     const revealAt = 1.4;
