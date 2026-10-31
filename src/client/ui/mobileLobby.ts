@@ -75,7 +75,7 @@ export function createMobileLobby(
   get('.mobile-time').textContent = formatClock(config.durationSec);
   get('.mobile-difficulty').textContent =
     config.dailyMode === 'survival'
-      ? 'RISING AI'
+      ? 'RAMPAGE'
       : DIFFICULTY_LABEL[config.difficulty];
   get('.mobile-difficulty').dataset.level =
     config.dailyMode === 'survival' ? 'rising' : config.difficulty;

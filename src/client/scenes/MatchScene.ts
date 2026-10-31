@@ -497,6 +497,7 @@ export class MatchScene extends Phaser.Scene {
         personalBest: false,
       },
       mission: '',
+      rampage: null,
       goalDetail: '',
       goalRecord: '',
       buttons: { b1: 'TACKLE', b2: 'SWITCH', charge: -1, sweetSpot: true },
@@ -2021,11 +2022,21 @@ export class MatchScene extends Phaser.Scene {
     s.clock = this.flow.clock;
     s.goldenGoal = this.flow.goldenGoal;
     s.banner = this.flow.banner;
+    s.rampage =
+      this.config.dailyMode === 'survival'
+        ? {
+            difficulty: this.botDifficulty,
+            lives: Math.max(
+              0,
+              survivalLimits(this.config).conceded - this.flow.score.away
+            ),
+          }
+        : null;
     s.mission =
       this.config.dailyMode === 'chaos'
         ? chaosLabel(this.config)
         : this.config.dailyMode === 'survival'
-          ? `${Math.min(survivalLimits(this.config).goals, this.flow.score.home)}/${survivalLimits(this.config).goals} GOALS  ${this.botDifficulty.toUpperCase()}  ${Math.max(0, survivalLimits(this.config).conceded - this.flow.score.away)} LIVES`
+          ? `${Math.min(survivalLimits(this.config).goals, this.flow.score.home)}/${survivalLimits(this.config).goals} GOALS`
           : this.config.dailyMode === 'hold-lead'
             ? 'SHIELD - FINISH AHEAD'
             : this.config.dailyMode === 'comeback'

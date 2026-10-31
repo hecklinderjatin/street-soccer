@@ -260,7 +260,7 @@ try {
     if (mode === 'survival') {
       assert.equal(
         await page.locator('.mobile-difficulty').textContent(),
-        'RISING AI'
+        'RAMPAGE'
       );
       assert.equal(
         await page.locator('.mobile-difficulty').getAttribute('data-level'),

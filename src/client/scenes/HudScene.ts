@@ -7,7 +7,13 @@ import {
 } from '../ui/GoalCelebration';
 import Phaser from 'phaser';
 import { VIEW } from '../../shared/tuning';
-import type { Team, TeamSetup, MatchConfig } from '../../shared/types';
+import type {
+  Team,
+  TeamSetup,
+  MatchConfig,
+  Difficulty,
+} from '../../shared/types';
+import { DIFFICULTY_LABEL } from '../../shared/types';
 import type { Controls } from '../systems/Controls';
 import { ActionButtons, type ButtonContext } from '../ui/ActionButtons';
 import { buildHelpLayer } from '../ui/HelpPanel';
@@ -18,6 +24,14 @@ import { pixelText } from '../ui/pixelFont';
 import { TextButton } from '../ui/TextButton';
 import { setSoundMuted, soundMuted } from '../ui/soundSetting';
 
+const DIFFICULTY_COLOR: Record<Difficulty, number> = {
+  noob: PAL.green,
+  easy: PAL.kitTeal,
+  normal: PAL.yellow,
+  hard: PAL.orange,
+  pro: PAL.red,
+};
+
 // Match state the HUD shows, written by the Match scene every frame.
 export type MatchHudState = {
   home: number;
@@ -26,6 +40,7 @@ export type MatchHudState = {
   goldenGoal: boolean;
   goalCelebration: GoalCelebrationState;
   mission: string;
+  rampage: { difficulty: Difficulty; lives: number } | null;
   goalDetail: string;
   goalRecord: string;
   banner: string; // big centre message, '' for none
@@ -54,6 +69,10 @@ export class HudScene extends Phaser.Scene {
   private clockText!: Phaser.GameObjects.BitmapText;
   private goldenText!: Phaser.GameObjects.BitmapText;
   private bannerText!: Phaser.GameObjects.BitmapText;
+  private rampageBacking!: Phaser.GameObjects.Rectangle;
+  private difficultyBacking!: Phaser.GameObjects.Rectangle;
+  private difficultyText!: Phaser.GameObjects.BitmapText;
+  private livesText!: Phaser.GameObjects.BitmapText;
   private missionText!: Phaser.GameObjects.BitmapText;
   private goalCelebration!: GoalCelebration;
   private bannerShadow!: Phaser.GameObjects.BitmapText;
@@ -91,6 +110,34 @@ export class HudScene extends Phaser.Scene {
 
     this.buildScoreboard();
     this.minimap = new Minimap(this, chaosRules(this.hud.config).pitch);
+    // Keep the active tier readable over the brick wall, without covering the pitch.
+    this.rampageBacking = this.add
+      .rectangle(VIEW.width / 2, 112, 560, 40, PAL.black, 0.8)
+      .setVisible(false);
+    this.difficultyBacking = this.add
+      .rectangle(VIEW.width / 2, 112, 152, 32, PAL.green)
+      .setStrokeStyle(2, PAL.white)
+      .setVisible(false);
+    this.difficultyText = pixelText(
+      this,
+      VIEW.width / 2,
+      112,
+      '',
+      0.6 * PX,
+      PAL.black
+    )
+      .setOrigin(0.5)
+      .setVisible(false);
+    this.livesText = pixelText(
+      this,
+      VIEW.width / 2 + 96,
+      112,
+      '',
+      0.6 * PX,
+      PAL.yellow
+    )
+      .setOrigin(0, 0.5)
+      .setVisible(false);
     this.missionText = pixelText(
       this,
       VIEW.width / 2,
@@ -263,7 +310,24 @@ export class HudScene extends Phaser.Scene {
       .setScale(urgent ? 1 + 0.08 * Math.sin(time / 80) : 1);
     this.goldenText.setVisible(s.goldenGoal && !s.goalCelebration.active);
 
-    this.missionText.setText(s.mission).setVisible(!s.goalCelebration.active);
+    const showMission = !s.goalCelebration.active;
+    const showRampage = showMission && s.rampage !== null;
+    this.missionText
+      .setText(s.mission)
+      .setPosition(VIEW.width / 2 - (s.rampage ? 96 : 0), 112)
+      .setOrigin(s.rampage ? 1 : 0.5, 0.5)
+      .setVisible(showMission);
+    this.rampageBacking.setVisible(showRampage);
+    this.difficultyBacking.setVisible(showRampage);
+    this.difficultyText.setVisible(showRampage);
+    this.livesText.setVisible(showRampage);
+    if (s.rampage) {
+      this.difficultyBacking.setFillStyle(
+        DIFFICULTY_COLOR[s.rampage.difficulty]
+      );
+      this.difficultyText.setText(DIFFICULTY_LABEL[s.rampage.difficulty]);
+      this.livesText.setText(`${s.rampage.lives} LIVES`);
+    }
     this.goalCelebration.update(s.goalCelebration, this.hud.teams);
     const banner = s.banner === 'GOAL!' ? '' : s.banner.toUpperCase();
     this.bannerText.setText(banner).setScale(1);

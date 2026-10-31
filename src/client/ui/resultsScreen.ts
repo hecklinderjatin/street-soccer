@@ -133,7 +133,7 @@ export function resultsScreen(result: MatchResult, type: PostType) {
   pixelLabel(
     difficulty,
     dailyMode === 'survival'
-      ? 'RISING AI'
+      ? 'RAMPAGE'
       : `${DIFFICULTY_LABEL[result.config.difficulty]} AI`
   );
   const duration = document.createElement('span');

@@ -56,7 +56,7 @@ export function buildMatchDetailsLayer(
     [
       'DIFFICULTY',
       config.dailyMode === 'survival'
-        ? 'RISING AI - YOUR GOALS'
+        ? 'RAMPAGE'
         : DIFFICULTY_LABEL[config.difficulty],
     ],
     ['YOUR FORMATION', config.home.formation],
