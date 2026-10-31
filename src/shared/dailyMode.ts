@@ -1,5 +1,5 @@
 import { chaosLabel } from './chaos';
-import type { DailyMode, MatchConfig } from './types';
+import type { DailyMode, MatchConfig, Difficulty } from './types';
 import { DIFFICULTIES } from './types';
 import { DAILY, TACTICS } from './tuning';
 import type { MatchStats, DailyLeadersResponse } from './api';
@@ -39,6 +39,18 @@ export const survivalLimits = (
   goals: config.survivalGoals ?? DAILY.survivalGoals,
   conceded: config.survivalConceded ?? DAILY.survivalConceded,
 });
+// A final clearing goal or the Pro cap must not announce a nonexistent upgrade.
+export function survivalUpgrade(
+  config: MatchConfig,
+  goals: number,
+  from: Difficulty
+) {
+  const next = survivalDifficulty(goals);
+  return goals < survivalLimits(config).goals &&
+    DIFFICULTIES.indexOf(next) > DIFFICULTIES.indexOf(from)
+    ? next
+    : null;
+}
 export const survivalReceiptMinimum = (config: MatchConfig) =>
   Math.min(
     DAILY.earlyFinishMinSec,

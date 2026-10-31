@@ -23,10 +23,20 @@ export const DIFFICULTY_LABEL: Readonly<Record<Difficulty, string>> = {
 // Home is the human's team (attacks right, toward x = width); away is the CPU.
 export type Team = 'home' | 'away';
 
-// Outfield shirt colours a team can wear (keepers always wear green / gold,
-// so neither is offered). Each one is a baked kit atlas.
+// Outfield shirt colours a team can wear. Each one is a baked kit atlas;
+// keepers retain their dedicated green / gold kits.
 export type JerseyColor =
-  'pink' | 'blue' | 'red' | 'white' | 'black' | 'purple' | 'orange' | 'teal';
+  | 'pink'
+  | 'blue'
+  | 'red'
+  | 'white'
+  | 'black'
+  | 'purple'
+  | 'orange'
+  | 'teal'
+  | 'yellow'
+  | 'cyan'
+  | 'maroon';
 export const JERSEY_COLORS: readonly JerseyColor[] = [
   'pink',
   'blue',
@@ -36,6 +46,9 @@ export const JERSEY_COLORS: readonly JerseyColor[] = [
   'purple',
   'orange',
   'teal',
+  'yellow',
+  'cyan',
+  'maroon',
 ];
 
 // Outfield shapes (back-mid-forward) for the 4 outfielders; spots in

@@ -16,6 +16,7 @@ import {
   resultRankScore,
   rankSurvivalFinishers,
   survivalRange,
+  survivalUpgrade,
   startScore,
   withoutDailyMode,
 } from '../src/shared/dailyMode';
@@ -146,6 +147,22 @@ assert.equal(
   dailyPlans({ ...lead, mode: 'casual' }, { home: 1, away: 0 }, 1).away,
   TACTICS.balanced
 );
+
+for (let goals = 1; goals < DIFFICULTIES.length; goals++) {
+  const from = DIFFICULTIES[goals - 1];
+  assert.ok(from);
+  assert.equal(survivalUpgrade(survival, goals, from), DIFFICULTIES[goals]);
+}
+assert.equal(
+  survivalUpgrade({ ...survival, survivalGoals: 1 }, 1, 'noob'),
+  null
+);
+assert.equal(
+  survivalUpgrade({ ...survival, survivalGoals: 7 }, 5, 'pro'),
+  null
+);
+assert.equal(survivalUpgrade(survival, 2, 'normal'), null);
+assert.equal(survivalUpgrade(survival, 1, 'hard'), null);
 
 for (const config of configs) {
   const flow = new MatchFlow(

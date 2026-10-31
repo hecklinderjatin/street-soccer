@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Rampage HUD refinement and three kits (2026-10-31):** remove the black goals/lives strip and tier border, retain a compact coloured tier fill with larger white outlined lettering. Add a pooled, phase-age-driven LEVEL UP / old-to-new tier animation late in a player-goal celebration; final clearing goals, unchanged tiers and the Pro cap do not announce upgrades. Respects reduced motion and pauses without timers. Add Yellow, Cyan and Maroon kit palettes, selectable/shared validation options, swatches and shipped WebP atlases; existing assets are preserved. TypeScript, lint, all 49 logic checks and Daily rules/posting checks pass. New texture dimensions/alpha/colour error and Python script syntax are verified. No application build or browser checks run, as requested.
+
 **Main merge (2026-10-31):** fast-forwarded `codex/rampage-difficulty-badge` through `91426db` into `main` at the user’s request. Includes Rampage badge/readability changes, clearer Chaos match settings, and stronger Hard/Pro near-goal defending. TypeScript, lint and all 48 logic checks passed on the application changes. No application build or browser checks run, as requested.
 
 **Hard/Pro near-goal defence (2026-10-31):** reduce pressing stand-off near the defended goal (Hard 80%, Pro 65%) and relax teammate separation for marking/backup/rest-cover roles (Hard 67%, Pro 53% of the normal gap). Both adjustments fade between 330 and 560 px from goal centre and retain delayed carrier observations. Lower levels, general shape spacing, movement physics and goalkeeper settings stay unchanged. TypeScript, lint and all 48 logic checks pass, including the new near-goal cases. No application build run.
@@ -489,6 +491,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Keep goals/lives unboxed and the tier fill borderless; use white outlined glyphs for contrast. Announce only an actual upcoming Rampage tier increase, then apply the existing kickoff progression. Bake new kit art ahead of time so runtime recolouring and additional per-match texture downloads are unnecessary.
+
 - Merge the Rampage, Chaos briefing and Hard/Pro defence changes together into main as requested; preserve the instruction to skip application builds.
 
 - Strengthen only Hard/Pro defensive decisions near goal. Keep a nonzero gap for urgent cover instead of disabling spacing, and preserve normal spacing with our possession or outside danger.
@@ -781,6 +785,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Review the refined Rampage HUD and level-up timing on a physical mobile device after the next user-run build. Check Yellow/Cyan/Maroon kit contrast against both keepers.
+
 - Pull main in Codespaces and playtest the updated UI and Hard/Pro defence on Reddit/mobile after a user-run build.
 
 - Playtest Hard/Pro close-down and near-goal cover after the next user-run build; check that tighter defence feels fair and does not crowd the box excessively.
@@ -1052,6 +1058,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-10-31:** remove the dark Rampage counter strip/tier border, improve tier text contrast and add reduced-motion-aware level-up feedback. Add Yellow, Cyan and Maroon team kits with pre-generated release textures and selector/validation coverage. No application build or browser check run.
 
 - **2026-10-31:** fast-forward main through `91426db`, including Rampage badge styling, Chaos briefing explanations and Hard/Pro near-goal defence. Existing type/lint/48-case logic validation passes; no application build or deployment performed.
 

@@ -4,7 +4,12 @@ import { currentPostType } from '../challenge';
 import { createMatchJourney } from '../matchJourney';
 import { journeyAppReady, sendJourney } from '../journeys';
 import { journeySettings, journeyResult } from '../../shared/journeys';
-import { dailyPlans, startScore, survivalLimits } from '../../shared/dailyMode';
+import {
+  dailyPlans,
+  startScore,
+  survivalLimits,
+  survivalUpgrade,
+} from '../../shared/dailyMode';
 import { qualifyingGoal, goalStyle } from '../../shared/goalSpeed';
 import { recordGoalSpeed } from '../goalRecords';
 import { trackGame } from '../gameCount';
@@ -2026,12 +2031,24 @@ export class MatchScene extends Phaser.Scene {
       this.config.dailyMode === 'survival'
         ? {
             difficulty: this.botDifficulty,
+            nextDifficulty: null,
             lives: Math.max(
               0,
               survivalLimits(this.config).conceded - this.flow.score.away
             ),
           }
         : null;
+    if (
+      s.rampage &&
+      this.flow.phase === 'goal' &&
+      this.flow.lastScorer === 'home'
+    ) {
+      s.rampage.nextDifficulty = survivalUpgrade(
+        this.config,
+        this.flow.score.home,
+        this.botDifficulty
+      );
+    }
     s.mission =
       this.config.dailyMode === 'chaos'
         ? chaosLabel(this.config)

@@ -179,6 +179,19 @@ const KITS: Record<Kit, KitColors> = {
     PAL.ink
   ),
   teal: plainKit(PAL.kitTeal, PAL.kitTealShade, PAL.kitTealLight, PAL.ink),
+  yellow: plainKit(
+    PAL.kitYellow,
+    PAL.kitYellowShade,
+    PAL.kitYellowLight,
+    PAL.ink
+  ),
+  cyan: plainKit(PAL.kitCyan, PAL.kitCyanShade, PAL.kitCyanLight, PAL.ink),
+  maroon: plainKit(
+    PAL.kitMaroon,
+    PAL.kitMaroonShade,
+    PAL.kitMaroonLight,
+    PAL.ink
+  ),
   homeKeeper: {
     shirt: PAL.kitGreen,
     shirtShade: PAL.kitGreenShade,
@@ -207,6 +220,9 @@ export const KIT_NAMES: readonly Kit[] = [
   'purple',
   'orange',
   'teal',
+  'yellow',
+  'cyan',
+  'maroon',
   'homeKeeper',
   'awayKeeper',
 ];

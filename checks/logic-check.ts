@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs';
+import { firstAssets } from '../src/client/art/assetList';
 import { chaosRules, NORMAL_RULES, chaosLabel } from '../src/shared/chaos';
 import { collideBall } from '../src/client/systems/ballPhysics';
 import { stepPlayer, constrainMove } from '../src/client/systems/movement';
@@ -944,6 +946,30 @@ check(
     assert.equal(casualConfig(custom).home.jersey, 'orange');
     assert.equal(casualConfig(custom).away.jersey, 'teal');
     assert.notEqual(custom.home.jersey, custom.away.jersey);
+  }
+);
+check(
+  'Yellow, Cyan and Maroon kits validate, persist and resolve to shipped atlases',
+  () => {
+    for (const jersey of ['yellow', 'cyan', 'maroon'] as const) {
+      const created = readChallenge(
+        formValues({ homeJersey: [jersey] }),
+        parseMatchConfig
+      );
+      assert.ok(typeof created !== 'string');
+      assert.equal(created.config.home.jersey, jersey);
+      const config = setCasualJersey(casualConfig(), 'home', jersey);
+      assert.equal(casualConfig(config).home.jersey, jersey);
+      const swapped = setCasualJersey(config, 'away', jersey);
+      assert.equal(swapped.away.jersey, jersey);
+      assert.notEqual(swapped.home.jersey, swapped.away.jersey);
+      const asset = firstAssets(config)[0];
+      assert.equal(asset?.url, `/art/player-${jersey}.webp`);
+      assert.ok(
+        existsSync(`public-release${asset?.url}`),
+        'shipped texture exists'
+      );
+    }
   }
 );
 check(

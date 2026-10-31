@@ -25,9 +25,9 @@ KIT_COLOURS = 256
 MAX_MEAN_CHANNEL_ERROR = 5.0
 
 baked = sorted(BAKED.glob("player-*.png"))
-# 8 outfield kits + 2 keeper kits + the skin and hair layers.
-if len(baked) != 12:
-    raise SystemExit("Run `npm run art:bake` first (expected 12 atlases in art-baked/)")
+# 11 outfield kits + 2 keeper kits + the skin and hair layers.
+if len(baked) != 15:
+    raise SystemExit("Run `npm run art:bake` first (expected 15 atlases in art-baked/)")
 inputs = sorted(SOURCE.glob("ball-*.png")) + baked
 
 written = set()
