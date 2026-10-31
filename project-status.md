@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Main merge (2026-10-31):** merged `codex/daily-challenge-modes` through `8ce99b7` into `main` by fast-forward at the user’s request. Includes the three Daily templates, minimal goal-speed backing, configurable Survival limits/time leaderboard and two-page briefing. Existing local and browser checks passed on this exact application code; live Reddit testing remains outstanding.
+
 **Survival time board and briefing (2026-10-31):** implemented on `codex/daily-challenge-modes`. Survival creators select goals to win (1–15) and conceding limit (1–10); new posts have a fixed five-minute cap. The main board includes finishers only, fastest live-clock time first, with fewer conceded then username breaking ties. Older stored rows are re-ranked on read, and watched transactions preserve personal bests during concurrent submissions/deletion. Match Details → How to Play → Play Match stays paused on first entry; the info button reopens both pages. All local checks and Daily browser scenarios pass, including custom 7/4 limits, fixed cap, progression, clear/failure/timeout and replay. Focused desktop/portrait/landscape screenshots and midgame info navigation pass. The full existing Casual/legacy/goal-achievement browser suite also passes. All Reddit/Redis integration checks use mocks; live playtesting remains outstanding.
 
 **Daily challenge templates (2026-10-31):** creator-selected Comeback, Hold the Lead and Survival are implemented on `codex/daily-challenge-modes`, based on the pending minimal speed badge. Creation now follows Match type → Daily template → relevant settings, with a registered native form callback. Comeback recovers an AI head start; Hold the Lead defends a player head start; Survival starts 0–0, advances Noob/Easy/Normal/Hard/Pro after home goals at kickoff, and clears at goal five or fails at concession three/time limit. New templates have no golden goal. Score-aware Defensive/Attacking/Balanced/late All-out plans are independent of skill and physics; opponent keeper progression shares the current difficulty. Preview, HUD, results and score-sharing text reflect objectives; server derives outcomes and ranks cleared runs first, with Survival progress/concessions/live elapsed time. Short terminal runs use a compatible minimum receipt/cooldown. Types, lint, 41 existing logic checks, privacy/counter/speed regressions, new Daily rule tests, real Hono form-handler tests with a mock SDK and build pass. New mode browser flows and the entire existing Casual/legacy/achievement suite pass with mocked Reddit host/APIs, including mobile previews/results, kickoff progression, late tactical delay, fifth-goal clear, three-concession failure while ahead, timeout, replay reset and Casual separation. Live Reddit/Redis playtesting and gameplay balance review remain outstanding.
@@ -467,6 +469,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Merge the tested Daily branch into main at the user’s request; continue real Reddit playtesting from main.
+
 - Survival’s main board is finishers only, fastest live-clock time first, then fewer conceded and username. Recompute older stored rows under this order. New posts use a fixed 5:00 cap, configurable target (1–15) and concession limit (1–10); old posts retain saved caps/default 5/3 limits. Difficulty rises per goal until Pro.
 - Initial entry remains paused for Match details → How to Play → Play Match. The info button opens the same two pages; replay keeps the existing quick-start behaviour.
 
@@ -731,9 +735,9 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
-- Review screenshots and playtest newly created posts for all three Daily templates on Reddit before merging `codex/daily-challenge-modes`. Verify creator limits/fixed 5:00 cap, fastest-clear persistence, Survival balance, early completion counts and the two-page briefing against real Reddit/Redis. All local and mocked browser checks pass; legacy posts retain old rules.
+- Review screenshots and playtest newly created posts for all three Daily templates on Reddit from `main`. Verify creator limits/fixed 5:00 cap, fastest-clear persistence, Survival balance, early completion counts and the two-page briefing against real Reddit/Redis. All local and mocked browser checks pass; legacy posts retain old rules.
 
-- Review the minimal translucent speed backing and playtest on a real mobile Reddit webview before merging `codex/goal-speed-visibility`. Types, lint, build and focused browser checks pass.
+- Review the minimal translucent speed backing and playtest on a real mobile Reddit webview from `main`. Types, lint, build and focused browser checks pass.
 
 - Review the clear-scorer overlay preview and playtest all celebration poses/positions on a real mobile Reddit webview before merging `codex/clear-goal-overlay`. Local and focused Chromium checks pass.
 
@@ -982,6 +986,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-10-31:** fast-forward `main` through `8ce99b7`, bringing in the tested Daily modes, Survival time ranking/custom limits, two-page match briefing and minimal goal-speed backing at the user’s request.
 
 - **2026-10-31:** add Survival finishers-only time ranking, atomic personal-best writes, configurable goal/concession limits, fixed 5:00 cap for new posts and a paused Match Details → How to Play briefing. Validate custom limits, older board ordering, concurrent writes, deletion guards and two-page navigation with local/mocked SDK/browser checks. Review desktop/portrait/landscape screenshots; live Reddit testing remains outstanding.
 
