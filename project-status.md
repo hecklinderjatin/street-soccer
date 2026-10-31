@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Goal speed visibility (2026-10-31):** enlarged the goal-speed digits by 35% and unit by 25%, adding a compact dark-blue badge with white digits, yellow units and a yellow border. Re-spaced the goal tag to keep every badge separate above the scorer; the headline remains unboxed. Types, lint and build pass. Focused Chromium checks and reviewed screenshots cover maximum 200 km/h, with/without a device best, desktop/portrait/landscape, animation/reset, reduced motion and kickoff cleanup on `codex/goal-speed-visibility`. Live Reddit playtesting remains outstanding.
+
 **Clear scorer celebration (2026-10-31):** removed the dark headline strip/border and wide metric backing, moved smaller animated lettering beneath the scoreboard and grouped compact tag/speed/personal-best feedback in one shallow row above the scorer on `codex/clear-goal-overlay`. Tightened text shadow, impact and stretch; team colour now accents the small scorer label. Hide the redundant golden-goal indicator during celebrations to avoid header overlap. Types, lint, 41 logic checks, privacy/counter/speed regressions and build pass. Focused Chromium checks and screenshots verify the actual near-goal celebrating scorer stays visible at desktop, landscape and portrait sizes (1280×720, 844×390, 390×600, 320×480), plus animation stages, reset, untagged goals, reduced motion and kickoff cleanup. Live Reddit playtesting remains outstanding.
 
 **Arcade goal celebration (2026-10-31):** large goal overlay now hits and shakes briefly, expands GOAL! into GOOOOAL!, stretches the final L!, then reveals a coloured goal tag, large speed readout and personal-best ribbon. Team accents and a translucent strip keep the celebration in the game style. Goal phase time drives the sequence within the existing 2.8-second pause; reduced motion shows steady text/metrics. Types, lint, 41 logic checks, privacy/counter/speed regressions and build pass. Focused browser checks verify animation stages, bounded stretch, desktop/portrait/landscape framing, consecutive-goal reset, untagged goals, fade, reduced motion and kickoff cleanup; actual ranked and Casual keyboard-shot/goal/results flows pass. Screenshots reviewed on `codex/goal-achievements`; live Reddit playtesting remains outstanding.
@@ -461,6 +463,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Give speed its own small high-contrast dark-blue badge with white digits and a yellow outline; enlarge the number and unit without restoring the dark headline box or covering the scorer.
+
 - The scorer’s animation takes visual priority: remove the dark headline plate, reduce headline/stretch/shadow/impact size, and keep secondary goal feedback in the upper HUD rather than stacking it over the player.
 
 - Use a dedicated Phaser HUD celebration with animation derived from goal age. It pauses with the match, resets on every goal, and needs no persistent timers/tweens. Preserve the existing 2.8-second goal sequence; reduced motion shows a steady full headline and metrics.
@@ -717,6 +721,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Review the goal-speed visibility preview and playtest on a real mobile Reddit webview before merging `codex/goal-speed-visibility`. Types, lint, build and focused browser checks pass.
+
 - Review the clear-scorer overlay preview and playtest all celebration poses/positions on a real mobile Reddit webview before merging `codex/clear-goal-overlay`. Local and focused Chromium checks pass.
 
 - Review the animated goal UI screenshots and playtest the effect on a real mobile Reddit webview before merging `codex/goal-achievements`. Local and focused browser checks pass.
@@ -964,6 +970,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-10-31:** enlarge goal-speed digits/units and add a high-contrast speed badge while preserving the clear scorer area. Validation and focused mobile/desktop checks pass on `codex/goal-speed-visibility`.
 
 - **2026-10-31:** clear the goal overlay away from the scorer: remove dark backings, raise/reduce animated lettering, tighten shadow/stretch/impact and put compact goal feedback in one upper row. Local checks and focused mobile/desktop celebration checks pass on `codex/clear-goal-overlay`.
 

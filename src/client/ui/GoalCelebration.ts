@@ -77,20 +77,25 @@ export class GoalCelebration {
     // Keep all secondary feedback in one shallow row above the scorer.
     // Only the coloured badges have fills; the pitch stays visible behind text.
     this.details = scene.add.container(0, 80);
-    this.tagPlate = scene.add.rectangle(-119, 0, 206, 32, PAL.blue);
-    this.tag = pixelText(scene, -119, 0, '', 0.55 * PX, PAL.black).setOrigin(
+    this.tagPlate = scene.add.rectangle(-160, 0, 206, 32, PAL.blue);
+    this.tag = pixelText(scene, -160, 0, '', 0.55 * PX, PAL.black).setOrigin(
       0.5
     );
-    this.speed = pixelText(scene, 45, 2, '', PX, PAL.white).setOrigin(0.5);
+    const speedPlate = scene.add
+      .rectangle(86, 0, 256, 50, PAL.navy)
+      .setStrokeStyle(2, PAL.yellow);
+    this.speed = pixelText(scene, 50, 4, '', 1.35 * PX, PAL.white).setOrigin(
+      0.5
+    );
     const unit = pixelText(
       scene,
-      107,
-      4,
+      126,
+      6,
       'KM/H',
-      0.48 * PX,
-      PAL.white
+      0.6 * PX,
+      PAL.yellow
     ).setOrigin(0, 0.5);
-    this.details.add([this.tagPlate, this.tag, this.speed, unit]);
+    this.details.add([this.tagPlate, this.tag, speedPlate, this.speed, unit]);
     this.root.add(this.details);
 
     this.record = scene.add.container(230, 80);
