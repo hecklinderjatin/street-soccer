@@ -1,9 +1,12 @@
+import { parseDailyMode, DAILY_LABEL } from '../../shared/dailyMode';
 import { Hono } from 'hono';
 import type { UiResponse } from '@devvit/web/shared';
 import { context, reddit } from '@devvit/web/server';
 import { parseMatchConfig } from '../../shared/matchConfig';
 import {
   CHALLENGE_FORM,
+  DAILY_MODE_FORM,
+  dailyModeForm,
   challengeFormFor,
   challengeFormData,
   readChallenge,
@@ -63,6 +66,10 @@ forms.post('/match-type', async (c) => {
     const type = parsePostType(values.matchType?.[0]);
     if (!type)
       return c.json<UiResponse>({ showToast: 'Choose a valid match type' });
+    if (type === 'daily')
+      return c.json<UiResponse>({
+        showForm: { name: DAILY_MODE_FORM, form: dailyModeForm },
+      });
     return c.json<UiResponse>({
       showForm: {
         name: CHALLENGE_FORM,
@@ -77,6 +84,37 @@ forms.post('/match-type', async (c) => {
     console.error('Could not open match form:', error);
     return c.json<UiResponse>(
       { showToast: 'Could not open the match form. Please try again.' },
+      400
+    );
+  }
+});
+
+forms.post('/daily-mode', async (c) => {
+  try {
+    if (!(await isModerator()))
+      return c.json<UiResponse>({
+        showToast: 'Only moderators can create matches',
+      });
+    const values = await c.req.json<ChallengeValues>();
+    const mode = parseDailyMode(values.dailyMode?.[0]);
+    if (!mode)
+      return c.json<UiResponse>({
+        showToast: 'Choose a valid Daily challenge type',
+      });
+    return c.json<UiResponse>({
+      showForm: {
+        name: CHALLENGE_FORM,
+        form: challengeFormFor('daily', mode),
+        data: challengeFormData({
+          matchType: ['daily'],
+          dailyMode: [mode],
+          title: `Street Soccer ${DAILY_LABEL[mode].toLowerCase()}`,
+        }),
+      },
+    });
+  } catch {
+    return c.json<UiResponse>(
+      { showToast: 'Could not open the Daily challenge form' },
       400
     );
   }
@@ -100,7 +138,8 @@ forms.post('/challenge-submit', async (c) => {
           showForm: {
             name: CHALLENGE_FORM,
             form: challengeFormFor(
-              parsePostType(values.matchType?.[0]) ?? 'daily'
+              parsePostType(values.matchType?.[0]) ?? 'daily',
+              parseDailyMode(values.dailyMode?.[0])
             ),
             data: challengeFormData(values),
           },

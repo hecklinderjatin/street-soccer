@@ -1,3 +1,8 @@
+import {
+  DAILY_LABEL,
+  challengeCleared,
+  resultLabel,
+} from '../../shared/dailyMode';
 import type {
   DailyLeadersResponse,
   SpeedLeadersResponse,
@@ -15,12 +20,27 @@ import { JERSEY_SWATCH, PAL } from './palette';
 // webview's visual viewport; auto margins centre the card when it fits.
 export function resultsScreen(result: MatchResult, type: PostType) {
   const casual = result.config.mode === 'casual';
-  const won = result.goalsFor > result.goalsAgainst;
-  const lost = result.goalsFor < result.goalsAgainst;
-  const title = won ? 'YOU WIN!' : lost ? 'YOU LOSE' : 'DRAW';
+  const dailyMode = casual ? undefined : result.config.dailyMode;
+  const won = dailyMode
+    ? challengeCleared(dailyMode, result.goalsFor, result.goalsAgainst)
+    : result.goalsFor > result.goalsAgainst;
+  const lost = dailyMode ? !won : result.goalsFor < result.goalsAgainst;
+  const title = dailyMode
+    ? won
+      ? 'CLEARED!'
+      : 'TRY AGAIN'
+    : won
+      ? 'YOU WIN!'
+      : lost
+        ? 'YOU LOSE'
+        : 'DRAW';
   const screen = casualScreen(
     title,
-    casual ? 'UNRANKED MATCH' : 'RANKED MATCH',
+    dailyMode === 'survival'
+      ? `${result.goalsFor}/5 GOALS - ${result.goalsAgainst}/3 CONCEDED`
+      : casual
+        ? 'UNRANKED MATCH'
+        : 'RANKED MATCH',
     false,
     { compactBelow: 700, minimalBelow: 640 }
   );
@@ -36,7 +56,14 @@ export function resultsScreen(result: MatchResult, type: PostType) {
   header.className = 'results-header';
   const mode = document.createElement('span');
   mode.className = 'results-mode';
-  pixelLabel(mode, casual ? 'CASUAL' : POST_TYPE_LABEL[type]);
+  pixelLabel(
+    mode,
+    dailyMode
+      ? DAILY_LABEL[dailyMode]
+      : casual
+        ? 'CASUAL'
+        : POST_TYPE_LABEL[type]
+  );
   const fulltime = document.createElement('span');
   fulltime.textContent = 'FULL TIME';
   header.append(mode, fulltime);
@@ -91,10 +118,22 @@ export function resultsScreen(result: MatchResult, type: PostType) {
   const difficulty = document.createElement('span');
   difficulty.className = 'preview-difficulty';
   difficulty.dataset.level = result.config.difficulty;
-  pixelLabel(difficulty, `${DIFFICULTY_LABEL[result.config.difficulty]} AI`);
+  pixelLabel(
+    difficulty,
+    dailyMode === 'survival'
+      ? 'NOOB-PRO'
+      : `${DIFFICULTY_LABEL[result.config.difficulty]} AI`
+  );
   const duration = document.createElement('span');
   duration.className = 'results-duration';
-  pixelLabel(duration, formatClock(result.config.durationSec));
+  pixelLabel(
+    duration,
+    formatClock(
+      dailyMode
+        ? (result.elapsedSec ?? result.config.durationSec)
+        : result.config.durationSec
+    )
+  );
   metadata.append(difficulty, duration);
   summary.append(metadata);
 
@@ -234,7 +273,7 @@ export function resultsScreen(result: MatchResult, type: PostType) {
       name.textContent = `u/${leader.username}`;
       name.title = `u/${leader.username}`;
       const score = document.createElement('strong');
-      score.textContent = `${leader.goalsFor}–${leader.goalsAgainst}`;
+      score.textContent = resultLabel(leader);
       row.append(rank, name, score);
       rows.append(row);
     }
@@ -242,7 +281,7 @@ export function resultsScreen(result: MatchResult, type: PostType) {
       value.me &&
       !value.top.some((leader) => leader.username === value.me?.username)
     )
-      best.textContent = `YOUR BEST: #${value.me.rank} · ${value.me.goalsFor}–${value.me.goalsAgainst}`;
+      best.textContent = `YOUR BEST: #${value.me.rank} · ${resultLabel(value.me)}`;
   }
   drawBoard();
   return {

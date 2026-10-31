@@ -1,3 +1,4 @@
+import { dailyPlans, startScore } from '../../shared/dailyMode';
 import { qualifyingGoal, goalStyle } from '../../shared/goalSpeed';
 import { recordGoalSpeed } from '../goalRecords';
 import { trackGame } from '../gameCount';
@@ -5,6 +6,7 @@ import Phaser from 'phaser';
 import {
   AI,
   GOAL_FEEDBACK,
+  DAILY,
   BALL,
   FORMATION,
   FORMATIONS,
@@ -199,6 +201,10 @@ export class MatchScene extends Phaser.Scene {
   private switchHoldArmed = false; // a SWITCH press that, held on, jumps to the keeper
   private gameCount: ReturnType<typeof trackGame> | null = null;
   private resultShown = false;
+  private botDifficulty: MatchConfig['difficulty'] = 'normal';
+  private tacticalKey = '';
+  private pendingTactic = '';
+  private pendingTacticAt = 0;
   private fastestGoalKmh = 0;
   private newSpeedBest = false;
   private goalDetail = '';
@@ -249,6 +255,9 @@ export class MatchScene extends Phaser.Scene {
     this.switchHoldArmed = false;
     this.gameCount = null;
     this.resultShown = false;
+    this.botDifficulty = data.difficulty;
+    this.tacticalKey = this.pendingTactic = '';
+    this.pendingTacticAt = 0;
     this.fastestGoalKmh = 0;
     this.newSpeedBest = false;
     this.goalDetail = '';
@@ -423,7 +432,7 @@ export class MatchScene extends Phaser.Scene {
     );
     this.awayBrain = new TeamBrain(
       'away',
-      LEVELS[this.config.difficulty],
+      LEVELS[this.botDifficulty],
       TACTICS.balanced,
       this.awayShape
     );
@@ -441,10 +450,11 @@ export class MatchScene extends Phaser.Scene {
             .setDepth(SHOT_TEXT_DEPTH)
         )
       : [];
-    this.flow = new MatchFlow(this.config.durationSec, {
-      home: 0,
-      away: this.config.startGoalsAgainst,
-    });
+    this.flow = new MatchFlow(
+      this.config.durationSec,
+      startScore(this.config),
+      this.config.dailyMode
+    );
     this.controls = new Controls();
     if (!this.demo) this.controls.bindKeyboard(this);
     this.resetForKickoff();
@@ -464,6 +474,7 @@ export class MatchScene extends Phaser.Scene {
         kmh: 0,
         personalBest: false,
       },
+      mission: '',
       goalDetail: '',
       goalRecord: '',
       buttons: { b1: 'TACKLE', b2: 'SWITCH', charge: -1, sweetSpot: true },
@@ -546,10 +557,11 @@ export class MatchScene extends Phaser.Scene {
     if (this.flow.update(realDt)) this.resetForKickoff();
     if (this.flow.finished) {
       if (this.demo) {
-        this.flow = new MatchFlow(this.config.durationSec, {
-          home: 0,
-          away: this.config.startGoalsAgainst,
-        });
+        this.flow = new MatchFlow(
+          this.config.durationSec,
+          startScore(this.config),
+          this.config.dailyMode
+        );
         this.resetForKickoff();
       } else this.showResult();
       return;
@@ -643,6 +655,7 @@ export class MatchScene extends Phaser.Scene {
     // every other outfielder by its team's AI (only while live). A pass's
     // receiver keeps a guaranteed first touch while the pass is travelling;
     // once a loose ball has died, that flag is dropped.
+    this.updateDailyTactics(t);
     const frozen = this.flow.playersFrozen;
     if (!ball.owner && ball.z === 0 && ball.speed < PASS.receiverStopBelow)
       this.clearReceivers();
@@ -707,7 +720,7 @@ export class MatchScene extends Phaser.Scene {
     // level's reaction time; ours plays at normal).
     for (const k of [this.homeKeeper, this.awayKeeper]) {
       const home = k.team === 'home';
-      const level = home ? LEVELS.normal : LEVELS[this.config.difficulty];
+      const level = home ? LEVELS.normal : LEVELS[this.botDifficulty];
       if ((this.demo || k !== this.controlled) && !frozen)
         cpuKeeperReact(
           k,
@@ -1645,7 +1658,31 @@ export class MatchScene extends Phaser.Scene {
     return best;
   }
 
+  private updateDailyTactics(time: number, force = false) {
+    if (!this.config.dailyMode || this.config.mode === 'casual') return;
+    if (!force && this.flow.phase !== 'live' && this.flow.phase !== 'kickoff')
+      return;
+    const plan = dailyPlans(this.config, this.flow.score, this.flow.clock);
+    if (plan.key === this.tacticalKey) {
+      this.pendingTactic = '';
+      return;
+    }
+    if (!force && this.flow.phase !== 'kickoff') {
+      if (this.pendingTactic !== plan.key) {
+        this.pendingTactic = plan.key;
+        this.pendingTacticAt = time + DAILY.tacticSwitchSec;
+      }
+      if (time < this.pendingTacticAt) return;
+    }
+    this.homeBrain.configure(LEVELS.normal, plan.home);
+    this.awayBrain.configure(LEVELS[plan.difficulty], plan.away);
+    this.botDifficulty = plan.difficulty;
+    this.tacticalKey = plan.key;
+    this.pendingTactic = '';
+  }
+
   private resetForKickoff() {
+    this.updateDailyTactics(this.simTime, true);
     this.ball.placeAt(PITCH.width / 2, PITCH.height / 2);
     this.homeShape.forEach((s, i) => this.home[i]?.placeAt(s.x, s.y));
     this.awayShape.forEach((s, i) =>
@@ -1910,6 +1947,14 @@ export class MatchScene extends Phaser.Scene {
     s.clock = this.flow.clock;
     s.goldenGoal = this.flow.goldenGoal;
     s.banner = this.flow.banner;
+    s.mission =
+      this.config.dailyMode === 'survival'
+        ? `${Math.min(DAILY.survivalGoals, this.flow.score.home)}/5 GOALS  ${this.botDifficulty.toUpperCase()}  ${Math.max(0, DAILY.survivalConceded - this.flow.score.away)} LIVES`
+        : this.config.dailyMode === 'hold-lead'
+          ? 'HOLD THE LEAD - FINISH AHEAD'
+          : this.config.dailyMode === 'comeback'
+            ? 'COMEBACK - FINISH AHEAD'
+            : '';
     s.goalCelebration = {
       active: this.flow.phase === 'goal',
       age: this.flow.phaseTime,
@@ -1955,6 +2000,10 @@ export class MatchScene extends Phaser.Scene {
     void this.gameCount?.complete();
     const result: MatchResult = {
       config: this.config,
+      elapsedSec: Math.min(
+        this.config.durationSec,
+        Math.ceil(this.flow.elapsedSec)
+      ),
       fastestGoalKmh: this.fastestGoalKmh,
       newSpeedBest: this.newSpeedBest,
       goalsFor: this.flow.score.home,
@@ -1972,7 +2021,7 @@ export class MatchScene extends Phaser.Scene {
     const f = this.rig.focus;
     const owner = b.owner ? `${b.owner.team} ${b.owner.role}` : 'loose';
     return [
-      `AI ${this.config.difficulty} | ${this.flow.phase}`,
+      `AI ${this.botDifficulty} | ${this.flow.phase}`,
       `POS ${Math.round(p.x)},${Math.round(p.y)} SPEED ${Math.round(p.speed)}${p.sprinting ? ' SPRINT' : ''}`,
       `STAMINA ${Math.round(p.stamina)}${p.sprintLocked ? ' LOCKED' : ''}`,
       `BALL ${Math.round(b.x)},${Math.round(b.y)},${Math.round(b.z)} V ${Math.round(b.speed)} ${owner}`,

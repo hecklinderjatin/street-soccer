@@ -47,6 +47,7 @@
     ]
   },
   "forms": {
+    "dailyModeForm": "/internal/form/daily-mode",
     "matchTypeForm": "/internal/form/match-type",
     "challengeForm": "/internal/form/challenge-submit",
     "deleteDataForm": "/internal/form/delete-data"

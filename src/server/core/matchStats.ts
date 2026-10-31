@@ -1,6 +1,9 @@
+import { withoutDailyMode } from '../../shared/dailyMode';
+import { challengeCleared, parseDailyMode } from '../../shared/dailyMode';
+import { postType } from '../../shared/postType';
 import type { MatchStats } from '../../shared/api';
 import { parseMatchConfig } from '../../shared/matchConfig';
-import { GOAL_FEEDBACK, MATCH } from '../../shared/tuning';
+import { GOAL_FEEDBACK, MATCH, DAILY, CUSTOM_MATCH } from '../../shared/tuning';
 import { DIFFICULTIES, type MatchConfig } from '../../shared/types';
 
 // Checking a match result a client reports (pure: no Redis, so the logic
@@ -14,13 +17,15 @@ const MIN_SEC_PER_GOAL = 4;
 
 // The longest a match on this post can run (regular time plus golden goal).
 export const matchLengthSec = (config: MatchConfig | null) =>
-  (config?.durationSec ?? MATCH.durationSec) + MATCH.goldenGoalSec;
+  (config?.durationSec ?? MATCH.durationSec) +
+  (config?.dailyMode ? 0 : MATCH.goldenGoalSec);
 
 // The post's locked match, if it has one (its postData).
 export function postConfig(postData: unknown): MatchConfig | null {
   if (typeof postData !== 'object' || postData === null) return null;
   const config = parseMatchConfig(Reflect.get(postData, 'match'));
-  return typeof config === 'string' || !config.locked ? null : config;
+  if (typeof config === 'string' || !config.locked) return null;
+  return postType(postData) === 'daily' ? config : withoutDailyMode(config);
 }
 
 const count = (value: unknown, max: number) =>
@@ -35,7 +40,8 @@ const count = (value: unknown, max: number) =>
 // the post's difficulty and at least its head-start goals against.
 export function readStats(
   body: unknown,
-  config: MatchConfig | null
+  config: MatchConfig | null,
+  trustedSaved = false
 ): MatchStats | string {
   if (typeof body !== 'object' || body === null) return 'Invalid result';
   const goalsFor = count(Reflect.get(body, 'goalsFor'), MAX_GOALS);
@@ -53,24 +59,69 @@ export function readStats(
     !asked
   )
     return 'Invalid result';
-  if (config && goalsAgainst < config.startGoalsAgainst)
-    return 'Invalid result';
-  const maxGoals = Math.ceil(matchLengthSec(config) / MIN_SEC_PER_GOAL);
   if (
-    goalsFor > maxGoals ||
+    config &&
+    (goalsAgainst < config.startGoalsAgainst ||
+      goalsFor < (config.startGoalsFor ?? 0))
+  )
+    return 'Invalid result';
+  const maxGoals = trustedSaved
+    ? MAX_GOALS
+    : Math.ceil(matchLengthSec(config) / MIN_SEC_PER_GOAL);
+  if (
+    goalsFor > maxGoals + (config?.startGoalsFor ?? 0) ||
     goalsAgainst > maxGoals + (config?.startGoalsAgainst ?? 0)
   )
     return 'Invalid result';
+  const dailyMode =
+    config?.dailyMode ??
+    (trustedSaved ? parseDailyMode(Reflect.get(body, 'dailyMode')) : undefined);
+  const elapsedSec = dailyMode
+    ? count(
+        Reflect.get(body, 'elapsedSec'),
+        config?.durationSec ?? CUSTOM_MATCH.maxDurationSec
+      )
+    : undefined;
+  if (
+    dailyMode &&
+    (elapsedSec === null || elapsedSec === undefined || elapsedSec < 1)
+  )
+    return 'Invalid challenge time';
+  if (dailyMode === 'survival') {
+    if (
+      goalsFor > DAILY.survivalGoals ||
+      goalsAgainst > DAILY.survivalConceded ||
+      (goalsFor === DAILY.survivalGoals &&
+        goalsAgainst === DAILY.survivalConceded)
+    )
+      return 'Invalid Survival result';
+    if (
+      config &&
+      goalsFor < DAILY.survivalGoals &&
+      goalsAgainst < DAILY.survivalConceded &&
+      (elapsedSec ?? 0) < config.durationSec - 1
+    )
+      return 'Survival must finish at a goal limit or the whistle';
+  } else if (dailyMode && config && (elapsedSec ?? 0) < config.durationSec - 1)
+    return 'Challenge must reach the whistle';
   const rawSpeed = Reflect.get(body, 'fastestGoalKmh');
   const fastestGoalKmh =
     rawSpeed === undefined ? undefined : count(rawSpeed, GOAL_FEEDBACK.maxKmh);
   if (
     fastestGoalKmh === null ||
-    (fastestGoalKmh && (goalsFor < 1 || shots < 1))
+    (fastestGoalKmh &&
+      (goalsFor - (config?.startGoalsFor ?? 0) < 1 || shots < 1))
   )
     return 'Invalid goal speed';
   const difficulty = config ? config.difficulty : asked;
   return {
+    ...(dailyMode
+      ? {
+          dailyMode,
+          elapsedSec: elapsedSec ?? 0,
+          cleared: challengeCleared(dailyMode, goalsFor, goalsAgainst),
+        }
+      : {}),
     difficulty,
     goalsFor,
     goalsAgainst,

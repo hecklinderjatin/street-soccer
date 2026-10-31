@@ -747,13 +747,23 @@ check(
   }
 );
 check(
-  'Daily Challenge and Classic expose identical settings and save fixed matches',
+  'Daily Challenge adds a template selector; both types save fixed matches',
   () => {
     const fields = (type: 'daily' | 'classic') =>
       challengeFormFor(type).fields.filter(
         (field) => field.type !== 'select' || field.name !== 'matchType'
       );
-    assert.deepEqual(fields('daily'), fields('classic'));
+    assert.ok(
+      fields('daily').some(
+        (field) => field.type === 'select' && field.name === 'dailyMode'
+      )
+    );
+    assert.equal(
+      fields('classic').some(
+        (field) => field.type === 'select' && field.name === 'dailyMode'
+      ),
+      false
+    );
     for (const type of ['daily', 'classic']) {
       const result = readChallenge(
         formValues({ matchType: [type] }),

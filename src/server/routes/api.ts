@@ -1,8 +1,10 @@
+import { DAILY } from '../../shared/tuning';
 import {
   beginGame,
   finishGame,
   gameId,
   gameDuration,
+  gameMinimumSeconds,
   gamesPlayed,
   GameCountError,
 } from '../core/gamesPlayed';
@@ -47,7 +49,9 @@ for (const action of ['start', 'complete'] as const) {
           redis,
           context.postId,
           id,
-          gameDuration(Reflect.get(body, 'config'), context.postData)
+          gameDuration(Reflect.get(body, 'config'), context.postData),
+          Date.now(),
+          gameMinimumSeconds(Reflect.get(body, 'config'), context.postData)
         );
         return c.json({ registered: true });
       }
@@ -115,7 +119,9 @@ api.post('/result', async (c) => {
       username &&
       (await takeCooldown(
         resultCooldownKey(postId, username),
-        matchLengthSec(config) * 0.8
+        config?.dailyMode === 'survival'
+          ? DAILY.earlyFinishMinSec
+          : matchLengthSec(config) * 0.8
       ))
     )
       await saveResult(postId, username, stats, config !== null);

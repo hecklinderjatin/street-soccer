@@ -1,3 +1,4 @@
+import { withoutDailyMode } from '../shared/dailyMode';
 import { postType } from '../shared/postType';
 import { context } from '@devvit/web/client';
 import { DEFAULT_MATCH_CONFIG, parseMatchConfig } from '../shared/matchConfig';
@@ -17,7 +18,7 @@ export function postChallenge(): PostChallenge | null {
   if (typeof config === 'string') return null;
   const description: unknown = Reflect.get(data, 'description');
   return {
-    config,
+    config: postType(data) === 'daily' ? config : withoutDailyMode(config),
     description: typeof description === 'string' ? description : '',
   };
 }

@@ -563,6 +563,30 @@ export const TACTICS = {
     pressHigh: true, // presses close even deep in the carrier's own half (no AI.pressGapDeep)
     pressGapScale: 0.85, // x the presser's gap (tighter)
   },
+  defensive: {
+    pushAttack: { def: 65, mid: 100, fwd: 150 },
+    dropDefend: { def: 150, mid: 210, fwd: 170 },
+    outletForward: true, // keep one outlet for a counterattack
+    runAhead: 220,
+    giveGoChance: 0.35,
+    giveGoFrom: 0.4,
+    throughMargin: 0.2,
+    passProgress: 0.4,
+    pressHigh: false,
+    pressGapScale: 1.05,
+  },
+  allOut: {
+    pushAttack: { def: 390, mid: 480, fwd: 540 },
+    dropDefend: { def: 90, mid: 140, fwd: 180 },
+    outletForward: false,
+    runAhead: 380,
+    giveGoChance: 0.9,
+    giveGoFrom: 0.15,
+    throughMargin: 0.05,
+    passProgress: 0.8,
+    pressHigh: true,
+    pressGapScale: 0.75,
+  },
   balanced: {
     pushAttack: { def: 140, mid: 140, fwd: 140 },
     dropDefend: { def: 100, mid: 100, fwd: 100 },
@@ -773,4 +797,12 @@ export const GOAL_FEEDBACK = {
   shakeMs: 140, // short world-camera impact; HUD stays still
   shakeIntensity: 0.002, // subtle camera movement
   celebrationVolume: 0.4, // goal cue, relative to the master sound switch
+} as const;
+
+export const DAILY = {
+  survivalGoals: 5, // score the fifth goal against Pro to clear
+  survivalConceded: 3, // third conceded goal ends the run
+  tacticSwitchSec: 2, // settle a live tactical change before applying it
+  lateShare: 0.25, // last quarter of Hold the Lead: chasing CPU goes all-out
+  earlyFinishMinSec: 12, // minimal real-time receipt/cooldown for Survival runs
 } as const;

@@ -1,3 +1,8 @@
+import {
+  DAILY_LABEL,
+  dailyObjective,
+  resultLabel,
+} from '../../shared/dailyMode';
 import type {
   DailyLeadersResponse,
   SpeedLeadersResponse,
@@ -47,7 +52,10 @@ export function createMobileLobby(
     return node;
   };
   element.classList.toggle('is-casual', type === 'casual');
-  get('.mobile-match-tag').textContent = POST_TYPE_LABEL[type];
+  element.classList.toggle('is-daily-template', Boolean(config.dailyMode));
+  get('.mobile-match-tag').textContent = config.dailyMode
+    ? DAILY_LABEL[config.dailyMode]
+    : POST_TYPE_LABEL[type];
   get('.mobile-home').textContent = config.home.name;
   get('.mobile-home').style.borderColor = css(
     JERSEY_SWATCH[config.home.jersey]
@@ -59,18 +67,27 @@ export function createMobileLobby(
   get('.mobile-formations').textContent =
     `${config.home.formation}  vs  ${config.away.formation}`;
   get('.mobile-time').textContent = formatClock(config.durationSec);
-  get('.mobile-difficulty').textContent = DIFFICULTY_LABEL[config.difficulty];
+  get('.mobile-difficulty').textContent =
+    config.dailyMode === 'survival'
+      ? 'NOOB-PRO'
+      : DIFFICULTY_LABEL[config.difficulty];
   get('.mobile-difficulty').dataset.level = config.difficulty;
   get('.mobile-time').hidden = type === 'casual';
   get('.mobile-difficulty').hidden = type === 'casual';
   get('.preview-custom').hidden = type !== 'casual';
-  get('.mobile-start').textContent = `0 – ${config.startGoalsAgainst}`;
+  if (config.dailyMode === 'survival')
+    get('.mobile-match-facts small').textContent = 'GOALS / LIVES';
+  get('.mobile-start').textContent =
+    config.dailyMode === 'survival'
+      ? '5 / 3'
+      : `${config.startGoalsFor ?? 0} – ${config.startGoalsAgainst}`;
   get('.mobile-challenge').textContent =
-    description ||
+    [dailyObjective(config), description].filter(Boolean).join(' ') ||
     (type === 'casual'
       ? 'Choose your formations, difficulty and match time.'
       : 'Outplay the opposition. Own the street.');
-  get('.mobile-challenge').hidden = type !== 'casual' && !description;
+  get('.mobile-challenge').hidden =
+    type !== 'casual' && !description && !config.dailyMode;
   const pixelSelectors = [
     '.mobile-lobby-header > strong',
     '.mobile-match-tag',
@@ -113,9 +130,7 @@ export function createMobileLobby(
     name.textContent = `${leader.rank}. ${leader.username}`;
     const score = document.createElement('strong');
     score.textContent =
-      'kmh' in leader
-        ? `${leader.kmh} km/h`
-        : `${leader.goalsFor}–${leader.goalsAgainst}`;
+      'kmh' in leader ? `${leader.kmh} km/h` : resultLabel(leader);
     li.append(name, score);
     return li;
   };
@@ -141,7 +156,7 @@ export function createMobileLobby(
       } else data.top.slice(0, 3).forEach((leader) => list.append(row(leader)));
       get('.mobile-best').textContent =
         typeof data !== 'string' && data.me
-          ? `Your best: #${data.me.rank} · ${data.me.goalsFor}–${data.me.goalsAgainst}`
+          ? `Your best: #${data.me.rank} · ${resultLabel(data.me)}`
           : '';
     },
     async showBoard(onReddit: boolean, category: 'match' | 'speed' = 'match') {

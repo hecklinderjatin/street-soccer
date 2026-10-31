@@ -1,5 +1,5 @@
-import { MATCH } from '../../shared/tuning';
-import type { Team } from '../../shared/types';
+import { MATCH, DAILY } from '../../shared/tuning';
+import type { Team, DailyMode } from '../../shared/types';
 
 export type MatchPhase = 'kickoff' | 'live' | 'goal' | 'break' | 'fulltime';
 
@@ -25,11 +25,14 @@ export class MatchFlow {
   score: Record<Team, number>;
   kickoffTeam: Team = 'home';
   lastScorer: Team | null = null;
+  elapsedSec = 0; // live clock elapsed, excluding pauses and celebrations
+  private terminalGoal = false;
   finished = false; // full-time pause done: show the result
 
   constructor(
     durationSec: number = MATCH.durationSec,
-    startScore: Readonly<Record<Team, number>> = { home: 0, away: 0 }
+    startScore: Readonly<Record<Team, number>> = { home: 0, away: 0 },
+    readonly dailyMode?: DailyMode
   ) {
     this.clock = durationSec;
     this.score = { ...startScore };
@@ -90,7 +93,7 @@ export class MatchFlow {
       this.phase === 'goal' &&
       this.phaseTime >= MATCH.goalHitStopSec + MATCH.celebrationSec
     ) {
-      if (this.goldenGoal) {
+      if (this.goldenGoal || this.terminalGoal) {
         this.enter('fulltime');
       } else {
         this.enter('kickoff');
@@ -118,10 +121,15 @@ export class MatchFlow {
   // Simulation time: runs the match clock while live.
   tickClock(dt: number) {
     if (this.phase !== 'live' || !this.clockRunning) return;
+    this.elapsedSec += Math.min(dt, this.clock);
     this.clock -= dt;
     if (this.clock > 0) return;
     this.clock = 0;
-    if (this.goldenGoal || this.score.home !== this.score.away) {
+    if (
+      this.dailyMode ||
+      this.goldenGoal ||
+      this.score.home !== this.score.away
+    ) {
       this.enter('fulltime');
     } else {
       // Level: pause, then golden goal from a kickoff with a fresh clock,
@@ -157,6 +165,10 @@ export class MatchFlow {
   onGoal(scorer: Team) {
     if (this.phase !== 'live') return;
     this.score[scorer] += 1;
+    this.terminalGoal =
+      this.dailyMode === 'survival' &&
+      (this.score.home >= DAILY.survivalGoals ||
+        this.score.away >= DAILY.survivalConceded);
     this.lastScorer = scorer;
     this.kickoffTeam = scorer === 'home' ? 'away' : 'home';
     this.enter('goal');

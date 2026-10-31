@@ -1,3 +1,4 @@
+import { resultRankScore } from '../../shared/dailyMode';
 import { rankSpeeds, saveSpeed, speedKey } from './speedBoard';
 import { gamesDeletedKey } from './gamesPlayed';
 import { redis } from '@devvit/web/server';
@@ -36,14 +37,13 @@ export const statsKey = (postId: string, day: string) =>
   `daily:${postId}:${day}:stats`;
 
 // Higher is better: goal difference first, then goals scored.
-const rankScore = (s: MatchStats) =>
-  (s.goalsFor - s.goalsAgainst + 1000) * 1000 + s.goalsFor;
+const rankScore = resultRankScore;
 
 function readSaved(json: string | undefined): MatchStats | null {
   if (!json) return null;
   try {
     const parsed: unknown = JSON.parse(json);
-    const stats = readStats(parsed, null);
+    const stats = readStats(parsed, null, true);
     return typeof stats === 'string' ? null : stats;
   } catch {
     return null;

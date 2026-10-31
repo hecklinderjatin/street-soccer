@@ -1,3 +1,9 @@
+import {
+  DAILY_MODES,
+  DAILY_LABEL,
+  parseDailyMode,
+} from '../../shared/dailyMode';
+import type { DailyMode } from '../../shared/types';
 import type { Form, FormField } from '@devvit/web/shared';
 import {
   DEFAULT_MATCH_CONFIG,
@@ -27,6 +33,8 @@ export const CHALLENGE_FORM = 'challengeForm'; // devvit.json "forms" key
 // What the form submits: text fields as strings, selects as one-item arrays.
 export type ChallengeValues = {
   matchType?: string[];
+  dailyMode?: string[];
+  startGoalsFor?: string[];
   title?: string;
   description?: string;
   homeName?: string;
@@ -94,7 +102,63 @@ export const matchTypeForm: Form = {
   ],
 };
 
-export function challengeFormFor(matchType: PostType): Form {
+export const DAILY_MODE_FORM = 'dailyModeForm';
+export const dailyModeForm: Form = {
+  title: 'Choose a Daily Challenge',
+  acceptLabel: 'Continue',
+  fields: [
+    {
+      type: 'select',
+      name: 'dailyMode',
+      label: 'Daily challenge type',
+      required: true,
+      defaultValue: ['comeback'],
+      options: DAILY_MODES.map((value) => ({
+        value,
+        label: DAILY_LABEL[value],
+      })),
+      helpText:
+        'Comeback: recover a deficit. Hold the Lead: defend your head start. Survival: five goals, rising difficulty, three concessions ends the run.',
+    },
+  ],
+};
+
+export function challengeFormFor(
+  matchType: PostType,
+  dailyMode: DailyMode = 'comeback'
+): Form {
+  const dailyFields: FormField[] =
+    matchType === 'daily'
+      ? [
+          {
+            type: 'select',
+            name: 'dailyMode',
+            label: 'Daily challenge type',
+            required: true,
+            defaultValue: [dailyMode],
+            options: [{ value: dailyMode, label: DAILY_LABEL[dailyMode] }],
+            helpText:
+              dailyMode === 'survival'
+                ? 'Start at Noob. Each goal raises the bots a level. Score five before conceding three or time expires.'
+                : 'Finish ahead at the whistle. No golden goal. To change type, cancel and reopen the creation menu.',
+          },
+        ]
+      : [];
+  const leadFields: FormField[] =
+    matchType === 'daily' && dailyMode === 'hold-lead'
+      ? [
+          {
+            type: 'select',
+            name: 'startGoalsFor',
+            label: 'Your starting lead',
+            required: true,
+            options: Array.from(
+              { length: CUSTOM_MATCH.maxStartGoals },
+              (_, i) => ({ value: String(i + 1), label: `${i + 1} - 0` })
+            ),
+          },
+        ]
+      : [];
   return {
     title: 'Create a Street Soccer match',
     description:
@@ -125,7 +189,35 @@ export function challengeFormFor(matchType: PostType): Form {
         label: 'Description (optional)',
         helpText: `Shown on the post before playing, up to ${CUSTOM_MATCH.descriptionMaxLength} characters`,
       },
-      ...(matchType === 'casual' ? [] : matchFields),
+      ...dailyFields,
+      ...(matchType === 'casual'
+        ? []
+        : matchFields
+            .filter((field) => {
+              if (matchType !== 'daily') return true;
+              if (
+                field.type === 'select' &&
+                field.name === 'difficulty' &&
+                dailyMode === 'survival'
+              )
+                return false;
+              if (field.type === 'select' && field.name === 'startGoalsAgainst')
+                return dailyMode === 'comeback';
+              return true;
+            })
+            .map((field) =>
+              field.type === 'select' &&
+              field.name === 'startGoalsAgainst' &&
+              matchType === 'daily'
+                ? {
+                    ...field,
+                    options: field.options.filter(
+                      (option) => option.value !== '0'
+                    ),
+                  }
+                : field
+            )),
+      ...leadFields,
     ],
   };
 }
@@ -171,7 +263,10 @@ export const challengeForm = challengeFormFor('daily');
 // The form's starting values: the default match, or a rejected submission.
 export function challengeFormData(values?: ChallengeValues): ChallengeValues {
   const d = DEFAULT_MATCH_CONFIG;
+  const dailyMode = parseDailyMode(values?.dailyMode?.[0]) ?? 'comeback';
   return {
+    dailyMode: [dailyMode],
+    startGoalsFor: ['1'],
     matchType: ['daily'],
     title: 'Street Soccer challenge',
     description: '',
@@ -183,7 +278,7 @@ export function challengeFormData(values?: ChallengeValues): ChallengeValues {
     awayFormation: [d.away.formation],
     difficulty: [d.difficulty],
     durationSec: [String(d.durationSec)],
-    startGoalsAgainst: ['0'],
+    startGoalsAgainst: [values?.matchType?.[0] === 'daily' ? '2' : '0'],
     ...values,
   };
 }
@@ -212,10 +307,24 @@ export function readChallenge(
       matchType,
       config: { ...DEFAULT_MATCH_CONFIG, mode: 'casual', locked: false },
     };
+  const dailyMode =
+    matchType === 'daily' ? parseDailyMode(values.dailyMode?.[0]) : undefined;
+  if (matchType === 'daily' && values.dailyMode !== undefined && !dailyMode)
+    return 'Choose a valid Daily challenge type';
   const config = parse({
-    difficulty: values.difficulty?.[0],
+    ...(dailyMode
+      ? {
+          dailyMode,
+          startGoalsFor:
+            dailyMode === 'hold-lead' ? Number(values.startGoalsFor?.[0]) : 0,
+        }
+      : {}),
+    difficulty: dailyMode === 'survival' ? 'noob' : values.difficulty?.[0],
     durationSec: Number(values.durationSec?.[0]),
-    startGoalsAgainst: Number(values.startGoalsAgainst?.[0]),
+    startGoalsAgainst:
+      dailyMode && dailyMode !== 'comeback'
+        ? 0
+        : Number(values.startGoalsAgainst?.[0]),
     home: {
       name: values.homeName,
       jersey: values.homeJersey?.[0],

@@ -1287,3 +1287,12 @@ body {
   h1 {
   font-size: 18px;
 }
+
+@media (max-height: 520px) {
+  #mobile-lobby.is-daily-template .mobile-challenge {
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    font-size: 10px;
+    margin: 4px 0;
+  }
+}

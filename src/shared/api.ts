@@ -1,9 +1,12 @@
-import type { Difficulty } from './types';
+import type { Difficulty, DailyMode } from './types';
 
 // --- Match results: today's leaderboard per post, and posting a score ---
 
 // One finished match, as the client reports it (the server re-checks it).
 export type MatchStats = {
+  dailyMode?: DailyMode; // derived from the post by the server
+  elapsedSec?: number;
+  cleared?: boolean; // derived from the objective, never trusted from the client
   fastestGoalKmh?: number; // optional for older clients; launch speed, goals only
   mode?: 'competitive' | 'casual';
   difficulty: Difficulty;

@@ -1,3 +1,4 @@
+import { parseDailyMode } from './dailyMode';
 import { CUSTOM_MATCH, MATCH } from './tuning';
 import {
   DIFFICULTIES,
@@ -75,6 +76,10 @@ function parseTeam(value: unknown): TeamSetup | string {
 // A complete, valid config, or the reason it isn't one.
 export function parseMatchConfig(value: unknown): MatchConfig | string {
   if (typeof value !== 'object' || value === null) return 'no settings';
+  const casual = Reflect.get(value, 'mode') === 'casual';
+  const rawDaily = casual ? undefined : Reflect.get(value, 'dailyMode');
+  const dailyMode = parseDailyMode(rawDaily);
+  if (rawDaily !== undefined && !dailyMode) return 'unknown daily challenge';
   const difficulty = pick(DIFFICULTIES, Reflect.get(value, 'difficulty'));
   if (!difficulty) return 'unknown difficulty';
   const durationSec = wholeIn(
@@ -91,6 +96,28 @@ export function parseMatchConfig(value: unknown): MatchConfig | string {
   );
   if (startGoalsAgainst === null)
     return `goals conceded: 0 to ${CUSTOM_MATCH.maxStartGoals}`;
+  const startGoalsFor = casual
+    ? 0
+    : wholeIn(
+        Reflect.get(value, 'startGoalsFor') ?? 0,
+        0,
+        CUSTOM_MATCH.maxStartGoals
+      );
+  if (startGoalsFor === null) return 'invalid starting lead';
+  if (
+    dailyMode === 'hold-lead' &&
+    (startGoalsFor < 1 || startGoalsAgainst !== 0)
+  )
+    return 'hold the lead needs a player lead and no AI head start';
+  if (dailyMode !== 'hold-lead' && startGoalsFor !== 0)
+    return 'only hold the lead can start with player goals';
+  if (dailyMode === 'comeback' && startGoalsAgainst < 1)
+    return 'comeback needs an AI head start';
+  if (
+    dailyMode === 'survival' &&
+    (startGoalsAgainst !== 0 || difficulty !== 'noob')
+  )
+    return 'survival starts 0-0 at Noob';
   const home = parseTeam(Reflect.get(value, 'home'));
   if (typeof home === 'string') return home;
   const away = parseTeam(Reflect.get(value, 'away'));
@@ -98,7 +125,8 @@ export function parseMatchConfig(value: unknown): MatchConfig | string {
   if (home.jersey === away.jersey)
     return 'the two teams need different jersey colours';
   return {
-    mode: Reflect.get(value, 'mode') === 'casual' ? 'casual' : 'competitive',
+    mode: casual ? 'casual' : 'competitive',
+    ...(dailyMode ? { dailyMode, startGoalsFor } : {}),
     difficulty,
     durationSec,
     startGoalsAgainst,

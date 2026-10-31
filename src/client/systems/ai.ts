@@ -199,12 +199,19 @@ export class TeamBrain {
 
   constructor(
     readonly team: Team,
-    readonly skill: BrainSkill,
-    readonly style: TeamStyle = TACTICS.balanced,
+    public skill: BrainSkill,
+    public style: TeamStyle = TACTICS.balanced,
     readonly formation: readonly FormationSpot[] = FORMATIONS['2-1-1']
   ) {
     this.dir = team === 'home' ? 1 : -1;
     this.goalX = team === 'home' ? 0 : PITCH.width;
+  }
+
+  configure(skill: BrainSkill, style: TeamStyle) {
+    if (this.skill === skill && this.style === style) return;
+    this.skill = skill;
+    this.style = style;
+    this.reset(); // discard decisions/position errors made under the old plan
   }
 
   // Think again on the next step (control changed, ...).

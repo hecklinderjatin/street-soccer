@@ -55,7 +55,11 @@ export type TeamSetup = {
   formation: FormationName;
 };
 
+export type DailyMode = 'comeback' | 'hold-lead' | 'survival';
+
 export type MatchConfig = {
+  dailyMode?: DailyMode; // explicit new Daily templates; absent on legacy/Classic/Casual
+  startGoalsFor?: number; // Hold the Lead head start; legacy defaults to zero
   mode?: 'competitive' | 'casual'; // omitted by legacy posts: competitive
   difficulty: Difficulty;
   durationSec: number; // regular time
@@ -66,6 +70,7 @@ export type MatchConfig = {
 };
 
 export type MatchResult = {
+  elapsedSec?: number; // live match clock elapsed; excludes pauses/celebrations
   fastestGoalKmh?: number; // fastest qualifying home goal this match
   newSpeedBest?: boolean; // beat the device record during this match
   config: MatchConfig; // replayed as is by PLAY AGAIN

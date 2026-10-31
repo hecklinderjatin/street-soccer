@@ -1,3 +1,4 @@
+import { DAILY } from '../src/shared/tuning';
 import assert from 'node:assert/strict';
 import {
   beginGame,
@@ -254,6 +255,26 @@ assert.throws(
 assert.throws(
   () => gameDuration(DEFAULT_MATCH_CONFIG, { matchType: 'casual' }),
   /Casual/
+);
+const survivalRun = harness();
+await beginGame(
+  survivalRun.store,
+  'survival',
+  id(99),
+  120,
+  survivalRun.now(),
+  DAILY.earlyFinishMinSec
+);
+survivalRun.advance(DAILY.earlyFinishMinSec * 1000 - 1);
+await assert.rejects(
+  finishGame(survivalRun.store, 'survival', id(99), survivalRun.now()),
+  /long enough/
+);
+survivalRun.advance(1);
+assert.equal(
+  await finishGame(survivalRun.store, 'survival', id(99), survivalRun.now()),
+  1,
+  'early terminal runs can count before the configured clock expires'
 );
 console.log(
   'Game count checks passed: concurrency, retry, failures, expiry, post isolation, deletion and validation'

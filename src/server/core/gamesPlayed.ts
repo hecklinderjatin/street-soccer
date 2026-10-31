@@ -1,3 +1,4 @@
+import { DAILY } from '../../shared/tuning';
 import {
   DURATION_CHOICES,
   DEFAULT_MATCH_CONFIG,
@@ -67,6 +68,20 @@ export function gameDuration(value: unknown, postData: unknown): number {
     : stored.durationSec;
 }
 
+export function gameMinimumSeconds(value: unknown, postData: unknown) {
+  const config = parseMatchConfig(value);
+  const stored =
+    postType(postData) === 'daily' && postData && typeof postData === 'object'
+      ? parseMatchConfig(Reflect.get(postData, 'match'))
+      : 'none';
+  return typeof config !== 'string' &&
+    config.mode !== 'casual' &&
+    typeof stored !== 'string' &&
+    stored.dailyMode === 'survival'
+    ? DAILY.earlyFinishMinSec
+    : gameDuration(value, postData) * 0.8;
+}
+
 type Receipt = { earliestFinish: number; expires: number; completed: boolean };
 function receipt(raw: string): Receipt {
   const value: unknown = JSON.parse(raw);
@@ -102,9 +117,12 @@ export async function beginGame(
   postId: string,
   id: string,
   duration: number,
-  now = Date.now()
+  now = Date.now(),
+  minimumSec = duration * 0.8
 ) {
   id = gameId(id);
+  if (!Number.isFinite(minimumSec) || minimumSec < 1 || minimumSec > duration)
+    throw new GameCountError('Invalid match minimum');
   if (!DURATION_CHOICES.includes(duration))
     throw new GameCountError('Invalid match duration');
   const key = receiptKey(postId, id);
@@ -120,7 +138,7 @@ export async function beginGame(
         return;
       }
       const value: Receipt = {
-        earliestFinish: now + duration * 800,
+        earliestFinish: now + minimumSec * 1000,
         expires: now + GAME_RECEIPT_MS,
         completed: false,
       };

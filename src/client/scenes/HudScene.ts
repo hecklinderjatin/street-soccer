@@ -22,6 +22,7 @@ export type MatchHudState = {
   clock: number; // seconds left
   goldenGoal: boolean;
   goalCelebration: GoalCelebrationState;
+  mission: string;
   goalDetail: string;
   goalRecord: string;
   banner: string; // big centre message, '' for none
@@ -47,6 +48,7 @@ export class HudScene extends Phaser.Scene {
   private clockText!: Phaser.GameObjects.BitmapText;
   private goldenText!: Phaser.GameObjects.BitmapText;
   private bannerText!: Phaser.GameObjects.BitmapText;
+  private missionText!: Phaser.GameObjects.BitmapText;
   private goalCelebration!: GoalCelebration;
   private bannerShadow!: Phaser.GameObjects.BitmapText;
   private debugText!: Phaser.GameObjects.BitmapText;
@@ -80,6 +82,14 @@ export class HudScene extends Phaser.Scene {
 
     this.buildScoreboard();
     this.minimap = new Minimap(this);
+    this.missionText = pixelText(
+      this,
+      VIEW.width / 2,
+      112,
+      '',
+      0.6 * PX,
+      PAL.yellow
+    ).setOrigin(0.5);
 
     // FPS readout under the scoreboard; tap it (or press the backtick key) for the debug overlay.
     this.debugText = pixelText(this, 16, 84, '', 0.75 * PX, PAL.green)
@@ -234,6 +244,7 @@ export class HudScene extends Phaser.Scene {
       .setScale(urgent ? 1 + 0.08 * Math.sin(time / 80) : 1);
     this.goldenText.setVisible(s.goldenGoal && !s.goalCelebration.active);
 
+    this.missionText.setText(s.mission).setVisible(!s.goalCelebration.active);
     this.goalCelebration.update(s.goalCelebration, this.hud.teams);
     const banner = s.banner === 'GOAL!' ? '' : s.banner.toUpperCase();
     this.bannerText.setText(banner).setScale(1);

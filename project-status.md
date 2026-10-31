@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Daily challenge templates (2026-10-31):** creator-selected Comeback, Hold the Lead and Survival are implemented on `codex/daily-challenge-modes`, based on the pending minimal speed badge. Creation now follows Match type → Daily template → relevant settings, with a registered native form callback. Comeback recovers an AI head start; Hold the Lead defends a player head start; Survival starts 0–0, advances Noob/Easy/Normal/Hard/Pro after home goals at kickoff, and clears at goal five or fails at concession three/time limit. New templates have no golden goal. Score-aware Defensive/Attacking/Balanced/late All-out plans are independent of skill and physics; opponent keeper progression shares the current difficulty. Preview, HUD, results and score-sharing text reflect objectives; server derives outcomes and ranks cleared runs first, with Survival progress/concessions/live elapsed time. Short terminal runs use a compatible minimum receipt/cooldown. Types, lint, 41 existing logic checks, privacy/counter/speed regressions, new Daily rule tests, real Hono form-handler tests with a mock SDK and build pass. New mode browser flows and the entire existing Casual/legacy/achievement suite pass with mocked Reddit host/APIs, including mobile previews/results, kickoff progression, late tactical delay, fifth-goal clear, three-concession failure while ahead, timeout, replay reset and Casual separation. Live Reddit/Redis playtesting and gameplay balance review remain outstanding.
+
 **Goal speed visibility (2026-10-31):** enlarged the goal-speed digits by 35% and unit by 25%, adding a compact dark-blue badge with white digits and yellow units. The latest refinement removes its border and uses a 45% opaque background for a lighter look. Re-spaced the goal tag to keep every badge separate above the scorer; the headline remains unboxed. Types, lint and build pass. Focused Chromium checks and reviewed screenshots cover maximum 200 km/h, with/without a device best, desktop/portrait/landscape, animation/reset, reduced motion and kickoff cleanup on `codex/goal-speed-visibility`. Live Reddit playtesting remains outstanding.
 
 **Clear scorer celebration (2026-10-31):** removed the dark headline strip/border and wide metric backing, moved smaller animated lettering beneath the scoreboard and grouped compact tag/speed/personal-best feedback in one shallow row above the scorer on `codex/clear-goal-overlay`. Tightened text shadow, impact and stretch; team colour now accents the small scorer label. Hide the redundant golden-goal indicator during celebrations to avoid header overlap. Types, lint, 41 logic checks, privacy/counter/speed regressions and build pass. Focused Chromium checks and screenshots verify the actual near-goal celebrating scorer stays visible at desktop, landscape and portrait sizes (1280×720, 844×390, 390×600, 320×480), plus animation stages, reset, untagged goals, reduced motion and kickoff cleanup. Live Reddit playtesting remains outstanding.
@@ -463,6 +465,9 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- New Daily templates are explicit saved settings; legacy posts keep their original rules. Daily creation uses a template step so only relevant settings appear. New templates finish at regulation time without golden goal; Survival ends after goal five or concession three. Classic/Casual keep their existing rules.
+- Bot tactics and difficulty remain separate: add Defensive and late All-out plans without changing player physics; apply score changes at kickoff and live time-pressure changes after a short delay. Survival promotes the entire opponent, including its keeper, at kickoff.
+
 - Give speed a minimal, borderless dark-blue backing at 45% opacity with larger white digits; enlarge the number and unit without restoring the dark headline box or covering the scorer.
 
 - The scorer’s animation takes visual priority: remove the dark headline plate, reduce headline/stretch/shadow/impact size, and keep secondary goal feedback in the upper HUD rather than stacking it over the player.
@@ -721,6 +726,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Review screenshots and playtest newly created posts for all three Daily templates on Reddit before merging `codex/daily-challenge-modes`. Verify creator forms, live leaderboard persistence, Survival balance and early completion counts against real Redis. All local and mocked browser checks pass; legacy posts retain old rules.
+
 - Review the minimal translucent speed backing and playtest on a real mobile Reddit webview before merging `codex/goal-speed-visibility`. Types, lint, build and focused browser checks pass.
 
 - Review the clear-scorer overlay preview and playtest all celebration poses/positions on a real mobile Reddit webview before merging `codex/clear-goal-overlay`. Local and focused Chromium checks pass.
@@ -970,6 +977,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-10-31:** implement three Daily templates, adaptive team tactics, Survival difficulty/keeper progression, objective-aware previews/results/rankings and a native creator template step on `codex/daily-challenge-modes`. Add mode, form-handler, counter and browser regressions; all local checks and both browser suites pass. Keep legacy/Classic/Casual rules and privacy retention compatible.
 
 - **2026-10-31:** lighten the speed backing to 45% opacity and remove its border, preserving the larger digits and clear scorer area.
 
