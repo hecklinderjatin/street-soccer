@@ -29,22 +29,22 @@
     "node": ">=24.0.0"
   },
   "dependencies": {
-    "@devvit/start": "0.15.0",
-    "@devvit/web": "0.15.0",
+    "@devvit/start": "0.15.1",
+    "@devvit/web": "0.15.1",
     "@hono/node-server": "2.1.5",
-    "hono": "4.13.13",
+    "hono": "4.13.14",
     "phaser": "3.90.0"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@types/node": "^24.19.2",
-    "devvit": "0.15.0",
-    "eslint": "10.13.0",
+    "devvit": "0.15.1",
+    "eslint": "10.14.0",
     "globals": "17.13.0",
     "playwright": "^1.64.1",
     "prettier": "3.9.10",
     "typescript": "6.0.3",
-    "typescript-eslint": "8.72.0",
+    "typescript-eslint": "8.72.1",
     "vite": "8.3.5"
   }
 }

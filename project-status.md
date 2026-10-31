@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Dependency refresh (2026-10-31):** Devvit CLI/start/web updated together to 0.15.1, Hono to 4.13.14, ESLint to 10.14.0 and typescript-eslint to 8.72.1 on `codex/package-refresh`; lockfile refreshed. Clean `npm ci`, types, lint, 39 gameplay checks, privacy/counter regressions, build and CLI version check pass. Unit runner finds zero tests. Full Chromium desktop/mobile browser suite passes, covering settings persistence, gameplay/results, ranked sharing consent, rematches, feed routes, short screens and guest storage fallback with mocked Reddit host/APIs; live Reddit playtesting remains outstanding. Retain Phaser 3.90.0 and TypeScript 6.0.3 for renderer and lint compatibility. Audit changes from 50 affected packages (4 high) to 48 (1 high): remaining high is `tmp@0.0.33` through Devvit CLI → inquirer → external-editor; latest stable CLI retains this chain. Moderate upstream minimatch advisories also remain; do not force breaking overrides or audit-suggested downgrades.
+
 **Retired formation (2026-10-24):** remove 0-3-1 from all selectors and gameplay shapes. Older posts and saved Casual preferences migrate that shape to 1-2-1 during shared validation, preserving their other settings. Types, lint, 39 logic checks, privacy/counter regressions and build pass.
 
 **Responsive results UI (2026-10-24):** Daily Challenge, Classic and Casual now share a centred pixel-styled native card with coloured team panels, score, difficulty/time, stat tiles and consistent actions. Ranked results retain the 7-day board, result saving, consent-based score sharing and Play Casual. Browser checks pass across desktop, portrait and landscape, including 320×480 and 640×320, with visible touch targets and no internal scrolling at the tested sizes. Sharing cancellation, submission and late-form responses are covered with mocked Reddit APIs; live Reddit playtesting remains outstanding.
@@ -453,6 +455,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Keep Devvit CLI/start/web versions aligned on the stable release. Keep Phaser 3 for the current custom renderer/build and TypeScript 6 because typescript-eslint 8.72.1 supports TypeScript <6.1; major migrations are separate work. Preserve Node 24 typings for the pinned Node 24 runtime. Track upstream audit findings rather than forcing incompatible transitive major versions.
+
 - Retire 0-3-1 globally; normalize old saved values to 1-2-1 so existing posts remain playable without resetting other settings.
 
 - Results use one responsive card with centred outcome, colour-coded teams, score, difficulty/time and stat tiles. Centre the card vertically when it fits; retain safe scrolling on genuinely small viewports rather than clipping actions. Ranked results retain leaderboard/share/Play Casual; Casual retains rematch/settings/exit and makes no ranked calls.
@@ -701,6 +705,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Review and merge `codex/package-refresh`, then playtest on Reddit. Clean install, local checks and the full mocked browser suite pass. Track upstream Devvit CLI/tmp and minimatch advisories for future compatible fixes.
+
 - Playtest the six remaining formations and compatibility fallback on Reddit.
 
 - Review the unified results screenshots and playtest the end screens on Reddit before merging `codex/results-play-casual`. Local layout checks and browser flows pass, including ranked replay, sharing consent and Casual transitions.
@@ -940,6 +946,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-10-31:** refresh Devvit to 0.15.1, Hono to 4.13.14, ESLint to 10.14.0 and typescript-eslint to 8.72.1; synchronize lockfile on `codex/package-refresh`. Clean install, local checks and full browser suite pass; record remaining upstream audit findings.
 
 - **2026-10-24:** remove 0-3-1 from available formations; migrate legacy configurations to 1-2-1 and update formation cycling/browser checks. Local checks and the full Casual browser suite pass.
 
