@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Arcade goal celebration (2026-10-31):** large goal overlay now hits and shakes briefly, expands GOAL! into GOOOOAL!, stretches the final L!, then reveals a coloured goal tag, large speed readout and personal-best ribbon. Team accents and a translucent strip keep the celebration in the game style. Goal phase time drives the sequence within the existing 2.8-second pause; reduced motion shows steady text/metrics. Types, lint, 41 logic checks, privacy/counter/speed regressions and build pass. Focused browser checks verify animation stages, bounded stretch, desktop/portrait/landscape framing, consecutive-goal reset, untagged goals, fade, reduced motion and kickoff cleanup; actual ranked and Casual keyboard-shot/goal/results flows pass. Screenshots reviewed on `codex/goal-achievements`; live Reddit playtesting remains outstanding.
+
 **Goal achievements (2026-10-31):** launch-speed goal badges (CHIP/CURL/ROCKET/GREAT FINISH), separate local practice/ranked device bests, stronger goal audio and reduced-motion-aware camera impact are implemented on `codex/goal-achievements`, based on the package refresh. Results highlight the fastest human-controlled goal; fixed ranked matches submit to a separate per-post seven-day Fastest Goals board, available through results tabs and the preview ALL dialog. Independent transactional speed updates preserve records from lower-scoring matches and use existing account/post erasure and retention. Types, lint, 41 logic checks, privacy/counter/speed regressions and build pass (unit runner finds zero tests). Full mocked Chromium suite passes, including actual keyboard strike → goal → device best → results, ranked/Casual isolation, speed-board failure, preview tab switching, share consent, rematches and guest play. Strict layout checks pass for all three modes at 390×844, 320×480, 844×390, 640×320 and 1280×720 with speed highlights and top-three boards. Real Reddit/Redis playtesting remains outstanding.
 
 **Dependency refresh (2026-10-31):** Devvit CLI/start/web updated together to 0.15.1, Hono to 4.13.14, ESLint to 10.14.0 and typescript-eslint to 8.72.1 on `codex/package-refresh`; lockfile refreshed. Clean `npm ci`, types, lint, 39 gameplay checks, privacy/counter regressions, build and CLI version check pass. Unit runner finds zero tests. Full Chromium desktop/mobile browser suite passes, covering settings persistence, gameplay/results, ranked sharing consent, rematches, feed routes, short screens and guest storage fallback with mocked Reddit host/APIs; live Reddit playtesting remains outstanding. Retain Phaser 3.90.0 and TypeScript 6.0.3 for renderer and lint compatibility. Audit changes from 50 affected packages (4 high) to 48 (1 high): remaining high is `tmp@0.0.33` through Devvit CLI → inquirer → external-editor; latest stable CLI retains this chain. Moderate upstream minimatch advisories also remain; do not force breaking overrides or audit-suggested downgrades.
@@ -457,6 +459,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Use a dedicated Phaser HUD celebration with animation derived from goal age. It pauses with the match, resets on every goal, and needs no persistent timers/tweens. Preserve the existing 2.8-second goal sequence; reduced motion shows a steady full headline and metrics.
+
 - Goal speed is the calibrated arcade launch velocity in km/h, sampled before drag; only scoring shots without an intervening player touch qualify; personal/ranked records require the human-controlled shooter. Speed is a calibrated arcade measurement, and bounded client reports are not cheat-proof. Keep Casual and ranked device records separate. Only fixed competitive matches submit speed records; one best entry per player per post across seven UTC days, with existing privacy deletion/retention.
 
 - Keep Devvit CLI/start/web versions aligned on the stable release. Keep Phaser 3 for the current custom renderer/build and TypeScript 6 because typescript-eslint 8.72.1 supports TypeScript <6.1; major migrations are separate work. Preserve Node 24 typings for the pinned Node 24 runtime. Track upstream audit findings rather than forcing incompatible transitive major versions.
@@ -709,6 +713,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Review the animated goal UI screenshots and playtest the effect on a real mobile Reddit webview before merging `codex/goal-achievements`. Local and focused browser checks pass.
+
 - Review goal/results screenshots and playtest goal impact, speed calibration, both leaderboard categories and deletion on Reddit before merging `codex/goal-achievements` (includes package refresh). All local, browser and layout checks pass.
 
 - Review and merge `codex/package-refresh`, then playtest on Reddit. Clean install, local checks and the full mocked browser suite pass. Track upstream Devvit CLI/tmp and minimatch advisories for future compatible fixes.
@@ -952,6 +958,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-10-31:** replace the small goal badge with a dedicated arcade HUD overlay: one-shot impact, growing O sequence, final-letter stretch, team accents, tag/speed reveal, device-best ribbon and timed fade. Reduced motion and goal-age reset are covered; local and focused visual/gameplay browser checks pass.
 
 - **2026-10-31:** implement launch-speed achievements, device bests, goal impact, results highlight and independent seven-day Fastest Goals leaderboard on `codex/goal-achievements`. Add transactional/validation/privacy/browser regressions; local suite, full mocked browser flows and portrait/landscape layout checks pass. Preserve native share consent, Casual separation and old result payloads.
 

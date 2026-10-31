@@ -202,6 +202,8 @@ export class MatchScene extends Phaser.Scene {
   private fastestGoalKmh = 0;
   private newSpeedBest = false;
   private goalDetail = '';
+  private goalTag = '';
+  private goalSpeedKmh = 0;
   private goalRecord = '';
   // Cost of the simulation per rendered frame (ms), for the debug overlay
   // (tap the FPS readout): a smoothed average and a slowly decaying peak.
@@ -250,6 +252,8 @@ export class MatchScene extends Phaser.Scene {
     this.fastestGoalKmh = 0;
     this.newSpeedBest = false;
     this.goalDetail = '';
+    this.goalTag = '';
+    this.goalSpeedKmh = 0;
     this.goalRecord = '';
     this.startSoundPlayed = false;
     this.overSoundPlayed = false;
@@ -452,6 +456,14 @@ export class MatchScene extends Phaser.Scene {
       clock: this.flow.clock,
       goldenGoal: false,
       banner: '',
+      goalCelebration: {
+        active: false,
+        age: 0,
+        team: null,
+        tag: '',
+        kmh: 0,
+        personalBest: false,
+      },
       goalDetail: '',
       goalRecord: '',
       buttons: { b1: 'TACKLE', b2: 'SWITCH', charge: -1, sweetSpot: true },
@@ -832,6 +844,8 @@ export class MatchScene extends Phaser.Scene {
         this.goalDetail = strike
           ? `${goalStyle(strike)}  ${strike.kmh} KM/H`
           : '';
+        this.goalTag = strike ? goalStyle(strike) : '';
+        this.goalSpeedKmh = strike?.kmh ?? 0;
         this.goalRecord = '';
         if (!this.demo && scoring === 'home' && strike?.human) {
           this.fastestGoalKmh = Math.max(this.fastestGoalKmh, strike.kmh);
@@ -1896,6 +1910,14 @@ export class MatchScene extends Phaser.Scene {
     s.clock = this.flow.clock;
     s.goldenGoal = this.flow.goldenGoal;
     s.banner = this.flow.banner;
+    s.goalCelebration = {
+      active: this.flow.phase === 'goal',
+      age: this.flow.phaseTime,
+      team: this.flow.lastScorer,
+      tag: this.goalTag,
+      kmh: this.goalSpeedKmh,
+      personalBest: this.goalRecord !== '',
+    };
     s.goalDetail = this.flow.phase === 'goal' ? this.goalDetail : '';
     s.goalRecord = this.flow.phase === 'goal' ? this.goalRecord : '';
     this.everyone.forEach((p, i) => {
