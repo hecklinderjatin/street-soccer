@@ -17,7 +17,7 @@
     "test:daily-browser": "node checks/daily-browser.mjs",
     "test:casual-browser": "node checks/casual-browser.mjs",
     "test:games": "rolldown checks/games-check.ts --platform node --format esm -o node_modules/.cache/games-check.mjs && node node_modules/.cache/games-check.mjs",
-    "test:local": "npm run test:types && npm run lint && npm run test:dependencies && npm run test:unit && npm run test:logic && npm run test:privacy && npm run test:games && npm run test:speed && npm run test:daily && npm run build",
+    "test:local": "npm run test:types && npm run lint && npm run test:dependencies && npm run test:unit && npm run test:logic && npm run test:privacy && npm run test:games && npm run test:speed && npm run test:daily && npm run test:journeys && npm run build",
     "test:daily": "rolldown checks/daily-check.ts --platform node --format esm -o node_modules/.cache/daily-check.mjs && node node_modules/.cache/daily-check.mjs && node checks/daily-forms.mjs",
     "test:speed": "rolldown checks/speed-check.ts --platform node --format esm -o node_modules/.cache/speed-check.mjs && node node_modules/.cache/speed-check.mjs",
     "test:types": "tsc --build",
@@ -28,12 +28,15 @@
     "test:logic": "rolldown checks/logic-check.ts --platform node --format esm --external node:assert/strict -o node_modules/.cache/logic-check.mjs && node node_modules/.cache/logic-check.mjs",
     "test:privacy": "rolldown checks/privacy-check.ts --platform node --format esm --external node:assert/strict -o node_modules/.cache/privacy-check.mjs && node node_modules/.cache/privacy-check.mjs",
     "test:dependencies": "node checks/dependency-check.mjs",
-    "postinstall": "node scripts/patch-glob-compat.mjs"
+    "postinstall": "node scripts/patch-glob-compat.mjs",
+    "test:journeys": "rolldown checks/journeys-check.ts --platform node --format esm -o node_modules/.cache/journeys-check.mjs && node node_modules/.cache/journeys-check.mjs",
+    "test:journeys-browser": "node checks/journeys-browser.mjs"
   },
   "engines": {
     "node": ">=24.0.0"
   },
   "dependencies": {
+    "@devvit/analytics": "0.15.1",
     "@devvit/start": "0.15.1",
     "@devvit/web": "0.15.1",
     "@hono/node-server": "2.1.5",

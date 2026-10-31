@@ -33,6 +33,8 @@ export type MatchHudState = {
 };
 
 export type HudData = {
+  onMatchStart: () => void;
+  onMatchQuit: () => void;
   config: MatchConfig;
   controls: Controls;
   state: MatchHudState;
@@ -333,7 +335,10 @@ export class HudScene extends Phaser.Scene {
   private setOverlay(which: 'pause' | 'details' | 'help' | null) {
     if (which === null && this.introPending && !this.helpLayer.visible)
       which = 'help';
-    else if (which === null) this.introPending = false;
+    else if (which === null) {
+      if (this.introPending) this.hud.onMatchStart();
+      this.introPending = false;
+    }
     this.detailsLayer.setVisible(which === 'details');
     this.pauseLayer.setVisible(which === 'pause');
     this.helpLayer.setVisible(which === 'help');
@@ -380,6 +385,7 @@ export class HudScene extends Phaser.Scene {
       470,
       'QUIT',
       () => {
+        this.hud.onMatchQuit();
         this.scene.stop('Match');
         this.scene.start(
           this.registry.get('activeMode') === 'casual' ? 'Casual' : 'Menu'

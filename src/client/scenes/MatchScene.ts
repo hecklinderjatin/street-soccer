@@ -1,3 +1,7 @@
+import { currentPostType } from '../challenge';
+import { createMatchJourney } from '../matchJourney';
+import { journeyAppReady, sendJourney } from '../journeys';
+import { journeySettings, journeyResult } from '../../shared/journeys';
 import { dailyPlans, startScore, survivalLimits } from '../../shared/dailyMode';
 import { qualifyingGoal, goalStyle } from '../../shared/goalSpeed';
 import { recordGoalSpeed } from '../goalRecords';
@@ -199,6 +203,8 @@ export class MatchScene extends Phaser.Scene {
   private switchCycle: Player[] = [];
   private switchIndex = 0;
   private switchHoldArmed = false; // a SWITCH press that, held on, jumps to the keeper
+  private journey: ReturnType<typeof createMatchJourney> | null = null;
+  private rematch = false;
   private gameCount: ReturnType<typeof trackGame> | null = null;
   private resultShown = false;
   private botDifficulty: MatchConfig['difficulty'] = 'normal';
@@ -223,9 +229,12 @@ export class MatchScene extends Phaser.Scene {
   }
 
   // Phaser reuses this scene object on every restart, so reset per-match state here.
-  init(data: MatchConfig & { demo?: boolean }) {
-    this.demo = data.demo === true;
-    this.config = data;
+  init(data: MatchConfig & { demo?: boolean; rematch?: boolean }) {
+    const { demo, rematch, ...config } = data;
+    this.demo = demo === true;
+    this.config = config;
+    this.rematch = rematch === true;
+    this.journey = null;
     if (!this.demo) this.registry.set('activeMode', data.mode ?? 'competitive');
     this.homeShape = FORMATIONS[data.home.formation];
     this.awayShape = FORMATIONS[data.away.formation];
@@ -497,7 +506,28 @@ export class MatchScene extends Phaser.Scene {
         ballY: this.ball.y,
       },
     };
+    if (!this.demo) {
+      this.journey = createMatchJourney(
+        journeySettings(this.config, currentPostType(), this.rematch),
+        sendJourney
+      );
+      journeyAppReady();
+      // Initial entry waits for PLAY MATCH; later starts follow committed
+      // menu/settings/rematch clicks and keep their existing quick-start flow.
+      if (this.registry.get('helpAtStart') !== true) this.journey.start();
+    }
     const hud: HudData = {
+      onMatchStart: () => this.journey?.start(),
+      onMatchQuit: () =>
+        this.journey?.end(
+          journeyResult(
+            this.config,
+            this.flow.score.home,
+            this.flow.score.away,
+            this.flow.elapsedSec,
+            true
+          )
+        ),
       config: this.config,
       controls: this.controls,
       state: this.hudState,
@@ -2017,6 +2047,14 @@ export class MatchScene extends Phaser.Scene {
       passes: this.stats.passes,
       tacklesWon: this.stats.tacklesWon,
     };
+    this.journey?.end(
+      journeyResult(
+        this.config,
+        result.goalsFor,
+        result.goalsAgainst,
+        this.flow.elapsedSec
+      )
+    );
     this.scene.start('Result', result);
   }
 

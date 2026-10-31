@@ -41,7 +41,9 @@ export class ResultScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => screen.destroy());
     if (r.config.mode === 'casual') {
       screen.actions.append(
-        casualButton('REMATCH', () => this.scene.start('Match', r.config)),
+        casualButton('REMATCH', () =>
+          this.scene.start('Match', { ...r.config, rematch: true })
+        ),
         casualButton('CHANGE SETTINGS', () => this.scene.start('Casual'), true),
         casualButton(
           'EXIT',
@@ -60,7 +62,9 @@ export class ResultScene extends Phaser.Scene {
       true
     );
     screen.actions.append(
-      casualButton('PLAY AGAIN', () => this.scene.start('Match', r.config)),
+      casualButton('PLAY AGAIN', () =>
+        this.scene.start('Match', { ...r.config, rematch: true })
+      ),
       post,
       casualButton('PLAY CASUAL', () => this.scene.start('Casual'), true)
     );

@@ -1,3 +1,4 @@
+import { journeyAppReady } from '../journeys';
 import Phaser from 'phaser';
 import { context, requestExpandedMode } from '@devvit/web/client';
 import type { DailyLeadersResponse } from '../../shared/api';
@@ -38,6 +39,7 @@ export class MenuScene extends Phaser.Scene {
       (event) => play(event, true)
     );
     document.body.append(lobby.element);
+    journeyAppReady();
     this.cameras.main.setVisible(false);
     this.registry.set('menuPreview', true);
     const layout = () => {

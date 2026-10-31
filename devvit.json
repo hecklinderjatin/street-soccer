@@ -18,6 +18,7 @@
     }
   },
   "permissions": {
+    "journeys": true,
     "redis": true,
     "reddit": {
       "enable": true,

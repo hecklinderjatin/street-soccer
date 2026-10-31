@@ -50,6 +50,12 @@ Results highlight your fastest goal. Fixed Daily Challenge/Classic matches can a
 
 The server checks integer speed bounds, a scored goal and at least one shot, applies the existing result rate limit and uses the post's fixed configuration. This limits invalid submissions; client-reported gameplay is not cheat-proof.
 
+## Match analytics (pending approval)
+
+Optional Reddit Journeys integration is implemented and **off by default**. The proposed map records interactive readiness, a committed match start/rematch, terminal results and explicit quits. Custom fields are limited to predefined mode, difficulty, duration, outcome, goals and elapsed match time; team names, usernames, Reddit IDs and free text are not added. Reddit supplies its standard contextual metadata. Tracking never blocks gameplay, and watching the AI preview does not start a journey.
+
+The app declares the Journeys permission, but requires Reddit map approval and allowlisting before activation. After approval, build both client and server with `STREET_SOCCER_JOURNEYS_ENABLED=true`; leaving it unset disables requests and SDK emission. See [the review map and activation guide](docs/journeys-review-map.md). No review submission or live activation is performed by this change. No third-party collector is configured. Platform analytics is managed by Reddit; the existing deletion tool covers our app’s Redis data.
+
 ## Games played
 
 Each preview card shows **GAMES PLAYED**: the number of completed matches on that post since this counter was introduced. It includes Casual and ranked matches, including rematches. Watching the AI preview, opening settings, quitting a match or refreshing the page does not increment it. This is a match count, not a count of unique people.
@@ -83,6 +89,8 @@ Run these in WSL from this folder:
 - `npm run dev`: build and playtest in the dev subreddit (`r/street_soccer_dev`)
 - `npm run test:local`: type check, lint, dependency compatibility, unit and logic checks, build
 - `npm run test:casual-browser`: browser interaction checks against a running local build (install Playwright Chromium first, or set `CHROMIUM_PATH` to a system Chromium)
+- `npm run test:journeys`: check tracking boundaries, privacy allowlists, denial/failure handling and rematch lifecycle
+- `npm run test:journeys-browser`: check a local build’s tracking hooks with mocked Reddit endpoints
 - `npm run test:games`: completed-game counter regression checks for concurrent retries, failed commits, lost replies, expiry and deletion
 - `npm run test:privacy`: regression checks for deletion isolation, account lookup failures and mandatory score-thread pinning
 - `npm run art:release`: rebuild the player atlases and release art after changing a sprite sheet (needs Python Pillow)

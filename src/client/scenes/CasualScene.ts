@@ -1,3 +1,4 @@
+import { journeyAppReady } from '../journeys';
 import Phaser from 'phaser';
 import { context, exitExpandedMode } from '@devvit/web/client';
 import {
@@ -172,6 +173,7 @@ export class CasualScene extends Phaser.Scene {
       )
     );
     screen.panel.append(note, actions);
+    journeyAppReady();
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => screen.destroy());
   }
 }

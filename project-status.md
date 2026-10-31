@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Match Journeys (2026-10-31):** implemented on `codex/match-journeys` with official @devvit/analytics 0.15.1 and an allowlisted Hono adapter. The minimal map covers interactive ready (once/page), committed match start/rematch, terminal results and explicit quit. `STREET_SOCCER_JOURNEYS_ENABLED` defaults off in both client/server builds; Journeys permission is declared for review. Custom metadata contains only fixed mode/difficulty/duration/outcome/goals/time fields, not names/IDs/free text. Reddit supplies standard SDK context. Per-attempt IDs stay in memory; requests time out after two seconds with no retries and never block gameplay. No preview starts, passive quit inference or per-input tracking. Rematch markers are kept outside match settings. Clean npm ci, full local checks/build, actual Hono/SDK-boundary tests with a mock transport, default-off browser checks, all Daily scenarios and the full Casual/legacy/goal-achievement browser suite pass. Enabled mocked browser tests cover passive preview exclusion, committed release, result/rematch/quit, denied approval, offline and timed-out requests; no page errors. npm audit remains zero; no PostHog code is present in the browser bundle. The final local build is restored to default off. Review map and activation instructions are in docs/journeys-review-map.md. No live telemetry, review submission, upload or publication was performed.
+
 **Dependency security fixes (2026-10-31):** fixed all 48 npm audit findings; merged `codex/shield-mode-name` through `a97f467` into `main` by fast-forward at the user’s request, including the Shield rename. Pin patched minimatch 11.0.3 and tmp 0.2.7 through overrides; keep stable Devvit 0.15.1. Because glob 7 expects old RegExp matcher internals, a checked/idempotent postinstall adapts its field lookup to `pattern` and matching to `test()` without changing the nonrecursive security fix or callback/EventEmitter API. Resolve through production dependencies so both full and --omit=dev installs work. Clean full/production npm ci, both audits (zero findings), full local checks/build, Devvit version/upload/playtest/publish help and all Daily browser scenarios pass. New dependency checks exercise sync/async/event glob, braces/extglobs/dotfiles/ignore/nocase, filelist, editor temp cleanup and traversal rejection; included in test:local. Reddit/Redis integration uses mocks; no live upload/publish was performed.
 
 **Shield naming (2026-10-31):** renamed the visible Hold the Lead mode to Shield, now merged into `main`, including creator choices, match briefing, preview, HUD, results, share text and validation messages. Stored `hold-lead` IDs, rules and leaderboard data stay compatible. Types, lint, Daily rule/form/leaderboard checks and build pass; Reddit/Redis tests use mocks.
@@ -475,6 +477,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Journeys stays off until Reddit approves/allowlists the map. Track one attempt per explicit play, each rematch gets a fresh ID; bounded requests and failures never block gameplay. Only whitelisted mode/difficulty/duration/outcome/score/time fields reach the SDK.
+
 - Merge the tested Shield/security branch into main at the user’s request. Application code matches the branch validated with zero-finding audits, clean installs, local checks and Daily browser tests.
 
 - Resolve all audit findings with patched minimatch/tmp overrides and a guarded postinstall compatibility fix for legacy glob 7. Preserve nonrecursive Matcher.test() rather than converting to regex. Retain stable Devvit; avoid audit-suggested toolchain downgrades. Remove/review the shim when upstream glob/Devvit changes.
@@ -751,6 +755,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Review docs/journeys-review-map.md and submit the concrete map through Reddit’s current review channel. After approval/allowlisting, explicitly enable and build client/server together, then verify accepted receipts on the approved app (playtest may be denied). Default-off implementation and all local/mocked checks pass; live ingestion is not verified.
+
 - Playtest Shield and the security fixes from `main` in real Reddit. Clean full/production installs, zero-finding audits, local suite, Daily browser scenarios and Devvit CLI help pass; keep install scripts enabled so the compatibility fix applies.
 
 - Playtest Shield naming in old/new Daily posts on Reddit from `main`; types, lint, Daily checks and build pass.
@@ -1008,6 +1014,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-10-31:** implement default-off, match-level Reddit Journeys with a Hono SDK adapter, bounded allowlisted metadata, per-attempt IDs and nonblocking ready/start/result/quit/rematch hooks. Add review map, lifecycle/API/browser regressions and tests for denial/offline/timeout and passive preview exclusion. Keep rematch markers outside game settings. Clean install, local suite, default/enabled mocked tracking and existing game browser suites pass; audit zero. Restore default-off build; do not activate or submit review automatically.
 
 - **2026-10-31:** fast-forward `main` through `a97f467`, bringing in Shield naming and all 48 npm audit fixes at the user’s request. Preserve the tested application code and installation compatibility fix.
 
