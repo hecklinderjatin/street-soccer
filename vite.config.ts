@@ -43,7 +43,7 @@ export default defineConfig({
   publicDir: resolve('public-release'),
   define: {
     __JOURNEYS_ENABLED__: JSON.stringify(
-      process.env.STREET_SOCCER_JOURNEYS_ENABLED === 'true'
+      process.env.STREET_SOCCER_JOURNEYS_ENABLED !== 'false'
     ),
   },
   resolve: {

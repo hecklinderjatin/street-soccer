@@ -3,7 +3,7 @@ import { DIFFICULTIES } from './types';
 import type { PostType } from './postType';
 import { challengeCleared, survivalLimits } from './dailyMode';
 
-// Defined identically in client/server builds. Remains off pending map approval.
+// Defined identically in client/server builds. Reddit still gates ingestion.
 declare const __JOURNEYS_ENABLED__: boolean;
 export const journeysEnabled =
   typeof __JOURNEYS_ENABLED__ !== 'undefined' && __JOURNEYS_ENABLED__;

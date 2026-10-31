@@ -13,7 +13,7 @@ import {
 } from '../src/shared/journeys';
 import { DEFAULT_MATCH_CONFIG } from '../src/shared/matchConfig';
 
-assert.equal(journeysEnabled, false, 'unconfigured builds default off');
+assert.equal(journeysEnabled, false, 'non-Vite test bundles safely omit telemetry');
 const settings = journeySettings(
   { ...DEFAULT_MATCH_CONFIG, dailyMode: 'survival' },
   'daily',
@@ -233,5 +233,5 @@ const neverResponds = createMatchJourney(settings, () => new Promise(() => {}));
 neverResponds.start();
 neverResponds.end(result); // returns immediately
 console.log(
-  'Journeys passed: default-off, DTO privacy, Hono/SDK integration, denial/outage, single-end, rematch IDs, delayed starts and explicit quits'
+  'Journeys passed: disabled gate, DTO privacy, Hono/SDK integration, denial/outage, single-end, rematch IDs, delayed starts and explicit quits'
 );

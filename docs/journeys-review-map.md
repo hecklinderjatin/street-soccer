@@ -1,6 +1,6 @@
 # Street Soccer: proposed Journeys map
 
-Status: implemented for review, **disabled by default**. This document does not
+Status: implemented for review, **enabled by default at the app owner’s request**. This document does not
 claim Reddit approval or allowlisting. No review request has been submitted by
 the implementation.
 
@@ -64,23 +64,25 @@ context independently; this is not anonymous analytics.
 1. Submit this map through Reddit's Journeys review process and obtain approval
    and app allowlisting. Confirm the current submission channel with Reddit's
    developer team; the documentation does not specify it.
-2. After approval, set `STREET_SOCCER_JOURNEYS_ENABLED=true` in the build/deploy
-   environment. Both the client and server must be built together with it.
-   `permissions.journeys` is already declared in `devvit.json`.
+2. Normal builds now enable Journeys in both client and server.
+   `permissions.journeys` is declared in `devvit.json`. Reddit still gates
+   ingestion: non-allowlisted starts are dropped and produce no follow-up events.
+   A deployed enabled build can begin receiving accepted receipts after approval
+   without another code toggle.
 3. Verify acceptance on the approved app. Playtest versions may receive the
    SDK's `JOURNEY_RECEIPT_DENIED_PLAYTEST` status; local mocks cannot establish
    live telemetry readiness. Deployment, publishing and review submission are
    separate from this code change.
-4. To disable, remove the flag (or set it to `false`) and rebuild/redeploy.
-   Default builds send no Journeys requests; the backend also returns empty
-   responses without invoking the SDK.
+4. To disable, explicitly set `STREET_SOCCER_JOURNEYS_ENABLED=false` and
+   rebuild/redeploy both client and server. Disabled builds send no Journeys
+   requests; the backend also returns empty responses without invoking the SDK.
 
 Local checks: `npm run test:journeys` covers the Hono/SDK boundary with a mock
-transport. `npm run test:journeys-browser` tests a running default build. An
-explicitly enabled **local mock test build** can use
-`STREET_SOCCER_JOURNEYS_ENABLED=true npm run build`, followed by
-`EXPECT_JOURNEYS=true npm run test:journeys-browser`. Browser tests intercept all
-telemetry routes; no analytics is sent to Reddit. Restore the default build
+transport. `npm run test:journeys-browser` tests a running normal (enabled) build,
+including rejection, offline and timeout handling. It intercepts all telemetry
+routes, so no analytics reaches Reddit. To verify the kill switch, build with
+`STREET_SOCCER_JOURNEYS_ENABLED=false npm run build`, then run
+`EXPECT_JOURNEYS=false npm run test:journeys-browser`. Restore a normal build
 after testing.
 
 Sources: [Devvit Journeys](https://developers.reddit.com/docs/capabilities/analytics/devvit-journeys)

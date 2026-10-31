@@ -1,9 +1,9 @@
 // Run against a local build. All Reddit endpoints are mocked; no telemetry
-// reaches Reddit. EXPECT_JOURNEYS=true tests an explicitly enabled test build.
+// reaches Reddit. EXPECT_JOURNEYS=false tests an explicitly disabled build.
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 
-const enabled = process.env.EXPECT_JOURNEYS === 'true';
+const enabled = process.env.EXPECT_JOURNEYS !== 'false';
 const base = process.env.BASE ?? 'http://127.0.0.1:4173/';
 const browser = await chromium.launch({
   ...(process.env.CHROMIUM_PATH

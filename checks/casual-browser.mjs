@@ -36,6 +36,10 @@ async function pageFor(viewport, postData) {
   await page.route('**/api/**', (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
+    // Existing gameplay tests simulate analytics being unavailable. Dedicated
+    // Journeys tests cover accepted/denied/outage lifecycle requests.
+    if (path.startsWith('/api/journeys/'))
+      return route.fulfill({ status: 204 });
     if (path === '/api/speed-leaders')
       return route.fulfill({
         json: {

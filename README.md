@@ -50,11 +50,11 @@ Results highlight your fastest goal. Fixed Daily Challenge/Classic matches can a
 
 The server checks integer speed bounds, a scored goal and at least one shot, applies the existing result rate limit and uses the post's fixed configuration. This limits invalid submissions; client-reported gameplay is not cheat-proof.
 
-## Match analytics (pending approval)
+## Match analytics (awaiting Reddit allowlisting)
 
-Optional Reddit Journeys integration is implemented and **off by default**. The proposed map records interactive readiness, a committed match start/rematch, terminal results and explicit quits. Custom fields are limited to predefined mode, difficulty, duration, outcome, goals and elapsed match time; team names, usernames, Reddit IDs and free text are not added. Reddit supplies its standard contextual metadata. Tracking never blocks gameplay, and watching the AI preview does not start a journey.
+Reddit Journeys integration is **enabled by default** at the app owner’s request. The proposed map records interactive readiness, a committed match start/rematch, terminal results and explicit quits. Custom fields are limited to predefined mode, difficulty, duration, outcome, goals and elapsed match time; team names, usernames, Reddit IDs and free text are not added. Reddit supplies its standard contextual metadata. Tracking never blocks gameplay, and watching the AI preview does not start a journey.
 
-The app declares the Journeys permission, but requires Reddit map approval and allowlisting before activation. After approval, build both client and server with `STREET_SOCCER_JOURNEYS_ENABLED=true`; leaving it unset disables requests and SDK emission. See [the review map and activation guide](docs/journeys-review-map.md). No review submission or live activation is performed by this change. No third-party collector is configured. Platform analytics is managed by Reddit; the existing deletion tool covers our app’s Redis data.
+The app declares the Journeys permission and attempts tracking, but Reddit accepts events only after map approval and app allowlisting. No second code change is needed once Reddit grants access to a deployed enabled build. To disable tracking, build both client and server with `STREET_SOCCER_JOURNEYS_ENABLED=false`. See [the review map and activation guide](docs/journeys-review-map.md). No review submission, upload or publication is performed by this change. No third-party collector is configured. Platform analytics is managed by Reddit; the existing deletion tool covers our app’s Redis data.
 
 ## Games played
 
