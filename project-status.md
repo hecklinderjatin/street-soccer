@@ -8,7 +8,7 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
-**Rampage and goal burst (2026-10-31):** implemented on `codex/rampage-goal-burst`. Survival is now named Rampage in creator forms, previews, results, shares and validation messages; existing stored `survival` IDs/limits remain compatible. Purple/pink RISING AI badges replace the static Noob/range label. The info briefing explains your-goal opponent/keeper upgrades, the actual tiers for the goal target, concession limit, timeout failure and fastest-clear ranking. Goal text now pops, shakes, tilts and expands with black outlines, cyan/pink offsets and diagonal repeated text trails; it sweeps/fades before the existing kickoff, without a background box. Speed/record feedback stays steady and the burst remains in the upper pitch area. Full local checks, Daily mode browser suite and existing Casual/legacy/achievement browser suite pass. Focused Chromium checks and desktop/portrait/landscape screenshots cover animation phases, bounded placement, fade, consecutive-goal reset, reduced motion and real kickoff cleanup. Reddit/Redis checks use mocks; live playtesting remains outstanding.
+**Rampage and goal burst (2026-10-31):** merged into `main` through `2e53db0` by fast-forward at the user’s request. Survival is now named Rampage in creator forms, previews, results, shares and validation messages; existing stored `survival` IDs/limits remain compatible. Purple/pink RISING AI badges replace the static Noob/range label. The info briefing explains your-goal opponent/keeper upgrades, the actual tiers for the goal target, concession limit, timeout failure and fastest-clear ranking. Goal text now pops, shakes, tilts and expands with black outlines, cyan/pink offsets and diagonal repeated text trails; it sweeps/fades before the existing kickoff, without a background box. Speed/record feedback stays steady and the burst remains in the upper pitch area. Full local checks, Daily mode browser suite and existing Casual/legacy/achievement browser suite pass. Focused Chromium checks and desktop/portrait/landscape screenshots cover animation phases, bounded placement, fade, consecutive-goal reset, reduced motion and real kickoff cleanup. Reddit/Redis checks use mocks; live playtesting remains outstanding.
 
 **Main merge (2026-10-31):** merged `codex/daily-challenge-modes` through `8ce99b7` into `main` by fast-forward at the user’s request. Includes the three Daily templates, minimal goal-speed backing, configurable Survival limits/time leaderboard and two-page briefing. Existing local and browser checks passed on this exact application code; live Reddit testing remains outstanding.
 
@@ -471,6 +471,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Merge the tested Rampage/goal-burst branch into main at the user’s request; keep real Reddit visual playtesting as the next validation step.
+
 - Rampage is a display rename: retain the stored `survival` ID and limits for old posts/results. Explain per-goal opponent/keeper progression. Keep the goal burst above the scorer, speed steady, and reduced-motion feedback static.
 
 - Merge the tested Daily branch into main at the user’s request; continue real Reddit playtesting from main.
@@ -739,7 +741,7 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
-- Playtest Rampage labels/briefing and the reference-inspired goal burst in a real Reddit mobile webview before merging `codex/rampage-goal-burst`. Local and mocked browser checks pass; verify visual feel and scorer visibility on-device.
+- Playtest Rampage labels/briefing and the reference-inspired goal burst in a real Reddit mobile webview from `main`. Local and mocked browser checks pass; verify visual feel and scorer visibility on-device.
 
 - Review screenshots and playtest newly created posts for all three Daily templates on Reddit from `main`. Verify creator limits/fixed 5:00 cap, fastest-clear persistence, Survival balance, early completion counts and the two-page briefing against real Reddit/Redis. All local and mocked browser checks pass; legacy posts retain old rules.
 
@@ -992,6 +994,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-10-31:** fast-forward `main` through `2e53db0`, bringing in Rampage naming, rising-AI badges/briefing and the tested diagonal goal-text burst at the user’s request. Application code matches the tested branch.
 
 - **2026-10-31:** rename the visible Survival mode to Rampage while preserving saved IDs; add rising-AI badges and explicit per-goal opponent/keeper progression in match info. Replace the old headline stretch with outlined chromatic text, tilt/shake and diagonal repeated trails fading into kickoff; keep speed steady and reduced motion static. Local and both browser suites pass; focused screenshots/checks cover reset, fade, bounds and kickoff cleanup. Live Reddit testing remains outstanding.
 
