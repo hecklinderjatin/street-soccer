@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Main merge (2026-11-02):** fast-forwarded `feat/post-flair` through `c61061f` into local `main` at the user's request. Includes optional post flair selection/validation for all game creation forms and expanded handler tests. Prior strict changed-server types, lint, logic/Daily and form-handler checks passed. Preserve the existing uncommitted package whitespace edit. No push, build or deployment performed.
+
 **Post flair in game creation (2026-11-02):** on `feat/post-flair`, add an optional Post flair dropdown to final Daily/Classic/Custom forms using the current community's templates (including moderator-only templates) plus No flair. Fetch again on submission, reject stale/malformed selections before posting and preserve valid selection on other validation retries. Apply the selected ID atomically through `submitCustomPost.flairId`, outside gameplay postData; installation posts remain unchanged. Empty/failed lookups provide explanatory help and allow no-flair posting. Strict type checks for the changed server files/import graph, lint/formatting, 55 logic cases, Daily rules/rankings and actual Hono form-handler mocks pass. Handler tests cover all templates/modes, no flair, retries, invalid/deleted IDs and lookup failures. Tests use the existing TypeScript transpilation workaround for missing Windows Rolldown binding. Full server types remain blocked by missing analytics imports in journeys/index. No live Reddit post, build, merge or deployment performed.
 
 **Main merge (2026-11-01):** fast-forwarded `fix/desktop-preview-layout` through `dde3c58` into local `main` at the user's request. Full-width responsive desktop lobby controls and the existing-browser-suite width assertion are included. The 21 focused layout scenarios passed before merging. Preserve the uncommitted package whitespace edit. No push, build or deployment performed.
@@ -519,6 +521,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Merge post flair selection into local main by fast-forward; keep the pre-existing package whitespace edit outside the commits.
+
 - Load subreddit flair templates only after moderator authorization and pass a validated selection through the existing post-submit call, avoiding a second flair-write operation. Retain optional no-flair posting and existing form endpoints/permissions.
 
 - Merge the desktop preview layout fix into local main by fast-forward, preserving the existing package edit outside the commits.
@@ -841,6 +845,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Push main when requested, then playtest selecting and applying a post flair in Reddit after the next build/upload.
+
 - Playtest the Post flair dropdown and applied flair on a newly created Daily, Classic and Custom post in Reddit; merge/push when requested.
 
 - Push the desktop preview layout fix when requested and review it on Reddit after the next build/upload.
@@ -1142,6 +1148,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-02:** fast-forward local main through `c61061f` with game-creation post flair support; no push or deployment performed.
 
 - **2026-11-02:** add optional subreddit post flair selection to game creation, validate current template IDs and apply selected flair on submission; strict changed-file types, lint, logic/Daily and expanded form-handler mocks pass.
 
