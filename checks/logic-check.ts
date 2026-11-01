@@ -1067,7 +1067,10 @@ check(
     assert.equal(result.config.mode, 'casual');
     assert.equal(result.config.locked, false);
     assert.equal(result.config.startGoalsAgainst, 0);
-    assert.equal(challengeFormFor('casual').fields.length, 3);
+    assert.deepEqual(
+      challengeFormFor('casual').fields.map((field) => field.name),
+      ['matchType', 'title', 'flairId', 'description']
+    );
     assert.equal(
       typeof readChallenge(
         formValues({ matchType: ['unknown'] }),

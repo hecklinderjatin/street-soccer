@@ -6,11 +6,12 @@ import { scoreThread } from './scoreThread';
 // settings are saved as the post's postData, which the splash and the game
 // read from their context (client/challenge.ts); without one (the install
 // post) the game plays the default Classic match. Casual posts have no ranked scores.
-export const createPost = async (challenge?: Challenge) => {
+export const createPost = async (challenge?: Challenge, flairId?: string) => {
   const post = challenge
     ? await reddit.submitCustomPost({
         title: challenge.title,
         runAs: 'USER',
+        ...(flairId ? { flairId } : {}),
         userGeneratedContent: {
           text: [
             challenge.matchType,

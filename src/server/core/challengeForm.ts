@@ -33,6 +33,7 @@ export const CHALLENGE_FORM = 'challengeForm'; // devvit.json "forms" key
 
 // What the form submits: text fields as strings, selects as one-item arrays.
 export type ChallengeValues = {
+  flairId?: string[];
   chaosEffect?: string[];
   chaosStrength?: number;
   matchType?: string[];
@@ -59,6 +60,32 @@ export type Challenge = {
   description: string;
   config: MatchConfig;
 };
+
+export type PostFlairChoice = { id: string; text: string };
+
+// Recheck submitted IDs against this subreddit's current templates.
+export function readPostFlair(
+  value: unknown,
+  flairs: readonly PostFlairChoice[] | null
+): { id?: string; error?: string } {
+  if (value === undefined || (Array.isArray(value) && value.length === 0))
+    return {};
+  if (
+    !Array.isArray(value) ||
+    value.length !== 1 ||
+    typeof value[0] !== 'string'
+  )
+    return { error: 'Choose a valid post flair' };
+  const id = value[0];
+  if (id === 'none') return {};
+  if (flairs === null)
+    return { error: 'Could not verify the post flair. Please try again.' };
+  return flairs.some((flair) => flair.id === id)
+    ? { id }
+    : {
+        error: 'That post flair is no longer available. Choose another flair.',
+      };
+}
 
 const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const options = (values: readonly string[], label = capital) =>
@@ -130,7 +157,8 @@ export const dailyModeForm: Form = {
 
 export function challengeFormFor(
   matchType: PostType,
-  dailyMode: DailyMode = 'comeback'
+  dailyMode: DailyMode = 'comeback',
+  flairs: readonly PostFlairChoice[] | null = []
 ): Form {
   const dailyFields: FormField[] =
     matchType === 'daily'
@@ -213,6 +241,25 @@ export function challengeFormFor(
         name: 'title',
         label: 'Post title',
         required: true,
+      },
+      {
+        type: 'select',
+        name: 'flairId',
+        label: 'Post flair (optional)',
+        defaultValue: ['none'],
+        options: [
+          { value: 'none', label: 'No flair' },
+          ...(flairs ?? []).map((flair, index) => ({
+            value: flair.id,
+            label: flair.text.trim() || `Flair ${index + 1}`,
+          })),
+        ],
+        helpText:
+          flairs === null
+            ? 'Flairs could not be loaded. Reopen this form to retry, or add flair after posting.'
+            : flairs.length
+              ? "Choose one of this community's post flairs."
+              : "No post flairs are available. Add templates in the community's Post flair settings.",
       },
       {
         type: 'paragraph',
@@ -323,6 +370,7 @@ export function challengeFormData(values?: ChallengeValues): ChallengeValues {
   const d = DEFAULT_MATCH_CONFIG;
   const dailyMode = parseDailyMode(values?.dailyMode?.[0]) ?? 'comeback';
   return {
+    flairId: ['none'],
     chaosEffect: ['power'],
     chaosStrength: 100,
     dailyMode: [dailyMode],

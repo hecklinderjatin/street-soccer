@@ -10,6 +10,8 @@ import {
   challengeFormFor,
   challengeFormData,
   readChallenge,
+  readPostFlair,
+  type PostFlairChoice,
   type ChallengeValues,
 } from '../core/challengeForm';
 import { parsePostType, POST_TYPE_LABEL } from '../../shared/postType';
@@ -56,6 +58,16 @@ const isModerator = async () => {
   return permissions.length > 0;
 };
 
+const loadPostFlairs = async (): Promise<PostFlairChoice[] | null> => {
+  try {
+    if (!context.subredditName) return null;
+    return await reddit.getPostFlairTemplates(context.subredditName);
+  } catch (error) {
+    console.warn('Could not load post flairs:', error);
+    return null;
+  }
+};
+
 forms.post('/match-type', async (c) => {
   try {
     if (!(await isModerator()))
@@ -73,7 +85,7 @@ forms.post('/match-type', async (c) => {
     return c.json<UiResponse>({
       showForm: {
         name: CHALLENGE_FORM,
-        form: challengeFormFor(type),
+        form: challengeFormFor(type, undefined, await loadPostFlairs()),
         data: challengeFormData({
           matchType: [type],
           title: `Street Soccer ${POST_TYPE_LABEL[type].toLowerCase()}`,
@@ -104,7 +116,7 @@ forms.post('/daily-mode', async (c) => {
     return c.json<UiResponse>({
       showForm: {
         name: CHALLENGE_FORM,
-        form: challengeFormFor('daily', mode),
+        form: challengeFormFor('daily', mode, await loadPostFlairs()),
         data: challengeFormData({
           matchType: ['daily'],
           dailyMode: [mode],
@@ -130,23 +142,29 @@ forms.post('/challenge-submit', async (c) => {
         200
       );
     const values = await c.req.json<ChallengeValues>();
+    const flairs = await loadPostFlairs();
+    const flair = readPostFlair(values.flairId, flairs);
     const challenge = readChallenge(values, parseMatchConfig);
-    if (typeof challenge === 'string')
+    if (typeof challenge === 'string' || flair.error)
       return c.json<UiResponse>(
         {
-          showToast: challenge,
+          showToast: typeof challenge === 'string' ? challenge : flair.error,
           showForm: {
             name: CHALLENGE_FORM,
             form: challengeFormFor(
               parsePostType(values.matchType?.[0]) ?? 'daily',
-              parseDailyMode(values.dailyMode?.[0])
+              parseDailyMode(values.dailyMode?.[0]),
+              flairs
             ),
-            data: challengeFormData(values),
+            data: challengeFormData({
+              ...values,
+              ...(flair.error ? { flairId: ['none'] } : {}),
+            }),
           },
         },
         200
       );
-    const post = await createPost(challenge);
+    const post = await createPost(challenge, flair.id);
     return c.json<UiResponse>(
       {
         showToast: { text: 'Match created', appearance: 'success' },

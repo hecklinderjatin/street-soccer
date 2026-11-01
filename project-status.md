@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Post flair in game creation (2026-11-02):** on `feat/post-flair`, add an optional Post flair dropdown to final Daily/Classic/Custom forms using the current community's templates (including moderator-only templates) plus No flair. Fetch again on submission, reject stale/malformed selections before posting and preserve valid selection on other validation retries. Apply the selected ID atomically through `submitCustomPost.flairId`, outside gameplay postData; installation posts remain unchanged. Empty/failed lookups provide explanatory help and allow no-flair posting. Strict type checks for the changed server files/import graph, lint/formatting, 55 logic cases, Daily rules/rankings and actual Hono form-handler mocks pass. Handler tests cover all templates/modes, no flair, retries, invalid/deleted IDs and lookup failures. Tests use the existing TypeScript transpilation workaround for missing Windows Rolldown binding. Full server types remain blocked by missing analytics imports in journeys/index. No live Reddit post, build, merge or deployment performed.
+
 **Main merge (2026-11-01):** fast-forwarded `fix/desktop-preview-layout` through `dde3c58` into local `main` at the user's request. Full-width responsive desktop lobby controls and the existing-browser-suite width assertion are included. The 21 focused layout scenarios passed before merging. Preserve the uncommitted package whitespace edit. No push, build or deployment performed.
 
 **Responsive desktop preview controls (2026-11-01):** on `fix/desktop-preview-layout`, remove the 580 px desktop controls cap so team/score, action buttons, game count and ranking use the full card width. Match header/control gutters and use bounded fluid desktop text/button sizes; the scrim now follows the full-width panel directly. Preserve portrait/short-height overrides. Rendered the actual `createMobileLobby` DOM and stylesheet in Chrome for Classic, Chaos and Custom at seven sizes (320–1920 px), including 875x640: panel/scrim widths, button bounds/labels, vertical fit and desktop gutter alignment pass. Reviewed the 875x640 render (`F:\code ball\output\desktop-preview-layout.png`); its neutral background isolates the UI. Add full-width panel assertion to the existing browser suite. No full application build, full browser suite or live Reddit test performed.
@@ -517,6 +519,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Load subreddit flair templates only after moderator authorization and pass a validated selection through the existing post-submit call, avoiding a second flair-write operation. Retain optional no-flair posting and existing form endpoints/permissions.
+
 - Merge the desktop preview layout fix into local main by fast-forward, preserving the existing package edit outside the commits.
 
 - Let desktop lobby controls fill the preview rather than capping them to a left column; align header and lower controls with matching responsive gutters and keep desktop sizing bounded.
@@ -837,6 +841,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Playtest the Post flair dropdown and applied flair on a newly created Daily, Classic and Custom post in Reddit; merge/push when requested.
+
 - Push the desktop preview layout fix when requested and review it on Reddit after the next build/upload.
 
 - Review the full-width desktop preview controls on Reddit after building/uploading this branch.
@@ -1136,6 +1142,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-02:** add optional subreddit post flair selection to game creation, validate current template IDs and apply selected flair on submission; strict changed-file types, lint, logic/Daily and expanded form-handler mocks pass.
 
 - **2026-11-01:** fast-forward local main through `dde3c58` with responsive full-width desktop preview controls; no push or deployment performed.
 

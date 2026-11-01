@@ -23,10 +23,17 @@ await build({
         if (id !== '\0local-devvit') return;
         return `
         globalThis.formPosts = []; globalThis.formIsModerator = true;
+        globalThis.formFlairs = [{id:'flair-match',text:'Match'},{id:'flair-mod',text:'Mod event',modOnly:true}];
+        globalThis.formFlairFailure = false;
         globalThis.testBoards = {}; globalThis.testHashes = {};
         export const context = { subredditName: 'test' };
         export const redis = { get: async key => key.startsWith('scorethread:') ? 't1_scores' : undefined, set: async () => {}, del: async () => {}, zRange: async key => globalThis.testBoards[key] ?? [], hGetAll: async key => globalThis.testHashes[key] ?? {} };
         export const reddit = {
+          getPostFlairTemplates: async name => {
+            if (name !== 'test') throw new Error('Wrong subreddit');
+            if (globalThis.formFlairFailure) throw new Error('Flairs unavailable');
+            return globalThis.formFlairs;
+          },
           getCurrentUser: async () => ({getModPermissionsForSubreddit: async () => globalThis.formIsModerator ? ['all'] : []}),
           getCommentById: async () => ({id:'t1_scores',postId:'t3_new',stickied:true,removed:false}),
           submitCustomPost: async options => { globalThis.formPosts.push(options); return {id:'t3_new'}; },
@@ -55,6 +62,13 @@ for (const mode of ['comeback', 'hold-lead', 'survival', 'chaos']) {
   const response = await post('/daily-mode', { dailyMode: [mode] });
   const form = response.showForm;
   assert.equal(form.name, 'challengeForm');
+  assert.deepEqual(
+    form.form.fields
+      .find((f) => f.name === 'flairId')
+      .options.map((o) => o.value),
+    ['none', 'flair-match', 'flair-mod']
+  );
+  form.data.flairId = ['flair-match'];
   assert.deepEqual(form.data.dailyMode, [mode]);
   const names = form.form.fields.map((f) => f.name);
   assert.equal(names.includes('difficulty'), mode !== 'survival');
@@ -86,6 +100,8 @@ for (const mode of ['comeback', 'hold-lead', 'survival', 'chaos']) {
     assert.equal(saved.postData.match.chaosStrength, 150);
   }
   assert.equal(saved.runAs, 'USER');
+  assert.equal(saved.flairId, 'flair-match');
+  assert.equal('flairId' in saved.postData, false);
   if (mode === 'survival') {
     assert.equal(saved.postData.match.survivalGoals, 7);
     assert.equal(saved.postData.match.survivalConceded, 4);
@@ -118,7 +134,75 @@ for (const type of ['classic', 'casual']) {
     response.showForm.form.fields.some((f) => f.name === 'dailyMode'),
     false
   );
+  const created = await post('/challenge-submit', {
+    ...response.showForm.data,
+    flairId: ['flair-mod'],
+  });
+  assert.ok(created.navigateTo);
+  assert.equal(globalThis.formPosts.at(-1).flairId, 'flair-mod');
 }
+
+const flairForm = (await post('/match-type', { matchType: ['casual'] }))
+  .showForm;
+const retry = await post('/challenge-submit', {
+  ...flairForm.data,
+  title: '',
+  flairId: ['flair-match'],
+});
+assert.deepEqual(retry.showForm.data.flairId, ['flair-match']);
+for (const value of [
+  ['deleted-flair'],
+  ['flair-match', 'flair-mod'],
+  'flair-match',
+]) {
+  const count = globalThis.formPosts.length;
+  const rejected = await post('/challenge-submit', {
+    ...flairForm.data,
+    flairId: value,
+  });
+  assert.ok(rejected.showToast);
+  assert.ok(rejected.showForm);
+  assert.equal(globalThis.formPosts.length, count);
+  assert.deepEqual(rejected.showForm.data.flairId, ['none']);
+  assert.equal(rejected.showForm.data.title, flairForm.data.title);
+}
+for (const value of [undefined, [], ['none']]) {
+  assert.ok(
+    (await post('/challenge-submit', { ...flairForm.data, flairId: value }))
+      .navigateTo
+  );
+  assert.equal('flairId' in globalThis.formPosts.at(-1), false);
+}
+globalThis.formFlairs = [];
+const emptyFlairs = await post('/match-type', { matchType: ['casual'] });
+const emptyField = emptyFlairs.showForm.form.fields.find(
+  (f) => f.name === 'flairId'
+);
+assert.deepEqual(emptyField.options, [{ value: 'none', label: 'No flair' }]);
+assert.match(emptyField.helpText, /No post flairs/);
+const removed = await post('/challenge-submit', {
+  ...flairForm.data,
+  flairId: ['flair-match'],
+});
+assert.match(removed.showToast, /no longer available/);
+globalThis.formFlairFailure = true;
+const unavailable = await post('/match-type', { matchType: ['casual'] });
+assert.match(
+  unavailable.showForm.form.fields.find((f) => f.name === 'flairId').helpText,
+  /could not be loaded/
+);
+const failedSelection = await post('/challenge-submit', {
+  ...flairForm.data,
+  flairId: ['flair-match'],
+});
+assert.match(failedSelection.showToast, /Could not verify/);
+assert.ok(
+  (await post('/challenge-submit', unavailable.showForm.data)).navigateTo
+);
+globalThis.formFlairFailure = false;
+console.log(
+  'Post flair form checks passed: all modes, selected/no flair, retries, stale/malformed IDs, mod-only templates, empty lists and loading failures'
+);
 const before = globalThis.formPosts.length;
 globalThis.formIsModerator = false;
 for (const [path, body] of [
