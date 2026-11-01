@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Main merge (2026-11-01):** fast-forwarded `game-updates` through `87c5158` into local `main` at the user's request. Includes full-width desktop lobby gradient, outfield-only switching and secondary target marker, Custom display naming and the new desktop keyboard layout. Prior client types/lint, 55 logic cases, game-count and focused layout/renderer/keyboard checks passed. Existing local `package.json` whitespace edit remains uncommitted. No push, build or deployment performed.
+
 **Desktop keyboard remap (2026-11-01):** WASD/arrows move, Left Shift holds sprint; N pass/tackle (keeper throw/dive); I chip, J left curl, L right curl and K power shot/switch (keeper kick). Space replaces I for match info/briefing, M shares the sound-button toggle, Escape closes overlays or pauses, Enter advances briefing. HUD shortcuts ignore repeat/duplicate events. Keep charge/release behavior and touch controls. Update help, README and the existing Chaos browser info shortcut. Client types, lint and all 55 logic checks pass, including actual Controls mapping/hold/release/sprint tests. Isolated real Phaser/Chrome keyboard checks verify shot keys and Left Shift, with a passing shortcut check for Space/M/Escape/repeats/no I conflict. No full application build or gameplay playthrough performed.
 
 **Custom mode naming (2026-11-01):** rename player-facing Casual labels to Custom in preview buttons/tags, setup, briefing, results, moderator forms and API errors; update README and existing browser selectors. Keep internal `casual` mode/post/scene IDs, entrypoint and storage keys compatible with existing posts/preferences. Client types, lint, 53 logic cases and game-count checks pass using the existing TypeScript-hook workaround; no build or browser playthrough performed.
@@ -511,6 +513,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Merge the reviewed session changes into local main by fast-forward; leave the pre-existing package whitespace edit outside the commits.
+
 - K always supplies the power-shot effect as requested; I/J/L trigger chip/curl shots directly. N covers context-sensitive keeper throw/dive, and K keeper kick/switch. Keep Enter and arrow-key navigation as additional shortcuts.
 
 - Use Custom as the display name while retaining established `casual` identifiers and storage keys so the rename does not migrate or invalidate existing data.
@@ -825,6 +829,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Push main when requested, then review the merged changes in a full game build and on Reddit desktop/mobile.
+
 - Playtest the remapped desktop controls and help-panel readability in the full game; consider a separate neutral-shot binding only if requested.
 
 - Review Custom labels in the feed, setup, briefing, results and moderator post creation after the next build.
@@ -1118,6 +1124,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-01:** fast-forward local main through `87c5158` with the desktop gradient, switching/marker, Custom naming and keyboard updates. Preserve the local package edit; no push or deployment performed.
 
 - **2026-11-01:** apply the requested WASD/Left Shift, I/J/K/L/N, Space/M/Escape keyboard layout; update help/documentation/browser selector, guard repeated HUD shortcuts and add two Controls regressions (55 logic cases pass).
 
