@@ -58,7 +58,7 @@ export function gameDuration(value: unknown, postData: unknown): number {
     throw new GameCountError('Invalid match settings');
   if (config.mode === 'casual') return config.durationSec;
   if (postType(postData) === 'casual')
-    throw new GameCountError('This post is Casual');
+    throw new GameCountError('This post is Custom');
   const stored =
     typeof postData === 'object' && postData !== null
       ? parseMatchConfig(Reflect.get(postData, 'match'))

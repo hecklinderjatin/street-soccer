@@ -194,8 +194,8 @@ export function challengeFormFor(
     title: 'Create a Street Soccer match',
     description:
       matchType === 'casual'
-        ? 'Create a Casual post from your Reddit account. Players freely choose their formations, difficulty and match time.'
-        : 'Create a post from your Reddit account. Ranked matches use these fixed settings; players can also choose unranked Casual.',
+        ? 'Create a Custom post from your Reddit account. Players freely choose their formations, difficulty and match time.'
+        : 'Create a post from your Reddit account. Ranked matches use these fixed settings; players can also choose unranked Custom.',
     acceptLabel: 'Create post',
     fields: [
       {

@@ -28,6 +28,10 @@ import {
 } from '../src/client/systems/keeper';
 import { TeamBrain, interceptPoint } from '../src/client/systems/ai';
 import {
+  nextSwitchSelection,
+  switchOrder,
+} from '../src/client/systems/playerSwitch';
+import {
   assistedShotDirection,
   idealPassWeight,
   passWeight,
@@ -59,6 +63,7 @@ import { readChallenge } from '../src/server/core/challengeForm';
 import { postConfig, readStats } from '../src/server/core/matchStats';
 import { scoreComment } from '../src/server/core/scoreComment';
 import { MatchFlow } from '../src/client/systems/MatchFlow';
+import { Controls } from '../src/client/systems/Controls';
 
 let passed = 0;
 function check(name: string, fn: () => void) {
@@ -142,6 +147,212 @@ function ball(o: Record<string, unknown>): any {
 }
 
 // --- Tackles ---------------------------------------------------------------
+check(
+  'switch: keeper is excluded even when closest or preferred under threat',
+  () => {
+    const controlled = player({ x: 700, y: 650 });
+    const near = player({ x: 150, y: 650 });
+    const far = player({ x: 500, y: 650 });
+    const keeper = player({ role: 'keeper', x: 40, y: 650 });
+    const teammates = [controlled, far, keeper, near];
+    const b = ball({ x: 45, y: 650 });
+    assert.deepEqual(switchOrder(teammates, controlled, b, null), [near, far]);
+    b.vx = -600;
+    assert.deepEqual(switchOrder(teammates, controlled, b, keeper), [
+      near,
+      far,
+    ]);
+    assert.deepEqual(switchOrder(teammates, controlled, b, far), [far, near]);
+    assert.deepEqual(switchOrder(teammates, controlled, b, controlled), [
+      near,
+      far,
+    ]);
+  }
+);
+
+check(
+  'switch: can leave a controlled keeper and handles no eligible teammate',
+  () => {
+    const keeper = player({ role: 'keeper', x: 40, y: 650 });
+    const outfielder = player({ x: 150, y: 650 });
+    const b = ball({ x: 40, y: 650, owner: keeper });
+    assert.deepEqual(switchOrder([keeper, outfielder], keeper, b, null), [
+      outfielder,
+    ]);
+    assert.deepEqual(
+      switchOrder([keeper, outfielder], outfielder, b, keeper),
+      []
+    );
+  }
+);
+
+check(
+  'switch preview: read-only selection matches fresh, cycling and expired presses',
+  () => {
+    const controlled = player({ x: 700, y: 650 });
+    const near = player({ x: 150, y: 650 });
+    const far = player({ x: 500, y: 650 });
+    const b = ball({ x: 45, y: 650 });
+    const teammates = [controlled, near, far];
+    const initial = { players: [], index: 0, lastAt: -Infinity };
+    const preview = nextSwitchSelection(
+      teammates,
+      controlled,
+      b,
+      far,
+      initial,
+      10
+    );
+    assert.equal(preview.target, far);
+    assert.deepEqual(initial, { players: [], index: 0, lastAt: -Infinity });
+    assert.deepEqual(
+      nextSwitchSelection(teammates, controlled, b, far, initial, 10),
+      preview
+    );
+    const cycle = {
+      players: preview.players,
+      index: preview.index,
+      lastAt: 10,
+    };
+    const second = nextSwitchSelection(teammates, far, b, far, cycle, 10.2);
+    assert.equal(second.target, near);
+    assert.equal(cycle.index, 0, 'preview does not advance the stored cycle');
+    const expired = nextSwitchSelection(
+      teammates,
+      far,
+      b,
+      controlled,
+      cycle,
+      12
+    );
+    assert.equal(
+      expired.target,
+      controlled,
+      'expiry rebuilds from current AI priority'
+    );
+  }
+);
+
+check(
+  'switch preview: cycle skips the current player and keeper on wraparound',
+  () => {
+    const current = player({});
+    const next = player({ x: 150 });
+    const keeper = player({ role: 'keeper' });
+    const cycle = { players: [next, current, keeper], index: 0, lastAt: 10 };
+    assert.equal(
+      nextSwitchSelection(
+        [current, next, keeper],
+        current,
+        ball({}),
+        null,
+        cycle,
+        10.2
+      ).target,
+      next
+    );
+  }
+);
+
+check(
+  'keyboard: WASD directions, normalized diagonals and left Shift sprint',
+  () => {
+    const keys = new Map<string, any>();
+    const scene: any = {
+      input: {
+        keyboard: {
+          addKey(code: string) {
+            if (!keys.has(code)) keys.set(code, { isDown: false, location: 0 });
+            return keys.get(code);
+          },
+        },
+      },
+    };
+    const controls = new Controls();
+    controls.bindKeyboard(scene);
+    for (const [code, x, y] of [
+      ['W', 0, -1],
+      ['S', 0, 1],
+      ['A', -1, 0],
+      ['D', 1, 0],
+    ] as const) {
+      keys.get(code).isDown = true;
+      controls.sample();
+      assert.equal(controls.move.x, x);
+      assert.equal(controls.move.y, y);
+      assert.equal(controls.sprint, false);
+      keys.get(code).isDown = false;
+    }
+    keys.get('W').isDown = keys.get('D').isDown = true;
+    keys.get('SHIFT').isDown = true;
+    keys.get('SHIFT').location = 1;
+    controls.sample();
+    assert.equal(controls.sprint, true);
+    assert.equal(controls.move.r, 1);
+    assert.ok(
+      Math.abs(Math.hypot(controls.move.x, controls.move.y) - 1) < 1e-9
+    );
+    keys.get('SHIFT').location = 2;
+    controls.sample();
+    assert.equal(controls.sprint, false);
+  }
+);
+
+check(
+  'keyboard: N pass/tackle and I/J/K/L shot effects hold and release',
+  () => {
+    const keys = new Map<string, any>();
+    const scene: any = {
+      input: {
+        keyboard: {
+          addKey(code: string) {
+            if (!keys.has(code)) keys.set(code, { isDown: false, location: 0 });
+            return keys.get(code);
+          },
+        },
+      },
+    };
+    const controls = new Controls();
+    controls.bindKeyboard(scene);
+    keys.get('N').isDown = true;
+    controls.sample();
+    assert.equal(controls.isHeld(1), true);
+    assert.equal(controls.isHeld(2), false);
+    keys.get('N').isDown = false;
+    controls.sample();
+    assert.equal(controls.isHeld(1), false);
+    for (const [code, x, y] of [
+      ['I', 0, -1],
+      ['J', -1, 0],
+      ['K', 0, 1],
+      ['L', 1, 0],
+    ] as const) {
+      keys.get(code).isDown = true;
+      controls.sample();
+      assert.equal(controls.isHeld(1), false);
+      assert.equal(controls.isHeld(2), true);
+      assert.deepEqual(controls.swipe, { x, y });
+      controls.consume(2);
+      controls.sample();
+      assert.equal(
+        controls.pressAge(2),
+        Infinity,
+        'holding does not trigger repeated presses'
+      );
+      keys.get(code).isDown = false;
+      controls.sample();
+      assert.equal(controls.isHeld(2), false);
+      assert.deepEqual(
+        controls.swipe,
+        { x, y },
+        'effect survives release for the shot'
+      );
+    }
+    assert.equal(keys.has('T'), false);
+    assert.equal(keys.has('G'), false);
+  }
+);
+
 check('tackle timeline: windup -> active -> recover -> none', () => {
   const p = player({});
   assert.equal(startTackle(p, 0, 10, null), true);

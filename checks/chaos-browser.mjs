@@ -51,8 +51,8 @@ const briefing = async (page) => {
       () => window.__game.scene.getScene('Hud').detailsLayer.visible
     )
   ) {
-    await page.keyboard.press('i');
-    await page.keyboard.press('i');
+    await page.keyboard.press('Space');
+    await page.keyboard.press('Space');
   }
   await page.waitForFunction(() => !window.__game.scene.isPaused('Match'));
 };
@@ -320,7 +320,7 @@ try {
       s.flow.finished = true;
     });
     await page
-      .getByRole('button', { name: 'PLAY CASUAL', exact: true })
+      .getByRole('button', { name: 'PLAY CUSTOM', exact: true })
       .click();
     await page
       .getByRole('button', { name: 'START MATCH', exact: true })

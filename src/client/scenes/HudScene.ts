@@ -182,10 +182,7 @@ export class HudScene extends Phaser.Scene {
       VIEW.width - 232,
       48,
       '',
-      () => {
-        setSoundMuted(this.sound, !soundMuted());
-        drawSound();
-      },
+      () => toggleSound(),
       { width: 72, height: 64, fill: PAL.darkGray }
     );
     const speaker = this.add.graphics();
@@ -216,14 +213,26 @@ export class HudScene extends Phaser.Scene {
       }
       soundButton.setFill(mute ? PAL.darkGray : PAL.darkGreen);
     };
+    const toggleSound = () => {
+      setSoundMuted(this.sound, !soundMuted());
+      drawSound();
+    };
     drawSound();
-    // ESC closes whatever is open, else pauses; I toggles the help.
-    this.input.keyboard?.on('keydown-ESC', () =>
-      this.setOverlay(this.overlayOpen() ? null : 'pause')
-    );
-    this.input.keyboard?.on('keydown-I', () => this.advanceInfo());
+    // Ignore key repeat so held shortcuts only toggle once per press.
+    this.input.keyboard?.addCapture('SPACE');
+    const shortcut = (key: string, action: () => void) => {
+      let lastEvent: KeyboardEvent | null = null;
+      this.input.keyboard?.on(`keydown-${key}`, (event: KeyboardEvent) => {
+        if (event.repeat || event === lastEvent) return;
+        lastEvent = event;
+        action();
+      });
+    };
+    shortcut('ESC', () => this.setOverlay(this.overlayOpen() ? null : 'pause'));
+    shortcut('SPACE', () => this.advanceInfo());
+    shortcut('M', toggleSound);
 
-    this.input.keyboard?.on('keydown-ENTER', () => {
+    shortcut('ENTER', () => {
       if (this.detailsLayer.visible || this.helpLayer.visible)
         this.advanceInfo();
     });

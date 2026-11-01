@@ -107,7 +107,7 @@ api.post('/result', async (c) => {
     const body: unknown = await c.req.json();
     if (!competitiveResultAllowed(context.postData, body))
       return c.json<SimpleErrorResponse>(
-        { error: 'Casual matches do not submit ranked results' },
+        { error: 'Custom matches do not submit ranked results' },
         400
       );
     const stats = readStats(body, config);
@@ -140,7 +140,7 @@ api.post('/result', async (c) => {
 api.get('/daily-leaders', async (c) => {
   if (postType(context.postData) === 'casual')
     return c.json<SimpleErrorResponse>(
-      { error: 'Casual posts have no leaderboard' },
+      { error: 'Custom posts have no leaderboard' },
       400
     );
   const { postId } = context;
@@ -170,7 +170,7 @@ api.get('/speed-leaders', async (c) => {
   c.header('Cache-Control', 'no-store');
   if (!context.postId) return c.json({ error: 'Missing postId' }, 400);
   if (postType(context.postData) === 'casual')
-    return c.json({ error: 'Casual posts have no leaderboard' }, 400);
+    return c.json({ error: 'Custom posts have no leaderboard' }, 400);
   try {
     const username = await reddit.getCurrentUsername();
     return c.json(
@@ -203,7 +203,7 @@ api.post('/post-score', async (c) => {
       !competitiveResultAllowed(context.postData, Reflect.get(body, 'result'))
     )
       return c.json<SimpleErrorResponse>(
-        { error: 'Casual matches do not share ranked scores' },
+        { error: 'Custom matches do not share ranked scores' },
         400
       );
     const stats = readStats(Reflect.get(body, 'result'), config);

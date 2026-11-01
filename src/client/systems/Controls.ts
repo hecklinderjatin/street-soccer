@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import type Phaser from 'phaser';
 import { STICK } from '../../shared/tuning';
 
 // Stick direction as a unit vector plus how far it is pushed (0..1 of the radius).
@@ -60,26 +60,24 @@ export class Controls {
   > | null = null;
   private keyHeld: Record<ButtonId, boolean> = { 1: false, 2: false };
 
-  // Desktop fallback: WASD or arrows to move, Shift to sprint, J and K for
-  // the buttons. T / G / F / H act as K with a full swipe up / down / left /
-  // right.
+  // WASD/arrows move; left Shift sprints. N is pass/tackle, K is
+  // power shot/switch; I/J/L shoot with chip/left curl/right curl.
   bindKeyboard(scene: Phaser.Scene) {
     const kb = scene.input.keyboard;
     if (!kb) return;
-    const K = Phaser.Input.Keyboard.KeyCodes;
-    const add = (...codes: number[]) => codes.map((code) => kb.addKey(code));
+    const add = (...codes: string[]) => codes.map((code) => kb.addKey(code));
     this.keys = {
-      up: add(K.W, K.UP),
-      down: add(K.S, K.DOWN),
-      left: add(K.A, K.LEFT),
-      right: add(K.D, K.RIGHT),
-      sprint: add(K.SHIFT),
-      b1: add(K.J),
-      b2: add(K.K),
-      chip: add(K.T),
-      power: add(K.G),
-      curlLeft: add(K.F),
-      curlRight: add(K.H),
+      up: add('W', 'UP'),
+      down: add('S', 'DOWN'),
+      left: add('A', 'LEFT'),
+      right: add('D', 'RIGHT'),
+      sprint: add('SHIFT'),
+      b1: add('N'),
+      b2: add('K'),
+      chip: add('I'),
+      power: add('K'),
+      curlLeft: add('J'),
+      curlRight: add('L'),
     };
   }
 
@@ -121,7 +119,7 @@ export class Controls {
       keys?.some((k) => k.isDown) ?? false;
     const k = this.keys;
 
-    // J/K behave exactly like the on-screen buttons.
+    // N/K use the context buttons; shot keys also supply the shot effect.
     const swipeKeys: [SwipeVec, Phaser.Input.Keyboard.Key[] | undefined][] = [
       [{ x: 0, y: -1 }, k?.chip],
       [{ x: 0, y: 1 }, k?.power],
@@ -150,7 +148,8 @@ export class Controls {
     const x = (down(k?.right) ? 1 : 0) - (down(k?.left) ? 1 : 0);
     const y = (down(k?.down) ? 1 : 0) - (down(k?.up) ? 1 : 0);
     const len = Math.hypot(x, y);
-    const sprint = down(k?.sprint);
+    const sprint =
+      k?.sprint.some((key) => key.isDown && key.location === 1) ?? false;
     // Without Shift the keyboard walks at full walk speed (just inside the sprint ring).
     this.move =
       len > 0

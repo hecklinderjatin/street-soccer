@@ -729,8 +729,6 @@ export const INPUT = {
   bufferNearBall: 60, // only buffer a pass/shot press when the ball is this close
   switchCycleSec: 1, // switch presses within this cycle to the next nearest
   switchCooldownSec: 0.12, // ignore switch presses closer together than this
-  keeperHoldSec: 0.35, // holding SWITCH this long jumps straight to our keeper
-  keeperThreatSpeed: 250, // a ball moving toward our goal this fast (in our third) makes SWITCH pick the keeper first
   lostBallSwitchSec: 4, // after the CPU tackles the ball off our player: for this long (or until we win it back) SWITCH picks the outfielder who can reach the ball soonest...
   chaseAssist: true, // ... and that player runs at the ball by himself until the human steers him (as the receive assist)
 } as const;

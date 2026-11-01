@@ -91,6 +91,7 @@ import {
 } from '../systems/keeper';
 import { separatePlayers } from '../systems/collisions';
 import { TeamBrain, interceptPoint, type TeamView } from '../systems/ai';
+import { nextSwitchSelection } from '../systems/playerSwitch';
 import {
   resolveTackle,
   startTackle,
@@ -177,6 +178,7 @@ export class MatchScene extends Phaser.Scene {
   private rig!: CameraRig;
   private hudState!: MatchHudState;
   private marker!: Phaser.GameObjects.Graphics; // ring + pointer + charge gauge under the controlled player
+  private switchMarker!: Phaser.GameObjects.Graphics; // subtle ring under the next SWITCH target
   private shotText!: Phaser.GameObjects.BitmapText; // the swipe shape, above the shooter
 
   private simTime = 0;
@@ -213,7 +215,6 @@ export class MatchScene extends Phaser.Scene {
   private lastSwitchAt = -Infinity;
   private switchCycle: Player[] = [];
   private switchIndex = 0;
-  private switchHoldArmed = false; // a SWITCH press that, held on, jumps to the keeper
   private journey: ReturnType<typeof createMatchJourney> | null = null;
   private rematch = false;
   private rules = NORMAL_RULES;
@@ -278,7 +279,6 @@ export class MatchScene extends Phaser.Scene {
     this.lastSwitchAt = -Infinity;
     this.switchCycle = [];
     this.switchIndex = 0;
-    this.switchHoldArmed = false;
     this.gameCount = null;
     this.resultShown = false;
     this.botDifficulty = data.difficulty;
@@ -445,6 +445,7 @@ export class MatchScene extends Phaser.Scene {
     this.ball = new Ball(this);
     this.ball.rules = this.rules;
     this.marker = this.add.graphics();
+    this.switchMarker = this.add.graphics();
     this.shotText = pixelText(this, 0, 0, '', 0.6 * PX, PAL.white)
       .setOrigin(0.5, 1)
       .setDepth(SHOT_TEXT_DEPTH)
@@ -677,6 +678,7 @@ export class MatchScene extends Phaser.Scene {
       this.updateShotText();
       this.updateRoleText();
       this.updateGroundMarker();
+      this.updateSwitchMarker();
     }
 
     const b = this.ball;
@@ -1008,17 +1010,6 @@ export class MatchScene extends Phaser.Scene {
     const ball = this.ball;
     const controls = this.controls;
 
-    // Holding SWITCH (after the switch it triggered) jumps straight to our keeper.
-    if (!controls.isHeld(2)) {
-      this.switchHoldArmed = false;
-    } else if (
-      this.switchHoldArmed &&
-      controls.heldFor(2) >= INPUT.keeperHoldSec
-    ) {
-      this.switchHoldArmed = false;
-      if (this.controlled !== this.homeKeeper)
-        this.setControlled(this.homeKeeper);
-    }
     // After a shot, while the ball is loose: control stays with whichever
     // outfielder is closest to the ball (the shooter too, while it still
     // is), re-checked every step as the ball travels. A small margin stops
@@ -1174,7 +1165,6 @@ export class MatchScene extends Phaser.Scene {
       if (!hasBall && fresh(2) && !ballClose) {
         controls.consume(2);
         this.switchPlayer(t);
-        this.switchHoldArmed = true; // keep holding to jump to the keeper
       }
     }
   }
@@ -1345,51 +1335,34 @@ export class MatchScene extends Phaser.Scene {
   // Switch to the player our AI has sent for the ball (the presser when
   // they have it, the chaser or a pass's receiver when it's loose: the one
   // actually going, not just the nearest), else the teammate who can get to
-  // the ball soonest (the keeper included); pressing again within a second
+  // the ball soonest (outfielders only); pressing again within a second
   // cycles on through them in that order.
+  private nextSwitch(t: number) {
+    // After losing possession, interception time takes priority over AI jobs.
+    const lostBall =
+      t - this.lostBallAt < INPUT.lostBallSwitchSec &&
+      this.ball.owner?.team !== 'home';
+    return nextSwitchSelection(
+      this.home,
+      this.controlled,
+      this.ball,
+      lostBall ? null : this.homeBrain.switchTarget(),
+      {
+        players: this.switchCycle,
+        index: this.switchIndex,
+        lastAt: this.lastSwitchAt,
+      },
+      t
+    );
+  }
+
   private switchPlayer(t: number) {
     if (t - this.lastSwitchAt < INPUT.switchCooldownSec) return;
     this.followShotUntil = -Infinity; // the player chose; stop following the shot
-    if (
-      t - this.lastSwitchAt > INPUT.switchCycleSec ||
-      this.switchCycle.length === 0
-    ) {
-      const ball = this.ball;
-      const soonest = new Map<Player, number>();
-      for (const p of [...this.home, this.homeKeeper])
-        soonest.set(p, interceptPoint(p, ball).t);
-      this.switchCycle = [...soonest.keys()]
-        .filter((p) => p !== this.controlled)
-        .sort((a, b) => (soonest.get(a) ?? 0) - (soonest.get(b) ?? 0));
-      // Just lost the ball to a CPU tackle: the outfielder who can reach the
-      // ball soonest comes first (not the AI's presser pick), and runs at it.
-      const lostBall =
-        t - this.lostBallAt < INPUT.lostBallSwitchSec &&
-        ball.owner?.team !== 'home';
-      const pick = lostBall
-        ? (this.switchCycle.find((p) => p.role !== 'keeper') ?? null)
-        : this.homeBrain.switchTarget();
-      if (pick && pick !== this.controlled)
-        this.switchCycle = [
-          pick,
-          ...this.switchCycle.filter((p) => p !== pick),
-        ];
-      // Danger: the ball heading for our goal in our third -> keeper first.
-      const threat =
-        !ball.owner &&
-        ball.vx < -INPUT.keeperThreatSpeed &&
-        ball.x < PITCH.width / 3;
-      if (threat && this.controlled !== this.homeKeeper) {
-        this.switchCycle = [
-          this.homeKeeper,
-          ...this.switchCycle.filter((p) => p !== this.homeKeeper),
-        ];
-      }
-      this.switchIndex = 0;
-    } else {
-      this.switchIndex = (this.switchIndex + 1) % this.switchCycle.length;
-    }
-    const next = this.switchCycle[this.switchIndex];
+    const selection = this.nextSwitch(t);
+    this.switchCycle = selection.players;
+    this.switchIndex = selection.index;
+    const next = selection.target;
     if (next) {
       this.setControlled(next);
       if (
@@ -1802,7 +1775,6 @@ export class MatchScene extends Phaser.Scene {
       this.ball,
       this.flow.kickoffTeam === 'home' ? this.forward : this.awayForward
     );
-    this.switchHoldArmed = false;
     this.pendingPass = null;
     this.followShotUntil = -Infinity;
     this.outRestart = null;
@@ -2021,6 +1993,46 @@ export class MatchScene extends Phaser.Scene {
       right.y
     );
     g.setDepth(y - 0.5); // under the player's sprite
+  }
+
+  // Smaller, broken, muted outline: no disc, pointer, gauge or animation.
+  private updateSwitchMarker() {
+    const g = this.switchMarker;
+    g.clear();
+    const c = this.controlled;
+    if (
+      this.flow.phase !== 'live' ||
+      this.flow.awaitingKickoff ||
+      this.ball.owner === c ||
+      (c.role !== 'keeper' &&
+        !this.ball.owner &&
+        Math.hypot(this.ball.x - c.x, this.ball.y - c.y) < INPUT.bufferNearBall)
+    )
+      return;
+    const target = this.nextSwitch(this.simTime).target;
+    if (!target) return;
+    const scale = this.projector.project(
+      target.renderX,
+      target.renderY,
+      0,
+      AIM_AT
+    ).scale;
+    g.lineStyle(Math.max(1, 1.5 * scale), PAL.lightGray, 0.45);
+    const segments = 8;
+    for (let i = 0; i < segments; i++) {
+      const points = Array.from({ length: 5 }, (_, j) => {
+        const angle = ((i + 0.65 * (j / 4)) / segments) * Math.PI * 2;
+        this.projector.project(
+          target.renderX + Math.cos(angle) * RING_RADIUS * 0.85,
+          target.renderY + Math.sin(angle) * RING_RADIUS * 0.85,
+          0,
+          AIM_AT
+        );
+        return { x: AIM_AT.x, y: AIM_AT.y };
+      });
+      g.strokePoints(points, false, false);
+    }
+    g.setDepth(target.renderY - 0.5);
   }
 
   private updatePassPreview() {

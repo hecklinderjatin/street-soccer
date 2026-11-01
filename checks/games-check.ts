@@ -254,7 +254,7 @@ assert.throws(
 );
 assert.throws(
   () => gameDuration(DEFAULT_MATCH_CONFIG, { matchType: 'casual' }),
-  /Casual/
+  /Custom/
 );
 const survivalRun = harness();
 await beginGame(

@@ -37,7 +37,7 @@ export function createMobileLobby(
       <div class="mobile-match-facts"><div><small>START SCORE</small><strong class="mobile-start"></strong></div></div></div>
       <div class="mobile-formations"></div>
       <p class="mobile-challenge"></p>
-      <div class="preview-actions"><button class="mobile-play">PLAY MATCH</button><button class="mobile-casual">PLAY CASUAL</button></div>
+      <div class="preview-actions"><button class="mobile-play">PLAY MATCH</button><button class="mobile-casual">PLAY CUSTOM</button></div>
       <div class="preview-activity"><span><i class="activity-icon"></i> GAMES PLAYED</span><strong class="preview-games" aria-label="Games played">—</strong></div>
       <div class="preview-ranking">
         <div class="mobile-board-heading"><strong>7-DAY TOP 3</strong><button class="mobile-more">ALL ›</button></div>
@@ -119,12 +119,12 @@ export function createMobileLobby(
   pixelLabel(
     get('.mobile-play'),
     type === 'casual'
-      ? 'PLAY CASUAL'
+      ? 'PLAY CUSTOM'
       : type === 'classic'
         ? 'PLAY CLASSIC'
         : 'PLAY CHALLENGE'
   );
-  pixelLabel(get('.mobile-casual'), 'PLAY CASUAL');
+  pixelLabel(get('.mobile-casual'), 'PLAY CUSTOM');
   get('.mobile-casual').hidden = type === 'casual';
   get('.mobile-casual').addEventListener('click', onCasual);
   pixelLabel(get('.mobile-more'), 'ALL >');

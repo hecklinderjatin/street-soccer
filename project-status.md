@@ -8,6 +8,16 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Desktop keyboard remap (2026-11-01):** WASD/arrows move, Left Shift holds sprint; N pass/tackle (keeper throw/dive); I chip, J left curl, L right curl and K power shot/switch (keeper kick). Space replaces I for match info/briefing, M shares the sound-button toggle, Escape closes overlays or pauses, Enter advances briefing. HUD shortcuts ignore repeat/duplicate events. Keep charge/release behavior and touch controls. Update help, README and the existing Chaos browser info shortcut. Client types, lint and all 55 logic checks pass, including actual Controls mapping/hold/release/sprint tests. Isolated real Phaser/Chrome keyboard checks verify shot keys and Left Shift, with a passing shortcut check for Space/M/Escape/repeats/no I conflict. No full application build or gameplay playthrough performed.
+
+**Custom mode naming (2026-11-01):** rename player-facing Casual labels to Custom in preview buttons/tags, setup, briefing, results, moderator forms and API errors; update README and existing browser selectors. Keep internal `casual` mode/post/scene IDs, entrypoint and storage keys compatible with existing posts/preferences. Client types, lint, 53 logic cases and game-count checks pass using the existing TypeScript-hook workaround; no build or browser playthrough performed.
+
+**Secondary SWITCH marker (2026-11-01):** add a smaller, thin, 45%-opacity light-gray dashed ground ring beneath the next eligible SWITCH target, with no disc, arrow, gauge or pulse. Hide when SWITCH is unavailable (possession, near-ball action buffering, kickoff, goal/fulltime) and in demos. Preview and button use the same read-only selection planner, including AI priority, lost-ball ordering, cycle expiry and repeated-tap wraparound; skip the current player and keepers. Client types, lint and all 53 logic checks pass; isolated actual-renderer checks cover eight arcs, depth and visibility states. Full gameplay visual review remains pending; no application build/deployment performed.
+
+**Outfield-only switching (2026-11-01):** SWITCH never selects a goalkeeper: remove keeper entries from the candidate cycle, the incoming-shot keeper override and the held-SWITCH shortcut. Keep AI presser/chaser priority, interception ordering, cooldown and lost-ball chase assist. Keeper possession/goal-kick control remains available. Update help text and remove obsolete tuning/state. Lint and all 51 logic checks pass, including keeper exclusion and switching out of keeper control. Logic checks ran through TypeScript's CommonJS transpilation hook because local Rolldown lacks its Windows native binding. Full types are blocked by missing `@devvit/analytics/server/reddit` in two existing server imports. No build or gameplay playtest performed.
+
+**Desktop lobby gradient fix (2026-11-01):** on `game-updates`, extend the lower lobby scrim to the full viewport width rather than the capped controls panel plus 80 px. This removes the hard vertical cutoff visible on wide Reddit feed cards. Controls keep their existing width and position. Headless Chrome checks using the actual stylesheet pass at seven desktop/mobile sizes (320–1920 px), including the screenshot's 875x640 card size; no application build or live Reddit check performed.
+
 **Main merge (2026-10-31):** fast-forwarded `codex/rampage-upgrade-after-goal` through `335ebe3` into `main` at the user’s request. The quieter, single-line Rampage upgrade feedback now starts after goal celebration ends at the actual difficulty change. Existing TypeScript/lint/Daily checks pass; no application build/browser checks run.
 
 **Post-goal Rampage upgrade feedback (2026-10-31):** remove the outlined two-line level-up graphic from the goal celebration. Show one small LEVEL UP > tier line beneath the HUD only after the goal finishes and the actual new difficulty is applied at kickoff. A gentle short slide/fade lasts 1.6 active seconds across kickoff/live; reduced motion uses a steady line. No feedback for opponent goals, final clear goals or the Pro cap. Active-time state resets on rematch and pauses with the scene. TypeScript, lint and Daily rules/posting checks pass, including goal-to-kickoff timing boundaries. No application build/browser checks run.
@@ -501,6 +511,16 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- K always supplies the power-shot effect as requested; I/J/L trigger chip/curl shots directly. N covers context-sensitive keeper throw/dive, and K keeper kick/switch. Keep Enter and arrow-key navigation as additional shortcuts.
+
+- Use Custom as the display name while retaining established `casual` identifiers and storage keys so the rename does not migrate or invalidate existing data.
+
+- Share SWITCH target planning between the marker and button without advancing the stored cycle during preview. Distinguish the secondary target through a smaller dashed outline, lower opacity and no primary-marker decorations.
+
+- Restrict SWITCH to outfield teammates for taps, repeated taps and holds; keeper control still follows actual keeper possession and goal kicks.
+
+- Size the desktop lower scrim independently of the 580 px controls panel using `100vw`, keeping one continuous vertical gradient across the preview.
+
 - Merge the post-goal Rampage level-up refinement into main as requested, preserving the no-build instruction.
 
 - Separate Rampage upgrade feedback from goal graphics entirely: announce the applied tier at kickoff in one quiet line, without extra outlines, stacked text or a box.
@@ -805,6 +825,16 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Playtest the remapped desktop controls and help-panel readability in the full game; consider a separate neutral-shot binding only if requested.
+
+- Review Custom labels in the feed, setup, briefing, results and moderator post creation after the next build.
+
+- Visually review secondary SWITCH marker contrast on court at desktop/mobile sizes, and confirm preview-to-selection behavior through repeated switches and possession changes.
+
+- Playtest tapping, cycling and holding SWITCH while defending shots; confirm keeper collections and distribution still work. Refresh local dependencies to restore the full type-check/Rolldown toolchain.
+
+- Review the full-width lobby gradient on the Reddit desktop feed after the next build/upload.
+
 - Pull main in Codespaces and review the quieter post-goal level-up feedback on mobile after the next user-run build.
 
 - Review the quieter post-goal upgrade timing after a user-run build, including pause/resume, consecutive goals and rematches.
@@ -1088,6 +1118,16 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-01:** apply the requested WASD/Left Shift, I/J/K/L/N, Space/M/Escape keyboard layout; update help/documentation/browser selector, guard repeated HUD shortcuts and add two Controls regressions (55 logic cases pass).
+
+- **2026-11-01:** rename Casual to Custom throughout user-facing labels, forms, errors and documentation; update existing browser selectors and game-count error expectation while preserving internal IDs and saved preferences.
+
+- **2026-11-01:** add a subtle dashed next-SWITCH ground ring and shared read-only target planning; two new preview/cycle regressions bring the logic suite to 53 passing cases. Client types/lint and isolated renderer visibility checks pass.
+
+- **2026-11-01:** make SWITCH outfield-only, remove keeper threat/hold overrides, update control help and add two switching regression cases. Client types, lint and 51 logic checks pass; full types blocked by missing analytics server module locally.
+
+- **2026-11-01:** fix the desktop lobby gradient cutoff on `game-updates`; stylesheet geometry checks pass at seven desktop/mobile sizes. No application build or deployment performed.
 
 - **2026-10-31:** fast-forward main through `335ebe3` with cleaner Rampage level-up feedback starting after the goal celebration. No application build, browser check or deployment performed.
 

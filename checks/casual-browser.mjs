@@ -599,7 +599,7 @@ try {
     );
     if (type === 'classic') {
       await page
-        .getByRole('button', { name: 'PLAY CASUAL', exact: true })
+        .getByRole('button', { name: 'PLAY CUSTOM', exact: true })
         .click();
       await page
         .getByRole('button', { name: 'START MATCH', exact: true })
@@ -634,7 +634,7 @@ try {
         1
       );
       await page
-        .getByRole('button', { name: 'PLAY CASUAL', exact: true })
+        .getByRole('button', { name: 'PLAY CUSTOM', exact: true })
         .click();
     } else {
       await page.waitForTimeout(50);
@@ -702,7 +702,7 @@ try {
       }
       const label =
         type === 'casual'
-          ? 'PLAY CASUAL'
+          ? 'PLAY CUSTOM'
           : type === 'classic'
             ? 'PLAY CLASSIC'
             : 'PLAY CHALLENGE';
@@ -721,7 +721,7 @@ try {
       );
       if (type !== 'casual') {
         await page
-          .getByRole('button', { name: 'PLAY CASUAL', exact: true })
+          .getByRole('button', { name: 'PLAY CUSTOM', exact: true })
           .click();
         await page.waitForFunction(() =>
           window.hostMessages.some((message) =>
@@ -929,7 +929,7 @@ try {
     );
     await page.goto(new URL('splash.html?debug', base).href);
     await page
-      .getByRole('button', { name: 'PLAY CASUAL', exact: true })
+      .getByRole('button', { name: 'PLAY CUSTOM', exact: true })
       .waitFor();
     assert.equal(
       await page.locator('.preview-games').textContent(),
@@ -937,7 +937,7 @@ try {
       'an unavailable count must not pretend to be zero'
     );
     await page
-      .getByRole('button', { name: 'PLAY CASUAL', exact: true })
+      .getByRole('button', { name: 'PLAY CUSTOM', exact: true })
       .click();
     await page.waitForFunction(() =>
       window.hostMessages.some((message) => message.immersiveMode?.entryUrl)

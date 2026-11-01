@@ -476,7 +476,7 @@ try {
       );
     }
     await page
-      .getByRole('button', { name: 'PLAY CASUAL', exact: true })
+      .getByRole('button', { name: 'PLAY CUSTOM', exact: true })
       .click();
     await page
       .getByRole('button', { name: 'START MATCH', exact: true })

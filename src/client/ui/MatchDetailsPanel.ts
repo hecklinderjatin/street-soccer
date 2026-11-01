@@ -41,7 +41,7 @@ export function buildMatchDetailsLayer(
   );
   const mode =
     config.mode === 'casual'
-      ? 'CASUAL - UNRANKED'
+      ? 'CUSTOM - UNRANKED'
       : config.dailyMode
         ? DAILY_LABEL[config.dailyMode]
         : POST_TYPE_LABEL[type];

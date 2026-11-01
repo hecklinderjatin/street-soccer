@@ -66,7 +66,7 @@ export class ResultScene extends Phaser.Scene {
         this.scene.start('Match', { ...r.config, rematch: true })
       ),
       post,
-      casualButton('PLAY CASUAL', () => this.scene.start('Casual'), true)
+      casualButton('PLAY CUSTOM', () => this.scene.start('Casual'), true)
     );
     void this.saveResult(screen.fillBoard);
   }

@@ -70,7 +70,7 @@ export function resultsScreen(result: MatchResult, type: PostType) {
     dailyMode
       ? DAILY_LABEL[dailyMode]
       : casual
-        ? 'CASUAL'
+        ? 'CUSTOM'
         : POST_TYPE_LABEL[type]
   );
   const fulltime = document.createElement('span');

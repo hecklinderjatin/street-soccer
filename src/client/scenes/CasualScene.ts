@@ -29,7 +29,7 @@ export class CasualScene extends Phaser.Scene {
       /* The session registry still works when storage is disabled. */
     }
     const screen = casualScreen(
-      'CASUAL MATCH',
+      'CUSTOM MATCH',
       'Pick your colours. Set your shape. Play.',
       true
     );

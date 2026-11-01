@@ -3,7 +3,7 @@ export type PostType = (typeof POST_TYPES)[number];
 export const POST_TYPE_LABEL: Record<PostType, string> = {
   daily: 'DAILY CHALLENGE',
   classic: 'CLASSIC',
-  casual: 'CASUAL',
+  casual: 'CUSTOM',
 };
 
 export const parsePostType = (value: unknown): PostType | null =>

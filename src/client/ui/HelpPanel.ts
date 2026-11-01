@@ -89,10 +89,12 @@ export function buildHelpLayer(
   );
   y = header(scene, items, left, y, 'KEYBOARD');
   for (const line of [
-    'WASD / ARROWS: MOVE  SHIFT: SPRINT',
-    'J: LEFT BUTTON  K: RIGHT BUTTON',
-    'T G F H: SHOOT + SWIPE',
-    'ESC: PAUSE  I: MATCH INFO',
+    'WASD / ARROWS: MOVE',
+    'LEFT SHIFT: HOLD TO SPRINT',
+    'N: PASS / TACKLE  K: POWER / SWITCH',
+    'I: CHIP  J / L: LEFT / RIGHT CURL',
+    'SPACE: INFO  M: MUTE  ESC: PAUSE',
+    'ENTER: NEXT BRIEFING PAGE',
   ]) {
     items.push(pixelText(scene, left, y, line, BODY, PAL.lightGray));
     y += LINE;
@@ -109,8 +111,8 @@ export function buildHelpLayer(
   ]);
   disc(scene, items, right + DISC_R, y + DISC_R, 'SWITCH');
   y = rowText(scene, items, right, y, [
-    'TAP: CHANGE PLAYER',
-    'HOLD: JUMP TO YOUR KEEPER',
+    'TAP: CHANGE OUTFIELD PLAYER',
+    'TAP AGAIN: CYCLE TEAMMATES',
   ]);
   y = header(scene, items, right, y, 'GOALKEEPER');
   disc(scene, items, right + DISC_R, y + DISC_R, 'DIVE');
