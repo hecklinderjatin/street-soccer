@@ -455,14 +455,33 @@ body {
   color: #a8b6c9;
 }
 @media (min-width: 700px) and (orientation: landscape) {
+  .mobile-lobby-header {
+    padding-inline: clamp(24px, 3.6vw, 48px);
+  }
+  .mobile-lobby-header > strong {
+    font-size: clamp(22px, 3vw, 32px);
+  }
+  .preview-match-summary .mobile-time {
+    font-size: clamp(24px, 2.7vw, 32px);
+  }
   .mobile-lobby-details {
-    max-width: 580px;
-    padding: 24px 32px;
+    padding: 24px clamp(24px, 3.6vw, 48px);
+  }
+  .mobile-teams > div {
+    font-size: clamp(22px, 3vw, 32px);
+  }
+  #mobile-lobby .mobile-play,
+  #mobile-lobby .mobile-casual {
+    min-height: clamp(54px, 6.2vw, 68px);
+  }
+  #mobile-lobby .mobile-play {
+    font-size: clamp(14px, 1.6vw, 18px);
+  }
+  #mobile-lobby .mobile-casual {
+    font-size: clamp(11px, 1.25vw, 14px);
   }
   .mobile-lobby-details::before {
-    /* The controls are capped at 580px; the scrim covers the whole preview. */
-    inset: -120px auto 0 0;
-    width: 100vw;
+    inset: -120px 0 0;
     background: linear-gradient(transparent, #060e1bba 30%, #060e1be8);
   }
 }

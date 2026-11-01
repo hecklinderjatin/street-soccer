@@ -753,6 +753,7 @@ try {
             stage.left === 0 &&
             stage.width === innerWidth &&
             stage.height === innerHeight &&
+            panel.width === stage.width &&
             panel.top > stage.top &&
             panel.bottom <= stage.bottom
           );

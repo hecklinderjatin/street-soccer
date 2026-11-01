@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Responsive desktop preview controls (2026-11-01):** on `fix/desktop-preview-layout`, remove the 580 px desktop controls cap so team/score, action buttons, game count and ranking use the full card width. Match header/control gutters and use bounded fluid desktop text/button sizes; the scrim now follows the full-width panel directly. Preserve portrait/short-height overrides. Rendered the actual `createMobileLobby` DOM and stylesheet in Chrome for Classic, Chaos and Custom at seven sizes (320–1920 px), including 875x640: panel/scrim widths, button bounds/labels, vertical fit and desktop gutter alignment pass. Reviewed the 875x640 render (`F:\code ball\output\desktop-preview-layout.png`); its neutral background isolates the UI. Add full-width panel assertion to the existing browser suite. No full application build, full browser suite or live Reddit test performed.
+
 **Main merge (2026-11-01):** fast-forwarded `game-updates` through `87c5158` into local `main` at the user's request. Includes full-width desktop lobby gradient, outfield-only switching and secondary target marker, Custom display naming and the new desktop keyboard layout. Prior client types/lint, 55 logic cases, game-count and focused layout/renderer/keyboard checks passed. Existing local `package.json` whitespace edit remains uncommitted. No push, build or deployment performed.
 
 **Desktop keyboard remap (2026-11-01):** WASD/arrows move, Left Shift holds sprint; N pass/tackle (keeper throw/dive); I chip, J left curl, L right curl and K power shot/switch (keeper kick). Space replaces I for match info/briefing, M shares the sound-button toggle, Escape closes overlays or pauses, Enter advances briefing. HUD shortcuts ignore repeat/duplicate events. Keep charge/release behavior and touch controls. Update help, README and the existing Chaos browser info shortcut. Client types, lint and all 55 logic checks pass, including actual Controls mapping/hold/release/sprint tests. Isolated real Phaser/Chrome keyboard checks verify shot keys and Left Shift, with a passing shortcut check for Space/M/Escape/repeats/no I conflict. No full application build or gameplay playthrough performed.
@@ -513,6 +515,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Let desktop lobby controls fill the preview rather than capping them to a left column; align header and lower controls with matching responsive gutters and keep desktop sizing bounded.
+
 - Merge the reviewed session changes into local main by fast-forward; leave the pre-existing package whitespace edit outside the commits.
 
 - K always supplies the power-shot effect as requested; I/J/L trigger chip/curl shots directly. N covers context-sensitive keeper throw/dive, and K keeper kick/switch. Keep Enter and arrow-key navigation as additional shortcuts.
@@ -829,6 +833,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Review the full-width desktop preview controls on Reddit after building/uploading this branch.
+
 - Push main when requested, then review the merged changes in a full game build and on Reddit desktop/mobile.
 
 - Playtest the remapped desktop controls and help-panel readability in the full game; consider a separate neutral-shot binding only if requested.
@@ -1124,6 +1130,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-01:** fix desktop preview UI sizing/alignment after the gradient fix; full-width controls and responsive desktop sizing verified with 21 actual-lobby layout scenarios and a rendered 875x640 preview.
 
 - **2026-11-01:** fast-forward local main through `87c5158` with the desktop gradient, switching/marker, Custom naming and keyboard updates. Preserve the local package edit; no push or deployment performed.
 
