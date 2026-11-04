@@ -828,3 +828,101 @@ export const CHAOS = {
   splashes: 5, // at most five tiny foot splashes per frame
   maxGoalKmh: 300, // permits legal boosted goals, isolated to Chaos
 } as const;
+
+// Free Kick mode (src/client/freekick): swipe to shoot free kicks at the
+// right-hand goal of the same street court, in a portrait view from behind
+// the kicker. World px as PITCH; the ball's z here is its centre height.
+export const FREE_KICK = {
+  viewWidth: 720, // logical portrait canvas; taller or wider screens see more around it
+  viewHeight: 1280,
+  simHz: 120, // ball, wall and keeper steps per second (fast balls never skip a post)
+  lives: 3, // missed kicks allowed before the run ends
+  goalsPerLevel: 2, // the level (wall, keeper, distance) rises every this many goals
+  maxLevel: 10,
+  // Spots: distance from the goal centre and angle off its centre line.
+  minDistance: 480, // the box is 330 deep: every spot is outside it
+  firstMaxDistance: 600, // level 1 spots are at most this far ...
+  distancePerLevel: 35, // ... and each level reaches this much further ...
+  maxDistance: 900, // ... up to this
+  firstMaxAngleDeg: 10, // level 1: nearly central ...
+  anglePerLevelDeg: 3, // ... wider every level ...
+  maxAngleDeg: 28, // ... up to this either side
+  // The wall: shoulder to shoulder across the line to the near post.
+  wallMen: [2, 2, 2, 3, 3, 3, 3, 4, 4, 4], // players by level
+  wallSpacing: 30, // centre to centre (no gap a ball fits through)
+  wallHalfWidth: 14, // half a player's blocking width
+  wallShare: 0.48, // the wall stands this share of the way to goal ...
+  wallMinDistance: 250, // ... at least this far from the ball (closer, nothing gets up and down) ...
+  wallMaxDistance: 360, // ... and at most this far
+  wallCover: 14, // the outside man covers the line this far outside the near post
+  wallHeight: 98, // top of a standing player (head)
+  wallJumpHeight: [16, 24], // extra reach at the top of the jump, arms up (level 1, top level)
+  wallJumpSec: 0.5, // time in the air
+  wallReactSec: 0.06, // the wall leaves the ground this long after the strike
+  // Keeper: stands in the part of the goal the wall leaves open.
+  keeperLineOff: 20, // in front of the goal line
+  keeperWallShade: [0.12, 0.4], // shifts this share of the open part toward the wall (level 1, top level)
+  keeperReactSec: [0.34, 0.2], // reads the shot this long after the strike (level 1, top level)
+  keeperReactJitter: 0.04, // +- random per kick
+  keeperScreenedSec: 0.12, // extra when the ball comes over the wall (it saw it late)
+  keeperShuffleSpeed: 140, // after reacting it side-steps toward the ball's line ...
+  keeperCommitSec: 0.42, // ... and commits to a save when the ball is this far away in time
+  keeperReadNoise: [28, 8], // px its read of the crossing point can be off (level 1, top level)
+  keeperDiveReach: [118, 160], // farthest hands reach from its spot in a full dive
+  keeperDiveSec: 0.5, // a full dive, take-off to landing
+  keeperHandReach: 52, // hands beyond the body at full stretch
+  keeperStandReach: 40, // ball centre this close sideways is saved standing ...
+  keeperStandReachZ: 112, // ... up to this high
+  keeperJumpSec: 0.5, // jump save airtime
+  keeperJumpReachZ: 142, // highest ball centre at the top of a jump
+  keeperDiveTopZ: [118, 84], // highest ball centre a dive reaches, at take-off -> full stretch
+  keeperParryKeep: 0.25, // speed kept on a parry
+  // Swipe (logical px of the portrait canvas).
+  swipeMinPx: 70, // shorter (or not upward) is not a shot
+  swipeFullPx: 460, // chord length for full power
+  aimHeight: 0.55, // the swipe aims at the goal line this share of the bar height up
+  bowDead: 0.03, // sideways bulge / chord length ignored ...
+  bowFull: 0.22, // ... and the bulge for full curl
+  // Strike, by power 0..1.
+  speedMin: 800, // horizontal launch speed px/s from rangeDistance ...
+  speedMax: 1100, // ... at full power ...
+  rangeDistance: 620,
+  rangeExp: 0.6, // ... times (distance / rangeDistance) ^ this (longer kicks are struck harder)
+  liftMin: 260, // vertical launch speed px/s ...
+  liftMax: 900, // ... at full power (too much flies over the bar)
+  dipMax: 0.6, // topspin at full power: extra gravity share on the way down
+  curlMax: 1.2, // rad/s sidespin at full curl (the path bends like the swipe)
+  // Flight.
+  gravity: 1400, // px/s^2 (as the match)
+  airDrag: 0.62, // velocity kept per second in the air
+  spinDecay: 0.6, // spin kept per second
+  bounce: 0.45, // vertical speed kept on a bounce
+  rollDrag: 0.3, // speed kept per second rolling
+  maxFlightSec: 4, // a kick that hasn't finished by then is a miss
+  // Scoring.
+  goalPoints: 100,
+  bonusPoints: 50, // per style tag (top bins, over the wall, curler, off the post, long range)
+  longRange: 640, // distance for the long range tag
+  pxPerMetre: 24, // world px per metre, for the distance readout only
+  streakStep: 0.5, // multiplier added per goal in a row ...
+  streakMax: 3, // ... up to this
+  // Camera: behind the kicker, looking down the line to the goal.
+  cameraBack: 300, // behind the ball along that line
+  cameraSide: 18, // to the right of that line, away from the kicker
+  cameraHeight: 168, // eye height
+  cameraPitchDeg: 4, // looks down this much
+  ballScreenY: 0.8, // the ball sits this far down the logical view ...
+  barScreenY: 0.25, // ... and the crossbar this far
+  flightZoom: 1.12, // pushes in toward the goal while the ball flies
+  // Kicker, along the shot line: behind the ball and to its left.
+  kickerStartBack: 42, // waiting for the swipe ...
+  kickerStartSide: 30,
+  kickerContactBack: 14, // ... and where the run-up meets the ball
+  kickerContactSide: 12,
+  // Timing.
+  runupSec: 0.3, // kicker's run-up after the swipe
+  slowMoSec: 0.45, // a goal plays on in slow motion this long (real seconds) ...
+  slowMoScale: 0.35, // ... at this speed
+  resultSec: 1.6, // result banner before the next kick
+  fadeSec: 0.3, // cut to the next spot
+} as const;

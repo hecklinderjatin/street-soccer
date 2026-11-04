@@ -8,6 +8,18 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Free Kick mode (2026-11-05):** a new portrait game mode on its own expanded entrypoint (`freekick` -> `freekick.html`, code in `src/client/freekick/`). A green PLAY FREE KICK button under the lobby's play buttons opens it (`requestExpandedMode(event, 'freekick')` from the feed card; off Reddit it is a plain link). It uses the same street court, kits, keeper, ball, sounds and music as the match; no new art or downloads.
+- Camera: behind the kicker on the goal-ball line, looking straight down the pitch so the goal faces it square on. Focal length and lens shift are solved per kick (ball 80% down, crossbar 25% down, goal at most 86% of the width), and it pushes in during the flight.
+- Swipe up to shoot. The direction aims (where it points on screen is where the ball goes on the goal line), the length sets power, and bending the swipe curls the ball (the heading is solved so a curler still ends where aimed).
+- Live power meter: green band clears the wall and dips under the bar, red goes over the bar.
+- Trails: a glowing swipe trail, and a yellow-green ball trail split into depth bands so the wall, keeper and frame cover it correctly. The last miss stays as a ghost on the retry, with an orange tick at its power.
+- Wall: 2-4 men by level; it jumps.
+- Keeper: reacts after a level-scaled delay (later when screened by the wall), cannot read curl or dip, shuffles, then stands, jumps or dives.
+- Lives and scoring: 3 lives; a miss retakes the same kick with a tip. A goal scores 100 plus 50 per style tag (top bins, over the wall, curler, off the post, long range), times the streak multiplier. Level up every 2 goals; best score kept on the device.
+- Checks: types, lint, unit, logic, the new `test:freekick` (12 rules checks), privacy, games, speed, daily, journeys and build all pass.
+- Played in headless Chrome at 390x844, 360x640 and 1280x720: goals, wall blocks, saves, over the bar, the retry ghost and the results card all render. The lobby fits at 320x480 to 1280x720.
+- Not done: no server code, leaderboard or Reddit playtest. Committed and pushed to `main` (2026-11-05).
+
 **Main merge (2026-11-02):** fast-forwarded `feat/post-flair` through `c61061f` into local `main` at the user's request. Includes optional post flair selection/validation for all game creation forms and expanded handler tests. Prior strict changed-server types, lint, logic/Daily and form-handler checks passed. Preserve the existing uncommitted package whitespace edit. No push, build or deployment performed.
 
 **Post flair in game creation (2026-11-02):** on `feat/post-flair`, add an optional Post flair dropdown to final Daily/Classic/Custom forms using the current community's templates (including moderator-only templates) plus No flair. Fetch again on submission, reject stale/malformed selections before posting and preserve valid selection on other validation retries. Apply the selected ID atomically through `submitCustomPost.flairId`, outside gameplay postData; installation posts remain unchanged. Empty/failed lookups provide explanatory help and allow no-flair posting. Strict type checks for the changed server files/import graph, lint/formatting, 55 logic cases, Daily rules/rankings and actual Hono form-handler mocks pass. Handler tests cover all templates/modes, no flair, retries, invalid/deleted IDs and lookup failures. Tests use the existing TypeScript transpilation workaround for missing Windows Rolldown binding. Full server types remain blocked by missing analytics imports in journeys/index. No live Reddit post, build, merge or deployment performed.
@@ -407,6 +419,13 @@ src/
     index.html, style.css   game entrypoint ("game" in devvit.json); #game box is 1280x720
     main.ts                 creates Phaser.Game (WEBGL, Scale.NONE, pixelArt), forceLandscape; ?debug exposes window.__game
     splash.html/.css/.ts    inline feed entrypoint ("default"); must stay light, no Phaser
+    freekick.html/.css/.ts  Free Kick entrypoint ("freekick"); its own portrait Phaser game (Scale.EXPAND around 720x1280)
+    freekick/               Free Kick mode
+      rules.ts              pure rules (no Phaser): kick spots, wall, keeper AI, swipe reading, aim, strike, flight, outcomes, scoring, power band
+      KickCamera.ts         Projector subclass: behind the kicker looking down +x, focal length and lens shift solved per kick, push-in zoom
+      Stage.ts              court rebuilt per kick in front of the camera, chalk and spray, goal with net ripple, kicker/wall/keeper, ball, depth-banded trails
+      FreeKickScene.ts      flow (aim, run-up, flight, next, over), swipe input and trail, power meter, HUD, banners, results card, audio
+      game.ts               createFreeKickGame()
     scenes/
       BootScene             builds the pixel font, then Menu
       MenuScene             difficulty + Play -> Match(MatchConfig)
@@ -520,6 +539,14 @@ public/ball.svg             pixel ball shown on the splash
 - Match starts Result with `MatchResult`; Result restarts Match with the same difficulty.
 
 ## Decisions (and why)
+
+- Free Kick is a separate Phaser game on its own entrypoint, not a scene in the match game. The match canvas is fixed landscape (forceLandscape rotates it in portrait), and Free Kick needs a portrait canvas (Scale.EXPAND around 720x1280). The feed card stays light: Phaser loads only in the expanded page.
+
+- Free Kick reuses the court art, kits, ball, sounds, TextButton and Projector/ProjectedPlane (KickCamera extends Projector). It has its own pure rules (`freekick/rules.ts`) and its own goal/net and figure drawing, because the camera looks down the pitch and needs different depth layers. No match code changed apart from the lobby button.
+
+- Free Kick difficulty is tuned with simulated players (aim off by up to 25 px, power off by up to 0.08). Skilled shots (over the wall, curled round it) score about 50-65% at every level; random swipes score about 17%. Levels add wall men, distance and angle, and a sharper keeper standing closer to the wall.
+
+- The Free Kick power band shows on the meter at every level (the user asked for "select the appropriate power"). Aim has no marker; the ghost of the last miss is the only aim aid.
 
 - Merge post flair selection into local main by fast-forward; keep the pre-existing package whitespace edit outside the commits.
 
@@ -845,6 +872,10 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Playtest Free Kick on a phone in Reddit (feed card -> PLAY FREE KICK -> expanded) after the next build/upload. Tune the swipe lengths (`FREE_KICK.swipeMinPx/swipeFullPx`) and the difficulty curve from real play.
+
+- Free Kick follow-ups (not built): a server leaderboard or daily best, Journeys/games-played tracking, hiding the power band at high levels.
+
 - Push main when requested, then playtest selecting and applying a post flair in Reddit after the next build/upload.
 
 - Playtest the Post flair dropdown and applied flair on a newly created Daily, Classic and Custom post in Reddit; merge/push when requested.
@@ -1148,6 +1179,9 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-05:** commit Free Kick mode to `main` and push to origin.
+- **2026-11-05:** add Free Kick mode: portrait expanded entrypoint (`freekick.html`), PLAY FREE KICK lobby button, swipe aim/power/curl with a live power meter, swipe and ball trails, wall/keeper AI, lives/levels/streak scoring, and `test:freekick` (12 rules checks, added to `test:local`). Every local check except the Windows-only dependency check passes.
 
 - **2026-11-02:** fast-forward local main through `c61061f` with game-creation post flair support; no push or deployment performed.
 

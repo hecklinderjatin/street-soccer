@@ -36,7 +36,14 @@ export class MenuScene extends Phaser.Scene {
         void lobby.showBoard(Boolean(context?.postId));
       },
       type,
-      (event) => play(event, true)
+      (event) => play(event, true),
+      (event) => {
+        // Free Kick is its own page: the feed card opens it expanded; off
+        // Reddit the button's link (freekick.html) opens it.
+        if (!inline || !context?.postId) return;
+        event.preventDefault();
+        requestExpandedMode(event, 'freekick');
+      }
     );
     document.body.append(lobby.element);
     journeyAppReady();

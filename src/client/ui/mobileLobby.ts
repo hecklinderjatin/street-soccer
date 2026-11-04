@@ -24,7 +24,8 @@ export function createMobileLobby(
   onPlay: (event: MouseEvent) => void,
   onMore: () => void,
   type: PostType,
-  onCasual: (event: MouseEvent) => void
+  onCasual: (event: MouseEvent) => void,
+  onFreeKick: (event: MouseEvent) => void
 ) {
   const element = document.createElement('section');
   element.id = 'mobile-lobby';
@@ -37,7 +38,7 @@ export function createMobileLobby(
       <div class="mobile-match-facts"><div><small>START SCORE</small><strong class="mobile-start"></strong></div></div></div>
       <div class="mobile-formations"></div>
       <p class="mobile-challenge"></p>
-      <div class="preview-actions"><button class="mobile-play">PLAY MATCH</button><button class="mobile-casual">PLAY CUSTOM</button></div>
+      <div class="preview-actions"><button class="mobile-play">PLAY MATCH</button><button class="mobile-casual">PLAY CUSTOM</button><a class="mobile-freekick" href="freekick.html">PLAY FREE KICK</a></div>
       <div class="preview-activity"><span><i class="activity-icon"></i> GAMES PLAYED</span><strong class="preview-games" aria-label="Games played">—</strong></div>
       <div class="preview-ranking">
         <div class="mobile-board-heading"><strong>7-DAY TOP 3</strong><button class="mobile-more">ALL ›</button></div>
@@ -127,6 +128,8 @@ export function createMobileLobby(
   pixelLabel(get('.mobile-casual'), 'PLAY CUSTOM');
   get('.mobile-casual').hidden = type === 'casual';
   get('.mobile-casual').addEventListener('click', onCasual);
+  pixelLabel(get('.mobile-freekick'), 'PLAY FREE KICK');
+  get('.mobile-freekick').addEventListener('click', onFreeKick);
   pixelLabel(get('.mobile-more'), 'ALL >');
   get('.mobile-play').addEventListener('click', onPlay);
   get('.mobile-more').addEventListener('click', onMore);

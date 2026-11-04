@@ -1,0 +1,664 @@
+import { BALL, FREE_KICK as FK, PITCH } from '../../shared/tuning';
+
+// Free Kick rules: the spot, wall and keeper of each kick, reading the
+// swipe, the strike, the flight (gravity, drag, curl, dip) and how the kick
+// ends. Pure (no Phaser, no DOM), so checks/freekick-check.ts drives it
+// directly. World px as the match: x along the pitch, y across it, z up;
+// kicks are always at the right-hand goal (goal line x = PITCH.width).
+// Unlike the match, the ball's z is its centre height (R when resting).
+
+export const GOAL_X = PITCH.width;
+export const GOAL_Y = PITCH.height / 2;
+export const POST_HALF = PITCH.goalMouth / 2; // goal centre to a post
+export const BAR_Z = PITCH.goalHeight;
+const R = BALL.radius;
+const NET_TOP_BACK = BAR_Z * 0.7; // the roof net slopes down to the back
+
+const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
+const clamp = (v: number, lo: number, hi: number) =>
+  Math.max(lo, Math.min(hi, v));
+
+export type Spot = { x: number; y: number };
+
+export type Level = {
+  level: number; // 1..FK.maxLevel
+  wallMen: number;
+  reactSec: number; // keeper reaction
+  readNoise: number; // keeper misjudges the crossing point by up to this
+  diveReach: number; // keeper hands' farthest reach from its spot
+  keeperShade: number; // keeper stands this share of the open part toward the wall
+  wallJump: number; // the wall's extra reach at the top of its jump
+  maxDistance: number;
+  maxAngle: number; // radians either side of the centre line
+};
+
+export function levelFor(goals: number): Level {
+  const level = Math.min(FK.maxLevel, 1 + Math.floor(goals / FK.goalsPerLevel));
+  const t = (level - 1) / (FK.maxLevel - 1);
+  return {
+    level,
+    wallMen: FK.wallMen[level - 1] ?? 4,
+    reactSec: lerp(FK.keeperReactSec[0], FK.keeperReactSec[1], t),
+    readNoise: lerp(FK.keeperReadNoise[0], FK.keeperReadNoise[1], t),
+    diveReach: lerp(FK.keeperDiveReach[0], FK.keeperDiveReach[1], t),
+    keeperShade: lerp(FK.keeperWallShade[0], FK.keeperWallShade[1], t),
+    wallJump: lerp(FK.wallJumpHeight[0], FK.wallJumpHeight[1], t),
+    maxDistance: Math.min(
+      FK.maxDistance,
+      FK.firstMaxDistance + (level - 1) * FK.distancePerLevel
+    ),
+    maxAngle:
+      (Math.min(
+        FK.maxAngleDeg,
+        FK.firstMaxAngleDeg + (level - 1) * FK.anglePerLevelDeg
+      ) *
+        Math.PI) /
+      180,
+  };
+}
+
+// The wall stands on one x; its men are lateral centres.
+export type Wall = { x: number; men: number[]; jump: number; jumpAt: number };
+
+export type KeeperMode = 'set' | 'dive' | 'jump' | 'down';
+export type Keeper = {
+  x: number;
+  y: number;
+  mode: KeeperMode;
+  modeAt: number; // play time the mode began
+  dir: -1 | 1; // dive direction along y
+  fromY: number;
+  toY: number;
+  readAt: number; // play time it reads the shot
+  read: boolean;
+};
+
+export type KickSetup = {
+  spot: Spot;
+  distance: number; // to the goal centre
+  level: Level;
+  wall: Wall;
+  keeperY: number;
+  nearSide: -1 | 1; // the side of the goal (along y) the wall covers
+};
+
+// A kick for this level: a spot outside the box, the wall across the line
+// to the near post (shoulder to shoulder from just outside it inward), and
+// the keeper in the part of the goal the wall leaves open.
+export function makeKick(level: Level, rand: () => number): KickSetup {
+  const distance = lerp(FK.minDistance, level.maxDistance, rand());
+  const angle = (rand() * 2 - 1) * level.maxAngle;
+  const spot = {
+    x: GOAL_X - distance * Math.cos(angle),
+    y: GOAL_Y + distance * Math.sin(angle),
+  };
+  const nearSide: -1 | 1 =
+    Math.abs(spot.y - GOAL_Y) > 1
+      ? spot.y > GOAL_Y
+        ? 1
+        : -1
+      : rand() < 0.5
+        ? -1
+        : 1;
+  const dx = GOAL_X - spot.x;
+  const wallX =
+    spot.x +
+    (clamp(distance * FK.wallShare, FK.wallMinDistance, FK.wallMaxDistance) *
+      dx) /
+      distance;
+  // Lateral position at x of the line from the spot to (GOAL_X, y), and back.
+  const atWall = (y: number) => spot.y + ((y - spot.y) * (wallX - spot.x)) / dx;
+  const atGoal = (y: number) => spot.y + ((y - spot.y) * dx) / (wallX - spot.x);
+  const edge = atWall(GOAL_Y + nearSide * (POST_HALF + FK.wallCover));
+  const men = Array.from(
+    { length: level.wallMen },
+    (_, i) => edge - nearSide * (FK.wallHalfWidth + i * FK.wallSpacing)
+  );
+  const inner =
+    edge -
+    nearSide * (2 * FK.wallHalfWidth + (level.wallMen - 1) * FK.wallSpacing);
+  const shadow = clamp(atGoal(inner), GOAL_Y - POST_HALF, GOAL_Y + POST_HALF);
+  const open = (GOAL_Y - nearSide * POST_HALF + shadow) / 2;
+  return {
+    spot,
+    distance,
+    level,
+    wall: { x: wallX, men, jump: level.wallJump, jumpAt: Infinity },
+    keeperY: lerp(open, shadow, level.keeperShade),
+    nearSide,
+  };
+}
+
+// Reach of the wall (head, or hands at the top of the jump) at play time t.
+export function wallTop(wall: Wall, t: number) {
+  const u = (t - wall.jumpAt) / FK.wallJumpSec;
+  return (
+    FK.wallHeight + (u > 0 && u < 1 ? Math.sin(Math.PI * u) : 0) * wall.jump
+  );
+}
+
+// ---- The swipe ------------------------------------------------------------
+
+export type ScreenPoint = { x: number; y: number };
+export type Swipe = {
+  power: number; // 0..1 from the chord (start to end) length
+  curl: number; // -1..1, + = the swipe bulges to the right of its chord
+  dirX: number; // unit chord direction on screen
+  dirY: number;
+};
+
+export const swipePower = (length: number) =>
+  clamp((length - FK.swipeMinPx) / (FK.swipeFullPx - FK.swipeMinPx), 0, 1);
+
+// Direction from the chord, power from its length, curl from how far the
+// path bulges to one side of it. Null for a tap or a swipe that isn't up.
+export function readSwipe(points: readonly ScreenPoint[]): Swipe | null {
+  const first = points[0];
+  const last = points[points.length - 1];
+  if (!first || !last) return null;
+  const cx = last.x - first.x;
+  const cy = last.y - first.y;
+  const length = Math.hypot(cx, cy);
+  if (length < FK.swipeMinPx || cy > -FK.swipeMinPx / 2) return null;
+  const nx = -cy / length; // screen-right of the chord
+  const ny = cx / length;
+  let bow = 0;
+  for (const p of points) {
+    const d = (p.x - first.x) * nx + (p.y - first.y) * ny;
+    if (Math.abs(d) > Math.abs(bow)) bow = d;
+  }
+  const b = Math.abs(bow) / length;
+  return {
+    power: swipePower(length),
+    curl:
+      Math.sign(bow) *
+      clamp((b - FK.bowDead) / (FK.bowFull - FK.bowDead), 0, 1),
+    dirX: cx / length,
+    dirY: cy / length,
+  };
+}
+
+// Screen point with the world y it shows on the goal line.
+export type GoalLinePoint = { sx: number; sy: number; y: number };
+
+// Where the swipe direction from the ball's screen position crosses the
+// goal line on screen, as a world y on that line (two goal-line ground
+// points give the line). Null if it never gets there.
+export function aimAtGoalLine(
+  ball: ScreenPoint,
+  dirX: number,
+  dirY: number,
+  a: GoalLinePoint,
+  b: GoalLinePoint
+) {
+  const ex = b.sx - a.sx;
+  const ey = b.sy - a.sy;
+  const den = dirX * ey - dirY * ex;
+  if (Math.abs(den) < 1e-6) return null;
+  const ax = a.sx - ball.x;
+  const ay = a.sy - ball.y;
+  const t = (ax * ey - ay * ex) / den;
+  const s = (ax * dirY - ay * dirX) / den;
+  if (t <= 0) return null;
+  return clamp(
+    lerp(a.y, b.y, s),
+    GOAL_Y - 3 * POST_HALF,
+    GOAL_Y + 3 * POST_HALF
+  );
+}
+
+// ---- The strike and the flight -------------------------------------------
+
+export type Ball = {
+  x: number;
+  y: number;
+  z: number; // centre height
+  vx: number;
+  vy: number;
+  vz: number;
+  spin: number; // rad/s the horizontal velocity turns (curl)
+  dip: number; // topspin: extra gravity share on the way down
+};
+
+export const restingBall = (spot: Spot): Ball => ({
+  x: spot.x,
+  y: spot.y,
+  z: R,
+  vx: 0,
+  vy: 0,
+  vz: 0,
+  spin: 0,
+  dip: 0,
+});
+
+export type Strike = {
+  power: number; // 0..1: pace and height together
+  targetY: number; // where on the goal line it is aimed
+  curl: number; // -1..1, + = bends like a swipe bulging right
+};
+
+export const STEP = 1 / FK.simHz;
+
+// Free flight for one step: gravity (more on the way down with topspin),
+// air drag, curl turning the horizontal velocity, bounces and rolling.
+export function stepBall(b: Ball, dt: number) {
+  const airborne = b.z > R + 0.01 || b.vz > 0;
+  b.vz -= FK.gravity * (1 + (b.vz < 0 ? b.dip : 0)) * dt;
+  const keep = (airborne ? FK.airDrag : FK.rollDrag) ** dt;
+  b.vx *= keep;
+  b.vy *= keep;
+  if (airborne) b.vz *= keep;
+  if (b.spin !== 0) {
+    const a = b.spin * dt;
+    const c = Math.cos(a);
+    const s = Math.sin(a);
+    const vx = b.vx * c - b.vy * s;
+    b.vy = b.vx * s + b.vy * c;
+    b.vx = vx;
+    b.spin *= FK.spinDecay ** dt;
+  }
+  b.x += b.vx * dt;
+  b.y += b.vy * dt;
+  b.z += b.vz * dt;
+  if (b.z < R) {
+    b.z = R;
+    b.vz = b.vz < -90 ? -b.vz * FK.bounce : 0;
+    b.dip = 0;
+    b.spin = 0; // sidespin barely bends a ball once it's down
+  }
+}
+
+// Where a free-flying ball first crosses the plane x (no wall, keeper or
+// goal), or null if it never does.
+export function crossing(ball: Ball, x: number) {
+  const b = { ...ball };
+  for (let t = 0; t < FK.maxFlightSec; t += STEP) {
+    const px = b.x;
+    const py = b.y;
+    const pz = b.z;
+    stepBall(b, STEP);
+    if (px < x && b.x >= x) {
+      const f = (x - px) / (b.x - px);
+      return {
+        y: py + (b.y - py) * f,
+        z: pz + (b.z - pz) * f,
+        t: t + STEP * f,
+      };
+    }
+    if (b.vx <= 0 || (b.z <= R && Math.hypot(b.vx, b.vy) < 30)) return null;
+  }
+  return null;
+}
+
+// The ball as struck: power sets pace, lift and topspin; curl sets the
+// sidespin; the heading is solved so the curling ball still ends on the
+// aimed point of the goal line (the path bends like the swipe did).
+export function strikeBall(spot: Spot, strike: Strike): Ball {
+  const p = clamp(strike.power, 0, 1);
+  const range = Math.hypot(GOAL_X - spot.x, GOAL_Y - spot.y);
+  const speed =
+    lerp(FK.speedMin, FK.speedMax, p) *
+    (range / FK.rangeDistance) ** FK.rangeExp;
+  const aimed = (heading: number): Ball => ({
+    ...restingBall(spot),
+    vx: speed * Math.cos(heading),
+    vy: speed * Math.sin(heading),
+    vz: lerp(FK.liftMin, FK.liftMax, p),
+    spin: clamp(strike.curl, -1, 1) * FK.curlMax,
+    dip: FK.dipMax * p,
+  });
+  const reach = Math.hypot(GOAL_X - spot.x, strike.targetY - spot.y);
+  let heading = Math.atan2(strike.targetY - spot.y, GOAL_X - spot.x);
+  for (let i = 0; i < 6; i++) {
+    const end = crossing(aimed(heading), GOAL_X);
+    if (!end) break;
+    const miss = end.y - strike.targetY;
+    if (Math.abs(miss) < 0.5) break;
+    heading -= miss / reach;
+  }
+  return aimed(heading);
+}
+
+// ---- Playing the kick out -------------------------------------------------
+
+export type Outcome =
+  'goal' | 'saved' | 'wall' | 'post' | 'over' | 'wide' | 'short';
+
+export type KickPlay = {
+  setup: KickSetup;
+  strike: Strike;
+  ball: Ball;
+  wall: Wall;
+  keeper: Keeper;
+  t: number; // seconds since the strike
+  outcome: Outcome | null;
+  outcomeAt: number;
+  hitPost: boolean;
+  overWall: boolean; // went over the wall's men
+  screened: boolean; // the keeper lost it behind the wall
+  inNet: boolean;
+  crossed: { y: number; z: number } | null; // where a goal crossed the line
+  netHit: { y: number; z: number; t: number } | null; // first touch of the back net
+  noise: number; // the keeper's misread this kick
+};
+
+export function startPlay(
+  setup: KickSetup,
+  strike: Strike,
+  rand: () => number
+): KickPlay {
+  const ball = strikeBall(setup.spot, strike);
+  const wall = {
+    ...setup.wall,
+    men: [...setup.wall.men],
+    jumpAt: FK.wallReactSec,
+  };
+  // Struck at the wall's men: the keeper only picks it up as it comes over.
+  const atWall = crossing(ball, wall.x);
+  const screened =
+    atWall !== null &&
+    wall.men.some((m) => Math.abs(atWall.y - m) < FK.wallHalfWidth + R);
+  return {
+    setup,
+    strike,
+    ball,
+    wall,
+    keeper: {
+      x: GOAL_X - FK.keeperLineOff,
+      y: setup.keeperY,
+      mode: 'set',
+      modeAt: 0,
+      dir: 1,
+      fromY: setup.keeperY,
+      toY: setup.keeperY,
+      readAt:
+        setup.level.reactSec +
+        (rand() * 2 - 1) * FK.keeperReactJitter +
+        (screened ? FK.keeperScreenedSec : 0),
+      read: false,
+    },
+    t: 0,
+    outcome: null,
+    outcomeAt: 0,
+    hitPost: false,
+    overWall: false,
+    screened,
+    inNet: false,
+    crossed: null,
+    netHit: null,
+    noise: (rand() * 2 - 1) * setup.level.readNoise,
+  };
+}
+
+// After its reaction time the keeper reads the shot as if it flew straight
+// on (it can't see curl or dip coming): it side-steps toward that line, and
+// once the ball is close in time commits to staying, a jump or a dive.
+function moveKeeper(play: KickPlay, dt: number) {
+  const k = play.keeper;
+  const b = play.ball;
+  const tt = b.vx > 1 ? (k.x - b.x) / b.vx : -1;
+  if (!k.read && play.t >= k.readAt && play.outcome === null && tt > 0) {
+    const y = b.y + b.vy * tt + play.noise;
+    if (tt > FK.keeperCommitSec) {
+      const step = FK.keeperShuffleSpeed * dt;
+      k.y = clamp(
+        k.y + clamp(y - k.y, -step, step),
+        GOAL_Y - POST_HALF + 10,
+        GOAL_Y + POST_HALF - 10
+      );
+    } else {
+      k.read = true;
+      const z = b.z + b.vz * tt - 0.5 * FK.gravity * tt * tt;
+      const off = y - k.y;
+      if (Math.abs(off) > FK.keeperStandReach) {
+        k.mode = 'dive';
+        k.modeAt = play.t;
+        k.dir = off < 0 ? -1 : 1;
+        k.fromY = k.y;
+        k.toY =
+          k.y +
+          k.dir *
+            clamp(
+              Math.abs(off) - FK.keeperHandReach * 0.8,
+              0,
+              play.setup.level.diveReach - FK.keeperHandReach
+            );
+      } else if (z > FK.keeperStandReachZ) {
+        k.mode = 'jump';
+        k.modeAt = play.t;
+      }
+    }
+  }
+  const u = (play.t - k.modeAt) / FK.keeperDiveSec;
+  if (k.mode === 'dive') {
+    k.y = lerp(k.fromY, k.toY, 1 - (1 - Math.min(1, u)) ** 2);
+    if (u >= 1) k.mode = 'down';
+  } else if (k.mode === 'jump' && play.t - k.modeAt >= FK.keeperJumpSec)
+    k.mode = 'set';
+}
+
+// True if the keeper gets a hand or body to a ball centre at (y, z) as it
+// passes the keeper at play time t.
+export function keeperCovers(k: Keeper, t: number, y: number, z: number) {
+  const off = y - k.y;
+  if (k.mode === 'set')
+    return Math.abs(off) <= FK.keeperStandReach && z <= FK.keeperStandReachZ;
+  if (k.mode === 'jump') {
+    const u = clamp((t - k.modeAt) / FK.keeperJumpSec, 0, 1);
+    const top = lerp(
+      FK.keeperStandReachZ,
+      FK.keeperJumpReachZ,
+      Math.sin(Math.PI * u)
+    );
+    return Math.abs(off) <= FK.keeperStandReach && z <= top;
+  }
+  // Diving (or down): body from just behind its centre to the hands, which
+  // reach out as it flies; a full stretch reaches less high.
+  const u = clamp((t - k.modeAt) / FK.keeperDiveSec, 0, 1);
+  const hands = FK.keeperHandReach * Math.min(1, u * 1.6) + R;
+  const along = off * k.dir;
+  const top =
+    k.mode === 'down'
+      ? 40
+      : lerp(FK.keeperDiveTopZ[0], FK.keeperDiveTopZ[1], u);
+  return along >= -24 && along <= hands && z <= top;
+}
+
+// Posts and crossbar; true on contact.
+function hitFrame(b: Ball) {
+  let hit = false;
+  const min = R + BALL.postRadius;
+  const bounce = (nx: number, ny: number, nz: number) => {
+    const vn = b.vx * nx + b.vy * ny + b.vz * nz;
+    if (vn < 0) {
+      b.vx -= 1.6 * vn * nx;
+      b.vy -= 1.6 * vn * ny;
+      b.vz -= 1.6 * vn * nz;
+    }
+    b.spin = 0;
+    hit = true;
+  };
+  for (const py of [GOAL_Y - POST_HALF, GOAL_Y + POST_HALF]) {
+    const dx = b.x - GOAL_X;
+    const dy = b.y - py;
+    const d = Math.hypot(dx, dy);
+    if (b.z > BAR_Z || d >= min || d === 0) continue;
+    b.x = GOAL_X + (dx / d) * min;
+    b.y = py + (dy / d) * min;
+    bounce(dx / d, dy / d, 0);
+  }
+  if (Math.abs(b.y - GOAL_Y) < POST_HALF) {
+    const dx = b.x - GOAL_X;
+    const dz = b.z - BAR_Z;
+    const d = Math.hypot(dx, dz);
+    if (d < min && d > 0) {
+      b.x = GOAL_X + (dx / d) * min;
+      b.z = BAR_Z + (dz / d) * min;
+      bounce(dx / d, 0, dz / d);
+    }
+  }
+  return hit;
+}
+
+// Keeps a scored ball in the net; the net soaks up most of its speed.
+function holdInNet(play: KickPlay) {
+  const b = play.ball;
+  const soak = 0.15;
+  const back = GOAL_X + PITCH.goalDepth - R;
+  if (b.x > back) {
+    if (!play.netHit) play.netHit = { y: b.y, z: b.z, t: play.t };
+    b.x = back;
+    b.vx = -Math.abs(b.vx) * soak;
+  }
+  if (b.x < GOAL_X + R) {
+    b.x = GOAL_X + R;
+    b.vx = Math.abs(b.vx) * soak;
+  }
+  if (Math.abs(b.y - GOAL_Y) > POST_HALF - R) {
+    b.y = GOAL_Y + Math.sign(b.y - GOAL_Y) * (POST_HALF - R);
+    b.vy = -b.vy * soak;
+  }
+  const roof = lerp(BAR_Z, NET_TOP_BACK, (b.x - GOAL_X) / PITCH.goalDepth) - R;
+  if (b.z > roof) {
+    b.z = roof;
+    b.vz = -Math.abs(b.vz) * soak;
+  }
+}
+
+function end(play: KickPlay, outcome: Outcome) {
+  if (play.outcome !== null) return;
+  play.outcome = outcome;
+  play.outcomeAt = play.t;
+}
+
+// One step of the kick: the ball flies, the wall jumps, the keeper reacts,
+// and the first thing that decides the kick sets its outcome. The ball keeps
+// moving after that (rebounds, the net), so it can be drawn to rest.
+export function stepPlay(play: KickPlay, dt: number) {
+  const b = play.ball;
+  const px = b.x;
+  const py = b.y;
+  const pz = b.z;
+  play.t += dt;
+  stepBall(b, dt);
+  const cross = (x: number) => {
+    if (!(px < x && b.x >= x)) return null;
+    const f = (x - px) / (b.x - px);
+    return { y: py + (b.y - py) * f, z: pz + (b.z - pz) * f };
+  };
+
+  const atWall = play.outcome === null ? cross(play.wall.x) : null;
+  if (atWall) {
+    const man = play.wall.men.find(
+      (m) => Math.abs(atWall.y - m) < FK.wallHalfWidth + R * 0.8
+    );
+    if (man !== undefined) {
+      if (atWall.z - R * 0.8 < wallTop(play.wall, play.t)) {
+        end(play, 'wall');
+        b.x = play.wall.x - 1;
+        b.vx = -Math.abs(b.vx) * 0.3;
+        b.vy = b.vy * 0.4 + (atWall.y - man) * 4;
+        b.vz = Math.max(b.vz, 0) * 0.3 + 160;
+        b.spin = b.dip = 0;
+      } else play.overWall = true;
+    }
+  }
+
+  moveKeeper(play, dt);
+  const k = play.keeper;
+  const atKeeper = play.outcome === null ? cross(k.x) : null;
+  if (atKeeper && keeperCovers(k, play.t, atKeeper.y, atKeeper.z)) {
+    end(play, 'saved');
+    const away = atKeeper.y >= k.y ? 1 : -1;
+    b.x = k.x - 1;
+    b.vx = -Math.abs(b.vx) * FK.keeperParryKeep;
+    b.vy = away * (120 + Math.abs(b.vy) * 0.3);
+    b.vz = Math.abs(b.vz) * 0.3 + 120;
+    b.spin = b.dip = 0;
+  }
+
+  if (!play.inNet && hitFrame(b)) play.hitPost = true;
+  const atLine = play.outcome === null ? cross(GOAL_X) : null;
+  if (atLine) {
+    if (Math.abs(atLine.y - GOAL_Y) < POST_HALF && atLine.z < BAR_Z) {
+      play.inNet = true;
+      play.crossed = atLine;
+      end(play, 'goal');
+    } else
+      end(play, play.hitPost ? 'post' : atLine.z >= BAR_Z ? 'over' : 'wide');
+  }
+  if (play.inNet) holdInNet(play);
+  else if (
+    b.x > GOAL_X - R &&
+    b.x < GOAL_X + R &&
+    Math.abs(b.y - GOAL_Y) > POST_HALF + R &&
+    b.z < PITCH.endWallHeight
+  ) {
+    // The brick end walls either side of the goal.
+    b.x = GOAL_X - R;
+    b.vx = -Math.abs(b.vx) * 0.4;
+    end(play, play.hitPost ? 'post' : 'wide');
+  }
+
+  const resting = b.z <= R + 0.5 && Math.hypot(b.vx, b.vy) < 40;
+  if (play.t > FK.maxFlightSec || resting || (b.vx < 0 && play.hitPost))
+    end(play, play.hitPost ? 'post' : 'short');
+}
+
+// ---- Scoring and the power guide -------------------------------------------
+
+export type GoalScore = { points: number; tags: string[] };
+
+// A goal's points: base plus a bonus per style tag, times the streak
+// (`streak` counts this goal).
+export function scoreGoal(play: KickPlay, streak: number): GoalScore {
+  const tags: string[] = [];
+  const c = play.crossed;
+  if (c && c.z >= BAR_Z * 0.6 && Math.abs(c.y - GOAL_Y) >= POST_HALF - 55)
+    tags.push('TOP BINS');
+  if (play.overWall) tags.push('OVER THE WALL');
+  if (Math.abs(play.strike.curl) >= 0.5) tags.push('CURLER');
+  if (play.hitPost) tags.push('OFF THE POST');
+  if (play.setup.distance >= FK.longRange) tags.push('LONG RANGE');
+  const multiplier = Math.min(
+    FK.streakMax,
+    1 + FK.streakStep * Math.max(0, streak - 1)
+  );
+  return {
+    points: Math.round(
+      (FK.goalPoints + FK.bonusPoints * tags.length) * multiplier
+    ),
+    tags,
+  };
+}
+
+// The power range that takes a straight shot over the middle of the wall
+// (jumping) and under the bar, for the power meter; null if there is none.
+export function powerBand(setup: KickSetup) {
+  const { spot, wall } = setup;
+  const mid = wall.men.reduce((sum, m) => sum + m, 0) / wall.men.length;
+  const targetY = clamp(
+    spot.y + ((mid - spot.y) * (GOAL_X - spot.x)) / (wall.x - spot.x),
+    GOAL_Y - POST_HALF + 20,
+    GOAL_Y + POST_HALF - 20
+  );
+  const jumping = { ...wall, jumpAt: FK.wallReactSec };
+  let lo = -1;
+  let hi = -1;
+  for (let i = 0; i <= 50; i++) {
+    const power = i / 50;
+    const ball = strikeBall(spot, { power, targetY, curl: 0 });
+    const over = crossing(ball, wall.x);
+    const under = crossing(ball, GOAL_X);
+    if (
+      over &&
+      under &&
+      over.z - R * 0.8 >= wallTop(jumping, over.t) &&
+      under.z < BAR_Z - R
+    ) {
+      if (lo < 0) lo = power;
+      hi = power;
+    }
+  }
+  return lo < 0 ? null : { lo, hi };
+}

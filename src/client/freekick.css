@@ -1,0 +1,75 @@
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #1d2b53;
+  /* Keep touches for the game: no scrolling, zooming, selection or callouts. */
+  touch-action: none;
+  overscroll-behavior: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Portrait play area: the full phone screen, or a centred column on wide
+   screens. Phaser (Scale.EXPAND) fills it. */
+#freekick {
+  position: fixed;
+  top: env(safe-area-inset-top, 0px);
+  bottom: env(safe-area-inset-bottom, 0px);
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  max-width: 75vh;
+}
+
+#freekick canvas {
+  display: block;
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+}
+
+/* Page loader, as the match's (style.css). */
+#boot-loading {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 12vh;
+  background: #1d2b53;
+  transition: opacity 300ms ease-out;
+}
+
+#boot-loading.done {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#boot-loading .boot-bar {
+  width: 120px;
+  height: 6px;
+  background: linear-gradient(90deg, #ffec27 0 40%, #5f574f 40% 100%);
+  background-size: 200% 100%;
+  animation: boot-slide 1s linear infinite;
+}
+
+@keyframes boot-slide {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #boot-loading .boot-bar {
+    animation: none;
+  }
+}
