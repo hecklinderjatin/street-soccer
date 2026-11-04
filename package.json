@@ -40,7 +40,7 @@
     "@devvit/analytics": "0.15.2",
     "@devvit/start": "0.15.2",
     "@devvit/web": "0.15.2",
-    "@hono/node-server": "2.1.5",
+    "@hono/node-server": "2.1.6",
     "hono": "4.13.14",
     "phaser": "3.90.0"
   },
