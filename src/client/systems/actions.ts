@@ -126,7 +126,7 @@ export function kickPass(
   const speed = baseSpeed * (1 + PASS.driveSpeedGain * (shape?.power ?? 0));
   const air = shape ? passAirShare(shape, weight) : 0;
   // An aerial pass hangs: lead the receiver by its flight time instead.
-  const travel = lerp(dist / speed, airPass(dist, weight).time, air);
+  const travel = lerp(dist / speed, airPass(dist).time, air);
   const tx = receiver.x + receiver.vx * travel * PASS.leadFactor;
   const ty = receiver.y + receiver.vy * travel * PASS.leadFactor;
   strikePass(
@@ -140,8 +140,7 @@ export function kickPass(
     rand,
     errorScale,
     shape,
-    air,
-    weight
+    air
   );
 }
 
@@ -161,37 +160,22 @@ export function passAirShare(
   return air * (1 - shape.power);
 }
 
-// An aerial pass (user request): struck exactly like a chip shot, with the
-// chip's pace and lift for a charge (SHOOT.chipMin/Max Speed and Lift).
-// Held, the PASS charge is the chip charge, as when charging a chip. A tap
-// picks the charge whose chip first comes down `dist` away (chipFlight),
-// clamped to the chip's range: a very short pass still floats past, a very
-// long one drops short. Returns the strike and its time in the air.
-export function airPass(dist: number, held: number | null = null) {
-  let charge = held;
-  if (charge === null) {
-    let lo = 0;
-    let hi = 1;
-    for (let i = 0; i < 20; i++) {
-      const mid = (lo + hi) / 2;
-      if (chipFlight(mid, []).landing < dist) lo = mid;
-      else hi = mid;
-    }
-    charge = (lo + hi) / 2;
-  }
-  // Past the shot's sweet spot a chip balloons; so does this (chipFlight).
-  const overHit = Math.max(
-    0,
-    (charge - SHOOT.sweetSpot) / (1 - SHOOT.sweetSpot)
+// An aerial pass (user request): as high as a chip shot, but a pass, so it
+// carries to the receiver. The lift is the chip shot's (SHOOT.chipMinLift
+// for a short pass up to chipMaxLift at PASS.airFullDist); the pace is the
+// one whose first bounce lands `dist` away despite air drag, capped at
+// PASS.airMaxSpeed (a very long one drops a little short). Returns the
+// strike and its time in the air.
+export function airPass(dist: number) {
+  const vz = lerp(
+    SHOOT.chipMinLift,
+    SHOOT.chipMaxLift,
+    clamp(dist / PASS.airFullDist, 0, 1)
   );
-  const vz =
-    lerp(SHOOT.chipMinLift, SHOOT.chipMaxLift, charge) +
-    SHOOT.overHitLift * overHit;
-  return {
-    vz,
-    speed: lerp(SHOOT.chipMinSpeed, SHOOT.chipMaxSpeed, charge),
-    time: (2 * vz) / BALL.gravity,
-  };
+  const time = (2 * vz) / BALL.gravity;
+  const k = -Math.log(BALL.airDrag);
+  const carry = (1 - Math.exp(-k * time)) / k; // px covered per px/s of pace
+  return { vz, speed: Math.min(dist / carry, PASS.airMaxSpeed), time };
 }
 
 // A through ball (AI): into the path of a teammate running forward, struck
@@ -278,8 +262,7 @@ function strikePass(
   rand: () => number,
   errorScale: number,
   shape?: ReturnType<typeof shotShape>,
-  air = 0, // 0..1: rolling .. aerial (passAirShare)
-  held: number | null = null // the PASS charge, if held (airPass)
+  air = 0 // 0..1: rolling .. aerial (passAirShare)
 ) {
   ball.strikes += 1;
   ball.pendingShot = false;
@@ -313,7 +296,7 @@ function strikePass(
       shape.power,
       Math.abs(shape.curl) >= PASS.curlMin ? 1 - air : 0
     );
-    const flight = airPass(lineLen, held);
+    const flight = airPass(lineLen);
     lift = lerp(lift * (1 - ground), flight.vz, air);
     pace = lerp(speed, flight.speed, air);
     spin = shape.curl * PASS.curlSpin;

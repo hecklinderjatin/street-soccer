@@ -16,7 +16,7 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 **Chaos bot balance (2026-11-08):** Power Surge bots move closer under reduced power and check their chosen charge against the real shot flight. They adjust if it would stop short or go over the bar. Goal Resize bots read lanes from the ball, use the smaller opening to judge placement and aim error, and adjust shot height for the lower bar. AI keepers cover wider goals earlier and have extra reach on airborne saves in taller goals. Gameplay regressions cover both teams at 50% and 150% power, Easy finishing at 50% goal size, and high and wide saves at 150% goal size. Types, lint, the production build and all six mocked Chromium Chaos scenarios pass. Live balance review remains pending.
 
-**Air pass = chip shot (2026-11-08):** The aerial pass (PASS swiped up, B key, or a held curl) now uses the chip shot's pace and lift (`SHOOT.chipMin/MaxSpeed`, `chipMin/MaxLift`, plus the over-hit balloon past the sweet spot). Held, the PASS charge is the chip charge. A tap picks the charge whose chip (`chipFlight`) first lands at the receiver, so passes shorter than the softest chip float past and ones longer than the hardest drop short. Removed `PASS.airLoft`, `airMinVz`, `airMaxVz` and `airMaxSpeed`. The logic check confirms a held air pass has the chip's pace and lift and lands where that chip lands.
+**Air pass: chip height, pass flight (2026-11-08):** The user wanted the aerial pass as high as a chip shot, but still an aerial pass to a teammate (a first attempt copied the chip shot's pace too, and was reverted the same day). The aerial pass (PASS swiped up, B key, or a held curl) now launches with the chip shot's lift, from `SHOOT.chipMinLift` for short passes up to `chipMaxLift` at `PASS.airFullDist` (800 px). Its pace is fitted, air drag included, so the first bounce lands at the receiver's lead spot, capped at `PASS.airMaxSpeed` (1300). Tap or hold, it goes to the receiver. The logic check confirms chip-range lift and a landing at the receiver for tapped and held air passes and for the aerial curl.
 
 **Match info fills the card (2026-11-08):** After a second Reddit screenshot showed dead space: page 1 now sizes its team cards, stat tiles and objective to the room between the title and the buttons (more room when there are no Chaos/Rampage lines), with bigger team names, VS and tile values. Page 2 (desktop keys) lays each column out from a list of sections; spare height goes to the gaps between sections and then the rows, so both columns fill their tiles. Descriptions and notes line up just past each column's widest key cap instead of a fixed offset. Not yet re-checked on Reddit.
 
@@ -1239,7 +1239,7 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 
 ## Changelog
 
-- **2026-11-08:** Air pass now flies like a chip shot (same pace and height); holding PASS sets the chip charge.
+- **2026-11-08:** Air pass: chip-shot height but paced to land at the receiver (replaces the same-day "copy the chip shot" version).
 - **2026-11-08:** How to play (touch): the PASS disc now has the same four slide arrows as SHOOT.
 - **2026-11-08:** Match info pages fill the card: page 1 blocks sized to the free room, page 2 key columns spread evenly with descriptions aligned to the widest key.
 - **2026-11-08:** How to play: keyboard-only on desktop (live key caps), touch-only on mobile, new pass controls listed. N stays the one ground/normal pass key (no separate C key).

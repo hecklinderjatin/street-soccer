@@ -29,14 +29,12 @@ import {
   stepKeeperHands,
 } from '../src/client/systems/keeper';
 import { TeamBrain, interceptPoint } from '../src/client/systems/ai';
-import { lerp } from '../src/client/systems/geometry';
 import {
   nextSwitchSelection,
   switchOrder,
 } from '../src/client/systems/playerSwitch';
 import {
   assistedShotDirection,
-  chipFlight,
   idealPassWeight,
   passWeight,
 } from '../src/client/systems/actions';
@@ -724,27 +722,24 @@ check('pass swipes: air, ground or curl toward the selected teammate', () => {
   const ground = strike(0, 1, true);
   assert.equal(ground.vz, 0);
   assert.ok(ground.speed > tap.speed);
-  // Held, the air pass is a chip shot at that charge: same pace and lift,
-  // and it comes down where that chip would.
-  const heldAir = strike(0, -1, false, 0.4);
+  // As high as a chip shot (its lift range), and still a pass: held or
+  // tapped, it comes down at the receiver.
+  for (const b of [strike(0, -1), strike(0, -1, false, 0.2)]) {
+    assert.ok(b.vz >= SHOOT.chipMinLift && b.vz <= SHOOT.chipMaxLift);
+  }
   assert.ok(
-    Math.abs(heldAir.speed - lerp(SHOOT.chipMinSpeed, SHOOT.chipMaxSpeed, 0.4)) <
-      1e-6
-  );
-  assert.ok(
-    Math.abs(heldAir.vz - lerp(SHOOT.chipMinLift, SHOOT.chipMaxLift, 0.4)) <
-      1e-6
-  );
-  assert.ok(
-    Math.abs(firstLanding(heldAir) - passer.x - chipFlight(0.4, []).landing) <
-      10,
-    'lands where the chip shot would'
+    Math.abs(firstLanding(strike(0, -1, false, 0.2)) - receiver.x) < 40,
+    'a held air pass still lands at the receiver'
   );
   // Curl: on the ground when tapped (no auto-chip), aerial when held hard.
   assert.equal(strike(1, 0, true).vz, 0);
   assert.equal(strike(1, 0, false, PASS.curlAirWeight - 0.1).vz, 0);
   const airCurl = strike(1, 0, false, 0.9);
   assert.ok(airCurl.vz >= SHOOT.chipMinLift && airCurl.spin > 0);
+  assert.ok(
+    Math.abs(firstLanding(airCurl) - receiver.x) < 60,
+    'aerial curl lands near the receiver'
+  );
   for (const direction of [-1, 1]) {
     const curl = strike(direction, 0);
     assert.equal(Math.sign(curl.spin), direction);
