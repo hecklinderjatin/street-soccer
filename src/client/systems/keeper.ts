@@ -32,6 +32,8 @@ export type KeeperSteer = { move: StickInput; sprint: boolean };
 type KeeperSkill = {
   keeperReactSec: number;
   keeperDribbleSec: number;
+  keeperCoverDepth: number;
+  keeperSmotherRange: number;
   keeperDiveError: number;
 };
 
@@ -91,7 +93,7 @@ export function keepInBox(keeper: Player) {
 // 3. Close the lane on a dribble near the goal line.
 // 4. Rush out: an opposing carrier near goal with none of our outfielders
 //    between it and the goal: it comes out toward the carrier (to
-//    KEEPER.rushGap from it, at most KEEPER.rushMax off its line).
+//    KEEPER.rushGap from it, capped by the level's cover depth).
 // 5. Otherwise it narrows the angle: on the bisector of the angle between
 //    the ball and the two posts (both posts equally covered, so nearer the
 //    near post when the ball is wide), further off the line the closer the
@@ -101,7 +103,8 @@ export function keeperStick(
   ball: Ball,
   mates: readonly Player[],
   opponents: readonly Player[],
-  time: number
+  time: number,
+  skill: KeeperSkill
 ): KeeperSteer {
   const gx = k.team === 'home' ? 0 : PITCH.width;
   const gy = PITCH.height / 2;
@@ -147,7 +150,7 @@ export function keeperStick(
   const c = ball.owner;
   if (c && c.team !== k.team && c.role !== 'keeper') {
     if (
-      Math.abs(ball.x - gx) <= KEEPER.coverCarryDepth &&
+      Math.abs(ball.x - gx) <= skill.keeperCoverDepth &&
       inBox(k, ball.x, ball.y)
     ) {
       const outward = k.team === 'home' ? 1 : -1;
@@ -161,7 +164,11 @@ export function keeperStick(
     const dc = Math.hypot(c.x - gx, c.y - gy);
     const through = mates.every((m) => Math.hypot(m.x - gx, m.y - gy) > dc);
     if (dc < KEEPER.rushDist && through) {
-      const out = clamp(dc - KEEPER.rushGap, KEEPER.lineOut, KEEPER.rushMax);
+      const out = clamp(
+        dc - KEEPER.rushGap,
+        KEEPER.lineOut,
+        skill.keeperCoverDepth
+      );
       const b = boxBounds(k, PLAYER.radius);
       return toward(
         k,
@@ -400,7 +407,7 @@ function distribute(
 //   saved, so a fast shot placed toward a corner beats it and a slow or
 //   central one doesn't. The prediction is a straight line with gravity
 //   (no curl), so a late-bending curler can fool it.
-// - a carrier close in its box (KEEPER.smotherRange): a quicker read, then
+// - a carrier in smother range: a quicker read, then
 //   a standing tackle if the ball is in reach or a dive at its path.
 // Either dive's length is off by up to the level's dive error, so a
 // weaker keeper sometimes dives short or past the ball.
@@ -411,7 +418,7 @@ export function cpuKeeperReact(
   skill: KeeperSkill,
   rand: () => number
 ) {
-  const target = keeperThreat(keeper, ball, time);
+  const target = keeperThreat(keeper, ball, time, skill.keeperSmotherRange);
   if (!target) {
     keeper.reactAt = -1;
     return;
@@ -462,7 +469,8 @@ export function cpuKeeperReact(
 function keeperThreat(
   keeper: Player,
   ball: Ball,
-  time: number
+  time: number,
+  smotherRange: number
 ): { kind: KeeperMove; dir: number; dist: number; t: number } | null {
   if (
     time < keeper.recoverUntil ||
@@ -480,9 +488,11 @@ function keeperThreat(
     const bx = ball.x + Math.cos(c.heading) * lead;
     const by = ball.y + Math.sin(c.heading) * lead;
     const d = Math.hypot(bx - keeper.x, by - keeper.y);
+    // The shorter ranges wait for the ball itself to get close. At the
+    // regular range a keeper can also anticipate a ball coming into reach.
     if (
-      d > KEEPER.smotherRange &&
-      Math.hypot(ball.x - keeper.x, ball.y - keeper.y) > KEEPER.smotherRange
+      Math.hypot(ball.x - keeper.x, ball.y - keeper.y) > smotherRange &&
+      (smotherRange < KEEPER.smotherRange || d > smotherRange)
     )
       return null;
     return {

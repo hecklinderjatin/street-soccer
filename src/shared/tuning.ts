@@ -359,8 +359,7 @@ export const KEEPER = {
   // Rushing out: an opposing carrier through on goal.
   rushDist: 450, // carrier this close to the goal centre (and nearer to goal than our outfielders) ...
   rushGap: 110, // ... the keeper comes out to this far from it (was 80: so close it blocked every angle) ...
-  rushMax: 170, // ... at most this far off its line (staying in the box)
-  coverCarryDepth: 170, // close down the dribbler's lane this far from the goal line
+  coverCarryDepth: 170, // regular distance to close the dribbler's lane and limit a rush
   smotherRange: 150, // start reading a carrier's ball within this reach, inside the box
   smotherLead: 0.15, // seconds of carrier movement to lead a dive by
   // Distribution (a keeper holding the ball and not human-controlled).
@@ -636,6 +635,8 @@ export const LEVELS = {
     recoverSlack: 260,
     keeperReactSec: 0.68,
     keeperDribbleSec: 0.3,
+    keeperCoverDepth: 90, // start covering the carrier's lane closer to the goal line
+    keeperSmotherRange: 110, // start reading the dribble closer to the ball
     keeperDiveError: 45,
   },
   easy: {
@@ -654,6 +655,8 @@ export const LEVELS = {
     recoverSlack: 150, // px a defender may be upfield of the ball before he sprints back goal-side (AI recovery runs)
     keeperReactSec: 0.55, // keeper reaction to a shot (+- KEEPER.reactJitter)
     keeperDribbleSec: 0.22, // separate read for a dribbler in range
+    keeperCoverDepth: 130,
+    keeperSmotherRange: 130,
     keeperDiveError: 30, // px a keeper's dive may fall short or overshoot by
   },
   normal: {
@@ -672,6 +675,8 @@ export const LEVELS = {
     recoverSlack: 60,
     keeperReactSec: 0.4,
     keeperDribbleSec: 0.19,
+    keeperCoverDepth: KEEPER.coverCarryDepth,
+    keeperSmotherRange: KEEPER.smotherRange,
     keeperDiveError: 12,
   },
   hard: {
@@ -690,6 +695,8 @@ export const LEVELS = {
     recoverSlack: 20,
     keeperReactSec: 0.32,
     keeperDribbleSec: 0.15,
+    keeperCoverDepth: KEEPER.coverCarryDepth,
+    keeperSmotherRange: KEEPER.smotherRange,
     keeperDiveError: 5,
   },
   pro: {
@@ -708,6 +715,8 @@ export const LEVELS = {
     recoverSlack: 0,
     keeperReactSec: 0.26,
     keeperDribbleSec: 0.12,
+    keeperCoverDepth: KEEPER.coverCarryDepth,
+    keeperSmotherRange: KEEPER.smotherRange,
     keeperDiveError: 2,
   },
 } as const;

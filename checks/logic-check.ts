@@ -464,9 +464,7 @@ check(
     cpuKeeperReact(k, b, 10, level, () => 0.5); // jitter 0
     assert.equal(k.reactKind, 'smother');
     const carryDeadline = k.reactAt;
-    assert.ok(
-      Math.abs(carryDeadline - (10 + level.keeperDribbleSec)) < 1e-9
-    );
+    assert.ok(Math.abs(carryDeadline - (10 + level.keeperDribbleSec)) < 1e-9);
     // Moving into standing tackle range keeps the original carrier read.
     b.x += 40;
     cpuKeeperReact(k, b, 10.1, level, () => 0.5);
@@ -503,8 +501,19 @@ check('keeper: reads a shot before side-stepping toward it', () => {
   });
   cpuKeeperReact(k, b, 10, LEVELS.normal, () => 0.5);
   assert.equal(k.reactKind, 'dive');
-  assert.equal(keeperStick(k, b, [], [], 10).move.r, 0, 'still reading it');
-  const step = keeperStick(k, b, [], [], 10 + KEEPER.shuffleDelay);
+  assert.equal(
+    keeperStick(k, b, [], [], 10, LEVELS.normal).move.r,
+    0,
+    'still reading it'
+  );
+  const step = keeperStick(
+    k,
+    b,
+    [],
+    [],
+    10 + KEEPER.shuffleDelay,
+    LEVELS.normal
+  );
   assert.ok(step.move.r > 0 && step.move.y > 0, 'then side-steps toward it');
 });
 
@@ -601,7 +610,7 @@ check('keeper: a standing tackle takes a carrier ball in reach', () => {
 });
 
 check(
-  'keeper: cuts out straight dribbles through the middle and near the posts',
+  'keeper: an open near-post sprint can beat Noob while central runs are smothered',
   () => {
     const dt = 1 / SIM.hz;
     const lateRead = () => 1;
@@ -611,43 +620,47 @@ check(
       const line = team === 'home' ? 0 : PITCH.width;
       for (const lane of [-135, 0, 135]) {
         for (const sprint of [false, true]) {
-          const k = player({
-            team,
-            role: 'keeper',
-            x: line - sign * KEEPER.lineOut,
-            y: gy,
-          });
-          const defender = player({ team, x: line - sign * 110, y: gy + 240 });
-          const c = player({
-            team: team === 'home' ? 'away' : 'home',
-            x: line - sign * 500,
-            y: gy + lane,
-            heading: sign === 1 ? 0 : Math.PI,
-          });
-          const b = ball({ x: c.x + sign * 20, y: c.y });
-          gainBall(b, c);
-          const level = LEVELS.noob; // even the slowest read must cover a straight run
-          for (let t = 0; t < 4 && b.owner === c; t += dt) {
-            stepPlayer(c, { x: sign, y: 0, r: 1 }, sprint, dt, true);
-            cpuKeeperReact(k, b, t, level, lateRead);
-            if (!stepKeeperBody(k, t, dt)) {
-              const steer = keeperStick(k, b, [defender], [c], t);
-              stepPlayer(k, steer.move, steer.sprint, dt, false);
+          for (const difficulty of ['noob', 'easy', 'normal'] as const) {
+            const k = player({
+              team,
+              role: 'keeper',
+              x: line - sign * KEEPER.lineOut,
+              y: gy - Math.sign(lane) * 80,
+            });
+            const defender = player({
+              team,
+              x: line - sign * 110,
+              y: gy + 240,
+            });
+            const c = player({
+              team: team === 'home' ? 'away' : 'home',
+              x: line - sign * 240,
+              y: gy + lane,
+              heading: sign === 1 ? 0 : Math.PI,
+            });
+            const b = ball({ x: c.x + sign * 20, y: c.y });
+            gainBall(b, c);
+            const level = LEVELS[difficulty];
+            let goal = false;
+            for (let t = 0; t < 4 && b.owner === c; t += dt) {
+              stepPlayer(c, { x: sign, y: 0, r: 1 }, sprint, dt, true);
+              cpuKeeperReact(k, b, t, level, lateRead);
+              if (!stepKeeperBody(k, t, dt)) {
+                const steer = keeperStick(k, b, [defender], [c], t, level);
+                stepPlayer(k, steer.move, steer.sprint, dt, false);
+              }
+              separatePlayers([c, defender, k]);
+              stepPossession(b, [c, defender, k], t, dt);
+              stepKeeperHands(k, b, [defender], [c], t, dt, lateRead, false);
+              goal = collideBall(b).goal === sign;
+              if (goal) break;
             }
-            separatePlayers([c, defender, k]);
-            stepPossession(b, [c, defender, k], t, dt);
-            stepKeeperHands(k, b, [defender], [c], t, dt, lateRead, false);
-            assert.equal(
-              collideBall(b).goal,
-              0,
-              `${team}: lane ${lane}, sprint ${sprint}`
-            );
+            const openLane = difficulty === 'noob' && lane !== 0 && sprint;
+            const label = `${difficulty} ${team}: lane ${lane}, sprint ${sprint}`;
+            assert.equal(goal, openLane, label);
+            if (!goal)
+              assert.equal(b.owner, k, `${label}: keeper claims the ball`);
           }
-          assert.equal(
-            b.owner,
-            k,
-            `${team}: keeper claims lane ${lane}, sprint ${sprint}`
-          );
         }
       }
     }
@@ -1565,7 +1578,7 @@ check(
           const t = 1 + frame * dt;
           cpuKeeperReact(k, b, t, LEVELS.easy, () => 0.5);
           if (!stepKeeperBody(k, t, dt)) {
-            const steer = keeperStick(k, b, [], [], t);
+            const steer = keeperStick(k, b, [], [], t, LEVELS.easy);
             stepPlayer(k, steer.move, steer.sprint, dt, false);
           }
           stepFreeBall(b, dt);

@@ -811,7 +811,8 @@ export class MatchScene extends Phaser.Scene {
               ball,
               home ? this.home : this.away,
               home ? this.away : this.home,
-              t
+              t,
+              level
             );
       stepPlayer(k, steer.move, steer.sprint, dt, ball.owner === k, regen(k));
       // Standing still, a keeper keeps its eyes on the ball.

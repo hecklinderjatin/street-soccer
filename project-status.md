@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Forgiving keeper pressure (2026-11-08):** Noob covers a dribbler's lane from 90 px off the goal line and reads the actual ball within 110 px. Easy uses 130 px for both. The lane depth also caps how far the keeper rushes out. Normal through Pro retain 170 px lane coverage and a 150 px smother read that can anticipate the ball's path. The match simulation shows a near-post sprint can beat Noob after the keeper is pulled across, while Easy and Normal smother the same run. Central runs are smothered at all three levels.
+
 **Keeper difficulty timing (2026-11-08):** Separate base delays for dribbles and shots. Noob through Pro use dribble delays of 0.30 / 0.22 / 0.19 / 0.15 / 0.12 seconds and shot delays of 0.68 / 0.55 / 0.40 / 0.32 / 0.26 seconds. Easy closes down a straight dribble faster and gives a shot a longer reaction window. The player's AI keeper uses Normal. The keeper and Chaos logic checks, types, lint and production build pass.
 
 **Chaos bot balance (2026-11-08):** Power Surge bots move closer under reduced power and check their chosen charge against the real shot flight. They adjust if it would stop short or go over the bar. Goal Resize bots read lanes from the ball, use the smaller opening to judge placement and aim error, and adjust shot height for the lower bar. AI keepers cover wider goals earlier and have extra reach on airborne saves in taller goals. Gameplay regressions cover both teams at 50% and 150% power, Easy finishing at 50% goal size, and high and wide saves at 150% goal size. Types, lint, the production build and all six mocked Chromium Chaos scenarios pass. Live balance review remains pending.
@@ -550,6 +552,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- On Noob and Easy, have the keeper close dribbling lanes later and wait until the actual ball is in range. Preserve shot timing and the physical reach of tackles.
+
 - Set dribble and shot reaction delays independently so Easy can punish walk-ins sooner while giving players more room to shoot.
 
 - Keep the bot's preferred charge whenever its flight fits. Search alternatives only at launch for affected Chaos shots. Scale keeper coverage for both teams when AI-controlled, keeping the regular rules at 100%.
@@ -892,6 +896,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Playtest a near-post dribble and a central run on Noob and Easy in Reddit with touch controls.
+
 - Compare straight runs and quick shots on Easy using touch controls in a live Reddit match.
 
 - Play Easy Chaos matches on Reddit at the Power Surge and Goal Resize extremes and compare bot goals and keeper saves.
@@ -1209,6 +1215,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-08:** Shortened Noob and Easy keeper approach and smother ranges against dribblers.
 
 - **2026-11-08:** Tuned goalkeeper difficulty with separate reaction delays for dribbles and shots.
 
