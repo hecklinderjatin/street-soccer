@@ -20,7 +20,7 @@ export const PLAYER_ORIGIN_Y = 30 / 32;
 const SHADOW_ROW = 29 * DETAIL; // the shadow sits below the boots
 
 export const IDLE_FRAMES = ['idle1', 'idle2', 'idle3', 'idle4'];
-export const RUN_FRAMES = Array.from({ length: 8 }, (_, i) => `run${i + 1}`);
+export const RUN_FRAMES = Array.from({ length: 6 }, (_, i) => `run${i + 1}`);
 export const SHOOT_FRAMES = [
   'shoot_windup',
   'shoot_contact',
@@ -66,6 +66,11 @@ export const BLOCK_FRAMES = Array.from(
   { length: 3 },
   (_, i) => `block${i + 1}`
 );
+// Sprinting, side view: a 12-pose stride (user-supplied sheet).
+export const SPRINT_FRAMES = Array.from(
+  { length: 12 },
+  (_, i) => `sprint${i + 1}`
+);
 
 // Every atlas (each kit and the two look layers) holds these frames in this
 // order, ATLAS_COLUMNS to a row: 8 x 224 = 1792 px wide, within the 2048 px
@@ -91,6 +96,7 @@ const FRAMES = [
   ...KEEPER_IDLE_FRAMES,
   ...JUMP_FRAMES,
   ...BLOCK_FRAMES,
+  ...SPRINT_FRAMES,
 ];
 export const ATLAS_W = PLAYER_W * ATLAS_COLUMNS;
 export const ATLAS_H = PLAYER_H * Math.ceil(FRAMES.length / ATLAS_COLUMNS);
@@ -361,25 +367,25 @@ export const SOURCE_SHEETS: readonly SourceSheet[] = [
     shortsEnd: [525, 510, 528, 525],
   },
   {
-    // Redrawn head; the shorts lines slant where the back leg's sock sits
-    // higher than the front shorts.
+    // Six-pose side run (user-supplied sheet, cut to these cells at the
+    // previous run's scale; lines read off each pose).
     file: 'player-run-authored',
     frames: RUN_FRAMES,
     cellW: 640,
     columns: 4,
     ground: 681,
-    waist: [],
-    shortsEnd: [],
-    splits: [
-      { waist: [0, 395, 640, 395], shortsEnd: [0, 480, 640, 500] },
-      { waist: [0, 392, 640, 392], shortsEnd: [0, 490, 640, 490] },
-      { waist: [0, 386, 640, 386], shortsEnd: [0, 488, 640, 488] },
-      { waist: [0, 405, 640, 405], shortsEnd: [100, 468, 380, 515] },
-      { waist: [0, 390, 640, 390], shortsEnd: [0, 478, 640, 490] },
-      { waist: [0, 385, 640, 385], shortsEnd: [0, 480, 640, 480] },
-      { waist: [0, 396, 640, 396], shortsEnd: [0, 488, 640, 488] },
-      { waist: [0, 415, 640, 415], shortsEnd: [90, 478, 380, 512] },
-    ],
+    waist: [402, 386, 400, 402, 396, 405],
+    shortsEnd: [486, 482, 482, 488, 482, 488],
+  },
+  {
+    // Twelve-pose side sprint (user-supplied sheet, same scale as the run).
+    file: 'player-sprint-authored',
+    frames: SPRINT_FRAMES,
+    cellW: 640,
+    columns: 4,
+    ground: 681,
+    waist: [384, 386, 388, 382, 356, 376, 382, 386, 382, 372, 380, 384],
+    shortsEnd: [470, 468, 468, 470, 450, 458, 466, 470, 472, 462, 466, 470],
   },
   {
     // Redrawn head; the swung-back and kicking legs get their own sock lines.

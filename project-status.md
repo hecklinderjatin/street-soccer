@@ -16,6 +16,14 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 **Chaos bot balance (2026-11-08):** Power Surge bots move closer under reduced power and check their chosen charge against the real shot flight. They adjust if it would stop short or go over the bar. Goal Resize bots read lanes from the ball, use the smaller opening to judge placement and aim error, and adjust shot height for the lower bar. AI keepers cover wider goals earlier and have extra reach on airborne saves in taller goals. Gameplay regressions cover both teams at 50% and 150% power, Easy finishing at 50% goal size, and high and wide saves at 150% goal size. Types, lint, the production build and all six mocked Chromium Chaos scenarios pass. Live balance review remains pending.
 
+**New side run and sprint animations (2026-11-08):** Two user-supplied sheets replace and extend the side-on running:
+- **Run:** six poses replace the old eight-pose `player-run-authored.png` (`RUN_FRAMES` = 6, `RUN_FPS` 12, the same half-second stride).
+- **Sprint:** twelve poses in a new `player-sprint-authored.png` (`SPRINT_FRAMES`, `SPRINT_FPS` 24, same stride). `Player` plays it when sprinting with the side view. Up/down/diagonal views keep their four-pose runs at a fixed 8 fps (`VIEW_RUN_FPS`).
+
+Both sheets were cut from their transparent WebP sources into the usual 640x724 cells, 4 per row. They use one uniform scale matching the old run sheet's median figure height (625.5 px), with the head and torso centred in each cell and the lowest boot of each source row on ground 681, so the authored bounce stays. Per-pose `waist` / `shortsEnd` lines were read from a ruler overlay, and a baked preview checked blue, white, red and keeper kits.
+
+Atlases now hold 98 frames (13 rows, 1792x1664). Re-baked with `art:bake` and `optimize_art.py`: each kit WebP grew about 38 KiB (pink 214 to 250 KiB). The one-off cutting scripts lived in the session scratchpad and are not part of the repo. Not yet seen in a live match.
+
 **Shorter receiver slowdown (2026-11-08):** `PASS.receiveHoldSec` halved from 1 s to 0.5 s at the user's request. A normal pass's intended receiver is held to 80 px/s with no sprint only for the first half second of the pass, or until the ball arrives. Through balls are still exempt. The passer's 0.08 s wind-up and 0.25 s regain lock are unchanged.
 
 **Air pass: chip height, pass flight (2026-11-08):** The user wanted the aerial pass as high as a chip shot, but still an aerial pass to a teammate (a first attempt copied the chip shot's pace too, and was reverted the same day). The aerial pass (PASS swiped up, B key, or a held curl) now launches with the chip shot's lift, from `SHOOT.chipMinLift` for short passes up to `chipMaxLift` at `PASS.airFullDist` (800 px). Its pace is fitted, air drag included, so the first bounce lands at the receiver's lead spot, capped at `PASS.airMaxSpeed` (1300). Tap or hold, it goes to the receiver. The logic check confirms chip-range lift and a landing at the receiver for tapped and held air passes and for the aerial curl.
@@ -917,6 +925,7 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Watch the new run and sprint in a match: stride speed at walk vs sprint, the run-to-sprint switch, and non-pink kits' shorts/sock lines on the high back leg.
 - Check the restyled match info pages on phone and desktop (text fit of long team names, Chaos/Rampage lines, three-button row).
 - Playtest the aerial pass height/hang time (`PASS.airLoft`, `airMaxVz`) and the curl air threshold (`PASS.curlAirWeight`).
 - Verify desktop key remapping and iframe focus in a live Reddit playtest.
@@ -1241,6 +1250,7 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 
 ## Changelog
 
+- **2026-11-08:** New six-pose side run and twelve-pose sprint animations from user sheets; atlases re-baked.
 - **2026-11-08:** Receiver slowdown after a pass halved: 1 s to 0.5 s.
 - **2026-11-08:** Air pass: chip-shot height but paced to land at the receiver (replaces the same-day "copy the chip shot" version).
 - **2026-11-08:** How to play (touch): the PASS disc now has the same four slide arrows as SHOOT.

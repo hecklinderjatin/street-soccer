@@ -18,6 +18,7 @@ import {
   PLAYER_ATLAS_KEYS,
   RUN_FRAMES,
   SHOOT_FRAMES,
+  SPRINT_FRAMES,
   UP_DIAGONAL_FRAMES,
   UP_FRAMES,
   atlasFrames,
@@ -49,6 +50,7 @@ export const IDLE_FRAME = 'idle1';
 export type RunView = 'side' | 'up' | 'down' | 'up-diagonal' | 'down-diagonal';
 export const runAnim = (kit: Kit, view: RunView = 'side') =>
   `player-${kit}-run${view === 'side' ? '' : `-${view}`}`;
+export const sprintAnim = (kit: Kit) => `player-${kit}-sprint`;
 export const shootAnim = (kit: Kit) => `player-${kit}-shoot`;
 export const celebrateAnim = (kit: Kit, style: number) =>
   `player-${kit}-celebrate-${style}`;
@@ -56,7 +58,12 @@ export const idleAnim = (kit: Kit) => `player-${kit}-idle`;
 export const holdAnim = (kit: Kit, moving = false) =>
   `player-${kit}-${moving ? 'carry' : 'hold'}`;
 // Run frames per second at walking pace (Player scales it with speed).
-export const RUN_FPS = 16; // Eight authored poses in the half-second stride.
+export const RUN_FPS = 12; // Six authored poses in the half-second stride.
+// Sprint frames per second at walking pace: twelve poses in the same
+// half-second stride, so switching to a sprint keeps the leg rhythm.
+export const SPRINT_FPS = 24;
+// Up / down / diagonal runs: four poses in the same half-second stride.
+const VIEW_RUN_FPS = 8;
 
 export const MARKER_TARGET = 'marker-target';
 export const MARKER_ARROW = 'marker-arrow';
@@ -116,11 +123,18 @@ function createAnimations(scene: Phaser.Scene, kit: Kit) {
     frameRate: 4,
     repeat: -1,
   });
-  // Running: the full 8-frame stride.
+  // Running: the six-pose stride.
   scene.anims.create({
     key: runAnim(kit),
     frames: frames(RUN_FRAMES),
     frameRate: RUN_FPS,
+    repeat: -1,
+  });
+  // Sprinting (side view only): the 12-pose stride.
+  scene.anims.create({
+    key: sprintAnim(kit),
+    frames: frames(SPRINT_FRAMES),
+    frameRate: SPRINT_FPS,
     repeat: -1,
   });
   const views: readonly [RunView, readonly string[]][] = [
@@ -133,7 +147,7 @@ function createAnimations(scene: Phaser.Scene, kit: Kit) {
     scene.anims.create({
       key: runAnim(kit, view),
       frames: frames(names),
-      frameRate: RUN_FPS / 2,
+      frameRate: VIEW_RUN_FPS,
       repeat: -1,
     });
   // Shooting (and keeper kicks): played once when the ball is struck.

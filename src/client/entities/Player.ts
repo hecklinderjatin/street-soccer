@@ -19,6 +19,7 @@ import {
   holdAnim,
   playerTexture,
   runAnim,
+  sprintAnim,
   shootAnim,
   type Kit,
   type Look,
@@ -484,7 +485,13 @@ export class Player {
             : vertical > diagonalThreshold
               ? 'down-diagonal'
               : 'side';
-      this.sprite.play(runAnim(this.kit, this.runView), true);
+      // Side-on sprinting has its own stride; other views keep the run.
+      this.sprite.play(
+        this.sprinting && this.runView === 'side'
+          ? sprintAnim(this.kit)
+          : runAnim(this.kit, this.runView),
+        true
+      );
       // Leg cycle speeds up with running speed (sprint ~1.5x).
       this.sprite.anims.timeScale = this.speed / 220;
     } else {
