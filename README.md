@@ -23,7 +23,7 @@ A fast 5v5 arcade street football match against the AI, played right inside a Re
 - **Desktop passes:** N pass along the ground / tackle, B aerial pass, V curl left, M curl right (hold past half pace for an aerial curl).
 - **Desktop shortcuts:** Escape pauses or closes an overlay, Tab opens match info, and Space toggles sound. Open **Pause → Key Bindings** to customize the keys or restore defaults. Changes are saved in the current browser.
 
-**Free Kick controls:** set power with the left slider and shot type with the ball dot below it. Swipe upward across the clear pitch to the right to aim and shoot; the swipe keeps your selected power and shot type. A short swipe trail follows your gesture.
+**Free Kick controls:** set power with the left slider and shot type with the ball dot below it. Swipe upward across the clear pitch to the right to aim and shoot; the swipe keeps your selected power and shot type. A short swipe trail follows your gesture. The **i** button explains Free Kick controls and rules; **Pause** offers Resume and How to Play. Both panels pause the kick. On desktop, Escape pauses and Tab opens info.
 
 ## For moderators
 

@@ -27,7 +27,7 @@
     "audio:release": "python3 scripts/optimize_audio.py",
     "art:release": "npm run art:bake && python3 scripts/optimize_art.py",
     "test:logic": "rolldown checks/logic-check.ts --platform node --format esm --external node:assert/strict -o node_modules/.cache/logic-check.mjs && node node_modules/.cache/logic-check.mjs",
-    "test:freekick": "rolldown checks/freekick-check.ts --platform node --format esm --external node:assert/strict -o node_modules/.cache/freekick-check.mjs && node node_modules/.cache/freekick-check.mjs",
+    "test:freekick": "rolldown checks/freekick-check.ts --platform node --format esm --external node:assert/strict -o node_modules/.cache/freekick-check.mjs && node node_modules/.cache/freekick-check.mjs && node checks/freekick-panels.mjs",
     "test:privacy": "rolldown checks/privacy-check.ts --platform node --format esm --external node:assert/strict -o node_modules/.cache/privacy-check.mjs && node node_modules/.cache/privacy-check.mjs",
     "test:dependencies": "node checks/dependency-check.mjs",
     "postinstall": "node scripts/patch-glob-compat.mjs",

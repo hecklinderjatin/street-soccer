@@ -1,3 +1,4 @@
+import { buildFreeKickOverlay, type FreeKickOverlay } from './overlay';
 import {
   freeKickControls,
   freeKickGesture,
@@ -163,6 +164,11 @@ export class FreeKickScene extends Phaser.Scene {
   private controls!: Phaser.GameObjects.Graphics;
   private aimGuide!: Phaser.GameObjects.Graphics;
   private soundButton!: TextButton;
+  private infoButton!: TextButton;
+  private pauseButton!: TextButton;
+  private overlay: FreeKickOverlay = null;
+  private helpReturn: 'pause' | null = null;
+  private overlayLayer: Phaser.GameObjects.Container | null = null;
   private lifeIcons: Phaser.GameObjects.Image[] = [];
   private card: Phaser.GameObjects.GameObject[] = [];
   private bestBefore = 0; // the device's best when this run ended
@@ -172,6 +178,9 @@ export class FreeKickScene extends Phaser.Scene {
   }
 
   create() {
+    this.overlay = null;
+    this.helpReturn = null;
+    this.overlayLayer = null;
     createPixelFont(this);
     this.buildHud();
     this.layout();
@@ -188,13 +197,33 @@ export class FreeKickScene extends Phaser.Scene {
       this.resetGesture();
       this.music?.pause();
     };
-    const visible = () => this.music?.resume();
+    const visible = () => {
+      if (this.overlay === null) this.music?.resume();
+    };
     this.game.events.on(Phaser.Core.Events.HIDDEN, hidden);
     this.game.events.on(Phaser.Core.Events.VISIBLE, visible);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.game.events.off(Phaser.Core.Events.HIDDEN, hidden);
       this.game.events.off(Phaser.Core.Events.VISIBLE, visible);
       this.scale.off(Phaser.Scale.Events.RESIZE, this.layout, this);
+    });
+
+    this.input.keyboard?.addCapture(['ESC', 'TAB']);
+    this.input.keyboard?.on('keydown-ESC', (event: KeyboardEvent) => {
+      if (event.repeat) return;
+      event.preventDefault();
+      this.setOverlay(
+        this.overlay === 'help'
+          ? this.helpReturn
+          : this.overlay
+            ? null
+            : 'pause'
+      );
+    });
+    this.input.keyboard?.on('keydown-TAB', (event: KeyboardEvent) => {
+      if (event.repeat) return;
+      event.preventDefault();
+      this.setOverlay(this.overlay === 'help' ? this.helpReturn : 'help');
     });
 
     // The art usually started downloading before this code arrived
@@ -464,7 +493,13 @@ export class FreeKickScene extends Phaser.Scene {
     pointer: Phaser.Input.Pointer,
     over: Phaser.GameObjects.GameObject[]
   ) {
-    if (this.phase !== 'aim' || this.gesture || over.length > 0) return;
+    if (
+      this.overlay !== null ||
+      this.phase !== 'aim' ||
+      this.gesture ||
+      over.length > 0
+    )
+      return;
     const mode = freeKickGesture(
       pointer,
       freeKickControls(this.scale.width, this.scale.height)
@@ -535,6 +570,7 @@ export class FreeKickScene extends Phaser.Scene {
   // ---- Frame --------------------------------------------------------------
 
   override update(_time: number, deltaMs: number) {
+    if (this.overlay !== null) return;
     const dt = Math.min(0.05, deltaMs / 1000);
     this.clock += dt;
     if (!this.stage) return;
@@ -830,6 +866,33 @@ export class FreeKickScene extends Phaser.Scene {
     this.swipeLabel = label(3, PAL.white).setOrigin(0.5);
     this.launchLabel = label(2, PAL.white).setText('LAUNCH DIRECTION');
 
+    this.infoButton = new TextButton(
+      this,
+      0,
+      0,
+      '',
+      () => this.setOverlay('help'),
+      {
+        width: 72,
+        height: 64,
+        fill: PAL.blue,
+        icon: 'info',
+      }
+    ).setDepth(HUD + 2);
+    this.pauseButton = new TextButton(
+      this,
+      0,
+      0,
+      '',
+      () => this.setOverlay('pause'),
+      {
+        width: 72,
+        height: 64,
+        fill: PAL.darkGray,
+        icon: 'pause',
+      }
+    ).setDepth(HUD + 2);
+
     // One master sound switch, as in the match.
     setSoundMuted(this.sound, soundMuted());
     this.soundButton = new TextButton(
@@ -894,11 +957,52 @@ export class FreeKickScene extends Phaser.Scene {
     this.powerLabel.setPosition(slider.x, slider.top - 39);
     this.powerValue.setPosition(slider.x, slider.bottom + 19);
     this.soundButton.setPosition(W - 60, 56);
+    this.infoButton.setPosition(W - 144, 56);
+    this.pauseButton.setPosition(W - 228, 56);
     this.lifeIcons.forEach((icon, i) =>
-      icon.setPosition(W - 120 - (FK.lives - 1 - i) * 44, 56).setScale(36 / 64)
+      icon.setPosition(W - 288 - (FK.lives - 1 - i) * 44, 56).setScale(36 / 64)
     );
     if (this.stage) this.frameCamera();
     if (this.phase === 'over') this.showCard();
+    if (this.overlay !== null) this.renderOverlay();
+  }
+
+  private setOverlay(which: FreeKickOverlay) {
+    if (this.phase === 'loading' || !this.stage) return;
+    if (which === 'help' && this.overlay !== 'help')
+      this.helpReturn = this.overlay === 'pause' ? 'pause' : null;
+    this.overlay = which;
+    // Releasing a held control while opening/closing a panel cannot shoot.
+    this.resetGesture();
+    this.drawControls();
+    this.overlayLayer?.destroy(true);
+    this.overlayLayer = null;
+    if (which !== null) {
+      this.tweens.pauseAll();
+      this.music?.pause();
+      this.renderOverlay();
+    } else {
+      this.tweens.resumeAll();
+      if (!document.hidden) this.music?.resume();
+    }
+  }
+
+  private renderOverlay() {
+    this.overlayLayer?.destroy(true);
+    if (this.overlay === null) {
+      this.overlayLayer = null;
+      return;
+    }
+    this.overlayLayer = buildFreeKickOverlay(this, {
+      mode: this.overlay,
+      level: this.setup.level.level,
+      metres: Math.round(this.setup.distance / FK.pxPerMetre),
+      lives: this.lives,
+      backToPause: this.helpReturn === 'pause',
+      resume: () => this.setOverlay(null),
+      help: () => this.setOverlay('help'),
+      back: () => this.setOverlay(this.helpReturn),
+    }).setDepth(HUD + 20);
   }
 
   private updateHud() {

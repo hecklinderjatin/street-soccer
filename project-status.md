@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Free Kick info and pause (2026-11-08):** add normal-match-style info/pause icons beside sound, with life icons shifted left to avoid overlap. A portrait navy info card explains current level/distance/lives, left power/contact controls, swipe shooting, wall/keeper reads, run rules and scoring. Pause offers Resume and How to Play; help opened from pause returns there, while direct help resumes. Escape/Tab mirror pause/info shortcuts. Both panels freeze simulation, phase time, camera/trails and tweens; clear active input; pause music; preserve state on resize; and avoid resuming music while hidden. TypeScript, lint, all 20 Free Kick rule/control checks and actual-scene pause/help logic checks pass. The scene harness injects display/audio stand-ins; no application build or browser checks run.
+
 **Main merge (2026-11-08):** fast-forwarded `codex/freekick-left-controls` through `46ca4c4` into `main` at the user’s request. Includes fixed left-side power/shot-type controls, clear-pitch shooting swipes and a fading gesture trail. Existing TypeScript, lint and all 20 Free Kick checks pass. No application build/browser checks or deployment performed.
 
 **Free Kick left controls and swipe trail (2026-11-08):** detach the ball-dot selector from the world ball and place a fixed ball control below the left power slider. Compact shot-style labels wrap within the left column. Clear pitch to the right accepts shooting swipes; gestures retain their starting control, so setting drags cannot fire shots and swipes preserve selected power/contact. Show a bounded sampled swipe trail with a short release fade; retain the launch arrow on the actual world ball. Clear gesture/trail state on retry/new kick, resize, cancellation and hiding, and remove resize/visibility callbacks on shutdown. Replace the bottom boxed pad with a simple swipe instruction. TypeScript, lint and all 20 Free Kick rules/control checks pass. No application build or browser checks run, as requested.
@@ -595,6 +597,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Use Free Kick-specific portrait instructions with the normal match icon/card style. Keep overlay UI responsive while pausing scene simulation explicitly, and retain pause-menu return state when opening help.
+
 - Merge the Free Kick left-control and swipe-trail changes into main and push them as requested, preserving the no-build instruction.
 
 - Keep Free Kick settings in a fixed left column and let clear right-side pitch accept swipes. Sample the actual gesture for feedback while retaining endpoint-based aiming, independently selected power/contact and the world-ball launch preview.
@@ -948,6 +952,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Review Free Kick info/pause panels on mobile after the next user-run build, including mid-flight resume, portrait resizing and touch interaction.
+
 - Pull main in Codespaces and review the Free Kick left controls and swipe trail on mobile after the next user-run build.
 
 - Review Free Kick left-control sizing, swipe trail and touch feel on Reddit/mobile after the next user-run build. No application build/browser checks run for this change.
@@ -1277,6 +1283,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-08:** add Free Kick info/pause buttons, portrait instructions and Resume/How to Play menu. Freeze active gameplay/timers/tweens, cancel held swipes and preserve nested return/audio/resize behaviour. Add actual-scene headless logic checks without an application build.
 
 - **2026-11-08:** fast-forward main through `46ca4c4`, bringing in fixed left Free Kick settings, right-side shooting swipes and gesture trails. Existing type/lint/20-case Free Kick checks pass; no application build or deployment performed.
 
