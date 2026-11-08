@@ -1,3 +1,8 @@
+import {
+  freeKickControls,
+  freeKickGesture,
+  type FreeKickGesture,
+} from './controls';
 import Phaser from 'phaser';
 import { BALL, FREE_KICK as FK } from '../../shared/tuning';
 import { BALL_KEY, createBallTexture } from '../art/ballArt';
@@ -52,7 +57,7 @@ const SOUND_FILES: readonly [string, string][] = [
 const BEST_KEY = 'street-soccer-freekick-best';
 const HUD = 10_000_000; // over the whole world
 const R = BALL.radius;
-type Gesture = { id: number; mode: 'contact' | 'power' | 'swipe' };
+type Gesture = { id: number; mode: FreeKickGesture };
 
 const BANNER: Record<Outcome, string> = {
   goal: 'GOAL!',
@@ -139,6 +144,9 @@ export class FreeKickScene extends Phaser.Scene {
 
   private gesture: Gesture | null = null;
   private swipe: ScreenPoint[] = [];
+  private swipeTrailUntil = 0;
+  private swipeTrail!: Phaser.GameObjects.Graphics;
+  private contactBall: Phaser.GameObjects.Image | null = null;
 
   private scoreText!: Phaser.GameObjects.BitmapText;
   private scoreLabel!: Phaser.GameObjects.BitmapText;
@@ -171,12 +179,23 @@ export class FreeKickScene extends Phaser.Scene {
     this.input.on(Phaser.Input.Events.POINTER_DOWN, this.onDown, this);
     this.input.on(Phaser.Input.Events.POINTER_MOVE, this.onMove, this);
     this.input.on(Phaser.Input.Events.POINTER_UP, this.onUp, this);
-    this.input.on(Phaser.Input.Events.POINTER_UP_OUTSIDE, this.cancelGesture, this);
-    this.game.events.on(Phaser.Core.Events.HIDDEN, () => {
-      this.gesture = null;
+    this.input.on(
+      Phaser.Input.Events.POINTER_UP_OUTSIDE,
+      this.cancelGesture,
+      this
+    );
+    const hidden = () => {
+      this.resetGesture();
       this.music?.pause();
+    };
+    const visible = () => this.music?.resume();
+    this.game.events.on(Phaser.Core.Events.HIDDEN, hidden);
+    this.game.events.on(Phaser.Core.Events.VISIBLE, visible);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.game.events.off(Phaser.Core.Events.HIDDEN, hidden);
+      this.game.events.off(Phaser.Core.Events.VISIBLE, visible);
+      this.scale.off(Phaser.Scale.Events.RESIZE, this.layout, this);
     });
-    this.game.events.on(Phaser.Core.Events.VISIBLE, () => this.music?.resume());
 
     // The art usually started downloading before this code arrived
     // (earlyAssets.ts); the loader then reads those copies.
@@ -192,6 +211,10 @@ export class FreeKickScene extends Phaser.Scene {
     void releaseEarlyDownloads(assets);
     registerPlayerAtlases(this);
     createBallTexture(this);
+    this.contactBall = this.add
+      .image(0, 0, BALL_KEY, 'a')
+      .setDepth(HUD + 1)
+      .setVisible(false);
     createCourtTextures(this);
     const config = startingConfig();
     this.stage = new Stage(this, {
@@ -242,6 +265,7 @@ export class FreeKickScene extends Phaser.Scene {
   // The next kick: a new spot after a goal (or a new run), the same one
   // again after a miss.
   private newKick(retry: boolean) {
+    this.resetGesture();
     if (!retry) {
       this.setup = makeKick(levelFor(this.goals), Math.random);
       this.lastPower = null;
@@ -264,7 +288,9 @@ export class FreeKickScene extends Phaser.Scene {
       : this.setup.keeperStyle === 'cheat'
         ? 'KEEPER CHEATS TO THE WALL SIDE'
         : '';
-    this.hintText.setText(this.hint || read || 'DRAG THE DOT TO SET SHOT TYPE');
+    this.hintText.setText(
+      this.hint || read || 'SET POWER + SHOT TYPE ON LEFT. SWIPE TO SHOOT'
+    );
     this.hint = '';
     const metres = Math.round(this.setup.distance / FK.pxPerMetre);
     this.kickText.setText(
@@ -410,7 +436,7 @@ export class FreeKickScene extends Phaser.Scene {
 
   // ---- Input --------------------------------------------------------------
 
-  private contactLayout() {
+  private ballLayout() {
     const { spot } = this.setup;
     this.cam.project(spot.x, spot.y, R, at);
     const radius = R * at.scale;
@@ -422,20 +448,16 @@ export class FreeKickScene extends Phaser.Scene {
     };
   }
 
-  private powerLayout() {
-    const height = this.scale.height;
-    const top = height * 0.43;
-    return { x: 76, top, bottom: top + Math.min(330, height * 0.26) };
+  private contactLayout() {
+    return freeKickControls(this.scale.width, this.scale.height).contact;
   }
 
-  private swipeLayout() {
-    const width = 480;
-    return {
-      x: (this.scale.width - width) / 2,
-      y: this.scale.height - 110,
-      width,
-      height: 90,
-    };
+  private powerLayout() {
+    return freeKickControls(this.scale.width, this.scale.height).power;
+  }
+
+  private swipeHintLayout() {
+    return { y: this.scale.height - 110, height: 90 };
   }
 
   private onDown(
@@ -443,32 +465,15 @@ export class FreeKickScene extends Phaser.Scene {
     over: Phaser.GameObjects.GameObject[]
   ) {
     if (this.phase !== 'aim' || this.gesture || over.length > 0) return;
-    const ball = this.contactLayout();
-    const slider = this.powerLayout();
-    if (
-      Math.abs(pointer.x - ball.x) <= ball.frame &&
-      Math.abs(pointer.y - ball.y) <= ball.frame
-    ) {
-      this.gesture = { id: pointer.id, mode: 'contact' };
-      this.onMove(pointer);
-      return;
-    }
-    if (
-      Math.abs(pointer.x - slider.x) <= 58 &&
-      pointer.y >= slider.top - 54 &&
-      pointer.y <= slider.bottom + 58
-    ) {
-      this.gesture = { id: pointer.id, mode: 'power' };
-      this.onMove(pointer);
-      return;
-    }
-    const pad = this.swipeLayout();
-    if (
-      pointer.x < pad.x || pointer.x > pad.x + pad.width ||
-      pointer.y < pad.y || pointer.y > pad.y + pad.height
-    ) return;
-    this.gesture = { id: pointer.id, mode: 'swipe' };
-    this.swipe = [{ x: pointer.x, y: pointer.y }];
+    const mode = freeKickGesture(
+      pointer,
+      freeKickControls(this.scale.width, this.scale.height)
+    );
+    if (!mode) return;
+    this.gesture = { id: pointer.id, mode };
+    this.swipeTrailUntil = 0;
+    if (mode === 'swipe') this.swipe = [{ x: pointer.x, y: pointer.y }];
+    else this.onMove(pointer);
   }
 
   private onMove(pointer: Phaser.Input.Pointer) {
@@ -491,7 +496,9 @@ export class FreeKickScene extends Phaser.Scene {
       );
       return;
     }
-    this.swipe[1] = { x: pointer.x, y: pointer.y };
+    this.swipe.push({ x: pointer.x, y: pointer.y });
+    // Preserve the launch chord's first point and bound the visual trail.
+    if (this.swipe.length > 96) this.swipe.splice(1, 1);
   }
 
   private onUp(pointer: Phaser.Input.Pointer) {
@@ -504,16 +511,25 @@ export class FreeKickScene extends Phaser.Scene {
     const { mode } = this.gesture;
     this.gesture = null;
     if (mode !== 'swipe' || this.phase !== 'aim') return;
+    this.swipeTrailUntil = this.clock + 0.35;
     const swipe = readSwipe(this.swipe);
-    if (swipe) this.shoot({
-      power: this.power,
-      contact: this.contact,
-      targetY: this.aimTarget(swipe),
-    });
+    if (swipe)
+      this.shoot({
+        power: this.power,
+        contact: this.contact,
+        targetY: this.aimTarget(swipe),
+      });
+  }
+
+  private resetGesture() {
+    this.gesture = null;
+    this.swipe = [];
+    this.swipeTrailUntil = 0;
+    this.swipeTrail.clear();
   }
 
   private cancelGesture(pointer: Phaser.Input.Pointer) {
-    if (pointer.id === this.gesture?.id) this.gesture = null;
+    if (pointer.id === this.gesture?.id) this.resetGesture();
   }
 
   // ---- Frame --------------------------------------------------------------
@@ -528,6 +544,7 @@ export class FreeKickScene extends Phaser.Scene {
     if (this.play?.outcome) this.stage.fadeTrail(dt);
     this.drawWorld();
     this.drawControls();
+    this.drawSwipeTrail();
   }
 
   private drawWorld() {
@@ -599,7 +616,7 @@ export class FreeKickScene extends Phaser.Scene {
   }
 
   private drawLaunchArrow(
-    ball: ReturnType<FreeKickScene['contactLayout']>,
+    ball: ReturnType<FreeKickScene['ballLayout']>,
     swipe: Swipe,
     ready: boolean
   ) {
@@ -613,10 +630,16 @@ export class FreeKickScene extends Phaser.Scene {
     const x = ball.x + (start + 106) * dx;
     const y = ball.y + (start + 106) * dy;
     const color = ready ? PAL.yellow : PAL.white;
-    const layers: [number, number, number][] = [[PAL.ink, 13, 15], [color, 6, 10]];
+    const layers: [number, number, number][] = [
+      [PAL.ink, 13, 15],
+      [color, 6, 10],
+    ];
     for (const [ink, width, head] of layers) {
       g.lineStyle(width, ink).lineBetween(
-        ball.x + start * dx, ball.y + start * dy, x, y
+        ball.x + start * dx,
+        ball.y + start * dy,
+        x,
+        y
       );
       g.fillStyle(ink).fillTriangle(
         x + head * dx,
@@ -629,23 +652,50 @@ export class FreeKickScene extends Phaser.Scene {
     }
     const labelX = Phaser.Math.Clamp(x, 145, this.scale.width - 145);
     g.fillStyle(PAL.ink, 0.9).fillRoundedRect(labelX - 123, y - 54, 246, 30, 7);
-    this.launchLabel.setPosition(labelX, y - 47).setTint(color).setVisible(true);
+    this.launchLabel
+      .setPosition(labelX, y - 47)
+      .setTint(color)
+      .setVisible(true);
   }
 
-  private drawSwipePad(swiping: boolean, ready: boolean) {
-    const g = this.controls;
-    const { x, y, width, height } = this.swipeLayout();
-    const color = ready ? PAL.yellow : PAL.white;
-    g.fillStyle(ready ? PAL.darkGreen : PAL.navy, 0.96)
-      .fillRoundedRect(x, y, width, height, 14);
-    g.lineStyle(3, ready ? PAL.yellow : PAL.blue)
-      .strokeRoundedRect(x, y, width, height, 14);
-    const mid = y + height / 2;
-    g.lineStyle(5, color).lineBetween(x + 29, mid + 5, x + 44, mid - 10);
-    g.lineBetween(x + 44, mid - 10, x + 59, mid + 5);
+  private drawSwipeHint(swiping: boolean, ready: boolean) {
+    // This is a hint, not a button: the clear pitch to the right accepts swipes.
     this.swipeLabel
-      .setTint(color)
-      .setText(ready ? 'RELEASE TO SHOOT' : swiping ? 'KEEP SWIPING UP' : 'SWIPE UP TO SHOOT');
+      .setTint(ready ? PAL.yellow : PAL.white)
+      .setText(
+        ready
+          ? 'RELEASE TO SHOOT'
+          : swiping
+            ? 'KEEP SWIPING UP'
+            : 'SWIPE UP TO SHOOT'
+      );
+  }
+
+  private drawSwipeTrail() {
+    const g = this.swipeTrail.clear();
+    const dragging = this.gesture?.mode === 'swipe';
+    const alpha = dragging
+      ? 1
+      : Phaser.Math.Clamp((this.swipeTrailUntil - this.clock) / 0.35, 0, 1);
+    if (alpha <= 0 || this.swipe.length < 2) return;
+    for (let i = 1; i < this.swipe.length; i++) {
+      const a = this.swipe[i - 1];
+      const b = this.swipe[i];
+      if (!a || !b) continue;
+      const taper = 0.35 + (0.65 * i) / (this.swipe.length - 1);
+      g.lineStyle(9 * taper, PAL.blue, 0.25 * alpha).lineBetween(
+        a.x,
+        a.y,
+        b.x,
+        b.y
+      );
+      g.lineStyle(3 * taper, PAL.white, 0.8 * alpha).lineBetween(
+        a.x,
+        a.y,
+        b.x,
+        b.y
+      );
+    }
   }
 
   private drawControls() {
@@ -654,6 +704,7 @@ export class FreeKickScene extends Phaser.Scene {
     const show = this.phase === 'aim';
     const swiping = this.gesture?.mode === 'swipe';
     this.contactStyle.setVisible(show);
+    this.contactBall?.setVisible(show);
     this.powerLabel.setVisible(show);
     this.powerValue.setVisible(show);
     this.swipeLabel.setVisible(show);
@@ -664,14 +715,24 @@ export class FreeKickScene extends Phaser.Scene {
     const ball = this.contactLayout();
     const ready = swiping ? readSwipe(this.swipe) : null;
     const direction = ready ?? (swiping ? readSwipe(this.swipe, 8) : null);
-    if (direction) this.drawLaunchArrow(ball, direction, ready !== null);
-    this.drawSwipePad(swiping, ready !== null);
+    if (direction)
+      this.drawLaunchArrow(this.ballLayout(), direction, ready !== null);
+    this.drawSwipeHint(swiping, ready !== null);
 
     const { x, y, radius, frame } = ball;
-    g.lineStyle(7, PAL.ink, 0.85)
-      .strokeRoundedRect(x - frame, y - frame, frame * 2, frame * 2, 10);
-    g.lineStyle(3, this.gesture?.mode === 'contact' ? PAL.yellow : PAL.white, 0.9)
-      .strokeRoundedRect(x - frame, y - frame, frame * 2, frame * 2, 10);
+    this.contactBall?.setPosition(x, y).setDisplaySize(radius * 2, radius * 2);
+    g.lineStyle(7, PAL.ink, 0.85).strokeRoundedRect(
+      x - frame,
+      y - frame,
+      frame * 2,
+      frame * 2,
+      10
+    );
+    g.lineStyle(
+      3,
+      this.gesture?.mode === 'contact' ? PAL.yellow : PAL.white,
+      0.9
+    ).strokeRoundedRect(x - frame, y - frame, frame * 2, frame * 2, 10);
     const dotX = x + this.contact.x * radius;
     const dotY = y + this.contact.y * radius;
     g.fillStyle(PAL.ink).fillCircle(dotX, dotY, 12);
@@ -679,24 +740,48 @@ export class FreeKickScene extends Phaser.Scene {
     const curl = this.contact.x > 0 ? 'LEFT' : 'RIGHT';
     const curls = Math.abs(this.contact.x) >= 0.25;
     const style =
-      this.contact.y >= 0.25 ? 'CHIP' : this.contact.y <= -0.25 ? 'LOW DRIVE' : '';
+      this.contact.y >= 0.25
+        ? 'CHIP'
+        : this.contact.y <= -0.25
+          ? 'LOW DRIVE'
+          : '';
     const curlLabel = `CURL ${curl}`;
     this.contactStyle
-      .setText(curls ? (style ? `${style} + ${curlLabel}` : curlLabel) : style || 'POWER SHOT')
-      .setPosition(x, y + frame + 20);
+      .setText(
+        curls
+          ? style
+            ? `${style}\n${curlLabel}`
+            : curlLabel
+          : style || 'POWER SHOT'
+      )
+      .setPosition(x, y + frame + 12);
     const labelWidth = this.contactStyle.width + 28;
-    g.fillStyle(PAL.ink, 0.88)
-      .fillRoundedRect(x - labelWidth / 2, y + frame + 11, labelWidth, 35, 8);
+    g.fillStyle(PAL.ink, 0.88).fillRoundedRect(
+      x - labelWidth / 2,
+      y + frame + 11,
+      labelWidth,
+      this.contactStyle.height + 8,
+      8
+    );
 
     const { x: sx, top, bottom } = this.powerLayout();
     const yOf = (power: number) => bottom - (bottom - top) * power;
     const handle = yOf(this.power);
-    g.fillStyle(PAL.ink, 0.92)
-      .fillRoundedRect(sx - 55, top - 54, 110, bottom - top + 112, 14);
-    g.lineStyle(2, PAL.lightGray, 0.6)
-      .strokeRoundedRect(sx - 55, top - 54, 110, bottom - top + 112, 14);
-    g.fillStyle(PAL.navy)
-      .fillRoundedRect(sx - 17, top, 34, bottom - top, 5);
+    g.fillStyle(PAL.ink, 0.92).fillRoundedRect(
+      sx - 55,
+      top - 54,
+      110,
+      bottom - top + 112,
+      14
+    );
+    g.lineStyle(2, PAL.lightGray, 0.6).strokeRoundedRect(
+      sx - 55,
+      top - 54,
+      110,
+      bottom - top + 112,
+      14
+    );
+    g.fillStyle(PAL.navy).fillRoundedRect(sx - 17, top, 34, bottom - top, 5);
     g.fillStyle(PAL.blue).fillRect(sx - 12, handle, 24, bottom - handle);
     const band = this.band;
     if (band)
@@ -708,8 +793,9 @@ export class FreeKickScene extends Phaser.Scene {
       );
     if (this.lastPower !== null)
       g.fillStyle(PAL.orange).fillRect(sx - 36, yOf(this.lastPower) - 2, 10, 4);
-    g.fillStyle(this.gesture?.mode === 'power' ? PAL.yellow : PAL.white)
-      .fillRoundedRect(sx - 24, handle - 9, 48, 18, 4);
+    g.fillStyle(
+      this.gesture?.mode === 'power' ? PAL.yellow : PAL.white
+    ).fillRoundedRect(sx - 24, handle - 9, 48, 18, 4);
     this.powerValue.setText(`${Math.round(this.power * 100)}%`);
   }
 
@@ -722,7 +808,9 @@ export class FreeKickScene extends Phaser.Scene {
     this.scoreText = text(6);
     this.streakText = text(3, PAL.yellow);
     this.kickText = text(3).setOrigin(0.5, 0);
-    this.hintText = text(2).setOrigin(0.5, 1).setDepth(HUD + 2);
+    this.hintText = text(2)
+      .setOrigin(0.5, 1)
+      .setDepth(HUD + 2);
     this.banner = text(10).setOrigin(0.5).setVisible(false);
     this.bannerSub = text(3, PAL.white)
       .setOrigin(0.5, 0)
@@ -730,9 +818,13 @@ export class FreeKickScene extends Phaser.Scene {
       .setVisible(false);
     this.aimGuide = this.add.graphics().setDepth(HUD);
     this.controls = this.add.graphics().setDepth(HUD + 2);
+    this.swipeTrail = this.add.graphics().setDepth(HUD + 4);
     const label = (size: number, color: number) =>
-      text(size, color).setDepth(HUD + 3).setOrigin(0.5, 0).setVisible(false);
-    this.contactStyle = label(2, PAL.yellow);
+      text(size, color)
+        .setDepth(HUD + 3)
+        .setOrigin(0.5, 0)
+        .setVisible(false);
+    this.contactStyle = label(1.5, PAL.yellow).setCenterAlign();
     this.powerLabel = label(2, PAL.white).setText('POWER');
     this.powerValue = label(3, PAL.white);
     this.swipeLabel = label(3, PAL.white).setOrigin(0.5);
@@ -786,14 +878,15 @@ export class FreeKickScene extends Phaser.Scene {
 
   // Places the HUD for the current view size and reframes the kick.
   private layout() {
+    this.resetGesture();
     const W = this.scale.width;
     const H = this.scale.height;
     this.scoreLabel.setPosition(24, 24);
     this.scoreText.setPosition(24, 44);
     this.streakText.setPosition(24, 100);
     this.kickText.setPosition(W / 2, 132);
-    const pad = this.swipeLayout();
-    this.swipeLabel.setPosition(W / 2 + 24, pad.y + pad.height / 2);
+    const pad = this.swipeHintLayout();
+    this.swipeLabel.setPosition(W / 2, pad.y + pad.height / 2);
     this.hintText.setPosition(W / 2, pad.y - 14);
     this.banner.setPosition(W / 2, H * 0.6);
     this.bannerSub.setPosition(W / 2, H * 0.6 + 56);

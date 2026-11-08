@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Free Kick left controls and swipe trail (2026-11-08):** detach the ball-dot selector from the world ball and place a fixed ball control below the left power slider. Compact shot-style labels wrap within the left column. Clear pitch to the right accepts shooting swipes; gestures retain their starting control, so setting drags cannot fire shots and swipes preserve selected power/contact. Show a bounded sampled swipe trail with a short release fade; retain the launch arrow on the actual world ball. Clear gesture/trail state on retry/new kick, resize, cancellation and hiding, and remove resize/visibility callbacks on shutdown. Replace the bottom boxed pad with a simple swipe instruction. TypeScript, lint and all 20 Free Kick rules/control checks pass. No application build or browser checks run, as requested.
+
 **Free Kick controls (2026-11-08):** The contact frame over the ball sets shot type, the left slider sets power and a separate pad below the ball starts the shooting swipe. An upward swipe shows a straight launch arrow and highlights the pad when the shot is ready to release. Gestures stay with the control where they start. The retry retains the selected settings and the orange power tick. Types, lint, production build and all 18 Free Kick rules checks pass. Headless Chromium checked the gesture boundaries, launch direction and trail reset at two phone sizes with touch and at desktop size with a mouse.
 
 **Desktop key bindings (2026-11-08):** The desktop pause menu opens a remapping panel for movement, sprint, shot/pass styles and match shortcuts. The defaults are WASD, either Shift, I/J/L/K for chip/curls/power, N/B/V/M for pass/lob/curls, Escape for pause, Tab for info and Space for mute. The panel applies edits immediately, rejects duplicate keys and restores defaults. Local browser storage remembers the layout across matches and reloads, and desktop help displays the active keys. Types, lint, production build and 61 logic checks pass. Mocked Chromium verified desktop editing, reload, reset, all four pass keys and the touch-only pause menu.
@@ -591,6 +593,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Keep Free Kick settings in a fixed left column and let clear right-side pitch accept swipes. Sample the actual gesture for feedback while retaining endpoint-based aiming, independently selected power/contact and the world-ball launch preview.
+
 - New key actions load with their default key when missing from a saved layout (if free), so adding an action never wipes a player's remapped keys.
 - Pixel text only at whole sizes (size x CELL_W font size, size >= 2): fractional sizes such as 0.4 x PX drop or double font pixels and garble letters on the scaled canvas.
 - Aerial passes solve their pace from the launch lift and air drag so the first bounce lands at the receiver; a curl's air/ground choice uses the held pass charge (user: "more power = aerial"), so a tap curl always rolls.
@@ -940,6 +944,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Review Free Kick left-control sizing, swipe trail and touch feel on Reddit/mobile after the next user-run build. No application build/browser checks run for this change.
+
 - Playtest the Free Kick wall/keeper variety: how often under-wall drives work, whether the guessing keeper feels fair, and the lying man's look in the portrait camera.
 - Watch the new run and sprint in a match: stride speed at walk vs sprint, the run-to-sprint switch, and non-pink kits' shorts/sock lines on the high back leg.
 - Check the restyled match info pages on phone and desktop (text fit of long team names, Chaos/Rampage lines, three-button row).
@@ -1265,6 +1271,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-08:** move Free Kick shot-type selector below left power slider, enable shooting swipes across clear pitch and add a bounded fading swipe trail. Preserve launch/power/contact rules, guard gesture ownership and clean up input/trail state across retries/resize/hide/restart. No application build run.
 
 - **2026-11-08:** Separated Free Kick shot type, power and shooting gestures. Added a swipe pad with release feedback and a straight launch arrow, and cleared the previous trail on retry.
 - **2026-11-08:** Free Kick: the wall sometimes stays down, low drives slip under a jumping wall (UNDER THE WALL tag), a man may lie behind it; keepers may cheat to the wall side, guess a corner or read part of the curl.

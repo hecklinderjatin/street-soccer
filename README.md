@@ -9,6 +9,7 @@ A fast 5v5 arcade street football match against the AI, played right inside a Re
 - **After a ranked match**, players can choose **PLAY CUSTOM** to open their saved Custom settings, alongside Play Again and optional score sharing. The result screen shows the top 3 of the last 7 days for this post. Players can choose **POST MY SCORE** to share their result. The popup says it posts from their own account and shows their username. A score on its own is posted as a reply to the post's pinned **Scores** comment (made by the app with each post); a score with the player's own words is posted as a comment on the post. Sharing is always optional and never needed to play.
 - The (i) button in the match explains the controls. There is a pause menu and a sound on/off switch.
 
+
 ## Controls
 
 - **Joystick (left):** move; push to the edge to sprint.
@@ -21,6 +22,8 @@ A fast 5v5 arcade street football match against the AI, played right inside a Re
 - **Desktop shots:** I chip, J curl left, L curl right, K power shot / switch.
 - **Desktop passes:** N pass along the ground / tackle, B aerial pass, V curl left, M curl right (hold past half pace for an aerial curl).
 - **Desktop shortcuts:** Escape pauses or closes an overlay, Tab opens match info, and Space toggles sound. Open **Pause → Key Bindings** to customize the keys or restore defaults. Changes are saved in the current browser.
+
+**Free Kick controls:** set power with the left slider and shot type with the ball dot below it. Swipe upward across the clear pitch to the right to aim and shoot; the swipe keeps your selected power and shot type. A short swipe trail follows your gesture.
 
 ## For moderators
 

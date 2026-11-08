@@ -1,3 +1,7 @@
+import {
+  freeKickControls,
+  freeKickGesture,
+} from '../src/client/freekick/controls';
 import assert from 'node:assert/strict';
 import { FREE_KICK as FK, PITCH } from '../src/shared/tuning';
 import {
@@ -45,6 +49,62 @@ function playOut(setup: KickSetup, strike: Strike) {
   return play;
 }
 
+check(
+  'controls: left shot selector stays below the power bar and outside shooting area',
+  () => {
+    for (const [width, height] of [
+      [720, 1280],
+      [720, 1560],
+      [960, 1280],
+    ]) {
+      const layout = freeKickControls(width!, height!);
+      const { contact, power, shooting } = layout;
+      assert.ok(
+        contact.y - contact.frame > power.bottom + 58,
+        'touch targets do not overlap'
+      );
+      assert.ok(
+        contact.x + contact.frame < shooting.left,
+        'selector is outside swipe area'
+      );
+      assert.ok(
+        contact.y + contact.frame + 48 < height! - 124,
+        'style label clears the bottom hint'
+      );
+      assert.equal(freeKickGesture(contact, layout), 'contact');
+      assert.equal(
+        freeKickGesture(
+          { x: power.x, y: (power.top + power.bottom) / 2 },
+          layout
+        ),
+        'power'
+      );
+      assert.equal(
+        freeKickGesture({ x: width! * 0.7, y: height! * 0.65 }, layout),
+        'swipe'
+      );
+      assert.equal(
+        freeKickGesture({ x: width! / 2, y: 80 }, layout),
+        null,
+        'HUD cannot shoot'
+      );
+      assert.equal(
+        freeKickGesture({ x: 15, y: height! - 10 }, layout),
+        null,
+        'unused left edge cannot shoot'
+      );
+    }
+  }
+);
+check(
+  'controls: the physical ball and clear pitch now start shooting swipes',
+  () => {
+    const layout = freeKickControls(720, 1280);
+    assert.equal(freeKickGesture({ x: 390, y: 1030 }, layout), 'swipe');
+    assert.equal(freeKickGesture({ x: 510, y: 640 }, layout), 'swipe');
+
+  }
+);
 check('swipe: a tap or a downward swipe is no shot', () => {
   const up = (length: number) => [
     { x: 300, y: 900 },
