@@ -1,24 +1,30 @@
+import { watchFreeKickPreview } from './previewLifecycle';
 import { context, requestExpandedMode } from '@devvit/web/client';
 import { pixelLabel } from '../ui/pixelLabel';
 import { measurePlay } from '../playMetrics';
 import { FREE_KICK as FK } from '../../shared/tuning';
 
+let stopPreview: (() => void) | undefined;
+
 export function showFreeKickLobby() {
   const host = document.getElementById('game');
   if (!host) return;
+  stopPreview?.();
   host.classList.add('freekick-post');
   const card = document.createElement('section');
   card.className = 'freekick-lobby';
   card.innerHTML = `
-    <header>STREET SOCCER <span>FREE KICK</span></header>
-    <div class="freekick-preview" aria-hidden="true"><div class="freekick-net"></div><img src="/ball.svg" alt=""></div>
-    <div class="freekick-lobby-details">
-      <h1>BEAT THE WALL.<br>FIND THE CORNER.</h1>
+    <div class="freekick-preview preview-stage" aria-hidden="true"></div>
+    <header class="mobile-lobby-header"><strong class="freekick-title">STREET SOCCER</strong><span class="freekick-live">LIVE</span></header>
+    <div class="freekick-lobby-details mobile-lobby-details">
+      <div class="mobile-match-tag freekick-mode">FREE KICK</div>
+      <h1 class="freekick-tagline">PICK YOUR CORNER</h1>
       <p class="freekick-description"></p>
-      <a class="freekick-play" href="freekick.html">PLAY</a>
-      <p>${FK.lives} lives. Build your score as the challenge gets tougher.</p>
-      <a class="freekick-practice" href="freekick-practice.html">PRACTICE</a>
-      <p>Choose a level. Unlimited retries. No best-score changes.</p>
+      <div class="preview-actions">
+        <a class="freekick-play" href="freekick.html">PLAY</a>
+        <a class="freekick-practice" href="freekick-practice.html">PRACTICE</a>
+      </div>
+      <p class="freekick-mode-notes">Play: ${FK.lives} lives and rising difficulty.<br>Practice: choose a level, unlimited retries.</p>
     </div>`;
   const description = card.querySelector('.freekick-description');
   const data: unknown = context?.postData;
@@ -40,5 +46,15 @@ export function showFreeKickLobby() {
       requestExpandedMode(event, entry);
     });
   }
+  for (const [selector, text] of [
+    ['.freekick-title', 'STREET SOCCER'],
+    ['.freekick-mode', 'FREE KICK'],
+    ['.freekick-tagline', 'PICK YOUR CORNER'],
+  ]) {
+    const label = card.querySelector<HTMLElement>(selector ?? '');
+    if (label && text) pixelLabel(label, text);
+  }
   host.replaceChildren(card);
+  const preview = card.querySelector<HTMLElement>('.freekick-preview');
+  if (preview) stopPreview = watchFreeKickPreview(preview);
 }

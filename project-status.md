@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Live Free Kick post preview (2026-11-08):** replace static CSS artwork with a silent auto-playing Free Kick renderer using the real Stage, player art, ball physics, wall/keeper reactions and trails. Cycle demonstration attempts without player sessions, analytics, score writes or audio. Lazily create the preview when visible and sleep its loop off-screen/hidden; dispose it when the lobby is rebuilt. Match the normal post’s full-canvas preview, pixel heading/mode tag, dark gradient panel and Play/Practice button treatment. Frame the shot above the lower action panel. TypeScript, lint, 22 Free Kick rule/control checks and practice/panel regressions pass. Source-only DOM checks pass at four viewport sizes. Actual WebGL preview checks through a temporary Vite development server verify repeated physics-driven shots, mobile/desktop framing, off-screen sleep/resume, Play/Practice routes, no demo API/audio requests and unchanged best scores; Reddit host calls are mocked. Screenshot inspected at 390x600. No application build or live Reddit writes performed.
+
 **Main merge (2026-11-08):** fast-forwarded `codex/standalone-freekick-posts` through `0224d90` into `main` at the user’s request. Includes standalone Free Kick post creation, dedicated Play/Practice feed actions and selected-level unlimited Practice. Existing type/lint/rules/posting/scene checks and mocked source-only Chromium checks pass. No application build or live Reddit deployment performed.
 
 **Standalone Free Kick posts and Practice (2026-11-08):** add Free Kick to native post-type creation with title/description/flair only. Save its own post type without match settings or a normal Scores thread; reject normal match result submissions on these posts. The default feed entry detects this type and shows a dedicated Free Kick card with Play and Practice, without loading the normal match preview. Remove the Free Kick shortcut from normal match cards. Practice has its own registered expanded entry, level selection, unlimited same-spot retries, fixed difficulty and Pause → New Spot; no normal best-score writes or normal run telemetry. Existing Play retains lives, progression and device bests. TypeScript, lint, 22 Free Kick rule/control cases, practice/panel scene checks, Daily posting/leaderboard checks and all 62 gameplay logic checks pass. Source-only Chromium checks verify safe descriptions, Play/Practice expansion targets and visible actions at 320x400, 320x480, 390x600 and 720x1100, plus forwarding the chosen practice level; SDK/game startup are mocked. No application build or live Reddit writes performed.
@@ -603,6 +605,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Reuse the actual Free Kick court and simulation in a separate passive preview scene. Keep player sessions/audio/metrics out of the demo, and retain the standalone post’s two expanded-entry actions.
+
 - Merge and push standalone Free Kick posts and Practice into main as requested, preserving the no-build instruction.
 
 - Give Free Kick its own post type and route its two actions through explicit expanded entries. Practice is a chosen-level training session with unlimited same-spot attempts; keep it separate from normal run records and match rankings.
@@ -964,6 +968,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Review Free Kick live feed framing and off-screen pause behaviour on Reddit/mobile after the next user-run build/upload.
+
 - Pull main in Codespaces and playtest new Free Kick post creation plus Play/Practice expansion after a user-run build/upload.
 
 - Playtest native Free Kick post creation, Play and Practice expansion on Reddit after a user-run build/upload; validate selected-level training and new-spot controls on mobile.
@@ -1301,6 +1307,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-08:** add a real, silent live Free Kick post demo and match normal feed styling. Preserve Play/Practice actions and pause hidden/off-screen previews. No application build or live Reddit deployment performed.
 
 - **2026-11-08:** fast-forward main through `0224d90`, including standalone Free Kick posts and unlimited selected-level Practice. Existing checks pass; no application build or deployment performed.
 

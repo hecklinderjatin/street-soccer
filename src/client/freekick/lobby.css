@@ -10,107 +10,123 @@
   overflow: hidden;
   background: #0c192a;
   color: #fff1e8;
-  font-family: monospace;
-  display: flex;
-  flex-direction: column;
-}
-.freekick-lobby header {
-  padding: 20px;
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  font-size: clamp(12px, 3.8vw, 20px);
-  font-weight: bold;
-  z-index: 1;
-}
-.freekick-lobby header span {
-  color: #ffec27;
+  font-family: ui-monospace, monospace;
 }
 .freekick-preview {
-  flex: 1;
-  min-height: 80px;
-  position: relative;
-  background: repeating-linear-gradient(
-    0deg,
-    #7e4339 0 18px,
-    #3d3038 18px 21px
-  );
-}
-.freekick-net {
   position: absolute;
-  inset: 12% 10% 0;
-  border: 6px solid #fff1e8;
-  border-bottom: 0;
-  background:
-    repeating-linear-gradient(0deg, transparent 0 18px, #b2b7bc66 18px 19px),
-    repeating-linear-gradient(90deg, #182d40aa 0 24px, #b2b7bc66 24px 25px);
+  inset: 0;
+  pointer-events: none;
 }
-.freekick-preview img {
-  position: absolute;
-  width: 64px;
-  height: 64px;
-  left: calc(50% - 32px);
-  bottom: 10px;
+.freekick-preview canvas {
+  display: block;
   image-rendering: pixelated;
+  pointer-events: none;
+  touch-action: pan-y !important;
+}
+.freekick-lobby .mobile-lobby-header {
+  z-index: 1;
+}
+.freekick-live {
+  padding: 5px 8px;
+  background: #15253bcc;
+  border: 1px solid #3b506b;
+  color: #a8b9cd;
+  font-size: 10px;
 }
 .freekick-lobby-details {
-  padding: 20px;
-  background: linear-gradient(#15253b, #08111e);
+  padding: 18px 24px 20px;
+}
+.freekick-lobby-details .mobile-match-tag {
+  margin-bottom: 12px;
 }
 .freekick-lobby h1 {
-  margin: 0 0 12px;
-  font-size: clamp(17px, 4.5vw, 28px);
-  line-height: 1.25;
+  margin: 0 0 14px;
+  font-size: clamp(16px, 4.5vw, 24px);
+  line-height: 1.2;
 }
 .freekick-lobby p {
-  margin: 9px 0 16px;
+  margin: 10px 0 14px;
   color: #a8b9cd;
-  font-size: clamp(11px, 2.9vw, 15px);
-  line-height: 1.4;
+  font-size: clamp(11px, 2.9vw, 14px);
+  line-height: 1.5;
 }
 .freekick-description:empty {
   display: none;
 }
 .freekick-description {
-  max-height: 3.2em;
+  max-height: 3em;
   overflow: hidden;
+}
+.freekick-lobby .preview-actions {
+  grid-template-columns: 1fr 1fr;
 }
 .freekick-lobby a {
   box-sizing: border-box;
-  min-height: 52px;
-  padding: 12px;
+  min-height: 54px;
+  padding: 12px 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   text-decoration: none;
   color: #fff1e8;
-  border: 1px solid #3b506b;
-  background: #22354c;
-  font-size: 18px;
+  border: 1px solid #69819a;
+  border-bottom: 4px solid #162435;
+  background: #22354ccf;
+  box-shadow: 3px 4px #0006;
+  font-size: clamp(12px, 3.3vw, 16px);
+  touch-action: manipulation;
 }
 .freekick-lobby .freekick-play {
   background: #ffa300;
-  color: #111b26;
-  border-color: #ffcc66;
+  color: #fff1e8;
+  border: 0;
+  border-top: 2px solid #ffcc66;
+  border-bottom: 4px solid #b96719;
+  clip-path: polygon(
+    4px 0,
+    calc(100% - 4px) 0,
+    calc(100% - 4px) 4px,
+    100% 4px,
+    100% calc(100% - 4px),
+    calc(100% - 4px) calc(100% - 4px),
+    calc(100% - 4px) 100%,
+    4px 100%,
+    4px calc(100% - 4px),
+    0 calc(100% - 4px),
+    0 4px,
+    4px 4px
+  );
+}
+.freekick-lobby a:active {
+  transform: translateY(2px);
 }
 .freekick-lobby a:focus-visible {
-  outline: 3px solid #29adff;
+  outline: 3px solid #ffec27;
   outline-offset: 3px;
 }
+.freekick-lobby .freekick-mode-notes {
+  margin-bottom: 0;
+}
 @media (max-height: 480px) {
-  .freekick-lobby header,
+  .freekick-lobby .mobile-lobby-header {
+    padding: 12px 16px 40px;
+  }
   .freekick-lobby-details {
     padding: 12px 16px;
   }
+  .freekick-lobby-details .mobile-match-tag {
+    margin-bottom: 8px;
+  }
+  .freekick-lobby h1 {
+    margin-bottom: 8px;
+  }
   .freekick-lobby p {
-    margin: 6px 0 10px;
+    margin: 8px 0;
   }
-  .freekick-preview {
-    min-height: 40px;
+  .freekick-lobby .freekick-mode-notes {
+    margin-bottom: 0;
   }
-  .freekick-preview img {
-    width: 40px;
-    height: 40px;
-    left: calc(50% - 20px);
+  .freekick-lobby a {
+    min-height: 48px;
   }
 }

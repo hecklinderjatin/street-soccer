@@ -27,7 +27,7 @@ A fast 5v5 arcade street football match against the AI, played right inside a Re
 
 ## Free Kick posts
 
-Choose **Create Street Soccer match → Free Kick** to create a standalone Free Kick post. Set a title, optional description and flair; normal match settings are not needed. The post offers **Play** (three lives, score streaks and rising difficulty) and **Practice** (choose a level, unlimited retries at the same spot). Practice keeps the normal best score unchanged; **Pause → New Spot** refreshes the setup at the chosen level. Normal match cards no longer include the Free Kick shortcut. Free Kick best scores are stored on the current device; they do not use match leaderboards.
+Choose **Create Street Soccer match → Free Kick** to create a standalone Free Kick post. Set a title, optional description and flair; normal match settings are not needed. The post shows a silent live Free Kick demo with the real court, players and shot physics, pausing when off-screen. It offers **Play** (three lives, score streaks and rising difficulty) and **Practice** (choose a level, unlimited retries at the same spot). Practice keeps the normal best score unchanged; **Pause → New Spot** refreshes the setup at the chosen level. Normal match cards no longer include the Free Kick shortcut. Free Kick best scores are stored on the current device; they do not use match leaderboards.
 
 ## For moderators
 

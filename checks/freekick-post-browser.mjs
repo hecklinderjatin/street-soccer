@@ -75,6 +75,7 @@ try {
       };
       window.FK = { lives: 3 };
       window.measurePlay = () => {};
+      window.watchFreeKickPreview = () => () => {};
       window.requestExpandedMode = (_event, entry) => window.calls.push(entry);
     });
     await page.addScriptTag({
