@@ -1669,7 +1669,7 @@ export class MatchScene extends Phaser.Scene {
   }
 
   // Receiver hold (PASS.receiveHoldSec): the intended receiver of a normal
-  // pass still travelling, during the first second of it. Ends as soon as
+  // pass still travelling, during the first half second of it. Ends as soon as
   // anyone has the ball or the pass is no longer his (deflected, cut out).
   private receiverHeld(p: Player, t: number) {
     if (!p.receiving || p.receivingThrough || this.ball.owner) {

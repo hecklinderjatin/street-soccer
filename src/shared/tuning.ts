@@ -189,7 +189,7 @@ export const PASS = {
   // either team and the human's player too, moves at most this fast until
   // the ball reaches it or this long has passed, so it waits for the ball
   // instead of running away from it. Small steps to meet it still work.
-  receiveHoldSec: 1,
+  receiveHoldSec: 0.5, // (was 1; user: receivers were slowed too long)
   receiveHoldSpeed: 80, // px/s, about a quarter of sprint speed
   chipLane: 60, // an opponent this close to the pass line turns it into a chip ...
   chipFromAhead: 30, // ... if the ball still has to pass it (this far along the line or more; not one beside or behind the passer)
