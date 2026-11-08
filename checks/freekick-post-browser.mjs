@@ -62,7 +62,9 @@ try {
       content:
         readFileSync('src/client/style.css', 'utf8') +
         '\n' +
-        readFileSync('src/client/freekick/lobby.css', 'utf8'),
+        readFileSync('src/client/freekick/lobby.css', 'utf8') +
+        '\n' +
+        readFileSync('src/client/freekick/records.css', 'utf8'),
     });
     await page.evaluate(() => {
       window.calls = [];
@@ -75,6 +77,17 @@ try {
       };
       window.FK = { lives: 3 };
       window.measurePlay = () => {};
+      window.fetch = async () => ({
+        ok: true,
+        json: async () => ({
+          day: '2026-11-08',
+          score: {
+            top: [{ rank: 1, username: 'alice', value: 500 }],
+            me: null,
+          },
+          speed: { top: [{ rank: 1, username: 'bob', value: 120 }], me: null },
+        }),
+      });
       window.watchFreeKickPreview = () => () => {};
       window.requestExpandedMode = (_event, entry) => window.calls.push(entry);
     });
@@ -93,6 +106,12 @@ try {
     await page.addScriptTag({
       content:
         '{const exports={};' +
+        compile('src/client/freekick/leaderboard.ts') +
+        ';window.freeKickLeaderboard=exports.freeKickLeaderboard;}',
+    });
+    await page.addScriptTag({
+      content:
+        '{const exports={};' +
         compile('src/client/freekick/lobby.ts') +
         ';exports.showFreeKickLobby();}',
     });
@@ -104,6 +123,18 @@ try {
       );
     }
     assert.equal(await page.locator('img[onerror]').count(), 0);
+    await page
+      .getByRole('button', { name: 'FASTEST GOAL', exact: true })
+      .click();
+    await page.waitForFunction(() =>
+      document.querySelector('.fk-board ol')?.textContent.includes('120 KM/H')
+    );
+    await page
+      .getByRole('button', { name: 'HIGHEST SCORE', exact: true })
+      .click();
+    await page.waitForFunction(() =>
+      document.querySelector('.fk-board ol')?.textContent.includes('500 PTS')
+    );
     await page.locator('.freekick-play').click();
     await page.locator('.freekick-practice').click();
     assert.deepEqual(await page.evaluate(() => window.calls), [

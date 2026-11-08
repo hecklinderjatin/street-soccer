@@ -1,15 +1,18 @@
+import { freeKickLeaderboard } from './leaderboard';
 import { watchFreeKickPreview } from './previewLifecycle';
 import { context, requestExpandedMode } from '@devvit/web/client';
 import { pixelLabel } from '../ui/pixelLabel';
 import { measurePlay } from '../playMetrics';
 import { FREE_KICK as FK } from '../../shared/tuning';
 
+let stopBoard: (() => void) | undefined;
 let stopPreview: (() => void) | undefined;
 
 export function showFreeKickLobby() {
   const host = document.getElementById('game');
   if (!host) return;
   stopPreview?.();
+  stopBoard?.();
   host.classList.add('freekick-post');
   const card = document.createElement('section');
   card.className = 'freekick-lobby';
@@ -54,6 +57,9 @@ export function showFreeKickLobby() {
     const label = card.querySelector<HTMLElement>(selector ?? '');
     if (label && text) pixelLabel(label, text);
   }
+  const board = freeKickLeaderboard();
+  card.querySelector('.freekick-lobby-details')?.append(board.root);
+  stopBoard = () => board.destroy();
   host.replaceChildren(card);
   const preview = card.querySelector<HTMLElement>('.freekick-preview');
   if (preview) stopPreview = watchFreeKickPreview(preview);

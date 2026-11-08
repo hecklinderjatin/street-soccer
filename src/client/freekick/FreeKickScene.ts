@@ -1,3 +1,9 @@
+import { context, exitExpandedMode } from '@devvit/web/client';
+import { launchSpeedKmh } from '../../shared/goalSpeed';
+import type { FreeKickStats } from '../../shared/freeKick';
+import { FreeKickRecords } from './records';
+import { freeKickResults } from './results';
+import { pixelLabel } from '../ui/pixelLabel';
 import { practiceLevel } from './mode';
 import { buildFreeKickOverlay, type FreeKickOverlay } from './overlay';
 import {
@@ -125,6 +131,14 @@ export class FreeKickScene extends Phaser.Scene {
 
   private practice = false;
   private practiceLevel = 1;
+  private records = new FreeKickRecords();
+  private shots = 0;
+  private shotKmh = 0;
+  private fastestGoalKmh = 0;
+  private runStartedAt = 0;
+  private introPending = false;
+  private resultScreen: ReturnType<typeof freeKickResults> | null = null;
+  private quitButton: HTMLAnchorElement | null = null;
   private score = 0;
   private goals = 0;
   private lives: number = FK.lives;
@@ -206,7 +220,7 @@ export class FreeKickScene extends Phaser.Scene {
       this.music?.pause();
     };
     const visible = () => {
-      if (this.overlay === null) this.music?.resume();
+      if (this.overlay === null && this.phase !== 'over') this.music?.resume();
     };
     this.game.events.on(Phaser.Core.Events.HIDDEN, hidden);
     this.game.events.on(Phaser.Core.Events.VISIBLE, visible);
@@ -214,24 +228,26 @@ export class FreeKickScene extends Phaser.Scene {
       this.game.events.off(Phaser.Core.Events.HIDDEN, hidden);
       this.game.events.off(Phaser.Core.Events.VISIBLE, visible);
       this.scale.off(Phaser.Scale.Events.RESIZE, this.layout, this);
+      this.resultScreen?.destroy();
+      this.quitButton?.remove();
     });
 
     this.input.keyboard?.addCapture(['ESC', 'TAB']);
     this.input.keyboard?.on('keydown-ESC', (event: KeyboardEvent) => {
       if (event.repeat) return;
       event.preventDefault();
-      this.setOverlay(
-        this.overlay === 'help'
-          ? this.helpReturn
-          : this.overlay
-            ? null
-            : 'pause'
-      );
+      if (this.overlay === 'details' && this.introPending)
+        this.setOverlay('help');
+      else if (this.overlay === 'details' || this.overlay === 'help')
+        this.finishInfo();
+      else this.setOverlay(this.overlay ? null : 'pause');
     });
     this.input.keyboard?.on('keydown-TAB', (event: KeyboardEvent) => {
       if (event.repeat) return;
       event.preventDefault();
-      this.setOverlay(this.overlay === 'help' ? this.helpReturn : 'help');
+      if (this.overlay === 'details') this.setOverlay('help');
+      else if (this.overlay === 'help') this.finishInfo();
+      else this.setOverlay('details');
     });
 
     // The art usually started downloading before this code arrived
@@ -277,6 +293,9 @@ export class FreeKickScene extends Phaser.Scene {
     this.music.play(); // or on the first touch, if the browser refuses
     this.newKick(false);
     this.layout();
+    this.drawWorld();
+    this.introPending = true;
+    this.setOverlay('details');
     if (!this.practice) playReady('freekick');
   }
 
@@ -368,6 +387,11 @@ export class FreeKickScene extends Phaser.Scene {
   }
 
   private shoot(strike: Strike) {
+    if (this.shots === 0) {
+      this.runStartedAt = this.clock;
+      if (!this.practice) this.records.start();
+    }
+    this.shots++;
     this.measure('kickoff');
     this.strike = strike;
     this.hintText.setText('');
@@ -379,6 +403,7 @@ export class FreeKickScene extends Phaser.Scene {
     this.measure('first_shot');
     this.play = startPlay(this.setup, this.strike, Math.random);
     const b = this.play.ball;
+    this.shotKmh = launchSpeedKmh(b.vx, b.vy, b.vz);
     this.prevBall = { x: b.x, y: b.y, z: b.z };
     this.sfx('ball-strike');
     this.setPhase('flight');
@@ -408,6 +433,7 @@ export class FreeKickScene extends Phaser.Scene {
     const outcome = play.outcome;
     if (!outcome) return;
     if (outcome === 'goal') {
+      this.fastestGoalKmh = Math.max(this.fastestGoalKmh, this.shotKmh);
       this.measure('first_goal');
       const level = levelFor(this.goals).level;
       this.goals++;
@@ -464,12 +490,18 @@ export class FreeKickScene extends Phaser.Scene {
     this.measure('completed');
     this.setPhase('over');
     this.sfx('match-over');
+    this.music?.stop();
     this.bestBefore = readBest();
     if (this.score > this.bestBefore) writeBest(this.score);
     this.showCard();
   }
 
   private restart() {
+    this.resultScreen?.destroy();
+    this.resultScreen = null;
+    this.records = new FreeKickRecords();
+    this.shots = this.shotKmh = this.fastestGoalKmh = 0;
+    this.runStartedAt = 0;
     this.measure('rematch_tap');
     this.measure = this.practice ? () => {} : playAttempt('freekick');
     for (const node of this.card) node.destroy();
@@ -479,6 +511,9 @@ export class FreeKickScene extends Phaser.Scene {
     this.hint = '';
     this.sfx('match-start');
     this.newKick(false);
+    this.music?.play();
+    this.introPending = true;
+    this.setOverlay('details');
   }
 
   // ---- Input --------------------------------------------------------------
@@ -891,7 +926,7 @@ export class FreeKickScene extends Phaser.Scene {
       0,
       0,
       '',
-      () => this.setOverlay('help'),
+      () => this.setOverlay('details'),
       {
         width: 72,
         height: 64,
@@ -983,19 +1018,28 @@ export class FreeKickScene extends Phaser.Scene {
       icon.setPosition(W - 288 - (FK.lives - 1 - i) * 44, 56).setScale(36 / 64)
     );
     if (this.stage) this.frameCamera();
-    if (this.phase === 'over') this.showCard();
+    if (this.phase === 'over' && !this.resultScreen) this.showCard();
     if (this.overlay !== null) this.renderOverlay();
   }
 
   private setOverlay(which: FreeKickOverlay) {
-    if (this.phase === 'loading' || !this.stage) return;
-    if (which === 'help' && this.overlay !== 'help')
+    if (this.phase === 'loading' || this.phase === 'over' || !this.stage)
+      return;
+    if (this.introPending && which === null && this.overlay === 'details')
+      which = 'help';
+    if (
+      (which === 'help' || which === 'details') &&
+      this.overlay !== 'help' &&
+      this.overlay !== 'details'
+    )
       this.helpReturn = this.overlay === 'pause' ? 'pause' : null;
     this.overlay = which;
     // Releasing a held control while opening/closing a panel cannot shoot.
     this.resetGesture();
     this.drawControls();
     this.overlayLayer?.destroy(true);
+    this.quitButton?.remove();
+    this.quitButton = null;
     this.overlayLayer = null;
     if (which !== null) {
       this.tweens.pauseAll();
@@ -1009,6 +1053,8 @@ export class FreeKickScene extends Phaser.Scene {
 
   private renderOverlay() {
     this.overlayLayer?.destroy(true);
+    this.quitButton?.remove();
+    this.quitButton = null;
     if (this.overlay === null) {
       this.overlayLayer = null;
       return;
@@ -1026,9 +1072,42 @@ export class FreeKickScene extends Phaser.Scene {
       },
       backToPause: this.helpReturn === 'pause',
       resume: () => this.setOverlay(null),
-      help: () => this.setOverlay('help'),
-      back: () => this.setOverlay(this.helpReturn),
+      help: () => this.setOverlay('details'),
+      next: () => this.setOverlay('help'),
+      previous: () => this.setOverlay('details'),
+      intro: this.introPending,
+      back: () => this.finishInfo(),
     }).setDepth(HUD + 20);
+    if (this.overlay === 'pause') this.renderQuit();
+  }
+
+  private finishInfo() {
+    this.introPending = false;
+    this.setOverlay(this.helpReturn);
+  }
+
+  private renderQuit() {
+    const host = document.getElementById('freekick');
+    if (!host) return;
+    const quit = document.createElement('a');
+    quit.href = 'splash.html';
+    quit.className = 'fk-pause-quit';
+    pixelLabel(quit, 'QUIT');
+    const panelHeight = this.practice ? 660 : 550,
+      row = this.practice ? 540 : 430;
+    quit.style.top = `${(((this.scale.height - panelHeight) / 2 + row) / this.scale.height) * 100}%`;
+    quit.style.width = `${(360 / this.scale.width) * 100}%`;
+    quit.addEventListener('click', (event) => {
+      this.resetGesture();
+      this.music?.stop();
+      if (this.phase !== 'over') this.measure('quit');
+      if (context?.postId) {
+        event.preventDefault();
+        exitExpandedMode(event);
+      }
+    });
+    host.append(quit);
+    this.quitButton = quit;
   }
 
   private updateHud() {
@@ -1070,48 +1149,25 @@ export class FreeKickScene extends Phaser.Scene {
 
   // Results: score, goals, best streak and the best score on this device.
   private showCard() {
-    for (const node of this.card) node.destroy();
+    if (this.practice || this.resultScreen) return;
     this.banner.setVisible(false);
     this.bannerSub.setVisible(false);
     this.hintText.setText('');
-    const W = this.scale.width;
-    const H = this.scale.height;
-    const best = this.bestBefore;
-    const line = (y: number, value: string, size: number, color: number) =>
-      pixelText(this, W / 2, y, value, size, color)
-        .setOrigin(0.5)
-        .setDepth(HUD + 11);
-    const again = new TextButton(
-      this,
-      W / 2,
-      H * 0.68,
-      'PLAY AGAIN',
-      () => this.restart(),
-      { width: 400, height: 96, textSize: 5 }
+    const stats: FreeKickStats = {
+      mode: 'play',
+      score: this.score,
+      goals: this.goals,
+      shots: this.shots,
+      bestStreak: this.bestStreak,
+      level: levelFor(this.goals).level,
+      fastestGoalKmh: this.fastestGoalKmh,
+      elapsedSec: Math.floor(this.clock - this.runStartedAt),
+    };
+    this.resultScreen = freeKickResults(
+      stats,
+      this.bestBefore,
+      this.records,
+      () => this.restart()
     );
-    again.setDepth(HUD + 11);
-    this.card = [
-      this.add
-        .rectangle(0, 0, W, H, PAL.black, 0.72)
-        .setOrigin(0)
-        .setDepth(HUD + 10)
-        .setInteractive(), // swallows taps meant for the kick behind
-      line(H * 0.26, 'OUT OF LIVES', 7, PAL.white),
-      line(H * 0.36, 'SCORE', 3, PAL.lightGray),
-      line(H * 0.41, String(this.score), 12, PAL.yellow),
-      line(
-        H * 0.49,
-        `GOALS ${this.goals}   BEST STREAK ${this.bestStreak}`,
-        3,
-        PAL.white
-      ),
-      line(
-        H * 0.54,
-        this.score > best ? 'NEW BEST!' : `BEST ${best}`,
-        4,
-        this.score > best ? PAL.green : PAL.lightGray
-      ),
-      again,
-    ];
   }
 }

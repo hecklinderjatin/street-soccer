@@ -59,7 +59,11 @@ export async function forgetPost(postId: string) {
     keys.push(
       boardKey(postId, date),
       statsKey(postId, date),
-      speedKey(postId, date)
+      speedKey(postId, date),
+      `fk-score:${postId}:${date}`,
+      `fk-speed:${postId}:${date}`,
+      `fk-runs:${postId}:${date}`,
+      `fk-runs:${postId}:${date}:stats`
     );
   }
   await redis.del(...keys);

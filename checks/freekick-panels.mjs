@@ -24,7 +24,7 @@ const code = ts.transpileModule(ts.createPrinter().printFile(source), {
 }).outputText;
 let savedBests = 0;
 const exports = {};
-const document = { hidden: false };
+const document = { hidden: false, getElementById: () => null };
 vm.runInNewContext(
   code,
   {
@@ -87,6 +87,7 @@ Object.assign(scene, {
     },
   },
   music: {
+    stop() {},
     pause() {},
     resume() {
       musicResumes++;
@@ -118,6 +119,8 @@ assert.equal(scene.gesture, null);
 assert.equal(shots, 0, 'opening a panel cancels a pending shooting release');
 
 scene.overlayLayer.options.help();
+assert.equal(scene.overlay, 'details');
+scene.overlayLayer.options.next();
 assert.equal(scene.overlay, 'help');
 assert.equal(scene.overlayLayer.options.backToPause, true);
 scene.update(5000, 1000);
@@ -162,6 +165,8 @@ console.log(
 // Practice keeps misses retryable and cannot write the normal best score.
 Object.assign(scene, {
   practice: true,
+  shotKmh: 100,
+  fastestGoalKmh: 0,
   phase: 'flight',
   stage: {},
   lives: 3,
@@ -218,4 +223,35 @@ scene.gameOver();
 assert.equal(savedBests, 1, 'normal play still saves its best score');
 console.log(
   'Practice passed: unlimited attempts, same-spot retry, no level-up announcement, isolated best score and normal-run regression'
+);
+
+// Intro cannot start play until the two info pages have been shown.
+scene.stage = {};
+scene.phase = 'aim';
+scene.overlay = null;
+scene.introPending = true;
+scene.setOverlay('details');
+assert.equal(scene.overlay, 'details');
+const introClock = scene.clock;
+scene.update(0, 5000);
+assert.equal(scene.clock, introClock);
+scene.setOverlay(null);
+assert.equal(
+  scene.overlay,
+  'help',
+  'closing intro details advances to Controls'
+);
+scene.overlayLayer.options.back();
+assert.equal(scene.overlay, null);
+assert.equal(scene.introPending, false);
+assert.equal(
+  scene.fastestGoalKmh,
+  100,
+  'scored shots record their launch speed'
+);
+scene.shotKmh = 150;
+scene.onOutcome({ outcome: 'wide' });
+assert.equal(scene.fastestGoalKmh, 100, 'misses cannot become fastest goals');
+console.log(
+  'Free Kick intro/speed passed: required two pages, paused clock, scored-launch records only'
 );

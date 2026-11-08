@@ -1,3 +1,4 @@
+import { readFreeKickStats, rankFreeKicks, freeKickMaxKmh } from '../src/shared/freeKick';
 import { practiceLevel } from '../src/client/freekick/mode';
 import { postType, competitiveResultAllowed } from '../src/shared/postType';
 import { challengeFormFor, readChallenge } from '../src/server/core/challengeForm';
@@ -426,6 +427,17 @@ check('keeper: higher levels allow for part of the curl', () => {
   const blind = Math.abs(readAt(0) - real.y);
   const reading = Math.abs(readAt(0.6) - real.y);
   assert.ok(reading < blind - 5, `read ${reading} vs blind ${blind}`);
+});
+
+
+check('ranked Free Kick validates complete Play runs and keeps two independent bests', () => {
+  const result={mode:'play',score:500,goals:2,shots:5,bestStreak:2,level:2,fastestGoalKmh:100,elapsedSec:20};
+  assert.ok(readFreeKickStats(result));
+  for(const change of [{mode:'practice'},{shots:4},{score:100000},{goals:0},{level:10},{fastestGoalKmh:freeKickMaxKmh+1},{elapsedSec:0},{bestStreak:3}]) assert.equal(readFreeKickStats({...result,...change}),null);
+  const board=rankFreeKicks([{member:'alice',score:400},{member:'alice',score:500},{member:'bob',score:500},{member:'zero',score:0}],'zero');
+  assert.equal(board.top[0]?.username,'alice');
+  assert.equal(board.top[1]?.username,'bob');
+  assert.equal(board.me?.value,0);
 });
 
 console.log(`\n${passed} checks passed`);

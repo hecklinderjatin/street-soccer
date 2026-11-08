@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Free Kick intro, results and records (2026-11-08):** default to paused Match Details → Controls → Start, with both pages available from info/pause and a trusted native Quit link. Completed Play runs show a responsive run summary, optional native score-sharing confirmation and dedicated per-post seven-UTC-day Highest Score/Fastest Goal boards on results and feed cards. Capture launch speed at strike and count only scored goals; Practice, previews and quit runs stay unranked. Server validates terminal run statistics, launch bounds, registered start timing and immutable completion; concurrent best-only board writes reuse WATCH guards. Receipts and both board types join existing privacy retention/erasure and post deletion. Score-only shares reply to pinned Scores; personal comments post as USER. TypeScript, lint, 23 Free Kick rules/control checks, scene panels, mocked Hono/Redis API checks and source-only Chromium flows pass. Browser checks cover both intro pages, frozen mid-flight pause, results, both boards, native score confirmation/cancel, responsive sizing, replay and trusted Quit. Existing privacy, speed, Daily and 62 gameplay checks also pass. No application build or live Reddit writes performed.
+
 **Live Free Kick post preview (2026-11-08):** replace static CSS artwork with a silent auto-playing Free Kick renderer using the real Stage, player art, ball physics, wall/keeper reactions and trails. Cycle demonstration attempts without player sessions, analytics, score writes or audio. Lazily create the preview when visible and sleep its loop off-screen/hidden; dispose it when the lobby is rebuilt. Match the normal post’s full-canvas preview, pixel heading/mode tag, dark gradient panel and Play/Practice button treatment. Frame the shot above the lower action panel. TypeScript, lint, 22 Free Kick rule/control checks and practice/panel regressions pass. Source-only DOM checks pass at four viewport sizes. Actual WebGL preview checks through a temporary Vite development server verify repeated physics-driven shots, mobile/desktop framing, off-screen sleep/resume, Play/Practice routes, no demo API/audio requests and unchanged best scores; Reddit host calls are mocked. Screenshot inspected at 390x600. No application build or live Reddit writes performed.
 
 **Main merge (2026-11-08):** fast-forwarded `codex/standalone-freekick-posts` through `0224d90` into `main` at the user’s request. Includes standalone Free Kick post creation, dedicated Play/Practice feed actions and selected-level unlimited Practice. Existing type/lint/rules/posting/scene checks and mocked source-only Chromium checks pass. No application build or live Reddit deployment performed.
@@ -605,6 +607,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Keep Free Kick records separate from football-match rankings and use the same seven-day UTC window. Share only completed server-cached Play summaries after explicit confirmation; retain Practice isolation and native trusted-click quit behaviour.
+
 - Reuse the actual Free Kick court and simulation in a separate passive preview scene. Keep player sessions/audio/metrics out of the demo, and retain the standalone post’s two expanded-entry actions.
 
 - Merge and push standalone Free Kick posts and Practice into main as requested, preserving the no-build instruction.
@@ -968,6 +972,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Playtest Free Kick native intro, completed-run ranking/sharing, trusted Quit and privacy deletion on Reddit after a user-run build/upload.
+
 - Review Free Kick live feed framing and off-screen pause behaviour on Reddit/mobile after the next user-run build/upload.
 
 - Pull main in Codespaces and playtest new Free Kick post creation plus Play/Practice expansion after a user-run build/upload.
@@ -1307,6 +1313,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-08:** add default two-page Free Kick briefing, completed-run results/sharing, separate score/speed leaderboards and pause Quit. Add ranked-run validation, immutable receipts, retention/deletion handling and source-only UI/API regressions. No application build or live Reddit writes performed.
 
 - **2026-11-08:** add a real, silent live Free Kick post demo and match normal feed styling. Preserve Play/Practice actions and pause hidden/off-screen previews. No application build or live Reddit deployment performed.
 

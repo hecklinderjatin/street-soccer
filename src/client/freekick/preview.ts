@@ -44,9 +44,11 @@ class FreeKickPreviewScene extends Phaser.Scene {
 
   create() {
     this.scale.on(Phaser.Scale.Events.RESIZE, this.frame, this);
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () =>
-      this.scale.off(Phaser.Scale.Events.RESIZE, this.frame, this)
-    );
+    this.game.events.on('preview-layout', this.frame, this);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.scale.off(Phaser.Scale.Events.RESIZE, this.frame, this);
+      this.game.events.off('preview-layout', this.frame, this);
+    });
     const assets = matchAssets(startingConfig());
     void withEarlyDownloads(assets).then((ready) => {
       if (!this.sys.isActive()) return;
@@ -164,7 +166,7 @@ export function createFreeKickPreview(parent: HTMLElement) {
     return Phaser.Math.Clamp(
       (parent.clientHeight - (details?.offsetHeight ?? 0)) /
         Math.max(1, parent.clientHeight),
-      0.35,
+      0.15,
       1
     );
   };
@@ -182,6 +184,14 @@ export function createFreeKickPreview(parent: HTMLElement) {
     scale: { mode: Phaser.Scale.EXPAND, autoCenter: Phaser.Scale.CENTER_BOTH },
     scene: [new FreeKickPreviewScene(visibleRatio)],
   });
+  const details = parent.parentElement?.querySelector(
+    '.freekick-lobby-details'
+  );
+  if (details && typeof ResizeObserver !== 'undefined') {
+    const resize = new ResizeObserver(() => game.events.emit('preview-layout'));
+    resize.observe(details);
+    game.events.once(Phaser.Core.Events.DESTROY, () => resize.disconnect());
+  }
   if (new URLSearchParams(window.location.search).has('debug'))
     Reflect.set(window, '__freekickPreview', game);
   return game;

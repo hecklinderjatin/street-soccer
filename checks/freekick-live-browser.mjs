@@ -46,10 +46,18 @@ try {
     sounds = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('request', (r) => {
-    if (r.url().includes('/api/')) writes.push(r.url());
+    if (r.url().includes('/api/') && r.method() !== 'GET') writes.push(r.url());
     if (r.url().includes('.mp3')) sounds.push(r.url());
   });
-  await page.route('**/api/**', (route) => route.fulfill({ status: 204 }));
+  await page.route('**/api/**', (route) =>
+    route.fulfill({
+      json: {
+        day: '2026-11-08',
+        score: { top: [], me: null },
+        speed: { top: [], me: null },
+      },
+    })
+  );
   const address = server.httpServer.address();
   assert.ok(address && typeof address === 'object');
   await page.goto(`http://127.0.0.1:${address.port}/splash.html?debug`);
