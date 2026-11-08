@@ -131,16 +131,10 @@ class FreeKickPreviewScene extends Phaser.Scene {
           0,
           1
         );
-    const back = Phaser.Math.Linear(
-      FK.kickerStartBack,
-      FK.kickerContactBack,
-      run
-    );
-    const side = Phaser.Math.Linear(
-      FK.kickerStartSide,
-      FK.kickerContactSide,
-      run
-    );
+    const back =
+      FK.kickerStartBack + (FK.kickerContactBack - FK.kickerStartBack) * run;
+    const side =
+      FK.kickerStartSide + (FK.kickerContactSide - FK.kickerStartSide) * run;
     this.stage.render(this.cam, this.setup, this.play, {
       ball: this.play?.ball ?? { ...spot, z: BALL.radius },
       ballAge: this.play?.t ?? Infinity,

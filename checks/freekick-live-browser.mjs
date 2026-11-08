@@ -10,7 +10,10 @@ const scratch = await mkdtemp(join(tmpdir(), 'street-soccer-preview-'));
 const sdk = join(scratch, 'client.ts');
 await writeFile(
   sdk,
-  `export const context = { postId: 't3_preview', postData: { matchType:'freekick', description:'Play or practise your free kicks.' } };
+  `import Phaser from 'phaser';
+// The shipped trimmed renderer omits Linear; match that API here.
+delete Phaser.Math.Linear;
+export const context = { postId: 't3_preview', postData: { matchType:'freekick', description:'Play or practise your free kicks.' } };
 export const requestExpandedMode = (_event, entry) => { window.__expanded = entry; };`
 );
 const server = await createServer({
@@ -53,7 +56,10 @@ try {
     route.fulfill({
       json: {
         day: '2026-11-08',
-        score: { top: [], me: null },
+        score: {
+          top: [{ rank: 1, username: 'ItsJstar', value: 500 }],
+          me: null,
+        },
         speed: { top: [], me: null },
       },
     })

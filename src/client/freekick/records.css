@@ -194,32 +194,6 @@
   height: 1em;
   max-width: 100%;
 }
-.freekick-lobby .fk-board header {
-  padding: 0;
-  background: none;
-}
-.freekick-lobby .fk-board p {
-  font-size: 11px;
-  margin: 6px 0 0;
-}
-@media (max-height: 480px) {
-  .freekick-lobby .freekick-tagline {
-    display: none;
-  }
-  .freekick-lobby .freekick-mode-notes {
-    display: none;
-  }
-  .freekick-lobby .freekick-description {
-    max-height: 1.5em;
-  }
-  .freekick-lobby .fk-board {
-    margin-top: 10px;
-    padding-top: 8px;
-  }
-  .freekick-lobby .fk-board:not(.is-expanded) li:nth-child(n + 2) {
-    display: none;
-  }
-}
 
 .fk-board button,
 .fk-results-actions button,
@@ -231,17 +205,83 @@
   overflow-wrap: anywhere;
 }
 
-@media (max-height: 480px) {
-  .freekick-lobby .fk-board:not(.is-expanded) ol:empty {
-    min-height: 0;
+/* Feed ranking follows the normal match card. Full boards open above it. */
+.freekick-lobby .fk-board-compact {
+  margin-top: 10px;
+  padding-top: 0;
+  border-color: #6c7b8c66;
+}
+.fk-board-compact .fk-board-preview-heading {
+  padding: 0;
+  background: none;
+}
+.fk-board-preview-heading > strong {
+  font-weight: 400;
+  font-size: 10px;
+}
+.fk-board .fk-board-more {
+  min-height: 44px;
+  padding: 0 4px 0 16px;
+  background: transparent;
+  border: 0;
+  color: #ffec27;
+  font-size: 10px;
+}
+.fk-board-preview li {
+  padding: 5px 0;
+  border-bottom: 1px solid #ffffff15;
+}
+.fk-board-preview li strong {
+  color: #00e436;
+}
+.fk-board-preview:empty {
+  min-height: 0;
+}
+.fk-board-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: #020711d9;
+  pointer-events: auto;
+}
+.fk-board-modal[hidden] {
+  display: none;
+}
+.fk-board-sheet {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 580px;
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  padding: 16px;
+  color: #fff1e8;
+  background: #0c192a;
+  border: 1px solid #3b506b;
+}
+.fk-board-sheet > header {
+  margin-bottom: 12px;
+  padding: 0;
+  background: none;
+}
+.fk-board-sheet .fk-board-all {
+  min-height: 44px;
+}
+@media (max-height: 650px) {
+  .freekick-lobby .fk-board-preview li:nth-child(n + 2) {
+    display: none;
   }
-  .freekick-lobby .fk-board:not(.is-expanded) .fk-board-status {
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  .freekick-lobby .fk-board-compact {
+    margin-top: 8px;
   }
-  .freekick-lobby .fk-board-tabs button {
-    padding: 6px 4px;
-    font-size: 10px;
+}
+@media (max-height: 520px) {
+  .freekick-lobby .fk-board-preview {
+    display: none;
   }
 }

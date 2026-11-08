@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Free Kick preview cleanup (2026-11-08):** fix the blank shipped preview: `Phaser.Math.Linear` is absent from `tools/phaser-trim.cjs`; interpolate the kicker positions directly. Reuse normal-match responsive Play/secondary button styling, header spacing, settings row and gradient layout. Replace the LIVE badge with the life count, condense mode copy and move both leaderboard tabs/full results into an ALL sheet with close, Escape and focus handling; the feed shows the same compact seven-day Top 3 footer. Source-only WebGL checks deliberately remove Linear to reproduce the shipped API and verify repeated shots, four viewport sizes and off-screen sleep/resume. Types, lint, feed DOM checks and the full Free Kick intro/results/sharing/pause/Practice browser flow pass. Screenshot inspected at 390x600. No application build or live Reddit writes performed.
+
 **Main merge (2026-11-08):** fast-forwarded `codex/freekick-results-boards` through `2a1b719` into `main` at the user’s request, including the live Free Kick feed preview, two-page intro, results/sharing, dedicated score/speed boards and pause Quit. Existing type, lint, logic, API and source-only Chromium checks pass. No application build or live Reddit deployment performed.
 
 **Free Kick intro, results and records (2026-11-08):** default to paused Match Details → Controls → Start, with both pages available from info/pause and a trusted native Quit link. Completed Play runs show a responsive run summary, optional native score-sharing confirmation and dedicated per-post seven-UTC-day Highest Score/Fastest Goal boards on results and feed cards. Capture launch speed at strike and count only scored goals; Practice, previews and quit runs stay unranked. Server validates terminal run statistics, launch bounds, registered start timing and immutable completion; concurrent best-only board writes reuse WATCH guards. Receipts and both board types join existing privacy retention/erasure and post deletion. Score-only shares reply to pinned Scores; personal comments post as USER. TypeScript, lint, 23 Free Kick rules/control checks, scene panels, mocked Hono/Redis API checks and source-only Chromium flows pass. Browser checks cover both intro pages, frozen mid-flight pause, results, both boards, native score confirmation/cancel, responsive sizing, replay and trusted Quit. Existing privacy, speed, Daily and 62 gameplay checks also pass. No application build or live Reddit writes performed.
@@ -609,6 +611,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Share match-card action styles with Free Kick and keep detailed leaderboard controls in an ALL sheet so the feed prioritizes the live shot. Use direct interpolation for preview movement instead of expanding the trimmed Phaser API.
+
 - Keep Free Kick records separate from football-match rankings and use the same seven-day UTC window. Share only completed server-cached Play summaries after explicit confirmation; retain Practice isolation and native trusted-click quit behaviour.
 
 - Reuse the actual Free Kick court and simulation in a separate passive preview scene. Keep player sessions/audio/metrics out of the demo, and retain the standalone post’s two expanded-entry actions.
@@ -974,6 +978,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Review the cleaned Free Kick feed preview and ALL leaderboard sheet on Reddit/mobile after the next user-run upload; local source-only checks reproduce the missing shipped helper but do not replace native host validation.
+
 - Playtest Free Kick native intro, completed-run ranking/sharing, trusted Quit and privacy deletion on Reddit after a user-run build/upload.
 
 - Review Free Kick live feed framing and off-screen pause behaviour on Reddit/mobile after the next user-run build/upload.
@@ -1315,6 +1321,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-08:** fix the Free Kick blank preview caused by the missing trimmed Phaser Linear helper; align the feed card with normal match styling and move full leaderboards to an ALL sheet. Types, lint and source-only browser regressions pass; no application build/deployment performed.
 
 - **2026-11-08:** merge Free Kick live preview, intro/results, sharing, leaderboards and Quit into main through `2a1b719`; prepare the requested GitHub push. No application build or deployment performed.
 

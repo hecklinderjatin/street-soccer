@@ -75,7 +75,7 @@ try {
             '<img onerror="bad()"> Standalone free kick practice and play.',
         },
       };
-      window.FK = { lives: 3 };
+      window.FK = { lives: 3, goalsPerLevel: 2 };
       window.measurePlay = () => {};
       window.fetch = async () => ({
         ok: true,
@@ -123,18 +123,42 @@ try {
       );
     }
     assert.equal(await page.locator('img[onerror]').count(), 0);
+    await page.getByRole('button', { name: 'ALL >', exact: true }).click();
     await page
       .getByRole('button', { name: 'FASTEST GOAL', exact: true })
       .click();
     await page.waitForFunction(() =>
-      document.querySelector('.fk-board ol')?.textContent.includes('120 KM/H')
+      document
+        .querySelector('.fk-board-sheet ol')
+        ?.textContent.includes('120 KM/H')
     );
     await page
       .getByRole('button', { name: 'HIGHEST SCORE', exact: true })
       .click();
     await page.waitForFunction(() =>
-      document.querySelector('.fk-board ol')?.textContent.includes('500 PTS')
+      document
+        .querySelector('.fk-board-sheet ol')
+        ?.textContent.includes('500 PTS')
     );
+    await page.getByRole('button', { name: 'CLOSE', exact: true }).click();
+    assert.equal(await page.locator('.fk-board-modal').isVisible(), false);
+    await page.getByRole('button', { name: 'ALL >', exact: true }).click();
+    await page.keyboard.press('Shift+Tab');
+    assert.equal(
+      await page
+        .getByRole('button', { name: 'FASTEST GOAL', exact: true })
+        .evaluate((node) => node === document.activeElement),
+      true
+    );
+    await page.keyboard.press('Tab');
+    assert.equal(
+      await page
+        .getByRole('button', { name: 'CLOSE', exact: true })
+        .evaluate((node) => node === document.activeElement),
+      true
+    );
+    await page.keyboard.press('Escape');
+    assert.equal(await page.locator('.fk-board-modal').isVisible(), false);
     await page.locator('.freekick-play').click();
     await page.locator('.freekick-practice').click();
     assert.deepEqual(await page.evaluate(() => window.calls), [

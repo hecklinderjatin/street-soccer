@@ -259,8 +259,8 @@ body {
   font: inherit;
   color: inherit;
 }
-#mobile-lobby .mobile-play,
-#mobile-lobby .mobile-casual {
+:is(#mobile-lobby, .freekick-lobby) .mobile-play,
+:is(#mobile-lobby, .freekick-lobby) .mobile-casual {
   min-height: 54px;
   padding: 12px 8px;
   border-radius: 0;
@@ -268,7 +268,7 @@ body {
   border: 0;
   box-shadow: 3px 4px #0006;
 }
-#mobile-lobby .mobile-play {
+:is(#mobile-lobby, .freekick-lobby) .mobile-play {
   background: #ffa300;
   border-top: 2px solid #ffcc66;
   border-bottom: 4px solid #b96719;
@@ -287,7 +287,7 @@ body {
     4px 4px
   );
 }
-#mobile-lobby .mobile-casual {
+:is(#mobile-lobby, .freekick-lobby) .mobile-casual {
   background: #22354ccf;
   border: 1px solid #69819a;
   border-bottom: 4px solid #162435;
@@ -470,14 +470,14 @@ body {
   .mobile-teams > div {
     font-size: clamp(22px, 3vw, 32px);
   }
-  #mobile-lobby .mobile-play,
-  #mobile-lobby .mobile-casual {
+  :is(#mobile-lobby, .freekick-lobby) .mobile-play,
+  :is(#mobile-lobby, .freekick-lobby) .mobile-casual {
     min-height: clamp(54px, 6.2vw, 68px);
   }
-  #mobile-lobby .mobile-play {
+  :is(#mobile-lobby, .freekick-lobby) .mobile-play {
     font-size: clamp(14px, 1.6vw, 18px);
   }
-  #mobile-lobby .mobile-casual {
+  :is(#mobile-lobby, .freekick-lobby) .mobile-casual {
     font-size: clamp(11px, 1.25vw, 14px);
   }
   .mobile-lobby-details::before {
@@ -501,10 +501,10 @@ body {
   .mobile-lobby-details {
     padding: 14px 16px 16px;
   }
-  #mobile-lobby .mobile-play {
+  :is(#mobile-lobby, .freekick-lobby) .mobile-play {
     font-size: 12px;
   }
-  #mobile-lobby .mobile-casual {
+  :is(#mobile-lobby, .freekick-lobby) .mobile-casual {
     font-size: 9px;
   }
 }
@@ -545,8 +545,8 @@ body {
   .mobile-match-facts strong {
     font-size: 15px;
   }
-  #mobile-lobby .mobile-play,
-  #mobile-lobby .mobile-casual {
+  :is(#mobile-lobby, .freekick-lobby) .mobile-play,
+  :is(#mobile-lobby, .freekick-lobby) .mobile-casual {
     min-height: 48px;
   }
 }

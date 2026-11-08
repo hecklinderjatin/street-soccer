@@ -18,16 +18,16 @@ export function showFreeKickLobby() {
   card.className = 'freekick-lobby';
   card.innerHTML = `
     <div class="freekick-preview preview-stage" aria-hidden="true"></div>
-    <header class="mobile-lobby-header"><strong class="freekick-title">STREET SOCCER</strong><span class="freekick-live">LIVE</span></header>
+    <header class="mobile-lobby-header"><strong class="freekick-title">STREET SOCCER</strong><div class="preview-match-summary"><strong class="mobile-time freekick-lives">3 LIVES</strong></div></header>
     <div class="freekick-lobby-details mobile-lobby-details">
-      <div class="mobile-match-tag freekick-mode">FREE KICK</div>
-      <h1 class="freekick-tagline">PICK YOUR CORNER</h1>
+      <div class="preview-card-top"><div class="mobile-match-tag freekick-mode">FREE KICK</div></div>
+      <div class="preview-teams-row"><h1 class="freekick-tagline">PICK YOUR CORNER</h1><div class="mobile-match-facts"><small>LEVEL UP</small><strong class="freekick-progression">2 GOALS</strong></div></div>
       <p class="freekick-description"></p>
       <div class="preview-actions">
-        <a class="freekick-play" href="freekick.html">PLAY</a>
-        <a class="freekick-practice" href="freekick-practice.html">PRACTICE</a>
+        <a class="freekick-play mobile-play" href="freekick.html">PLAY</a>
+        <a class="freekick-practice mobile-casual" href="freekick-practice.html">PRACTICE</a>
       </div>
-      <p class="freekick-mode-notes">Play: ${FK.lives} lives and rising difficulty.<br>Practice: choose a level, unlimited retries.</p>
+      <p class="freekick-mode-notes preview-activity">Practice: choose a level, unlimited retries.</p>
     </div>`;
   const description = card.querySelector('.freekick-description');
   const data: unknown = context?.postData;
@@ -51,13 +51,15 @@ export function showFreeKickLobby() {
   }
   for (const [selector, text] of [
     ['.freekick-title', 'STREET SOCCER'],
+    ['.freekick-lives', `${FK.lives} LIVES`],
+    ['.freekick-progression', `${FK.goalsPerLevel} GOALS`],
     ['.freekick-mode', 'FREE KICK'],
     ['.freekick-tagline', 'PICK YOUR CORNER'],
   ]) {
     const label = card.querySelector<HTMLElement>(selector ?? '');
     if (label && text) pixelLabel(label, text);
   }
-  const board = freeKickLeaderboard();
+  const board = freeKickLeaderboard(true);
   card.querySelector('.freekick-lobby-details')?.append(board.root);
   stopBoard = () => board.destroy();
   host.replaceChildren(card);
