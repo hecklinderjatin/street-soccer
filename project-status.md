@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Main merge (2026-11-08):** fast-forwarded `codex/freekick-info-pause` through `1c4bc49` into `main` at the user’s request. Includes Free Kick info/pause icons, portrait instructions and safe pause/help/resume behaviour. Existing TypeScript, lint, 20 Free Kick checks and actual-scene panel logic checks pass. No application build/browser checks or deployment performed.
+
 **Free Kick info and pause (2026-11-08):** add normal-match-style info/pause icons beside sound, with life icons shifted left to avoid overlap. A portrait navy info card explains current level/distance/lives, left power/contact controls, swipe shooting, wall/keeper reads, run rules and scoring. Pause offers Resume and How to Play; help opened from pause returns there, while direct help resumes. Escape/Tab mirror pause/info shortcuts. Both panels freeze simulation, phase time, camera/trails and tweens; clear active input; pause music; preserve state on resize; and avoid resuming music while hidden. TypeScript, lint, all 20 Free Kick rule/control checks and actual-scene pause/help logic checks pass. The scene harness injects display/audio stand-ins; no application build or browser checks run.
 
 **Main merge (2026-11-08):** fast-forwarded `codex/freekick-left-controls` through `46ca4c4` into `main` at the user’s request. Includes fixed left-side power/shot-type controls, clear-pitch shooting swipes and a fading gesture trail. Existing TypeScript, lint and all 20 Free Kick checks pass. No application build/browser checks or deployment performed.
@@ -597,6 +599,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Merge and push the Free Kick info/pause changes into main as requested, preserving the no-build instruction.
+
 - Use Free Kick-specific portrait instructions with the normal match icon/card style. Keep overlay UI responsive while pausing scene simulation explicitly, and retain pause-menu return state when opening help.
 
 - Merge the Free Kick left-control and swipe-trail changes into main and push them as requested, preserving the no-build instruction.
@@ -952,6 +956,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Pull main in Codespaces and review Free Kick info/pause controls on mobile after the next user-run build.
+
 - Review Free Kick info/pause panels on mobile after the next user-run build, including mid-flight resume, portrait resizing and touch interaction.
 
 - Pull main in Codespaces and review the Free Kick left controls and swipe trail on mobile after the next user-run build.
@@ -1283,6 +1289,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-08:** fast-forward main through `1c4bc49`, including Free Kick instructions and pause/help/resume controls. Existing type/lint/rule/panel checks pass; no application build or deployment performed.
 
 - **2026-11-08:** add Free Kick info/pause buttons, portrait instructions and Resume/How to Play menu. Freeze active gameplay/timers/tweens, cancel held swipes and preserve nested return/audio/resize behaviour. Add actual-scene headless logic checks without an application build.
 
