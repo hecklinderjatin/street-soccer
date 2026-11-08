@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Main merge (2026-11-08):** fast-forwarded `codex/freekick-left-controls` through `46ca4c4` into `main` at the user’s request. Includes fixed left-side power/shot-type controls, clear-pitch shooting swipes and a fading gesture trail. Existing TypeScript, lint and all 20 Free Kick checks pass. No application build/browser checks or deployment performed.
+
 **Free Kick left controls and swipe trail (2026-11-08):** detach the ball-dot selector from the world ball and place a fixed ball control below the left power slider. Compact shot-style labels wrap within the left column. Clear pitch to the right accepts shooting swipes; gestures retain their starting control, so setting drags cannot fire shots and swipes preserve selected power/contact. Show a bounded sampled swipe trail with a short release fade; retain the launch arrow on the actual world ball. Clear gesture/trail state on retry/new kick, resize, cancellation and hiding, and remove resize/visibility callbacks on shutdown. Replace the bottom boxed pad with a simple swipe instruction. TypeScript, lint and all 20 Free Kick rules/control checks pass. No application build or browser checks run, as requested.
 
 **Free Kick controls (2026-11-08):** The contact frame over the ball sets shot type, the left slider sets power and a separate pad below the ball starts the shooting swipe. An upward swipe shows a straight launch arrow and highlights the pad when the shot is ready to release. Gestures stay with the control where they start. The retry retains the selected settings and the orange power tick. Types, lint, production build and all 18 Free Kick rules checks pass. Headless Chromium checked the gesture boundaries, launch direction and trail reset at two phone sizes with touch and at desktop size with a mouse.
@@ -593,6 +595,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Merge the Free Kick left-control and swipe-trail changes into main and push them as requested, preserving the no-build instruction.
+
 - Keep Free Kick settings in a fixed left column and let clear right-side pitch accept swipes. Sample the actual gesture for feedback while retaining endpoint-based aiming, independently selected power/contact and the world-ball launch preview.
 
 - New key actions load with their default key when missing from a saved layout (if free), so adding an action never wipes a player's remapped keys.
@@ -944,6 +948,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Pull main in Codespaces and review the Free Kick left controls and swipe trail on mobile after the next user-run build.
+
 - Review Free Kick left-control sizing, swipe trail and touch feel on Reddit/mobile after the next user-run build. No application build/browser checks run for this change.
 
 - Playtest the Free Kick wall/keeper variety: how often under-wall drives work, whether the guessing keeper feels fair, and the lying man's look in the portrait camera.
@@ -1271,6 +1277,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-08:** fast-forward main through `46ca4c4`, bringing in fixed left Free Kick settings, right-side shooting swipes and gesture trails. Existing type/lint/20-case Free Kick checks pass; no application build or deployment performed.
 
 - **2026-11-08:** move Free Kick shot-type selector below left power slider, enable shooting swipes across clear pitch and add a bounded fading swipe trail. Preserve launch/power/contact rules, guard gesture ownership and clean up input/trail state across retries/resize/hide/restart. No application build run.
 
