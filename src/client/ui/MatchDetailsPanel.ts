@@ -47,13 +47,13 @@ export function buildMatchDetailsLayer(
 
   // Hero, as the results title.
   items.push(
-    pixelText(scene, cx, 100, 'MATCH DETAILS', 1.25 * PX, PAL.yellow).setOrigin(
+    pixelText(scene, cx, 96, 'MATCH DETAILS', 1.25 * PX, PAL.yellow).setOrigin(
       0.5
     ),
     pixelText(
       scene,
       cx,
-      138,
+      132,
       casual ? 'UNRANKED MATCH' : 'RANKED MATCH',
       BODY,
       CARD.muted
@@ -61,11 +61,12 @@ export function buildMatchDetailsLayer(
   );
 
   // Scoreboard: each team on a card with its kit colour on top, and the
-  // score the match starts from.
+  // score the match starts from. Every size is a whole number of screen
+  // pixels per font pixel (BODY = 2, 3, 7) so the letters stay crisp.
   const score = startScore(config);
-  const teamW = 500;
-  const teamTop = 166;
-  const teamH = 150;
+  const teamW = 480;
+  const teamTop = 156;
+  const teamH = 180;
   for (const side of ['home', 'away'] as const) {
     const x = side === 'home' ? CARD.x + 40 : CARD.x + CARD.width - 40 - teamW;
     const mid = x + teamW / 2;
@@ -80,32 +81,35 @@ export function buildMatchDetailsLayer(
         mid,
         teamTop + 26,
         side === 'home' ? 'YOUR TEAM' : 'OPPONENT',
-        0.4 * PX,
+        BODY,
         CARD.muted
       ).setOrigin(0.5),
       fit(
         pixelText(
           scene,
           mid,
-          teamTop + 54,
+          teamTop + 58,
           team.name,
           0.75 * PX,
           PAL.white
         ).setOrigin(0.5),
         teamW - 40
       ),
+      fit(
+        pixelText(
+          scene,
+          mid,
+          teamTop + 88,
+          `${team.formation} - ${team.jersey.toUpperCase()} KIT`,
+          BODY,
+          CARD.muted
+        ).setOrigin(0.5),
+        teamW - 40
+      ),
       pixelText(
         scene,
         mid,
-        teamTop + 80,
-        `${team.formation}  ${team.jersey.toUpperCase()} KIT`,
-        0.4 * PX,
-        CARD.muted
-      ).setOrigin(0.5),
-      pixelText(
-        scene,
-        mid,
-        teamTop + 118,
+        teamTop + 138,
         String(side === 'home' ? score.home : score.away),
         1.75 * PX,
         PAL.white
@@ -113,17 +117,15 @@ export function buildMatchDetailsLayer(
     );
   }
   items.push(
-    pixelText(scene, cx, teamTop + teamH / 2, 'VS', BODY, CARD.muted).setOrigin(
+    pixelText(scene, cx, teamTop + 74, 'VS', 0.75 * PX, CARD.muted).setOrigin(
       0.5
-    )
-  );
-  items.push(
+    ),
     pixelText(
       scene,
       cx,
-      teamTop + teamH - 18,
+      teamTop + 138,
       'START SCORE',
-      0.35 * PX,
+      BODY,
       CARD.muted
     ).setOrigin(0.5)
   );
@@ -148,16 +150,16 @@ export function buildMatchDetailsLayer(
   ];
   const gap = 20;
   const tileW = (CARD.width - 80 - 2 * gap) / 3;
-  const tileTop = 336;
+  const tileTop = 360;
   for (const [i, [label, value]] of tiles.entries()) {
     const x = CARD.x + 40 + i * (tileW + gap);
-    tile(scene, items, x, tileTop, tileW, 84);
+    tile(scene, items, x, tileTop, tileW, 92);
     items.push(
       fit(
         pixelText(
           scene,
           x + tileW / 2,
-          tileTop + 32,
+          tileTop + 34,
           value,
           0.75 * PX,
           PAL.green
@@ -167,9 +169,9 @@ export function buildMatchDetailsLayer(
       pixelText(
         scene,
         x + tileW / 2,
-        tileTop + 62,
+        tileTop + 68,
         label,
-        0.4 * PX,
+        BODY,
         CARD.soft
       ).setOrigin(0.5)
     );
@@ -182,7 +184,7 @@ export function buildMatchDetailsLayer(
       'Win the match. Golden goal if level at full time.';
   items.push(
     fit(
-      pixelText(scene, cx, 456, objective, BODY, PAL.yellow).setOrigin(0.5),
+      pixelText(scene, cx, 484, objective, BODY, PAL.yellow).setOrigin(0.5),
       CARD.width - 80
     )
   );
@@ -224,7 +226,7 @@ export function buildMatchDetailsLayer(
   extra.forEach(([text, color], i) =>
     items.push(
       fit(
-        pixelText(scene, cx, 490 + i * 28, text, BODY, color).setOrigin(0.5),
+        pixelText(scene, cx, 512 + i * 24, text, BODY, color).setOrigin(0.5),
         CARD.width - 80
       )
     )
@@ -233,7 +235,7 @@ export function buildMatchDetailsLayer(
   // Actions, as on the results card: the primary in orange, the rest navy.
   items.push(
     scene.add
-      .rectangle(CARD.x + 40, 580, CARD.width - 80, 2, PAL.white, 0.08)
+      .rectangle(CARD.x + 40, 570, CARD.width - 80, 2, PAL.white, 0.08)
       .setOrigin(0)
   );
   // Desktop: START GAME | CONTROLS | NEXT. Touch: START GAME | NEXT.

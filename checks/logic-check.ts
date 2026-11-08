@@ -68,7 +68,11 @@ import { postConfig, readStats } from '../src/server/core/matchStats';
 import { scoreComment } from '../src/server/core/scoreComment';
 import { MatchFlow } from '../src/client/systems/MatchFlow';
 import { Controls } from '../src/client/systems/Controls';
-import { actionForKey, DEFAULT_KEYS } from '../src/client/systems/keyBindings';
+import {
+  actionForKey,
+  DEFAULT_KEYS,
+  loadKeyBindings,
+} from '../src/client/systems/keyBindings';
 
 let passed = 0;
 function check(name: string, fn: () => void) {
@@ -328,6 +332,23 @@ check('keyboard: pass and shot styles keep their swipe after release', () => {
   assert.ok(controls.pressAge(1) < 1, 'a quick tap stays buffered');
   controls.clearKeyboard();
   assert.equal(controls.pressAge(1), Infinity);
+});
+
+check('keyboard: a saved layout missing an action keeps its keys', () => {
+  const old = { ...DEFAULT_KEYS, passLeft: 'KeyX' };
+  Reflect.deleteProperty(old, 'lob');
+  const store = new Map([['street-soccer:keyboard:v1', JSON.stringify(old)]]);
+  const previous: unknown = Reflect.get(globalThis, 'localStorage');
+  Reflect.set(globalThis, 'localStorage', {
+    getItem: (key: string) => store.get(key) ?? null,
+  });
+  try {
+    const loaded = loadKeyBindings();
+    assert.equal(loaded.passLeft, 'KeyX', 'custom key kept');
+    assert.equal(loaded.lob, DEFAULT_KEYS.lob, 'missing action gets default');
+  } finally {
+    Reflect.set(globalThis, 'localStorage', previous);
+  }
 });
 
 check('tackle timeline: windup -> active -> recover -> none', () => {

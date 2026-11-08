@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { VIEW } from '../../shared/tuning';
 import { PAL, PX } from './palette';
-import { pixelText } from './pixelFont';
+import { CELL_W, pixelText } from './pixelFont';
 
 // The look of the full-time results card (style.css .results-*), redrawn on
 // the landscape game canvas for the i button's two info pages: a dark navy
@@ -124,12 +124,16 @@ export function tile(
   );
 }
 
-// Shrinks a text to fit `maxWidth` (never grows it).
+// Shrinks a text to fit `maxWidth` one whole screen pixel per font pixel at
+// a time (a fractional size garbles the pixel letters), never below 2.
 export function fit<T extends Phaser.GameObjects.BitmapText>(
   text: T,
   maxWidth: number
 ) {
-  text.setScale(1);
-  if (text.displayWidth > maxWidth) text.setScale(maxWidth / text.displayWidth);
+  let size = Math.round(text.fontSize / CELL_W);
+  while (text.displayWidth > maxWidth && size > 2) {
+    size -= 1;
+    text.setFontSize(CELL_W * size);
+  }
   return text;
 }

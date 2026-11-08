@@ -16,6 +16,10 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 **Chaos bot balance (2026-11-08):** Power Surge bots move closer under reduced power and check their chosen charge against the real shot flight. They adjust if it would stop short or go over the bar. Goal Resize bots read lanes from the ball, use the smaller opening to judge placement and aim error, and adjust shot height for the lower bar. AI keepers cover wider goals earlier and have extra reach on airborne saves in taller goals. Gameplay regressions cover both teams at 50% and 150% power, Easy finishing at 50% goal size, and high and wide saves at 150% goal size. Types, lint, the production build and all six mocked Chromium Chaos scenarios pass. Live balance review remains pending.
 
+**How-to-play per device (2026-11-08):** The i button's page 2 now shows only keyboard controls on desktop (fine pointer + hover) and only touch controls elsewhere. Desktop lists every action as a navy key cap showing the current binding (remaps update it): move, sprint, N ground pass (hold sets pace), B air pass, V/M curl passes (held past half = aerial, tap = ground), chip/curl/power shots, tackle, switch, keeper dive/throw/kick, pause/info/mute. Touch spells out the PASS swipes (up air, down ground, left/right curl, hold hard = aerial curl). A separate Ground Pass key (C) was tried and removed at the user's request: N is both the normal and the ground pass. Saved layouts missing an action now load that action's default key (if free) instead of resetting everything; a logic check covers it. Types, lint, build and 62 logic checks pass; not playtested.
+
+**Match info spacing fix (2026-11-08):** After a Reddit desktop screenshot showed overlaps and garbled small text: all info-page text now uses whole-pixel font sizes (2, 3, 4, 5, 7 px per font pixel); `fit()` steps the font size down instead of fractional scaling. Page 1 has taller team cards (caption, name, formation and start score no longer touch), a wider VS gap and taller stat tiles. Page 2 has bigger button discs (radius 44) so their labels are crisp, full-size THROW/KICK discs, tighter section spacing, and clear gaps between the panels, footer lines and buttons. Not yet re-checked on Reddit.
+
 **Match info screens (2026-11-08):** The i button's two landscape canvas pages now share the full-time results card look (`ui/infoCard.ts`): navy card with a coloured top edge, mode tag and "MATCH INFO 1/2 · 2/2" in the header, kit-striped team cards, green stat tiles, orange primary and navy secondary buttons. Page 1 (match details) shows team cards with start score, tiles for time / difficulty / rule, the objective, and buttons START GAME (RESUME mid-match; skips how-to-play and kicks off) and NEXT; desktop adds CONTROLS, which opens key bindings and returns to page 1. Page 2 (how to play) keeps its content, now on two column tiles with BACK / PLAY MATCH. Not playtested.
 
 **Aerial / ground passes (2026-11-08):** Slide up on PASS for an aerial pass: a chip whose lift grows with distance and whose pace is fitted (air drag included) to land at the receiver's lead spot, instead of the old low hop that rolled on. Slide down for a ground pass, which never auto-chips. Curl passes fly when PASS is held to at least `PASS.curlAirWeight` (0.5 charge) and roll on the ground when tapped or held lightly. Labels now read AIR / GROUND, and the overhead label shows AIR CURL or LOW CURL. New tuning: `PASS.airLoft`, `airMinVz`, `airMaxVz`, `airMaxSpeed`, `curlMin`, `curlAirWeight` (`lobVz` removed). The logic check now confirms aerial and hard-curl passes land at the receiver and ground and soft-curl passes stay down. Types, lint, build and 61 logic checks pass; not playtested.
@@ -558,6 +562,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- New key actions load with their default key when missing from a saved layout (if free), so adding an action never wipes a player's remapped keys.
+- Pixel text only at whole sizes (size x CELL_W font size, size >= 2): fractional sizes such as 0.4 x PX drop or double font pixels and garble letters on the scaled canvas.
 - Aerial passes solve their pace from the launch lift and air drag so the first bounce lands at the receiver; a curl's air/ground choice uses the held pass charge (user: "more power = aerial"), so a tap curl always rolls.
 - Save desktop bindings in local storage and expose the editor for fine-pointer devices with hover. Track physical keyboard codes for either Shift key and keep keyboard button holds separate from touch holds.
 
@@ -1229,6 +1235,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 
 ## Changelog
 
+- **2026-11-08:** How to play: keyboard-only on desktop (live key caps), touch-only on mobile, new pass controls listed. N stays the one ground/normal pass key (no separate C key).
+- **2026-11-08:** Match info pages: no overlapping text, crisp whole-pixel font sizes, re-spaced team cards, tiles, discs, footer and buttons.
 - **2026-11-08:** Match info (i button) restyled like the results card; page 1 gains START GAME / NEXT, plus CONTROLS on desktop.
 - **2026-11-08:** Pass swipes reworked: up = aerial pass that carries to the receiver, down = ground pass (no auto-chip), curl = aerial when held to half charge or more, ground otherwise. AIR / GROUND / AIR CURL / LOW CURL labels.
 - **2026-11-08:** Added desktop pause-menu key remapping with saved defaults, both Shift keys and keyboard lob and curl passes.

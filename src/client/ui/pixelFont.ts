@@ -5,7 +5,7 @@ import { PAL, PX } from './palette';
 export const PIXEL_FONT = 'pixel';
 
 // Each cell holds the 5x7 glyph plus a 1-pixel drop shadow and a 1-pixel gap.
-const CELL_W = 7;
+export const CELL_W = 7;
 const CELL_H = 9;
 
 // Builds the font texture from GLYPHS and registers it as a retro bitmap font.

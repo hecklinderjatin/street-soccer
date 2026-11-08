@@ -19,7 +19,7 @@ A fast 5v5 arcade street football match against the AI, played right inside a Re
 - **SWITCH:** change the player you control.
 - **Desktop movement:** W forward, A left, S backward, D right. Hold either Shift key to sprint.
 - **Desktop shots:** I chip, J curl left, L curl right, K power shot / switch.
-- **Desktop passes:** N pass / tackle, B aerial pass, V curl left, M curl right (hold for an aerial curl).
+- **Desktop passes:** N pass along the ground / tackle, B aerial pass, V curl left, M curl right (hold past half pace for an aerial curl).
 - **Desktop shortcuts:** Escape pauses or closes an overlay, Tab opens match info, and Space toggles sound. Open **Pause → Key Bindings** to customize the keys or restore defaults. Changes are saved in the current browser.
 
 ## For moderators

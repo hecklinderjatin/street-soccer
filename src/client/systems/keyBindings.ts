@@ -75,7 +75,10 @@ export function loadKeyBindings(): KeyBindings {
     if (typeof raw !== 'object' || !raw) return bindings;
     const used = new Set<string>();
     for (const action of KEY_ACTIONS) {
-      const code: unknown = Reflect.get(raw, action);
+      const saved: unknown = Reflect.get(raw, action);
+      // An action added after the layout was saved takes its default key
+      // (if that key is still free), keeping the player's other choices.
+      const code = saved === undefined ? DEFAULT_KEYS[action] : saved;
       if (!isBindableKey(code) || used.has(code)) return { ...DEFAULT_KEYS };
       used.add(code);
       bindings[action] = code;
