@@ -910,19 +910,20 @@ export const FREE_KICK = {
   keeperParryKeep: 0.25, // speed kept on a parry
   // Swipe (logical px of the portrait canvas).
   swipeMinPx: 70, // shorter (or not upward) is not a shot
-  swipeFullPx: 460, // chord length for full power
   aimHeight: 0.55, // the swipe aims at the goal line this share of the bar height up
-  bowDead: 0.03, // sideways bulge / chord length ignored ...
-  bowFull: 0.22, // ... and the bulge for full curl
-  // Strike, by power 0..1.
+  // Strike, by slider power 0..1 and contact point on the ball.
+  defaultPower: 0.65, // starting slider setting on a fresh kick
   speedMin: 800, // horizontal launch speed px/s from rangeDistance ...
   speedMax: 1100, // ... at full power ...
   rangeDistance: 620,
   rangeExp: 0.6, // ... times (distance / rangeDistance) ^ this (longer kicks are struck harder)
-  liftMin: 260, // vertical launch speed px/s ...
-  liftMax: 900, // ... at full power (too much flies over the bar)
+  liftMin: 210, // centre strike's vertical launch speed px/s ...
+  liftMax: 510, // ... at full power
+  chipLift: 230, // extra launch lift at the bottom of the ball
+  lowDriveLift: 160, // launch lift taken off at the top of the ball
+  offCentrePaceLoss: 0.16, // fraction of pace lost at the edge of the ball
   dipMax: 0.6, // topspin at full power: extra gravity share on the way down
-  curlMax: 1.2, // rad/s sidespin at full curl (the path bends like the swipe)
+  curlMax: 1.2, // rad/s sidespin at either side of the ball
   // Flight.
   gravity: 1400, // px/s^2 (as the match)
   airDrag: 0.62, // velocity kept per second in the air

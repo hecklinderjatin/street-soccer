@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Free Kick controls (2026-11-08):** Drag the dot on the ball to set contact, adjust the power slider, then swipe up on the pitch to choose the launch direction and shoot. The centre gives the most pace, low contact chips, high contact drives low and side contact curls away from that side. Diagonal contact blends lift and curl. A fresh kick starts centred at 65% power, while a retry keeps both settings and shows the previous power tick and flight ghost. Types, lint, production build, 12 Free Kick checks and 62 match logic checks pass. The local browser playtest awaits localhost access.
+
 **Desktop key bindings (2026-11-08):** The desktop pause menu opens a remapping panel for movement, sprint, shot/pass styles and match shortcuts. The defaults are WASD, either Shift, I/J/L/K for chip/curls/power, N/B/V/M for pass/lob/curls, Escape for pause, Tab for info and Space for mute. The panel applies edits immediately, rejects duplicate keys and restores defaults. Local browser storage remembers the layout across matches and reloads, and desktop help displays the active keys. Types, lint, production build and 61 logic checks pass. Mocked Chromium verified desktop editing, reload, reset, all four pass keys and the touch-only pause menu.
 
 **Forgiving keeper pressure (2026-11-08):** Noob covers a dribbler's lane from 90 px off the goal line and reads the actual ball within 110 px. Easy uses 130 px for both. The lane depth also caps how far the keeper rushes out. Normal through Pro retain 170 px lane coverage and a 150 px smother read that can anticipate the ball's path. The match simulation shows a near-post sprint can beat Noob after the keeper is pulled across, while Easy and Normal smother the same run. Central runs are smothered at all three levels.
@@ -46,8 +48,8 @@ Atlases now hold 98 frames (13 rows, 1792x1664). Re-baked with `art:bake` and `o
 
 **Free Kick mode (2026-11-05):** a new portrait game mode on its own expanded entrypoint (`freekick` -> `freekick.html`, code in `src/client/freekick/`). A green PLAY FREE KICK button under the lobby's play buttons opens it (`requestExpandedMode(event, 'freekick')` from the feed card; off Reddit it is a plain link). It uses the same street court, kits, keeper, ball, sounds and music as the match; no new art or downloads.
 - Camera: behind the kicker on the goal-ball line, looking straight down the pitch so the goal faces it square on. Focal length and lens shift are solved per kick (ball 80% down, crossbar 25% down, goal at most 86% of the width), and it pushes in during the flight.
-- Swipe up to shoot. The direction aims (where it points on screen is where the ball goes on the goal line), the length sets power, and bending the swipe curls the ball (the heading is solved so a curler still ends where aimed).
-- Live power meter: green band clears the wall and dips under the bar, red goes over the bar.
+- Move the contact dot, set the power slider and swipe up to shoot along the swipe's heading. Side contact curves the ball away from that heading.
+- The slider's green guide estimates wall clearance and bar height with the selected contact.
 - Trails: a glowing swipe trail, and a yellow-green ball trail split into depth bands so the wall, keeper and frame cover it correctly. The last miss stays as a ghost on the retry, with an orange tick at its power.
 - Wall: 2-4 men by level; it jumps.
 - Keeper: reacts after a level-scaled delay (later when screened by the wall), cannot read curl or dip, shuffles, then stands, jumps or dives.
@@ -599,7 +601,7 @@ public/ball.svg             pixel ball shown on the splash
 
 - Free Kick difficulty is tuned with simulated players (aim off by up to 25 px, power off by up to 0.08). Skilled shots (over the wall, curled round it) score about 50-65% at every level; random swipes score about 17%. Levels add wall men, distance and angle, and a sharper keeper standing closer to the wall.
 
-- The Free Kick power band shows on the meter at every level (the user asked for "select the appropriate power"). Aim has no marker; the ghost of the last miss is the only aim aid.
+- The Free Kick slider shows a green wall clearance guide when there is a power range that clears the jumping wall and stays below the bar with the selected contact. Swipe aim sets the initial heading. The ghost of the last miss shows the resulting path on a retry.
 
 - Merge post flair selection into local main by fast-forward; keep the pre-existing package whitespace edit outside the commits.
 
@@ -942,7 +944,7 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 - Verify the post analytics form, CSV copy and event counts in a Reddit playtest. Use the report to compare Easy and Noob over the same duration and publish window.
 
-- Playtest Free Kick on a phone in Reddit (feed card -> PLAY FREE KICK -> expanded) after the next build/upload. Tune the swipe lengths (`FREE_KICK.swipeMinPx/swipeFullPx`) and the difficulty curve from real play.
+- Playtest Free Kick contact selection, slider and swipe aiming on a phone in Reddit (feed card -> PLAY FREE KICK -> expanded). Tune the strike and difficulty curve from real play.
 
 - Free Kick follow-ups (not built): a server leaderboard or daily best, Journeys/games-played tracking, hiding the power band at high levels.
 
@@ -1250,6 +1252,7 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 
 ## Changelog
 
+- **2026-11-08:** Free Kick now uses a draggable contact dot and separate power slider. The swipe chooses the launch direction and shoots. Updated the wall guide, retry tips and flight checks.
 - **2026-11-08:** New six-pose side run and twelve-pose sprint animations from user sheets; atlases re-baked.
 - **2026-11-08:** Receiver slowdown after a pass halved: 1 s to 0.5 s.
 - **2026-11-08:** Air pass: chip-shot height but paced to land at the receiver (replaces the same-day "copy the chip shot" version).

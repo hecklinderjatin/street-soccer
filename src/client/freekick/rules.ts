@@ -140,18 +140,20 @@ export function wallTop(wall: Wall, t: number) {
 // ---- The swipe ------------------------------------------------------------
 
 export type ScreenPoint = { x: number; y: number };
+export type Contact = { x: number; y: number }; // right and down, in ball radii
+
+export function ballContact(x: number, y: number): Contact {
+  const radius = Math.max(1, Math.hypot(x, y));
+  return { x: x / radius, y: y / radius };
+}
+
 export type Swipe = {
-  power: number; // 0..1 from the chord (start to end) length
-  curl: number; // -1..1, + = the swipe bulges to the right of its chord
   dirX: number; // unit chord direction on screen
   dirY: number;
 };
 
-export const swipePower = (length: number) =>
-  clamp((length - FK.swipeMinPx) / (FK.swipeFullPx - FK.swipeMinPx), 0, 1);
-
-// Direction from the chord, power from its length, curl from how far the
-// path bulges to one side of it. Null for a tap or a swipe that isn't up.
+// The chord gives the launch direction. A tap or a swipe that isn't up
+// won't shoot.
 export function readSwipe(points: readonly ScreenPoint[]): Swipe | null {
   const first = points[0];
   const last = points[points.length - 1];
@@ -160,22 +162,7 @@ export function readSwipe(points: readonly ScreenPoint[]): Swipe | null {
   const cy = last.y - first.y;
   const length = Math.hypot(cx, cy);
   if (length < FK.swipeMinPx || cy > -FK.swipeMinPx / 2) return null;
-  const nx = -cy / length; // screen-right of the chord
-  const ny = cx / length;
-  let bow = 0;
-  for (const p of points) {
-    const d = (p.x - first.x) * nx + (p.y - first.y) * ny;
-    if (Math.abs(d) > Math.abs(bow)) bow = d;
-  }
-  const b = Math.abs(bow) / length;
-  return {
-    power: swipePower(length),
-    curl:
-      Math.sign(bow) *
-      clamp((b - FK.bowDead) / (FK.bowFull - FK.bowDead), 0, 1),
-    dirX: cx / length,
-    dirY: cy / length,
-  };
+  return { dirX: cx / length, dirY: cy / length };
 }
 
 // Screen point with the world y it shows on the goal line.
@@ -232,9 +219,9 @@ export const restingBall = (spot: Spot): Ball => ({
 });
 
 export type Strike = {
-  power: number; // 0..1: pace and height together
-  targetY: number; // where on the goal line it is aimed
-  curl: number; // -1..1, + = bends like a swipe bulging right
+  power: number; // 0..1 slider value
+  targetY: number; // where the launch heading points on the goal line
+  contact: Contact;
 };
 
 export const STEP = 1 / FK.simHz;
@@ -290,33 +277,28 @@ export function crossing(ball: Ball, x: number) {
   return null;
 }
 
-// The ball as struck: power sets pace, lift and topspin; curl sets the
-// sidespin; the heading is solved so the curling ball still ends on the
-// aimed point of the goal line (the path bends like the swipe did).
+// Centre contact transfers the most pace. Striking low adds lift and
+// reduces dip, and striking either side bends the ball away from that side.
 export function strikeBall(spot: Spot, strike: Strike): Ball {
   const p = clamp(strike.power, 0, 1);
+  const contact = ballContact(strike.contact.x, strike.contact.y);
+  const loft = contact.y;
   const range = Math.hypot(GOAL_X - spot.x, GOAL_Y - spot.y);
   const speed =
     lerp(FK.speedMin, FK.speedMax, p) *
+    (1 - Math.hypot(contact.x, loft) * FK.offCentrePaceLoss) *
     (range / FK.rangeDistance) ** FK.rangeExp;
-  const aimed = (heading: number): Ball => ({
+  const heading = Math.atan2(strike.targetY - spot.y, GOAL_X - spot.x);
+  return {
     ...restingBall(spot),
     vx: speed * Math.cos(heading),
     vy: speed * Math.sin(heading),
-    vz: lerp(FK.liftMin, FK.liftMax, p),
-    spin: clamp(strike.curl, -1, 1) * FK.curlMax,
-    dip: FK.dipMax * p,
-  });
-  const reach = Math.hypot(GOAL_X - spot.x, strike.targetY - spot.y);
-  let heading = Math.atan2(strike.targetY - spot.y, GOAL_X - spot.x);
-  for (let i = 0; i < 6; i++) {
-    const end = crossing(aimed(heading), GOAL_X);
-    if (!end) break;
-    const miss = end.y - strike.targetY;
-    if (Math.abs(miss) < 0.5) break;
-    heading -= miss / reach;
-  }
-  return aimed(heading);
+    vz:
+      lerp(FK.liftMin, FK.liftMax, p) +
+      loft * (loft >= 0 ? FK.chipLift : FK.lowDriveLift),
+    spin: contact.x * FK.curlMax,
+    dip: FK.dipMax * p * (1 - loft),
+  };
 }
 
 // ---- Playing the kick out -------------------------------------------------
@@ -617,7 +599,7 @@ export function scoreGoal(play: KickPlay, streak: number): GoalScore {
   if (c && c.z >= BAR_Z * 0.6 && Math.abs(c.y - GOAL_Y) >= POST_HALF - 55)
     tags.push('TOP BINS');
   if (play.overWall) tags.push('OVER THE WALL');
-  if (Math.abs(play.strike.curl) >= 0.5) tags.push('CURLER');
+  if (Math.abs(play.strike.contact.x) >= 0.5) tags.push('CURLER');
   if (play.hitPost) tags.push('OFF THE POST');
   if (play.setup.distance >= FK.longRange) tags.push('LONG RANGE');
   const multiplier = Math.min(
@@ -632,10 +614,11 @@ export function scoreGoal(play: KickPlay, streak: number): GoalScore {
   };
 }
 
-// The power range that takes a straight shot over the middle of the wall
-// (jumping) and under the bar, for the power meter; null if there is none.
-export function powerBand(setup: KickSetup) {
+// The power range that clears the wall's height and stays below the bar,
+// using the selected contact and a launch heading toward the wall.
+export function powerBand(setup: KickSetup, contact: Contact) {
   const { spot, wall } = setup;
+  if (wall.men.length === 0) return null;
   const mid = wall.men.reduce((sum, m) => sum + m, 0) / wall.men.length;
   const targetY = clamp(
     spot.y + ((mid - spot.y) * (GOAL_X - spot.x)) / (wall.x - spot.x),
@@ -647,7 +630,7 @@ export function powerBand(setup: KickSetup) {
   let hi = -1;
   for (let i = 0; i <= 50; i++) {
     const power = i / 50;
-    const ball = strikeBall(spot, { power, targetY, curl: 0 });
+    const ball = strikeBall(spot, { power, targetY, contact });
     const over = crossing(ball, wall.x);
     const under = crossing(ball, GOAL_X);
     if (
