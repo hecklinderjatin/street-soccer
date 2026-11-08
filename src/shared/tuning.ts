@@ -890,6 +890,14 @@ export const FREE_KICK = {
   wallJumpHeight: [16, 24], // extra reach at the top of the jump, arms up (level 1, top level)
   wallJumpSec: 0.5, // time in the air
   wallReactSec: 0.06, // the wall leaves the ground this long after the strike
+  // Wall variety (user request): it doesn't always jump, and a jumping
+  // wall's feet leave a gap a low drive can slip under.
+  wallJumpChance: [0.85, 0.6], // chance it jumps on a kick (level 1, top level); decided at the strike, unseen
+  wallFeetLift: 40, // feet height at the top of the jump: a ball wholly below them goes under ...
+  underWallMinPower: 0.15, // ... if it is driven (slider power); softer, it meets their boots as they land
+  wallLyerChance: [0, 0.4], // chance a man lies behind the wall against low shots (visible before the kick)
+  wallLyerBehind: 24, // how far behind the wall he lies
+  wallLyerHeight: 24, // how high his body blocks
   // Keeper: stands in the part of the goal the wall leaves open.
   keeperLineOff: 20, // in front of the goal line
   keeperWallShade: [0.12, 0.4], // shifts this share of the open part toward the wall (level 1, top level)
@@ -908,6 +916,14 @@ export const FREE_KICK = {
   keeperJumpReachZ: 142, // highest ball centre at the top of a jump
   keeperDiveTopZ: [118, 84], // highest ball centre a dive reaches, at take-off -> full stretch
   keeperParryKeep: 0.25, // speed kept on a parry
+  // Keeper variety (user request): not every keeper reads the kick the same.
+  keeperCheatChance: [0.15, 0.35], // chance it stands cheated toward the wall (visible) ...
+  keeperCheatShade: 0.35, // ... this much more of the open part toward the wall
+  keeperGuessChance: [0.1, 0.3], // chance it guesses a corner at the strike (unseen) ...
+  keeperGuessSec: 0.08, // ... starting this soon ...
+  keeperGuessSpeed: 230, // ... moving this fast toward it ...
+  keeperGuessReadDelay: 0.1, // ... and reading the real shot this much later
+  keeperCurlRead: [0, 0.6], // share of curl and dip it allows for in its read (level 1, top level)
   // Swipe (logical px of the portrait canvas).
   swipeMinPx: 70, // shorter (or not upward) is not a shot
   aimHeight: 0.55, // the swipe aims at the goal line this share of the bar height up

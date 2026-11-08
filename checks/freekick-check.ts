@@ -212,4 +212,143 @@ check('scoring: style tags and a capped streak multiplier', () => {
   );
 });
 
+// A low drive at the middle of the wall: struck through the middle or
+// over the top of the ball (lowAtWall's `top` 0..1).
+function lowAtWall(kick: KickSetup, power: number, top = 0.5): Strike {
+  const mid = kick.wall.men.reduce((s, m) => s + m, 0) / kick.wall.men.length;
+  return {
+    power,
+    targetY:
+      kick.spot.y +
+      ((mid - kick.spot.y) * (GOAL_X - kick.spot.x)) /
+        (kick.wall.x - kick.spot.x),
+    contact: ballContact(0, -top),
+  };
+}
+// Low strikes to try, softest first.
+const LOW_TRIES = [0, 0.5, 1].flatMap((top) =>
+  Array.from({ length: 13 }, (_, i) => ({ top, power: i * 0.05 }))
+);
+const always = (v: number) => () => v;
+
+check('wall: a low drive slips under the jumping wall, not a standing one', () => {
+  const rand = seeded(21);
+  let under = 0;
+  for (let i = 0; i < 20; i++) {
+    const kick = makeKick(levelFor(0), rand);
+    for (const { top, power } of LOW_TRIES) {
+      const strike = lowAtWall(kick, power, top);
+      // 0.5: the wall jumps (chance 0.85 at level 1), the keeper doesn't guess.
+      const jumped = startPlay(kick, strike, steady);
+      while (jumped.outcome === null) stepPlay(jumped, STEP);
+      if (!jumped.underWall) continue;
+      under++;
+      assert.notEqual(jumped.outcome, 'wall');
+      assert.ok(scoreGoal(jumped, 1).tags.includes('UNDER THE WALL'));
+      // 0.99: the wall stays down and blocks the same shot.
+      const stood = startPlay(kick, strike, always(0.99));
+      assert.equal(stood.wall.jumpAt, Infinity);
+      while (stood.outcome === null) stepPlay(stood, STEP);
+      assert.equal(stood.outcome, 'wall');
+      assert.equal(stood.blockedBy, 'wall');
+      break;
+    }
+  }
+  assert.ok(under >= 10, `low drives got under on ${under} of 20 kicks`);
+});
+
+check('wall: a man lying behind it stops the low drive', () => {
+  const rand = seeded(21);
+  let stopped = 0;
+  for (let i = 0; i < 20; i++) {
+    const base = makeKick(levelFor(0), rand);
+    const kick = { ...base, wall: { ...base.wall, lyer: true } };
+    for (const { top, power } of LOW_TRIES) {
+      const strike = lowAtWall(base, power, top);
+      const free = playOut(base, strike);
+      if (!free.underWall) continue;
+      const play = startPlay(kick, strike, always(0.99));
+      assert.equal(play.wall.jumpAt, FK.wallReactSec, 'a wall with a lyer jumps');
+      while (play.outcome === null) stepPlay(play, STEP);
+      assert.equal(play.outcome, 'wall');
+      assert.equal(play.blockedBy, 'lyer');
+      assert.equal(play.underWall, false);
+      stopped++;
+      break;
+    }
+  }
+  assert.ok(stopped >= 10);
+});
+
+check('variety: lyers and cheating keepers appear only as levels rise', () => {
+  const rand = seeded(31);
+  let lyers = 0;
+  let cheats = 0;
+  for (let i = 0; i < 200; i++) {
+    assert.equal(makeKick(levelFor(0), rand).wall.lyer, false);
+    const top = makeKick(levelFor(1000), rand);
+    if (top.wall.lyer) lyers++;
+    if (top.keeperStyle === 'cheat') cheats++;
+  }
+  assert.ok(lyers > 40 && lyers < 120, `${lyers} lyers in 200 top-level kicks`);
+  assert.ok(cheats > 40 && cheats < 110, `${cheats} cheats in 200`);
+});
+
+check('keeper: a cheating keeper stands nearer the wall', () => {
+  // The same spot: the cheat roll is the last one makeKick makes.
+  const rolls = (cheat: boolean) => {
+    const base = seeded(41);
+    let n = 0;
+    return () => (++n === 4 ? (cheat ? 0 : 0.99) : base());
+  };
+  const line = makeKick(levelFor(0), rolls(false));
+  const cheat = makeKick(levelFor(0), rolls(true));
+  assert.equal(line.keeperStyle, 'line');
+  assert.equal(cheat.keeperStyle, 'cheat');
+  assert.deepEqual(cheat.spot, line.spot);
+  // Toward the near side (where the wall stands).
+  assert.ok((cheat.keeperY - line.keeperY) * cheat.nearSide > 5);
+});
+
+check('keeper: a guessing keeper drifts to its corner before reading', () => {
+  const kick = makeKick(levelFor(0), seeded(9));
+  const open = { ...kick, wall: { ...kick.wall, men: [] } };
+  // 0.01: it guesses (chance 0.1 at level 1), the -y corner.
+  const play = startPlay(open, { power: 0.5, targetY: GOAL_Y, contact: centre }, always(0.01));
+  const guess = play.keeper.guessY;
+  assert.ok(guess !== null && guess < GOAL_Y);
+  const from = play.keeper.y;
+  while (play.t < play.keeper.readAt - STEP && play.outcome === null)
+    stepPlay(play, STEP);
+  assert.ok(play.keeper.y < from - 10, 'moved toward the guess');
+});
+
+check('keeper: higher levels allow for part of the curl', () => {
+  const kick = makeKick(levelFor(0), seeded(9));
+  const open = { ...kick, wall: { ...kick.wall, men: [] } };
+  // A curler that bends well off its launch line but stays inside the posts.
+  const keeperX = GOAL_X - FK.keeperLineOff;
+  const strikes = Array.from({ length: 40 }, (_, i) => ({
+    power: 0.5,
+    targetY: GOAL_Y - POST_HALF + i * 8,
+    contact: ballContact(1, 0),
+  }));
+  const strike = strikes.find((s) => {
+    const c = crossing(strikeBall(kick.spot, s), keeperX);
+    return c && Math.abs(c.y - GOAL_Y) < POST_HALF - 40 && Math.abs(c.y - s.targetY) > 40;
+  });
+  assert.ok(strike, 'a curler inside the posts');
+  const real = crossing(strikeBall(kick.spot, strike), keeperX);
+  assert.ok(real);
+  const readAt = (curlRead: number) => {
+    const setup = { ...open, level: { ...open.level, keeperCurlRead: curlRead } };
+    const play = startPlay(setup, strike, steady);
+    while (!play.keeper.read && play.outcome === null) stepPlay(play, STEP);
+    return play.keeper.mode === 'dive' ? play.keeper.toY : play.keeper.y;
+  };
+  const blind = Math.abs(readAt(0) - real.y);
+  const reading = Math.abs(readAt(0.6) - real.y);
+  assert.ok(reading < blind - 5, `read ${reading} vs blind ${blind}`);
+});
+
 console.log(`\n${passed} checks passed`);

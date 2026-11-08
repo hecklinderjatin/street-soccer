@@ -30,6 +30,11 @@ export type Level = {
   wallJump: number; // the wall's extra reach at the top of its jump
   maxDistance: number;
   maxAngle: number; // radians either side of the centre line
+  wallJumpChance: number;
+  wallLyerChance: number;
+  keeperCheatChance: number;
+  keeperGuessChance: number;
+  keeperCurlRead: number; // share of curl / dip the keeper allows for
 };
 
 export function levelFor(goals: number): Level {
@@ -54,11 +59,23 @@ export function levelFor(goals: number): Level {
       ) *
         Math.PI) /
       180,
+    wallJumpChance: lerp(FK.wallJumpChance[0], FK.wallJumpChance[1], t),
+    wallLyerChance: lerp(FK.wallLyerChance[0], FK.wallLyerChance[1], t),
+    keeperCheatChance: lerp(FK.keeperCheatChance[0], FK.keeperCheatChance[1], t),
+    keeperGuessChance: lerp(FK.keeperGuessChance[0], FK.keeperGuessChance[1], t),
+    keeperCurlRead: lerp(FK.keeperCurlRead[0], FK.keeperCurlRead[1], t),
   };
 }
 
-// The wall stands on one x; its men are lateral centres.
-export type Wall = { x: number; men: number[]; jump: number; jumpAt: number };
+// The wall stands on one x; its men are lateral centres. It jumps at
+// `jumpAt` (Infinity: it stays down). `lyer`: a man lies behind it.
+export type Wall = {
+  x: number;
+  men: number[];
+  jump: number;
+  jumpAt: number;
+  lyer: boolean;
+};
 
 export type KeeperMode = 'set' | 'dive' | 'jump' | 'down';
 export type Keeper = {
@@ -71,7 +88,11 @@ export type Keeper = {
   toY: number;
   readAt: number; // play time it reads the shot
   read: boolean;
+  guessY: number | null; // a corner it guessed at the strike, if it did
 };
+
+// 'cheat': stands toward the wall, guarding the ball over it.
+export type KeeperStyle = 'line' | 'cheat';
 
 export type KickSetup = {
   spot: Spot;
@@ -79,6 +100,7 @@ export type KickSetup = {
   level: Level;
   wall: Wall;
   keeperY: number;
+  keeperStyle: KeeperStyle;
   nearSide: -1 | 1; // the side of the goal (along y) the wall covers
 };
 
@@ -119,22 +141,49 @@ export function makeKick(level: Level, rand: () => number): KickSetup {
     nearSide * (2 * FK.wallHalfWidth + (level.wallMen - 1) * FK.wallSpacing);
   const shadow = clamp(atGoal(inner), GOAL_Y - POST_HALF, GOAL_Y + POST_HALF);
   const open = (GOAL_Y - nearSide * POST_HALF + shadow) / 2;
+  // Visible variety, rolled last so earlier rolls (the spot) are unchanged:
+  // a man lying behind the wall, a keeper cheating toward the wall.
+  const lyer = rand() < level.wallLyerChance;
+  const keeperStyle: KeeperStyle =
+    rand() < level.keeperCheatChance ? 'cheat' : 'line';
+  const shade = Math.min(
+    1,
+    level.keeperShade + (keeperStyle === 'cheat' ? FK.keeperCheatShade : 0)
+  );
   return {
     spot,
     distance,
     level,
-    wall: { x: wallX, men, jump: level.wallJump, jumpAt: Infinity },
-    keeperY: lerp(open, shadow, level.keeperShade),
+    wall: { x: wallX, men, jump: level.wallJump, jumpAt: Infinity, lyer },
+    keeperY: lerp(open, shadow, shade),
+    keeperStyle,
     nearSide,
   };
 }
 
+// Share of the jump's height the wall is at, at play time t (0 standing).
+function jumpShare(wall: Wall, t: number) {
+  const u = (t - wall.jumpAt) / FK.wallJumpSec;
+  return u > 0 && u < 1 ? Math.sin(Math.PI * u) : 0;
+}
+
 // Reach of the wall (head, or hands at the top of the jump) at play time t.
 export function wallTop(wall: Wall, t: number) {
-  const u = (t - wall.jumpAt) / FK.wallJumpSec;
-  return (
-    FK.wallHeight + (u > 0 && u < 1 ? Math.sin(Math.PI * u) : 0) * wall.jump
-  );
+  return FK.wallHeight + jumpShare(wall, t) * wall.jump;
+}
+
+// Height of the jumping wall's feet at play time t: a ball wholly below
+// them slips under.
+export function wallFeet(wall: Wall, t: number) {
+  return jumpShare(wall, t) * FK.wallFeetLift;
+}
+
+// The wall's lateral span (outer edges of its end men).
+export function wallSpan(wall: Wall) {
+  return {
+    lo: Math.min(...wall.men) - FK.wallHalfWidth,
+    hi: Math.max(...wall.men) + FK.wallHalfWidth,
+  };
 }
 
 // ---- The swipe ------------------------------------------------------------
@@ -317,6 +366,8 @@ export type KickPlay = {
   outcomeAt: number;
   hitPost: boolean;
   overWall: boolean; // went over the wall's men
+  underWall: boolean; // slipped under the jumping wall's feet
+  blockedBy: 'wall' | 'lyer' | null; // what stopped it at the wall
   screened: boolean; // the keeper lost it behind the wall
   inNet: boolean;
   crossed: { y: number; z: number } | null; // where a goal crossed the line
@@ -330,16 +381,24 @@ export function startPlay(
   rand: () => number
 ): KickPlay {
   const ball = strikeBall(setup.spot, strike);
+  // Struck at the wall's men: the keeper only picks it up as it comes over.
+  const atWall = crossing(ball, setup.wall.x);
+  const screened =
+    atWall !== null &&
+    setup.wall.men.some((m) => Math.abs(atWall.y - m) < FK.wallHalfWidth + R);
+  const reactJitter = (rand() * 2 - 1) * FK.keeperReactJitter;
+  const noise = (rand() * 2 - 1) * setup.level.readNoise;
+  // Unseen until the strike: whether the wall jumps (it always does with a
+  // man lying behind it) and whether the keeper guesses a corner.
+  const jumps = setup.wall.lyer || rand() < setup.level.wallJumpChance;
+  const guesses = rand() < setup.level.keeperGuessChance;
+  const guessSide = rand() < 0.5 ? -1 : 1;
+  const guessY = guesses ? GOAL_Y + guessSide * (POST_HALF - 40) : null;
   const wall = {
     ...setup.wall,
     men: [...setup.wall.men],
-    jumpAt: FK.wallReactSec,
+    jumpAt: jumps ? FK.wallReactSec : Infinity,
   };
-  // Struck at the wall's men: the keeper only picks it up as it comes over.
-  const atWall = crossing(ball, wall.x);
-  const screened =
-    atWall !== null &&
-    wall.men.some((m) => Math.abs(atWall.y - m) < FK.wallHalfWidth + R);
   return {
     setup,
     strike,
@@ -355,42 +414,60 @@ export function startPlay(
       toY: setup.keeperY,
       readAt:
         setup.level.reactSec +
-        (rand() * 2 - 1) * FK.keeperReactJitter +
-        (screened ? FK.keeperScreenedSec : 0),
+        reactJitter +
+        (screened ? FK.keeperScreenedSec : 0) +
+        (guesses ? FK.keeperGuessReadDelay : 0),
       read: false,
+      guessY,
     },
     t: 0,
     outcome: null,
     outcomeAt: 0,
     hitPost: false,
     overWall: false,
+    underWall: false,
+    blockedBy: null,
     screened,
     inNet: false,
     crossed: null,
     netHit: null,
-    noise: (rand() * 2 - 1) * setup.level.readNoise,
+    noise,
   };
 }
 
-// After its reaction time the keeper reads the shot as if it flew straight
-// on (it can't see curl or dip coming): it side-steps toward that line, and
-// once the ball is close in time commits to staying, a jump or a dive.
+// After its reaction time the keeper reads the shot as if it flew mostly
+// straight on: it allows for only its level's share of the curl and dip
+// (none at level 1). It side-steps toward that line and, once the ball is
+// close in time, commits to staying, a jump or a dive. A guessing keeper
+// first drifts toward the corner it guessed and reads the shot later.
 function moveKeeper(play: KickPlay, dt: number) {
   const k = play.keeper;
   const b = play.ball;
   const tt = b.vx > 1 ? (k.x - b.x) / b.vx : -1;
+  const edge = (y: number) =>
+    clamp(y, GOAL_Y - POST_HALF + 10, GOAL_Y + POST_HALF - 10);
+  if (
+    k.guessY !== null &&
+    !k.read &&
+    play.t >= FK.keeperGuessSec &&
+    play.t < k.readAt &&
+    play.outcome === null
+  ) {
+    const step = FK.keeperGuessSpeed * dt;
+    k.y = edge(k.y + clamp(k.guessY - k.y, -step, step));
+  }
   if (!k.read && play.t >= k.readAt && play.outcome === null && tt > 0) {
-    const y = b.y + b.vy * tt + play.noise;
+    const straight = b.y + b.vy * tt;
+    const curlRead = play.setup.level.keeperCurlRead;
+    const real = curlRead > 0 ? crossing(b, k.x) : null;
+    const y = (real ? lerp(straight, real.y, curlRead) : straight) + play.noise;
     if (tt > FK.keeperCommitSec) {
       const step = FK.keeperShuffleSpeed * dt;
-      k.y = clamp(
-        k.y + clamp(y - k.y, -step, step),
-        GOAL_Y - POST_HALF + 10,
-        GOAL_Y + POST_HALF - 10
-      );
+      k.y = edge(k.y + clamp(y - k.y, -step, step));
     } else {
       k.read = true;
-      const z = b.z + b.vz * tt - 0.5 * FK.gravity * tt * tt;
+      const straightZ = b.z + b.vz * tt - 0.5 * FK.gravity * tt * tt;
+      const z = real ? lerp(straightZ, real.z, curlRead) : straightZ;
       const off = y - k.y;
       if (Math.abs(off) > FK.keeperStandReach) {
         k.mode = 'dive';
@@ -535,14 +612,42 @@ export function stepPlay(play: KickPlay, dt: number) {
       (m) => Math.abs(atWall.y - m) < FK.wallHalfWidth + R * 0.8
     );
     if (man !== undefined) {
-      if (atWall.z - R * 0.8 < wallTop(play.wall, play.t)) {
+      if (
+        atWall.z + R * 0.8 < wallFeet(play.wall, play.t) &&
+        play.strike.power >= FK.underWallMinPower
+      )
+        play.underWall = true; // driven under the jumping men's feet
+      else if (atWall.z - R * 0.8 < wallTop(play.wall, play.t)) {
         end(play, 'wall');
+        play.blockedBy = 'wall';
         b.x = play.wall.x - 1;
         b.vx = -Math.abs(b.vx) * 0.3;
         b.vy = b.vy * 0.4 + (atWall.y - man) * 4;
         b.vz = Math.max(b.vz, 0) * 0.3 + 160;
         b.spin = b.dip = 0;
       } else play.overWall = true;
+    }
+  }
+  // The man lying behind the wall stops a low ball along its span.
+  const lyerX = play.wall.x + FK.wallLyerBehind;
+  const atLyer =
+    play.outcome === null && play.wall.lyer && play.wall.men.length > 0
+      ? cross(lyerX)
+      : null;
+  if (atLyer) {
+    const span = wallSpan(play.wall);
+    if (
+      atLyer.y > span.lo - R &&
+      atLyer.y < span.hi + R &&
+      atLyer.z - R * 0.8 < FK.wallLyerHeight
+    ) {
+      end(play, 'wall');
+      play.blockedBy = 'lyer';
+      play.underWall = false;
+      b.x = lyerX - 1;
+      b.vx = -Math.abs(b.vx) * 0.25;
+      b.vz = 140;
+      b.spin = b.dip = 0;
     }
   }
 
@@ -599,6 +704,7 @@ export function scoreGoal(play: KickPlay, streak: number): GoalScore {
   if (c && c.z >= BAR_Z * 0.6 && Math.abs(c.y - GOAL_Y) >= POST_HALF - 55)
     tags.push('TOP BINS');
   if (play.overWall) tags.push('OVER THE WALL');
+  if (play.underWall) tags.push('UNDER THE WALL');
   if (Math.abs(play.strike.contact.x) >= 0.5) tags.push('CURLER');
   if (play.hitPost) tags.push('OFF THE POST');
   if (play.setup.distance >= FK.longRange) tags.push('LONG RANGE');

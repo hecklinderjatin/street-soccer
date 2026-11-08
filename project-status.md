@@ -18,6 +18,19 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 **Chaos bot balance (2026-11-08):** Power Surge bots move closer under reduced power and check their chosen charge against the real shot flight. They adjust if it would stop short or go over the bar. Goal Resize bots read lanes from the ball, use the smaller opening to judge placement and aim error, and adjust shot height for the lower bar. AI keepers cover wider goals earlier and have extra reach on airborne saves in taller goals. Gameplay regressions cover both teams at 50% and 150% power, Easy finishing at 50% goal size, and high and wide saves at 150% goal size. Types, lint, the production build and all six mocked Chromium Chaos scenarios pass. Live balance review remains pending.
 
+**Free Kick wall and keeper variety (2026-11-08):** Two of the gameplay improvements from the Free Kick review.
+- **Wall:** it no longer always jumps. At the strike it jumps with `wallJumpChance` (85% at level 1 down to 60%) and otherwise stays down, unseen until then.
+  - A jumping wall's feet rise up to `wallFeetLift` (40 px). A ball wholly below them goes under, if it was driven (slider power at least `underWallMinPower` 0.15). A softer roller meets the men's boots as they land.
+  - At higher levels a man may lie behind the wall (`wallLyerChance` 0 to 40%, visible before the kick; drawn with the lying hurt pose). He stops low balls along the wall's span, and with him the wall always jumps.
+  - New tag UNDER THE WALL (+50).
+- **Keeper:**
+  - Some keepers visibly cheat toward the wall (`keeperCheatChance` 15 to 35%, 0.35 more of the open part).
+  - Some guess a corner at the strike (`keeperGuessChance` 10 to 30%, unseen): they drift there at 230 px/s from 0.08 s and read the real shot 0.1 s later.
+  - Its read now allows for part of the curl and dip (`keeperCurlRead` 0 at level 1 up to 0.6).
+- **Hints:** the aim hint names a lying man or cheating keeper. Retry tips explain a wall that stayed down, the lying man, the under-wall option and a right guess.
+- **Checks:** `test:freekick` has 18 checks (6 new: under the jumping wall but not a standing one, the lying man, variety by level, the cheating stance, the guess drift, the curl read).
+- Not playtested.
+
 **New side run and sprint animations (2026-11-08):** Two user-supplied sheets replace and extend the side-on running:
 - **Run:** six poses replace the old eight-pose `player-run-authored.png` (`RUN_FRAMES` = 6, `RUN_FPS` 12, the same half-second stride).
 - **Sprint:** twelve poses in a new `player-sprint-authored.png` (`SPRINT_FRAMES`, `SPRINT_FPS` 24, same stride). `Player` plays it when sprinting with the side view. Up/down/diagonal views keep their four-pose runs at a fixed 8 fps (`VIEW_RUN_FPS`).
@@ -927,6 +940,7 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Playtest the Free Kick wall/keeper variety: how often under-wall drives work, whether the guessing keeper feels fair, and the lying man's look in the portrait camera.
 - Watch the new run and sprint in a match: stride speed at walk vs sprint, the run-to-sprint switch, and non-pink kits' shorts/sock lines on the high back leg.
 - Check the restyled match info pages on phone and desktop (text fit of long team names, Chaos/Rampage lines, three-button row).
 - Playtest the aerial pass height/hang time (`PASS.airLoft`, `airMaxVz`) and the curl air threshold (`PASS.curlAirWeight`).
@@ -1252,6 +1266,7 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 
 ## Changelog
 
+- **2026-11-08:** Free Kick: the wall sometimes stays down, low drives slip under a jumping wall (UNDER THE WALL tag), a man may lie behind it; keepers may cheat to the wall side, guess a corner or read part of the curl.
 - **2026-11-08:** Moved the Free Kick contact frame onto the ball, moved power to a vertical slider on the left and added a live dotted preview of the shot.
 - **2026-11-08:** Free Kick now uses a draggable contact dot and separate power slider. The swipe chooses the launch direction and shoots. Updated the wall guide, retry tips and flight checks.
 - **2026-11-08:** New six-pose side run and twelve-pose sprint animations from user sheets; atlases re-baked.

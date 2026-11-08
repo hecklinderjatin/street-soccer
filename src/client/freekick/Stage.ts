@@ -109,6 +109,7 @@ export class Stage {
   private readonly trailBands: Phaser.GameObjects.Graphics[];
   private readonly kicker: Figure;
   private readonly wall: Figure[];
+  private readonly lyer: Figure; // lying behind the wall, against low shots
   private readonly keeper: Figure;
   private readonly ball: Phaser.GameObjects.Image;
   private readonly shadow: Phaser.GameObjects.Image;
@@ -133,6 +134,7 @@ export class Stage {
       { length: Math.max(...FK.wallMen) },
       (_, i) => new Figure(scene, kits.wall, look(i + 1))
     );
+    this.lyer = new Figure(scene, kits.wall, look(5));
     this.keeper = new Figure(scene, 'awayKeeper', look(4));
     this.shadow = scene.add.image(0, 0, BALL_SHADOW_KEY);
     this.ball = scene.add.image(0, 0, BALL_KEY, 'a');
@@ -593,6 +595,11 @@ export class Stage {
       if (y === undefined) man.hide();
       else man.draw(cam, wall.x, y, wallFrame);
     });
+    // A man lying across the back of the wall (the lying hurt pose).
+    if (wall.lyer && wall.men.length > 0) {
+      const mid = wall.men.reduce((sum, m) => sum + m, 0) / wall.men.length;
+      this.lyer.draw(cam, wall.x + FK.wallLyerBehind, mid, 'hurt4');
+    } else this.lyer.hide();
 
     // Keeper: stance, jump, dive (frames lead to +y; flipped for -y), or a
     // standing block when it saved the ball without moving.

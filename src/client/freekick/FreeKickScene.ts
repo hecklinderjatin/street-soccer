@@ -66,8 +66,16 @@ const BANNER: Record<Outcome, string> = {
 };
 
 // What to try next after a miss (shown on the retry).
-function advice(outcome: Outcome) {
-  if (outcome === 'wall') return 'STRIKE LOWER OR CURL AROUND THE WALL';
+function advice(play: KickPlay) {
+  const outcome = play.outcome;
+  if (outcome === 'wall' && play.blockedBy === 'lyer')
+    return 'A MAN LIES BEHIND THE WALL: GO OVER OR AROUND';
+  if (outcome === 'wall' && play.wall.jumpAt === Infinity)
+    return 'THE WALL STAYED DOWN: GO HIGHER OR CURL AROUND';
+  if (outcome === 'wall')
+    return 'GO OVER, CURL AROUND, OR DRIVE LOW UNDER THE JUMP';
+  if (outcome === 'saved' && play.keeper.guessY !== null)
+    return 'THE KEEPER GUESSED RIGHT: TRY THE OTHER CORNER';
   if (outcome === 'over') return 'USE LESS POWER OR STRIKE HIGHER';
   if (outcome === 'short') return 'ADD POWER WITH THE SLIDER';
   if (outcome === 'saved') return 'AIM FOR THE CORNERS';
@@ -248,7 +256,16 @@ export class FreeKickScene extends Phaser.Scene {
     this.stage?.setKick(this.cam, retry);
     this.banner.setVisible(false);
     this.bannerSub.setVisible(false);
-    this.hintText.setText(this.hint || 'DRAG DOT  /  SWIPE UP ON PITCH TO SHOOT');
+    // What the player can read before the kick: a man lying behind the
+    // wall, a keeper cheating toward it.
+    const read = this.setup.wall.lyer
+      ? 'A MAN LIES BEHIND THE WALL'
+      : this.setup.keeperStyle === 'cheat'
+        ? 'KEEPER CHEATS TO THE WALL SIDE'
+        : '';
+    this.hintText.setText(
+      this.hint || read || 'DRAG DOT  /  SWIPE UP ON PITCH TO SHOOT'
+    );
     this.hint = '';
     const metres = Math.round(this.setup.distance / FK.pxPerMetre);
     this.kickText.setText(
@@ -353,7 +370,7 @@ export class FreeKickScene extends Phaser.Scene {
           ? `${this.lives} ${this.lives === 1 ? 'LIFE' : 'LIVES'} LEFT`
           : ''
       );
-      this.hint = advice(outcome);
+      this.hint = advice(play);
       this.sfx('goal-miss');
     }
     this.updateHud();
