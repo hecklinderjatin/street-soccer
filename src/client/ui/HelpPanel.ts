@@ -132,7 +132,9 @@ function touchColumns(
   ]);
   y = header(scene, items, left, y, 'WITH THE BALL');
   const passRow = 5 * LINE + 8;
+  // PASS slides like SHOOT (up air, down ground, left/right curl): same arrows.
   disc(scene, items, left + DISC_R, y + passRow / 2, 'PASS');
+  swipeArrows(scene, items, left + DISC_R, y + passRow / 2);
   y = rowText(
     scene,
     items,
@@ -193,10 +195,48 @@ function touchColumns(
 }
 
 // --- Desktop: key caps (current bindings) with what each key does ---
-const KEY_ROW = 30; // a row with a key cap
+type Entry =
+  | { head: string }
+  | { keys: KeyAction[]; text: string }
+  | { note: string };
+
+const LEFT_KEYS: Entry[] = [
+  { head: 'MOVE' },
+  { keys: ['forward', 'left', 'backward', 'right'], text: 'MOVE' },
+  { keys: ['sprint'], text: 'HOLD TO SPRINT' },
+  { head: 'PASS' },
+  { keys: ['pass'], text: 'GROUND PASS (HOLD: PACE)' },
+  { keys: ['lob'], text: 'AIR PASS: OVER DEFENDERS' },
+  { keys: ['passLeft', 'passRight'], text: 'CURL PASS LEFT / RIGHT' },
+  { note: 'TAP: CURL ON THE GROUND' },
+  { note: 'HOLD PAST HALF: AIR CURL' },
+  { head: 'SHOOT (HOLD + RELEASE)' },
+  { keys: ['chip'], text: 'CHIP SHOT' },
+  { keys: ['shotLeft', 'shotRight'], text: 'CURL SHOT LEFT / RIGHT' },
+  { keys: ['power'], text: 'POWER SHOT' },
+  { note: 'GREEN ON RELEASE: PERFECT' },
+];
+const RIGHT_KEYS: Entry[] = [
+  { head: 'WITHOUT THE BALL' },
+  { keys: ['pass'], text: 'TACKLE' },
+  { keys: ['power'], text: 'SWITCH PLAYER' },
+  { head: 'GOALKEEPER' },
+  { keys: ['pass'], text: 'DIVE: AIM WITH MOVE KEYS' },
+  { keys: ['pass'], text: 'BALL IN HANDS: THROW' },
+  { keys: ['power'], text: 'BALL IN HANDS: KICK' },
+  { note: 'SHOT KEYS SHAPE THE KICK' },
+  { head: 'MATCH' },
+  { keys: ['pause'], text: 'PAUSE' },
+  { keys: ['info'], text: 'MATCH INFO' },
+  { keys: ['mute'], text: 'SOUND ON / OFF' },
+  { note: 'REMAP KEYS: CONTROLS, PAGE 1' },
+];
+
+const KEY_ROW = 32; // a row with a key cap (at least)
 const NOTE_ROW = 24; // a muted note under a row
-const DESC_DX = 150; // descriptions start this far right of the column
+const CAP_H = 26;
 const COL_W = 520;
+const COL_BOTTOM = TOP - 8 + 504 - 14; // inside the column tile
 
 type KeyCap = { refresh: (bindings: Readonly<KeyBindings>) => void };
 
@@ -205,88 +245,78 @@ function keyboardColumns(
   items: Item[],
   left: number,
   right: number
-) {
-  const caps: KeyCap[] = [];
-  let x = left;
-  let y = TOP;
-  const head = (text: string) => (y = header(scene, items, x, y, text));
-  const key = (keys: KeyAction[], text: string) => {
-    caps.push(keyRow(scene, items, x, y + KEY_ROW / 2 - 2, keys, text));
-    y += KEY_ROW;
-  };
-  const note = (text: string) => {
-    items.push(
-      fit(
-        pixelText(scene, x + DESC_DX, y + 2, text, BODY, CARD.soft),
-        COL_W - DESC_DX
-      )
-    );
-    y += NOTE_ROW;
-  };
-
-  head('MOVE');
-  key(['forward', 'left', 'backward', 'right'], 'MOVE');
-  key(['sprint'], 'HOLD TO SPRINT');
-  head('PASS');
-  key(['pass'], 'GROUND PASS');
-  note('HOLD TO SET THE PACE');
-  key(['lob'], 'AIR PASS: OVER DEFENDERS');
-  key(['passLeft', 'passRight'], 'CURL PASS LEFT / RIGHT');
-  note('HOLD PAST HALF: AIR CURL');
-  note('TAP: CURL ALONG THE GROUND');
-  head('SHOOT (HOLD + RELEASE)');
-  key(['chip'], 'CHIP SHOT');
-  key(['shotLeft', 'shotRight'], 'CURL SHOT LEFT / RIGHT');
-  key(['power'], 'POWER SHOT');
-  note('GREEN ON RELEASE: PERFECT');
-
-  x = right;
-  y = TOP;
-  head('WITHOUT THE BALL');
-  key(['pass'], 'TACKLE');
-  key(['power'], 'SWITCH PLAYER');
-  head('GOALKEEPER');
-  key(['pass'], 'DIVE: AIM WITH MOVE KEYS');
-  key(['pass'], 'BALL IN HANDS: THROW');
-  key(['power'], 'BALL IN HANDS: KICK');
-  note('SHOT KEYS SHAPE THE KICK');
-  head('MATCH');
-  key(['pause'], 'PAUSE');
-  key(['info'], 'MATCH INFO');
-  key(['mute'], 'SOUND ON / OFF');
-  note('REMAP: CONTROLS ON PAGE 1');
-  return caps;
+): KeyCap[] {
+  return [
+    keyColumn(scene, items, left, LEFT_KEYS),
+    keyColumn(scene, items, right, RIGHT_KEYS),
+  ];
 }
 
-// One key cap (navy, like a secondary button) and its description, centred
-// on y. The cap's label and width follow the current bindings.
-function keyRow(
+// One column of sections. Spare height goes to the gaps between sections
+// first, then to the rows, so the column fills its tile. Descriptions and
+// notes line up just past the column's widest key cap (refresh).
+function keyColumn(
   scene: Phaser.Scene,
   items: Item[],
   x: number,
-  y: number,
-  keys: KeyAction[],
-  text: string
+  entries: Entry[]
 ): KeyCap {
-  const cap = scene.add
-    .rectangle(x, y, 40, 24, CARD.secondary)
-    .setOrigin(0, 0.5)
-    .setStrokeStyle(2, 0x58718c);
-  const label = pixelText(scene, x + 8, y + 1, '', BODY, PAL.yellow).setOrigin(
+  const heads = entries.filter((e) => 'head' in e).length;
+  const rows = entries.filter((e) => 'keys' in e).length;
+  const notes = entries.length - heads - rows;
+  const spare = Math.max(
     0,
-    0.5
+    COL_BOTTOM - TOP - heads * HEAD_ROW - rows * KEY_ROW - notes * NOTE_ROW
   );
-  const desc = pixelText(scene, x + DESC_DX, y + 1, text, BODY, PAL.white);
-  desc.setOrigin(0, 0.5);
-  items.push(cap, label, desc);
+  const headGap = heads > 1 ? Math.min(30, (spare * 0.6) / (heads - 1)) : 0;
+  const rowPad = rows ? Math.min(10, (spare - headGap * (heads - 1)) / rows) : 0;
+
+  const caps: {
+    keys: KeyAction[];
+    cap: Phaser.GameObjects.Rectangle;
+    label: Phaser.GameObjects.BitmapText;
+  }[] = [];
+  const texts: Phaser.GameObjects.BitmapText[] = [];
+  let y = TOP;
+  entries.forEach((e, i) => {
+    if ('head' in e) {
+      if (i > 0) y += headGap;
+      y = header(scene, items, x, y, e.head);
+    } else if ('keys' in e) {
+      const mid = Math.round(y + (KEY_ROW + rowPad) / 2 - 2);
+      const cap = scene.add
+        .rectangle(x, mid, 40, CAP_H, CARD.secondary)
+        .setOrigin(0, 0.5)
+        .setStrokeStyle(2, 0x58718c);
+      const label = pixelText(scene, x + 8, mid + 1, '', BODY, PAL.yellow);
+      const desc = pixelText(scene, x, mid + 1, e.text, BODY, PAL.white);
+      label.setOrigin(0, 0.5);
+      desc.setOrigin(0, 0.5);
+      items.push(cap, label, desc);
+      caps.push({ keys: e.keys, cap, label });
+      texts.push(desc);
+      y += KEY_ROW + rowPad;
+    } else {
+      const note = pixelText(scene, x, y + 2, e.note, BODY, CARD.soft);
+      items.push(note);
+      texts.push(note);
+      y += NOTE_ROW;
+    }
+  });
   return {
     refresh(bindings) {
-      label.setText(keys.map((k) => keyLabel(bindings[k])).join(' '));
-      const w = label.displayWidth + 14;
-      cap.setSize(w, 24);
-      // A long remapped label pushes its description along.
-      desc.setX(Math.max(x + DESC_DX, x + w + 12)).setFontSize(CELL_W * BODY);
-      fit(desc, x + COL_W - desc.x);
+      let widest = 0;
+      for (const { keys, cap, label } of caps) {
+        label.setText(keys.map((k) => keyLabel(bindings[k])).join(' '));
+        const w = Math.round(label.displayWidth + 14);
+        cap.setSize(w, CAP_H);
+        widest = Math.max(widest, w);
+      }
+      const textX = x + widest + 18;
+      for (const text of texts) {
+        text.setX(textX).setFontSize(CELL_W * BODY);
+        fit(text, x + COL_W - textX);
+      }
     },
   };
 }

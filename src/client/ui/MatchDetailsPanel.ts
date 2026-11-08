@@ -23,6 +23,13 @@ type Item = Phaser.GameObjects.GameObject;
 // full-time results card (team cards with kit stripes, stat tiles). Its
 // buttons: START GAME (or RESUME mid-match), NEXT to how to play, and on
 // desktop CONTROLS for the key bindings. Landscape, on the game canvas.
+// Every text size is a whole number of screen pixels per font pixel
+// (BODY = 2, 3, 4, 5, 7) so the letters stay crisp.
+
+const CONTENT_TOP = 152; // below the title
+const CONTENT_BOTTOM = 586; // above the button divider
+const BUTTON_Y = 636;
+
 export function buildMatchDetailsLayer(
   scene: Phaser.Scene,
   config: MatchConfig,
@@ -60,134 +67,11 @@ export function buildMatchDetailsLayer(
     ).setOrigin(0.5)
   );
 
-  // Scoreboard: each team on a card with its kit colour on top, and the
-  // score the match starts from. Every size is a whole number of screen
-  // pixels per font pixel (BODY = 2, 3, 7) so the letters stay crisp.
-  const score = startScore(config);
-  const teamW = 480;
-  const teamTop = 156;
-  const teamH = 180;
-  for (const side of ['home', 'away'] as const) {
-    const x = side === 'home' ? CARD.x + 40 : CARD.x + CARD.width - 40 - teamW;
-    const mid = x + teamW / 2;
-    const team = config[side];
-    items.push(
-      scene.add.rectangle(x, teamTop, teamW, teamH, CARD.team).setOrigin(0),
-      scene.add
-        .rectangle(x, teamTop, teamW, 6, JERSEY_SWATCH[team.jersey])
-        .setOrigin(0),
-      pixelText(
-        scene,
-        mid,
-        teamTop + 26,
-        side === 'home' ? 'YOUR TEAM' : 'OPPONENT',
-        BODY,
-        CARD.muted
-      ).setOrigin(0.5),
-      fit(
-        pixelText(
-          scene,
-          mid,
-          teamTop + 58,
-          team.name,
-          0.75 * PX,
-          PAL.white
-        ).setOrigin(0.5),
-        teamW - 40
-      ),
-      fit(
-        pixelText(
-          scene,
-          mid,
-          teamTop + 88,
-          `${team.formation} - ${team.jersey.toUpperCase()} KIT`,
-          BODY,
-          CARD.muted
-        ).setOrigin(0.5),
-        teamW - 40
-      ),
-      pixelText(
-        scene,
-        mid,
-        teamTop + 138,
-        String(side === 'home' ? score.home : score.away),
-        1.75 * PX,
-        PAL.white
-      ).setOrigin(0.5)
-    );
-  }
-  items.push(
-    pixelText(scene, cx, teamTop + 74, 'VS', 0.75 * PX, CARD.muted).setOrigin(
-      0.5
-    ),
-    pixelText(
-      scene,
-      cx,
-      teamTop + 138,
-      'START SCORE',
-      BODY,
-      CARD.muted
-    ).setOrigin(0.5)
-  );
-
-  // Stat tiles: value on top in green, caption below (as .results-stats).
-  const tiles: [string, string][] = [
-    ['TIME LIMIT', formatClock(config.durationSec)],
-    [
-      chaos ? 'OPPONENT AI' : 'DIFFICULTY',
-      survival ? 'RAMPAGE' : DIFFICULTY_LABEL[config.difficulty],
-    ],
-    [
-      chaos ? 'CHAOS EFFECT' : 'MATCH RULE',
-      chaos
-        ? chaosLabel(config)
-        : survival
-          ? `${survivalLimits(config).goals} GOALS / ${survivalLimits(config).conceded} CONCEDED`
-          : config.dailyMode
-            ? 'FINISH AHEAD'
-            : 'GOLDEN GOAL IF LEVEL',
-    ],
-  ];
-  const gap = 20;
-  const tileW = (CARD.width - 80 - 2 * gap) / 3;
-  const tileTop = 360;
-  for (const [i, [label, value]] of tiles.entries()) {
-    const x = CARD.x + 40 + i * (tileW + gap);
-    tile(scene, items, x, tileTop, tileW, 92);
-    items.push(
-      fit(
-        pixelText(
-          scene,
-          x + tileW / 2,
-          tileTop + 34,
-          value,
-          0.75 * PX,
-          PAL.green
-        ).setOrigin(0.5),
-        tileW - 32
-      ),
-      pixelText(
-        scene,
-        x + tileW / 2,
-        tileTop + 68,
-        label,
-        BODY,
-        CARD.soft
-      ).setOrigin(0.5)
-    );
-  }
-
-  // Objective, then the Chaos / Rampage specifics.
+  // Objective, and the Chaos / Rampage specifics under it.
   const objective = chaos
     ? 'FINISH AHEAD AT FULL TIME. DRAWS FAIL. NO EXTRA TIME.'
     : dailyObjective(config) ||
       'Win the match. Golden goal if level at full time.';
-  items.push(
-    fit(
-      pixelText(scene, cx, 484, objective, BODY, PAL.yellow).setOrigin(0.5),
-      CARD.width - 80
-    )
-  );
   const extra: [string, number][] = [];
   if (chaos) {
     const { effect, strength } = chaosRules(config);
@@ -223,10 +107,140 @@ export function buildMatchDetailsLayer(
         CARD.soft,
       ]
     );
+
+  // Fill the card from the title to the buttons: the team cards, tiles and
+  // objective take the room the Chaos / Rampage lines don't need.
+  const LINE_GAP = 26;
+  const textBlock = 20 + extra.length * LINE_GAP; // objective + extra lines
+  const room = CONTENT_BOTTOM - CONTENT_TOP - textBlock;
+  const gapY = Math.round(room * 0.07); // between the blocks
+  const teamH = Math.round((room - 2 * gapY) * 0.62);
+  const tileH = room - 2 * gapY - teamH;
+  const teamTop = CONTENT_TOP;
+  const tileTop = teamTop + teamH + gapY;
+  const objectiveY = tileTop + tileH + gapY + 10;
+
+  // Scoreboard: each team on a card with its kit colour on top, and the
+  // score the match starts from.
+  const score = startScore(config);
+  const teamW = 480;
+  const scoreY = teamTop + teamH - 54;
+  for (const side of ['home', 'away'] as const) {
+    const x = side === 'home' ? CARD.x + 40 : CARD.x + CARD.width - 40 - teamW;
+    const mid = x + teamW / 2;
+    const team = config[side];
+    items.push(
+      scene.add.rectangle(x, teamTop, teamW, teamH, CARD.team).setOrigin(0),
+      scene.add
+        .rectangle(x, teamTop, teamW, 6, JERSEY_SWATCH[team.jersey])
+        .setOrigin(0),
+      pixelText(
+        scene,
+        mid,
+        teamTop + 30,
+        side === 'home' ? 'YOUR TEAM' : 'OPPONENT',
+        BODY,
+        CARD.muted
+      ).setOrigin(0.5),
+      fit(
+        pixelText(scene, mid, teamTop + 64, team.name, PX, PAL.white).setOrigin(
+          0.5
+        ),
+        teamW - 40
+      ),
+      fit(
+        pixelText(
+          scene,
+          mid,
+          teamTop + 98,
+          `${team.formation} - ${team.jersey.toUpperCase()} KIT`,
+          BODY,
+          CARD.muted
+        ).setOrigin(0.5),
+        teamW - 40
+      ),
+      pixelText(
+        scene,
+        mid,
+        scoreY,
+        String(side === 'home' ? score.home : score.away),
+        1.75 * PX,
+        PAL.white
+      ).setOrigin(0.5)
+    );
+  }
+  items.push(
+    pixelText(scene, cx, teamTop + 64, 'VS', PX, CARD.muted).setOrigin(0.5),
+    pixelText(scene, cx, scoreY, 'START SCORE', BODY, CARD.muted).setOrigin(
+      0.5
+    )
+  );
+
+  // Stat tiles: value on top in green, caption below (as .results-stats).
+  const tiles: [string, string][] = [
+    ['TIME LIMIT', formatClock(config.durationSec)],
+    [
+      chaos ? 'OPPONENT AI' : 'DIFFICULTY',
+      survival ? 'RAMPAGE' : DIFFICULTY_LABEL[config.difficulty],
+    ],
+    [
+      chaos ? 'CHAOS EFFECT' : 'MATCH RULE',
+      chaos
+        ? chaosLabel(config)
+        : survival
+          ? `${survivalLimits(config).goals} GOALS / ${survivalLimits(config).conceded} CONCEDED`
+          : config.dailyMode
+            ? 'FINISH AHEAD'
+            : 'GOLDEN GOAL IF LEVEL',
+    ],
+  ];
+  const gap = 20;
+  const tileW = (CARD.width - 80 - 2 * gap) / 3;
+  for (const [i, [label, value]] of tiles.entries()) {
+    const x = CARD.x + 40 + i * (tileW + gap);
+    tile(scene, items, x, tileTop, tileW, tileH);
+    items.push(
+      fit(
+        pixelText(
+          scene,
+          x + tileW / 2,
+          tileTop + tileH / 2 - 14,
+          value,
+          PX,
+          PAL.green
+        ).setOrigin(0.5),
+        tileW - 32
+      ),
+      pixelText(
+        scene,
+        x + tileW / 2,
+        tileTop + tileH / 2 + 22,
+        label,
+        BODY,
+        CARD.soft
+      ).setOrigin(0.5)
+    );
+  }
+
+  items.push(
+    fit(
+      pixelText(scene, cx, objectiveY, objective, BODY, PAL.yellow).setOrigin(
+        0.5
+      ),
+      CARD.width - 80
+    )
+  );
   extra.forEach(([text, color], i) =>
     items.push(
       fit(
-        pixelText(scene, cx, 512 + i * 24, text, BODY, color).setOrigin(0.5),
+        pixelText(
+          scene,
+          cx,
+          objectiveY + (i + 1) * LINE_GAP,
+          text,
+          BODY,
+          color
+        ).setOrigin(0.5),
         CARD.width - 80
       )
     )
@@ -235,16 +249,23 @@ export function buildMatchDetailsLayer(
   // Actions, as on the results card: the primary in orange, the rest navy.
   items.push(
     scene.add
-      .rectangle(CARD.x + 40, 570, CARD.width - 80, 2, PAL.white, 0.08)
+      .rectangle(
+        CARD.x + 40,
+        CONTENT_BOTTOM + 8,
+        CARD.width - 80,
+        2,
+        PAL.white,
+        0.08
+      )
       .setOrigin(0)
   );
   // Desktop: START GAME | CONTROLS | NEXT. Touch: START GAME | NEXT.
   const buttonGap = 16;
   const shares = actions.controls ? [0.44, 0.28, 0.28] : [0.56, 0.44];
-  const room = CARD.width - 80 - buttonGap * (shares.length - 1);
+  const rowW = CARD.width - 80 - buttonGap * (shares.length - 1);
   let x = CARD.x + 40;
   const place = (share: number) => {
-    const w = room * share;
+    const w = rowW * share;
     const mid = x + w / 2;
     x += w + buttonGap;
     return { w, mid };
@@ -253,7 +274,7 @@ export function buildMatchDetailsLayer(
   const start = new TextButton(
     scene,
     startAt.mid,
-    632,
+    BUTTON_Y,
     'START GAME',
     actions.start,
     { width: startAt.w, height: 64, fill: PAL.orange }
@@ -262,7 +283,7 @@ export function buildMatchDetailsLayer(
   if (actions.controls) {
     const at = place(shares[1] ?? 0.28);
     items.push(
-      new TextButton(scene, at.mid, 632, 'CONTROLS', actions.controls, {
+      new TextButton(scene, at.mid, BUTTON_Y, 'CONTROLS', actions.controls, {
         width: at.w,
         height: 64,
         fill: CARD.secondary,
@@ -271,7 +292,7 @@ export function buildMatchDetailsLayer(
   }
   const nextAt = place(shares[shares.length - 1] ?? 0.44);
   items.push(
-    new TextButton(scene, nextAt.mid, 632, 'NEXT', actions.next, {
+    new TextButton(scene, nextAt.mid, BUTTON_Y, 'NEXT', actions.next, {
       width: nextAt.w,
       height: 64,
       fill: CARD.secondary,
