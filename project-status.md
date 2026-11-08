@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Main merge (2026-11-08):** fast-forwarded `codex/freekick-preview-consistency` through `243d418` into `main` at the user’s request. Includes the shipped blank-preview fix, shared match-card action styling and compact leaderboard footer with an ALL sheet. Existing types, lint and source-only browser checks pass; no application build or Reddit deployment performed.
+
 **Free Kick preview cleanup (2026-11-08):** fix the blank shipped preview: `Phaser.Math.Linear` is absent from `tools/phaser-trim.cjs`; interpolate the kicker positions directly. Reuse normal-match responsive Play/secondary button styling, header spacing, settings row and gradient layout. Replace the LIVE badge with the life count, condense mode copy and move both leaderboard tabs/full results into an ALL sheet with close, Escape and focus handling; the feed shows the same compact seven-day Top 3 footer. Source-only WebGL checks deliberately remove Linear to reproduce the shipped API and verify repeated shots, four viewport sizes and off-screen sleep/resume. Types, lint, feed DOM checks and the full Free Kick intro/results/sharing/pause/Practice browser flow pass. Screenshot inspected at 390x600. No application build or live Reddit writes performed.
 
 **Main merge (2026-11-08):** fast-forwarded `codex/freekick-results-boards` through `2a1b719` into `main` at the user’s request, including the live Free Kick feed preview, two-page intro, results/sharing, dedicated score/speed boards and pause Quit. Existing type, lint, logic, API and source-only Chromium checks pass. No application build or live Reddit deployment performed.
@@ -1321,6 +1323,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-08:** merge the Free Kick blank-preview fix and consistent feed UI into main through `243d418`; prepare the requested GitHub push. No application build or deployment performed.
 
 - **2026-11-08:** fix the Free Kick blank preview caused by the missing trimmed Phaser Linear helper; align the feed card with normal match styling and move full leaderboards to an ALL sheet. Types, lint and source-only browser regressions pass; no application build/deployment performed.
 
