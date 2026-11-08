@@ -25,9 +25,13 @@ A fast 5v5 arcade street football match against the AI, played right inside a Re
 
 **Free Kick controls:** set power with the left slider and shot type with the ball dot below it. Swipe upward across the clear pitch to the right to aim and shoot; the swipe keeps your selected power and shot type. A short swipe trail follows your gesture. The **i** button explains Free Kick controls and rules; **Pause** offers Resume and How to Play. Both panels pause the kick. On desktop, Escape pauses and Tab opens info.
 
+## Free Kick posts
+
+Choose **Create Street Soccer match → Free Kick** to create a standalone Free Kick post. Set a title, optional description and flair; normal match settings are not needed. The post offers **Play** (three lives, score streaks and rising difficulty) and **Practice** (choose a level, unlimited retries at the same spot). Practice keeps the normal best score unchanged; **Pause → New Spot** refreshes the setup at the chosen level. Normal match cards no longer include the Free Kick shortcut. Free Kick best scores are stored on the current device; they do not use match leaderboards.
+
 ## For moderators
 
-Moderators choose **Create Street Soccer match** in the subreddit menu, then select **Daily Challenge**, **Classic**, or **Custom**. Daily Challenge opens a second choice: **Comeback**, **Shield**, **Rampage**, or **Chaos**, followed by settings for that template.
+Moderators choose **Create Street Soccer match** in the subreddit menu, then select **Daily Challenge**, **Classic**, **Custom**, or **Free Kick**. Daily Challenge opens a second choice: **Comeback**, **Shield**, **Rampage**, or **Chaos**, followed by settings for that template.
 
 The final creation form includes **Post flair (optional)**, populated from the community's existing post flair templates. Choose a flair or **No flair**; the selection is applied when the post is created. If there are no templates, add them in Reddit's Post flair settings. A failed flair lookup leaves posting without flair available.
 

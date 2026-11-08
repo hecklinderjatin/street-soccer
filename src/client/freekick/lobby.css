@@ -1,0 +1,116 @@
+#game.freekick-post {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: none;
+}
+.freekick-lobby {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #0c192a;
+  color: #fff1e8;
+  font-family: monospace;
+  display: flex;
+  flex-direction: column;
+}
+.freekick-lobby header {
+  padding: 20px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: clamp(12px, 3.8vw, 20px);
+  font-weight: bold;
+  z-index: 1;
+}
+.freekick-lobby header span {
+  color: #ffec27;
+}
+.freekick-preview {
+  flex: 1;
+  min-height: 80px;
+  position: relative;
+  background: repeating-linear-gradient(
+    0deg,
+    #7e4339 0 18px,
+    #3d3038 18px 21px
+  );
+}
+.freekick-net {
+  position: absolute;
+  inset: 12% 10% 0;
+  border: 6px solid #fff1e8;
+  border-bottom: 0;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 18px, #b2b7bc66 18px 19px),
+    repeating-linear-gradient(90deg, #182d40aa 0 24px, #b2b7bc66 24px 25px);
+}
+.freekick-preview img {
+  position: absolute;
+  width: 64px;
+  height: 64px;
+  left: calc(50% - 32px);
+  bottom: 10px;
+  image-rendering: pixelated;
+}
+.freekick-lobby-details {
+  padding: 20px;
+  background: linear-gradient(#15253b, #08111e);
+}
+.freekick-lobby h1 {
+  margin: 0 0 12px;
+  font-size: clamp(17px, 4.5vw, 28px);
+  line-height: 1.25;
+}
+.freekick-lobby p {
+  margin: 9px 0 16px;
+  color: #a8b9cd;
+  font-size: clamp(11px, 2.9vw, 15px);
+  line-height: 1.4;
+}
+.freekick-description:empty {
+  display: none;
+}
+.freekick-description {
+  max-height: 3.2em;
+  overflow: hidden;
+}
+.freekick-lobby a {
+  box-sizing: border-box;
+  min-height: 52px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  color: #fff1e8;
+  border: 1px solid #3b506b;
+  background: #22354c;
+  font-size: 18px;
+}
+.freekick-lobby .freekick-play {
+  background: #ffa300;
+  color: #111b26;
+  border-color: #ffcc66;
+}
+.freekick-lobby a:focus-visible {
+  outline: 3px solid #29adff;
+  outline-offset: 3px;
+}
+@media (max-height: 480px) {
+  .freekick-lobby header,
+  .freekick-lobby-details {
+    padding: 12px 16px;
+  }
+  .freekick-lobby p {
+    margin: 6px 0 10px;
+  }
+  .freekick-preview {
+    min-height: 40px;
+  }
+  .freekick-preview img {
+    width: 40px;
+    height: 40px;
+    left: calc(50% - 20px);
+  }
+}

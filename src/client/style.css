@@ -293,32 +293,6 @@ body {
   border-bottom: 4px solid #162435;
   font-size: 11px;
 }
-/* Free Kick mode: a link to its own page, styled as a full-width button. */
-#mobile-lobby .mobile-freekick {
-  grid-column: 1 / -1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-  padding: 10px 8px;
-  box-sizing: border-box;
-  background: #008751;
-  border-top: 2px solid #00e436;
-  border-bottom: 4px solid #00532f;
-  box-shadow: 3px 4px #0006;
-  color: inherit;
-  font-size: 13px;
-  text-decoration: none;
-  cursor: pointer;
-  touch-action: manipulation;
-}
-#mobile-lobby .mobile-freekick:active {
-  transform: translateY(2px);
-}
-#mobile-lobby .mobile-freekick:focus-visible {
-  outline: 3px solid #ffec27;
-  outline-offset: 3px;
-}
 #mobile-lobby button[hidden],
 .mobile-board-modal[hidden] {
   display: none;
@@ -506,10 +480,6 @@ body {
   #mobile-lobby .mobile-casual {
     font-size: clamp(11px, 1.25vw, 14px);
   }
-  #mobile-lobby .mobile-freekick {
-    min-height: clamp(44px, 4.4vw, 56px);
-    font-size: clamp(13px, 1.4vw, 16px);
-  }
   .mobile-lobby-details::before {
     inset: -120px 0 0;
     background: linear-gradient(transparent, #060e1bba 30%, #060e1be8);
@@ -536,9 +506,6 @@ body {
   }
   #mobile-lobby .mobile-casual {
     font-size: 9px;
-  }
-  #mobile-lobby .mobile-freekick {
-    font-size: 11px;
   }
 }
 @media (max-height: 650px) {
@@ -581,9 +548,6 @@ body {
   #mobile-lobby .mobile-play,
   #mobile-lobby .mobile-casual {
     min-height: 48px;
-  }
-  #mobile-lobby .mobile-freekick {
-    min-height: 40px;
   }
 }
 

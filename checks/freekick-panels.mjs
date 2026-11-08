@@ -22,6 +22,7 @@ const code = ts.transpileModule(ts.createPrinter().printFile(source), {
     module: ts.ModuleKind.CommonJS,
   },
 }).outputText;
+let savedBests = 0;
 const exports = {};
 const document = { hidden: false };
 vm.runInNewContext(
@@ -29,9 +30,21 @@ vm.runInNewContext(
   {
     exports,
     document,
-    Phaser: { Scene: class {} },
+    Phaser: {
+      Scene: class {},
+      Cameras: { Scene2D: { Events: { FADE_OUT_COMPLETE: 'fade' } } },
+    },
     BALL: { radius: 10 },
-    FK: { pxPerMetre: 30 },
+    FK: { pxPerMetre: 30, fadeSec: 0.4 },
+    PAL: { yellow: 1, blue: 2, orange: 3 },
+    levelFor: (goals) => ({ level: 1 + Math.floor(goals / 2) }),
+    scoreGoal: () => ({ points: 100, tags: [] }),
+    localStorage: {
+      getItem: () => null,
+      setItem: () => {
+        savedBests++;
+      },
+    },
     newProjected: () => ({}),
     buildFreeKickOverlay: (_scene, options) => ({
       options,
@@ -144,4 +157,65 @@ scene.setOverlay('pause');
 assert.equal(scene.overlay, null, 'panels cannot open before assets are ready');
 console.log(
   'Free Kick panels passed: pause/help clocks, held input, return flow, resume, resize and hidden audio'
+);
+
+// Practice keeps misses retryable and cannot write the normal best score.
+Object.assign(scene, {
+  practice: true,
+  phase: 'flight',
+  stage: {},
+  lives: 3,
+  score: 0,
+  goals: 1,
+  streak: 1,
+  bestStreak: 1,
+  hint: '',
+  strike: { power: 0.6 },
+  reducedMotion: { matches: true },
+  measure() {},
+  sfx() {},
+  showBanner() {},
+  updateHud() {},
+  showCard() {},
+});
+scene.onOutcome({ outcome: 'wide' });
+assert.equal(scene.lives, 3, 'practice misses do not spend lives');
+scene.onOutcome({ outcome: 'goal' });
+assert.equal(scene.goals, 2);
+assert.ok(
+  !scene.hint.startsWith('LEVEL'),
+  'practice goals do not announce level progression'
+);
+scene.gameOver();
+assert.equal(savedBests, 0, 'practice cannot update normal best scores');
+let retried = null;
+let transition = null;
+scene.cameras = {
+  main: {
+    fadeOut() {},
+    fadeIn() {},
+    once(_event, callback) {
+      transition = callback;
+    },
+  },
+};
+scene.newKick = (retry) => {
+  retried = retry;
+};
+scene.play = { outcome: 'goal' };
+scene.endKick();
+assert.ok(transition);
+transition();
+assert.equal(
+  retried,
+  true,
+  'practice repeats the same setup even after a goal'
+);
+scene.practice = false;
+scene.onOutcome({ outcome: 'wide' });
+assert.equal(scene.lives, 2, 'normal play still spends lives');
+scene.gameOver();
+assert.equal(savedBests, 1, 'normal play still saves its best score');
+console.log(
+  'Practice passed: unlimited attempts, same-spot retry, no level-up announcement, isolated best score and normal-run regression'
 );

@@ -11,6 +11,8 @@ type OverlayOptions = {
   level: number;
   metres: number;
   lives: number;
+  practice?: boolean;
+  newSpot?: () => void;
   backToPause: boolean;
   resume: () => void;
   help: () => void;
@@ -25,7 +27,11 @@ export function buildFreeKickOverlay(
   const { width, height } = scene.scale;
   const help = options.mode === 'help';
   const panelWidth = Math.min(680, width - 48);
-  const panelHeight = help ? Math.min(1000, height - 80) : 440;
+  const panelHeight = help
+    ? Math.min(1000, height - 80)
+    : options.practice
+      ? 550
+      : 440;
   const left = (width - panelWidth) / 2;
   const top = (height - panelHeight) / 2;
   const root = scene.add.container(0, 0);
@@ -45,14 +51,16 @@ export function buildFreeKickOverlay(
   );
   const text = (y: number, value: string, size: number, color: number) =>
     pixelText(scene, width / 2, top + y, value, size, color).setOrigin(0.5);
-  root.add(text(38, 'FREE KICK', 2, PAL.blue));
+  root.add(
+    text(38, options.practice ? 'FREE KICK PRACTICE' : 'FREE KICK', 2, PAL.blue)
+  );
   root.add(text(88, help ? 'HOW TO PLAY' : 'PAUSED', 4, PAL.white));
 
   if (help) {
     root.add(
       text(
         136,
-        `LEVEL ${options.level} / ${options.metres} M / ${options.lives} LIVES`,
+        `LEVEL ${options.level} / ${options.metres} M / ${options.practice ? 'UNLIMITED SHOTS' : `${options.lives} LIVES`}`,
         2,
         CARD.soft
       )
@@ -72,7 +80,9 @@ export function buildFreeKickOverlay(
       ],
       [
         '4. LIVES AND LEVELS',
-        `Start with ${FK.lives} lives. Each miss costs one life and retries the same spot. Every ${FK.goalsPerLevel} goals raises the level, up to ${FK.maxLevel}.`,
+        options.practice
+          ? 'Unlimited retries at this level and spot. Pause > New Spot changes the setup. Goals do not raise the level.'
+          : `Start with ${FK.lives} lives. Each miss costs one life and retries the same spot. Every ${FK.goalsPerLevel} goals raises the level, up to ${FK.maxLevel}.`,
       ],
       [
         '5. READ THE DEFENCE',
@@ -80,7 +90,9 @@ export function buildFreeKickOverlay(
       ],
       [
         '6. BUILD YOUR SCORE',
-        'Goals earn points and style bonuses. Consecutive goals build a streak multiplier. Your best score is saved on this device.',
+        options.practice
+          ? 'Experiment with power, curl and chip shots. Practice does not change your normal best score.'
+          : 'Goals earn points and style bonuses. Consecutive goals build a streak multiplier. Your best score is saved on this device.',
       ],
     ];
     for (const [i, [heading, body]] of sections.entries()) {
@@ -119,6 +131,17 @@ export function buildFreeKickOverlay(
         fill: CARD.secondary,
       })
     );
+    if (options.practice && options.newSpot)
+      root.add(
+        new TextButton(
+          scene,
+          width / 2,
+          top + 430,
+          'NEW SPOT',
+          options.newSpot,
+          { width: 360, height: 80, textSize: 3, fill: CARD.secondary }
+        )
+      );
   }
   return root;
 }

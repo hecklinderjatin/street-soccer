@@ -1,9 +1,10 @@
-export const POST_TYPES = ['daily', 'classic', 'casual'] as const;
+export const POST_TYPES = ['daily', 'classic', 'casual', 'freekick'] as const;
 export type PostType = (typeof POST_TYPES)[number];
 export const POST_TYPE_LABEL: Record<PostType, string> = {
   daily: 'DAILY CHALLENGE',
   classic: 'CLASSIC',
   casual: 'CUSTOM',
+  freekick: 'FREE KICK',
 };
 
 export const parsePostType = (value: unknown): PostType | null =>
@@ -20,7 +21,7 @@ export function postType(data: unknown): PostType {
 
 // Shared by result saving and score sharing. Legacy clients omit mode.
 export function competitiveResultAllowed(data: unknown, result: unknown) {
-  if (postType(data) === 'casual') return false;
+  if (['casual', 'freekick'].includes(postType(data))) return false;
   if (typeof result !== 'object' || result === null) return false;
   const mode: unknown = Reflect.get(result, 'mode');
   return mode === undefined || mode === 'competitive';

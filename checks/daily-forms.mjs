@@ -127,7 +127,7 @@ assert.equal(
   true
 );
 assert.deepEqual(invalid.showForm.data.startGoalsFor, ['0']);
-for (const type of ['classic', 'casual']) {
+for (const type of ['classic', 'casual', 'freekick']) {
   const response = await post('/match-type', { matchType: [type] });
   assert.equal(response.showForm.name, 'challengeForm');
   assert.equal(
@@ -140,6 +140,18 @@ for (const type of ['classic', 'casual']) {
   });
   assert.ok(created.navigateTo);
   assert.equal(globalThis.formPosts.at(-1).flairId, 'flair-mod');
+  if (type === 'freekick') {
+    assert.equal(
+      response.showForm.form.fields.some((f) =>
+        ['difficulty', 'homeJersey', 'durationSec', 'dailyMode'].includes(
+          f.name
+        )
+      ),
+      false
+    );
+    assert.equal(globalThis.formPosts.at(-1).postData.matchType, 'freekick');
+    assert.equal(globalThis.formPosts.at(-1).postData.match, undefined);
+  }
 }
 
 const flairForm = (await post('/match-type', { matchType: ['casual'] }))

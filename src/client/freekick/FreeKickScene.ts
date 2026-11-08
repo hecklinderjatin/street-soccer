@@ -1,3 +1,4 @@
+import { practiceLevel } from './mode';
 import { buildFreeKickOverlay, type FreeKickOverlay } from './overlay';
 import {
   freeKickControls,
@@ -122,6 +123,8 @@ export class FreeKickScene extends Phaser.Scene {
   private phaseAt = 0; // clock time the phase began
   private clock = 0; // seconds since the scene started
 
+  private practice = false;
+  private practiceLevel = 1;
   private score = 0;
   private goals = 0;
   private lives: number = FK.lives;
@@ -178,6 +181,11 @@ export class FreeKickScene extends Phaser.Scene {
   }
 
   create() {
+    this.practice = this.registry.get('freekickPractice') === true;
+    this.practiceLevel = practiceLevel(
+      this.registry.get('freekickPracticeLevel')
+    );
+    if (this.practice) this.measure = () => {};
     this.overlay = null;
     this.helpReturn = null;
     this.overlayLayer = null;
@@ -269,7 +277,7 @@ export class FreeKickScene extends Phaser.Scene {
     this.music.play(); // or on the first touch, if the browser refuses
     this.newKick(false);
     this.layout();
-    playReady('freekick');
+    if (!this.practice) playReady('freekick');
   }
 
   // Effects load in the background; each plays only once it is in.
@@ -296,7 +304,14 @@ export class FreeKickScene extends Phaser.Scene {
   private newKick(retry: boolean) {
     this.resetGesture();
     if (!retry) {
-      this.setup = makeKick(levelFor(this.goals), Math.random);
+      this.setup = makeKick(
+        levelFor(
+          this.practice
+            ? (this.practiceLevel - 1) * FK.goalsPerLevel
+            : this.goals
+        ),
+        Math.random
+      );
       this.lastPower = null;
       this.contact = ballContact(0, 0);
       this.power = FK.defaultPower;
@@ -323,7 +338,7 @@ export class FreeKickScene extends Phaser.Scene {
     this.hint = '';
     const metres = Math.round(this.setup.distance / FK.pxPerMetre);
     this.kickText.setText(
-      `${this.retry ? 'RETRY' : `LEVEL ${this.setup.level.level}`}  ${metres} M`
+      `${this.practice ? `PRACTICE LEVEL ${this.setup.level.level}` : this.retry ? 'RETRY' : `LEVEL ${this.setup.level.level}`}  ${metres} M`
     );
     this.updateHud();
     this.setPhase('aim');
@@ -400,7 +415,7 @@ export class FreeKickScene extends Phaser.Scene {
       this.bestStreak = Math.max(this.bestStreak, this.streak);
       const { points, tags } = scoreGoal(play, this.streak);
       this.score += points;
-      const up = levelFor(this.goals).level > level;
+      const up = !this.practice && levelFor(this.goals).level > level;
       // One line per style tag: all five side by side overflow the view.
       this.showBanner('GOAL!', PAL.yellow, [`+${points}`, ...tags].join('\n'));
       if (up) this.hint = `LEVEL ${level + 1}! THE WALL GETS TOUGHER`;
@@ -410,15 +425,17 @@ export class FreeKickScene extends Phaser.Scene {
         this.cameras.main.shake(220, 0.006);
       }
     } else {
-      this.lives--;
+      if (!this.practice) this.lives--;
       this.streak = 0;
       this.lastPower = this.strike?.power ?? null;
       this.showBanner(
         BANNER[outcome],
         outcome === 'saved' ? PAL.blue : PAL.orange,
-        this.lives > 0
-          ? `${this.lives} ${this.lives === 1 ? 'LIFE' : 'LIVES'} LEFT`
-          : ''
+        this.practice
+          ? 'UNLIMITED PRACTICE'
+          : this.lives > 0
+            ? `${this.lives} ${this.lives === 1 ? 'LIFE' : 'LIVES'} LEFT`
+            : ''
       );
       this.hint = advice(play);
       this.sfx('goal-miss');
@@ -428,7 +445,7 @@ export class FreeKickScene extends Phaser.Scene {
 
   private endKick() {
     this.setPhase('next');
-    if (this.lives <= 0) {
+    if (!this.practice && this.lives <= 0) {
       this.gameOver();
       return;
     }
@@ -437,12 +454,13 @@ export class FreeKickScene extends Phaser.Scene {
     const main = this.cameras.main;
     main.fadeOut(half, 0x1d, 0x2b, 0x53);
     main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-      this.newKick(!goal);
+      this.newKick(this.practice || !goal);
       main.fadeIn(half, 0x1d, 0x2b, 0x53);
     });
   }
 
   private gameOver() {
+    if (this.practice) return;
     this.measure('completed');
     this.setPhase('over');
     this.sfx('match-over');
@@ -453,7 +471,7 @@ export class FreeKickScene extends Phaser.Scene {
 
   private restart() {
     this.measure('rematch_tap');
-    this.measure = playAttempt('freekick');
+    this.measure = this.practice ? () => {} : playAttempt('freekick');
     for (const node of this.card) node.destroy();
     this.card = [];
     this.score = this.goals = this.streak = this.bestStreak = 0;
@@ -840,7 +858,9 @@ export class FreeKickScene extends Phaser.Scene {
   private buildHud() {
     const text = (size: number, color: number = PAL.white) =>
       pixelText(this, 0, 0, '', size, color).setDepth(HUD);
-    this.scoreLabel = text(2, PAL.lightGray).setText('SCORE');
+    this.scoreLabel = text(2, PAL.lightGray).setText(
+      this.practice ? 'PRACTICE GOALS' : 'SCORE'
+    );
     this.scoreText = text(6);
     this.streakText = text(3, PAL.yellow);
     this.kickText = text(3).setOrigin(0.5, 0);
@@ -998,6 +1018,12 @@ export class FreeKickScene extends Phaser.Scene {
       level: this.setup.level.level,
       metres: Math.round(this.setup.distance / FK.pxPerMetre),
       lives: this.lives,
+      practice: this.practice,
+      newSpot: () => {
+        this.setOverlay(null);
+        this.hint = '';
+        this.newKick(false);
+      },
       backToPause: this.helpReturn === 'pause',
       resume: () => this.setOverlay(null),
       help: () => this.setOverlay('help'),
@@ -1006,7 +1032,7 @@ export class FreeKickScene extends Phaser.Scene {
   }
 
   private updateHud() {
-    this.scoreText.setText(String(this.score));
+    this.scoreText.setText(String(this.practice ? this.goals : this.score));
     const multiplier = Math.min(
       FK.streakMax,
       1 + FK.streakStep * Math.max(0, this.streak - 1)
@@ -1015,7 +1041,7 @@ export class FreeKickScene extends Phaser.Scene {
       this.streak >= 2 ? `STREAK ${this.streak}  X${multiplier}` : ''
     );
     this.lifeIcons.forEach((icon, i) =>
-      icon.setAlpha(i < this.lives ? 1 : 0.2)
+      icon.setVisible(!this.practice).setAlpha(i < this.lives ? 1 : 0.2)
     );
   }
 

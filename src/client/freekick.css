@@ -73,3 +73,39 @@ body {
     animation: none;
   }
 }
+
+.freekick-practice-setup {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 20px;
+  padding: 32px;
+  background: #0c192a;
+  color: #fff1e8;
+  font-family: monospace;
+}
+.freekick-practice-setup h1 {
+  color: #ffec27;
+  font-size: clamp(20px, 5vw, 32px);
+}
+.freekick-practice-setup p {
+  line-height: 1.5;
+  color: #a8b9cd;
+}
+.freekick-practice-setup select,
+.freekick-practice-setup button {
+  font: inherit;
+  font-size: 18px;
+  padding: 16px;
+  min-height: 52px;
+  border: 1px solid #3b506b;
+  background: #22354c;
+  color: #fff1e8;
+}
+.freekick-practice-setup button {
+  background: #ffa300;
+  color: #08111e;
+  font-weight: bold;
+}

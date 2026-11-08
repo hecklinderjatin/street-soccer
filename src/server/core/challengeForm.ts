@@ -221,9 +221,11 @@ export function challengeFormFor(
   return {
     title: 'Create a Street Soccer match',
     description:
-      matchType === 'casual'
-        ? 'Create a Custom post from your Reddit account. Players freely choose their formations, difficulty and match time.'
-        : 'Create a post from your Reddit account. Ranked matches use these fixed settings; players can also choose unranked Custom.',
+      matchType === 'freekick'
+        ? 'Create a standalone Free Kick post with Play and unlimited Practice.'
+        : matchType === 'casual'
+          ? 'Create a Custom post from your Reddit account. Players freely choose their formations, difficulty and match time.'
+          : 'Create a post from your Reddit account. Ranked matches use these fixed settings; players can also choose unranked Custom.',
     acceptLabel: 'Create post',
     fields: [
       {
@@ -268,7 +270,7 @@ export function challengeFormFor(
         helpText: `Shown on the post before playing, up to ${CUSTOM_MATCH.descriptionMaxLength} characters`,
       },
       ...dailyFields,
-      ...(matchType === 'casual'
+      ...(['casual', 'freekick'].includes(matchType)
         ? []
         : matchFields
             .filter((field) => {
@@ -412,12 +414,16 @@ export function readChallenge(
   const description = (values.description ?? '').trim();
   if (description.length > CUSTOM_MATCH.descriptionMaxLength)
     return `Challenge text: at most ${CUSTOM_MATCH.descriptionMaxLength} characters`;
-  if (matchType === 'casual')
+  if (matchType === 'casual' || matchType === 'freekick')
     return {
       title,
       description,
       matchType,
-      config: { ...DEFAULT_MATCH_CONFIG, mode: 'casual', locked: false },
+      config: {
+        ...DEFAULT_MATCH_CONFIG,
+        mode: matchType === 'casual' ? 'casual' : 'competitive',
+        locked: false,
+      },
     };
   const dailyMode =
     matchType === 'daily' ? parseDailyMode(values.dailyMode?.[0]) : undefined;

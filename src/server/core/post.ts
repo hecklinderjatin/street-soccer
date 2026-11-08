@@ -17,19 +17,27 @@ export const createPost = async (challenge?: Challenge, flairId?: string) => {
             challenge.matchType,
             challenge.title,
             challenge.description,
-            JSON.stringify(challenge.config),
+            ...(challenge.matchType === 'freekick'
+              ? []
+              : [JSON.stringify(challenge.config)]),
           ].join('\n\n'),
         },
         postData: {
           matchType: challenge.matchType,
-          match: challenge.config,
+          ...(challenge.matchType === 'freekick'
+            ? {}
+            : { match: challenge.config }),
           description: challenge.description,
         },
       })
     : await reddit.submitCustomPost({ title: 'Street Soccer' });
   // The stickied comment score-only shares reply to (Devvit Rules).
   try {
-    if (challenge?.matchType !== 'casual') await scoreThread(post.id);
+    if (
+      challenge?.matchType !== 'casual' &&
+      challenge?.matchType !== 'freekick'
+    )
+      await scoreThread(post.id);
   } catch (error) {
     console.warn('Could not create the scores comment:', error);
   }

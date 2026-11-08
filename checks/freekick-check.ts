@@ -1,3 +1,7 @@
+import { practiceLevel } from '../src/client/freekick/mode';
+import { postType, competitiveResultAllowed } from '../src/shared/postType';
+import { challengeFormFor, readChallenge } from '../src/server/core/challengeForm';
+import { parseMatchConfig } from '../src/shared/matchConfig';
 import {
   freeKickControls,
   freeKickGesture,
@@ -105,6 +109,19 @@ check(
 
   }
 );
+check('standalone Free Kick posts omit match settings and reject match leaderboards', () => {
+  const form = challengeFormFor('freekick');
+  assert.ok(!form.fields.some(field => ['dailyMode', 'difficulty', 'durationSec', 'homeJersey'].includes(field.name)));
+  const created = readChallenge({ matchType: ['freekick'], title: 'Free Kick', description: 'Play or practise' }, parseMatchConfig);
+  assert.ok(typeof created !== 'string');
+  assert.equal(created.matchType, 'freekick');
+  assert.equal(postType({ matchType: 'freekick' }), 'freekick');
+  assert.equal(competitiveResultAllowed({ matchType: 'freekick' }, { mode: 'competitive' }), false);
+});
+check('practice levels accept the supported whole levels only', () => {
+  for (let level = 1; level <= FK.maxLevel; level++) assert.equal(practiceLevel(level), level);
+  for (const value of [0, -1, FK.maxLevel + 1, 1.5, '3', null, undefined, Infinity]) assert.equal(practiceLevel(value), 1);
+});
 check('swipe: a tap or a downward swipe is no shot', () => {
   const up = (length: number) => [
     { x: 300, y: 900 },
