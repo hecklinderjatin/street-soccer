@@ -12,104 +12,181 @@ import {
 import { formatClock } from '../../shared/matchConfig';
 import { POST_TYPE_LABEL, type PostType } from '../../shared/postType';
 import { VIEW } from '../../shared/tuning';
+import { BODY, CARD, fit, infoFrame, tile } from './infoCard';
 import { PAL, PX, JERSEY_SWATCH } from './palette';
 import { pixelText } from './pixelFont';
 import { TextButton } from './TextButton';
 
-// Read-only match briefing, before the controls page. It shares the game
-// canvas layout/rotation and has no independent scroll area on mobile.
+type Item = Phaser.GameObjects.GameObject;
+
+// Page 1 of the i button's match info: the briefing, styled like the
+// full-time results card (team cards with kit stripes, stat tiles). Its
+// buttons: START GAME (or RESUME mid-match), NEXT to how to play, and on
+// desktop CONTROLS for the key bindings. Landscape, on the game canvas.
 export function buildMatchDetailsLayer(
   scene: Phaser.Scene,
   config: MatchConfig,
   type: PostType,
-  next: () => void
+  actions: { start: () => void; next: () => void; controls?: () => void }
 ) {
-  const root = scene.add.container(0, 0).setDepth(10);
-  root.add(
-    scene.add
-      .rectangle(0, 0, VIEW.width, VIEW.height, PAL.black, 0.8)
-      .setOrigin(0)
-      .setInteractive()
-  );
-  root.add(
-    scene.add
-      .rectangle(VIEW.width / 2, 360, 1200, 680, PAL.ink)
-      .setStrokeStyle(3, PAL.navy)
-  );
-  root.add(
-    pixelText(scene, 640, 65, 'MATCH DETAILS', PX, PAL.yellow).setOrigin(0.5)
-  );
-  const mode =
-    config.mode === 'casual'
-      ? 'CUSTOM - UNRANKED'
+  const items: Item[] = [];
+  const cx = VIEW.width / 2;
+  const casual = config.mode === 'casual';
+  const chaos = config.dailyMode === 'chaos';
+  const survival = config.dailyMode === 'survival';
+  infoFrame(scene, items, {
+    accent: PAL.yellow,
+    tag: casual
+      ? 'CUSTOM'
       : config.dailyMode
         ? DAILY_LABEL[config.dailyMode]
-        : POST_TYPE_LABEL[type];
-  root.add(
-    pixelText(scene, 640, 112, mode, 0.7 * PX, PAL.white).setOrigin(0.5)
+        : POST_TYPE_LABEL[type],
+    tagColor: casual ? PAL.blue : PAL.yellow,
+    page: 'MATCH INFO  1 / 2',
+  });
+
+  // Hero, as the results title.
+  items.push(
+    pixelText(scene, cx, 100, 'MATCH DETAILS', 1.25 * PX, PAL.yellow).setOrigin(
+      0.5
+    ),
+    pixelText(
+      scene,
+      cx,
+      138,
+      casual ? 'UNRANKED MATCH' : 'RANKED MATCH',
+      BODY,
+      CARD.muted
+    ).setOrigin(0.5)
   );
+
+  // Scoreboard: each team on a card with its kit colour on top, and the
+  // score the match starts from.
   const score = startScore(config);
-  const entries: [string, string][] = [
-    ['YOUR TEAM', `${config.home.name} (${config.home.jersey.toUpperCase()})`],
-    ['OPPONENT', `${config.away.name} (${config.away.jersey.toUpperCase()})`],
+  const teamW = 500;
+  const teamTop = 166;
+  const teamH = 150;
+  for (const side of ['home', 'away'] as const) {
+    const x = side === 'home' ? CARD.x + 40 : CARD.x + CARD.width - 40 - teamW;
+    const mid = x + teamW / 2;
+    const team = config[side];
+    items.push(
+      scene.add.rectangle(x, teamTop, teamW, teamH, CARD.team).setOrigin(0),
+      scene.add
+        .rectangle(x, teamTop, teamW, 6, JERSEY_SWATCH[team.jersey])
+        .setOrigin(0),
+      pixelText(
+        scene,
+        mid,
+        teamTop + 26,
+        side === 'home' ? 'YOUR TEAM' : 'OPPONENT',
+        0.4 * PX,
+        CARD.muted
+      ).setOrigin(0.5),
+      fit(
+        pixelText(
+          scene,
+          mid,
+          teamTop + 54,
+          team.name,
+          0.75 * PX,
+          PAL.white
+        ).setOrigin(0.5),
+        teamW - 40
+      ),
+      pixelText(
+        scene,
+        mid,
+        teamTop + 80,
+        `${team.formation}  ${team.jersey.toUpperCase()} KIT`,
+        0.4 * PX,
+        CARD.muted
+      ).setOrigin(0.5),
+      pixelText(
+        scene,
+        mid,
+        teamTop + 118,
+        String(side === 'home' ? score.home : score.away),
+        1.75 * PX,
+        PAL.white
+      ).setOrigin(0.5)
+    );
+  }
+  items.push(
+    pixelText(scene, cx, teamTop + teamH / 2, 'VS', BODY, CARD.muted).setOrigin(
+      0.5
+    )
+  );
+  items.push(
+    pixelText(
+      scene,
+      cx,
+      teamTop + teamH - 18,
+      'START SCORE',
+      0.35 * PX,
+      CARD.muted
+    ).setOrigin(0.5)
+  );
+
+  // Stat tiles: value on top in green, caption below (as .results-stats).
+  const tiles: [string, string][] = [
     ['TIME LIMIT', formatClock(config.durationSec)],
     [
-      config.dailyMode === 'chaos' ? 'OPPONENT AI' : 'DIFFICULTY',
-      config.dailyMode === 'survival'
-        ? 'RAMPAGE'
-        : DIFFICULTY_LABEL[config.difficulty],
-    ],
-    ['YOUR FORMATION', config.home.formation],
-    ['OPP FORMATION', config.away.formation],
-    [
-      config.dailyMode === 'chaos' ? 'START SCORE (YOU - CPU)' : 'START SCORE',
-      `${score.home} - ${score.away}`,
+      chaos ? 'OPPONENT AI' : 'DIFFICULTY',
+      survival ? 'RAMPAGE' : DIFFICULTY_LABEL[config.difficulty],
     ],
     [
-      config.dailyMode === 'chaos' ? 'CHAOS EFFECT' : 'MATCH RULE',
-      config.dailyMode === 'chaos'
+      chaos ? 'CHAOS EFFECT' : 'MATCH RULE',
+      chaos
         ? chaosLabel(config)
-        : config.dailyMode === 'survival'
+        : survival
           ? `${survivalLimits(config).goals} GOALS / ${survivalLimits(config).conceded} CONCEDED`
           : config.dailyMode
             ? 'FINISH AHEAD'
             : 'GOLDEN GOAL IF LEVEL',
     ],
   ];
-  for (const [i, [label, value]] of entries.entries()) {
-    const x = i % 2 === 0 ? 86 : 666,
-      y = 157 + Math.floor(i / 2) * 81;
-    root.add(scene.add.rectangle(x, y, 528, 69, PAL.navy, 0.65).setOrigin(0));
-    root.add(pixelText(scene, x + 16, y + 8, label, 0.45 * PX, PAL.lightGray));
-    if (i < 2)
-      root.add(
-        scene.add
-          .rectangle(
-            x,
-            y,
-            4,
-            69,
-            JERSEY_SWATCH[i === 0 ? config.home.jersey : config.away.jersey]
-          )
-          .setOrigin(0)
-      );
-    root.add(pixelText(scene, x + 16, y + 34, value, 0.65 * PX, PAL.white));
+  const gap = 20;
+  const tileW = (CARD.width - 80 - 2 * gap) / 3;
+  const tileTop = 336;
+  for (const [i, [label, value]] of tiles.entries()) {
+    const x = CARD.x + 40 + i * (tileW + gap);
+    tile(scene, items, x, tileTop, tileW, 84);
+    items.push(
+      fit(
+        pixelText(
+          scene,
+          x + tileW / 2,
+          tileTop + 32,
+          value,
+          0.75 * PX,
+          PAL.green
+        ).setOrigin(0.5),
+        tileW - 32
+      ),
+      pixelText(
+        scene,
+        x + tileW / 2,
+        tileTop + 62,
+        label,
+        0.4 * PX,
+        CARD.soft
+      ).setOrigin(0.5)
+    );
   }
-  const chaos = config.dailyMode === 'chaos';
+
+  // Objective, then the Chaos / Rampage specifics.
   const objective = chaos
     ? 'FINISH AHEAD AT FULL TIME. DRAWS FAIL. NO EXTRA TIME.'
     : dailyObjective(config) ||
       'Win the match. Golden goal if level at full time.';
-  root.add(
-    pixelText(
-      scene,
-      640,
-      config.dailyMode === 'survival' || chaos ? 497 : 510,
-      objective,
-      0.5 * PX,
-      PAL.yellow
-    ).setOrigin(0.5)
+  items.push(
+    fit(
+      pixelText(scene, cx, 456, objective, BODY, PAL.yellow).setOrigin(0.5),
+      CARD.width - 80
+    )
   );
+  const extra: [string, number][] = [];
   if (chaos) {
     const { effect, strength } = chaosRules(config);
     const delta = Math.abs(strength - 100);
@@ -123,61 +200,88 @@ export function buildMatchDetailsLayer(
         : effect === 'slippery'
           ? 'MOVEMENT SPEED + TACKLE REACH'
           : 'GOAL WIDTH/HEIGHT + END WALL HEIGHT';
-    const description = effect
-      ? `${setting}: ${strength}% OF NORMAL (${comparison}).`
-      : 'STANDARD SETTINGS - NO CHAOS EFFECT SELECTED.';
-    root.add(
-      pixelText(scene, 640, 526, description, 0.5 * PX, PAL.pink).setOrigin(0.5)
-    );
-    root.add(
-      pixelText(
-        scene,
-        640,
-        554,
-        'ONE FIXED EFFECT. BOTH TEAMS. WHOLE MATCH. 100% = NORMAL.',
-        0.5 * PX,
-        PAL.lightGray
-      ).setOrigin(0.5)
+    extra.push(
+      [
+        effect
+          ? `${setting}: ${strength}% OF NORMAL (${comparison}).`
+          : 'STANDARD SETTINGS - NO CHAOS EFFECT SELECTED.',
+        PAL.pink,
+      ],
+      ['ONE FIXED EFFECT. BOTH TEAMS. WHOLE MATCH. 100% = NORMAL.', CARD.soft]
     );
   }
-  if (config.dailyMode === 'survival') {
-    root.add(
-      pixelText(
-        scene,
-        640,
-        526,
+  if (survival)
+    extra.push(
+      [
         `${survivalProgression(config)}${survivalLimits(config).goals > 5 ? ' (THEN STAYS PRO)' : ''}`,
-        0.5 * PX,
-        PAL.pink
-      ).setOrigin(0.5)
-    );
-    root.add(
-      pixelText(
-        scene,
-        640,
-        554,
+        PAL.pink,
+      ],
+      [
         'YOUR GOALS LEVEL UP AI + KEEPER. TIMEOUT FAILS. FASTEST CLEARS RANK.',
-        0.5 * PX,
-        PAL.lightGray
-      ).setOrigin(0.5)
+        CARD.soft,
+      ]
+    );
+  extra.forEach(([text, color], i) =>
+    items.push(
+      fit(
+        pixelText(scene, cx, 490 + i * 28, text, BODY, color).setOrigin(0.5),
+        CARD.width - 80
+      )
+    )
+  );
+
+  // Actions, as on the results card: the primary in orange, the rest navy.
+  items.push(
+    scene.add
+      .rectangle(CARD.x + 40, 580, CARD.width - 80, 2, PAL.white, 0.08)
+      .setOrigin(0)
+  );
+  // Desktop: START GAME | CONTROLS | NEXT. Touch: START GAME | NEXT.
+  const buttonGap = 16;
+  const shares = actions.controls ? [0.44, 0.28, 0.28] : [0.56, 0.44];
+  const room = CARD.width - 80 - buttonGap * (shares.length - 1);
+  let x = CARD.x + 40;
+  const place = (share: number) => {
+    const w = room * share;
+    const mid = x + w / 2;
+    x += w + buttonGap;
+    return { w, mid };
+  };
+  const startAt = place(shares[0] ?? 0.5);
+  const start = new TextButton(
+    scene,
+    startAt.mid,
+    632,
+    'START GAME',
+    actions.start,
+    { width: startAt.w, height: 64, fill: PAL.orange }
+  );
+  items.push(start);
+  if (actions.controls) {
+    const at = place(shares[1] ?? 0.28);
+    items.push(
+      new TextButton(scene, at.mid, 632, 'CONTROLS', actions.controls, {
+        width: at.w,
+        height: 64,
+        fill: CARD.secondary,
+      })
     );
   }
-  root.add(
-    pixelText(
-      scene,
-      640,
-      587,
-      '1 / 2 - MATCH DETAILS',
-      0.45 * PX,
-      PAL.lightGray
-    ).setOrigin(0.5)
-  );
-  root.add(
-    new TextButton(scene, 640, 647, 'NEXT', next, {
-      width: 360,
-      height: 60,
-      fill: PAL.orange,
+  const nextAt = place(shares[shares.length - 1] ?? 0.44);
+  items.push(
+    new TextButton(scene, nextAt.mid, 632, 'NEXT', actions.next, {
+      width: nextAt.w,
+      height: 64,
+      fill: CARD.secondary,
     })
   );
-  return root;
+
+  const layer = scene.add.container(0, 0, items).setDepth(10);
+  return {
+    layer,
+    // START GAME before kickoff; RESUME when opened mid-match.
+    setStartLabel(text: string) {
+      start.setLabel(text);
+    },
+  };
 }

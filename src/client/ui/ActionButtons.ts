@@ -27,7 +27,7 @@ const SWIPES: SwipeDir[] = [
   { dx: 1, dy: 0 },
 ];
 const SWIPE_NAMES: Record<string, readonly string[]> = {
-  PASS: ['LOB', 'DRIVE', 'CURL', 'CURL'],
+  PASS: ['AIR', 'GROUND', 'CURL', 'CURL'],
   SHOOT: ['CHIP', 'POWER', 'CURL', 'CURL'],
   KICK: ['PUNT', 'DRIVE', 'CURL', 'CURL'],
 };

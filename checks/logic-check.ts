@@ -68,6 +68,7 @@ import { postConfig, readStats } from '../src/server/core/matchStats';
 import { scoreComment } from '../src/server/core/scoreComment';
 import { MatchFlow } from '../src/client/systems/MatchFlow';
 import { Controls } from '../src/client/systems/Controls';
+import { actionForKey, DEFAULT_KEYS } from '../src/client/systems/keyBindings';
 
 let passed = 0;
 function check(name: string, fn: () => void) {
@@ -258,104 +259,76 @@ check(
   }
 );
 
-check(
-  'keyboard: WASD directions, normalized diagonals and left Shift sprint',
-  () => {
-    const keys = new Map<string, any>();
-    const scene: any = {
-      input: {
-        keyboard: {
-          addKey(code: string) {
-            if (!keys.has(code)) keys.set(code, { isDown: false, location: 0 });
-            return keys.get(code);
-          },
-        },
-      },
-    };
-    const controls = new Controls();
-    controls.bindKeyboard(scene);
-    for (const [code, x, y] of [
-      ['W', 0, -1],
-      ['S', 0, 1],
-      ['A', -1, 0],
-      ['D', 1, 0],
-    ] as const) {
-      keys.get(code).isDown = true;
-      controls.sample();
-      assert.equal(controls.move.x, x);
-      assert.equal(controls.move.y, y);
-      assert.equal(controls.sprint, false);
-      keys.get(code).isDown = false;
-    }
-    keys.get('W').isDown = keys.get('D').isDown = true;
-    keys.get('SHIFT').isDown = true;
-    keys.get('SHIFT').location = 1;
+check('keyboard: movement and both Shift keys, with remapping', () => {
+  const controls = new Controls();
+  for (const [code, x, y] of [
+    ['KeyW', 0, -1],
+    ['KeyS', 0, 1],
+    ['KeyA', -1, 0],
+    ['KeyD', 1, 0],
+  ] as const) {
+    const action = actionForKey(controls.keyBindings, code);
+    assert.ok(action);
+    controls.keyDown(code, action);
     controls.sample();
-    assert.equal(controls.sprint, true);
-    assert.equal(controls.move.r, 1);
-    assert.ok(
-      Math.abs(Math.hypot(controls.move.x, controls.move.y) - 1) < 1e-9
-    );
-    keys.get('SHIFT').location = 2;
-    controls.sample();
+    assert.equal(controls.move.x, x);
+    assert.equal(controls.move.y, y);
     assert.equal(controls.sprint, false);
+    controls.keyUp(code);
   }
-);
+  controls.keyDown('KeyW', 'forward');
+  controls.keyDown('KeyD', 'right');
+  controls.keyDown('ShiftLeft', 'sprint');
+  controls.keyDown('ShiftRight', 'sprint');
+  controls.keyUp('ShiftLeft');
+  controls.sample();
+  assert.equal(controls.sprint, true);
+  assert.equal(controls.move.r, 1);
+  assert.ok(Math.abs(Math.hypot(controls.move.x, controls.move.y) - 1) < 1e-9);
+  controls.keyUp('ShiftRight');
+  controls.sample();
+  assert.equal(controls.sprint, false);
+  controls.setKeyBindings({ ...DEFAULT_KEYS, forward: 'ArrowUp' });
+  controls.sample();
+  assert.equal(controls.move.r, 0, 'rebinding clears held movement');
+  assert.equal(actionForKey(controls.keyBindings, 'KeyW'), undefined);
+  assert.equal(actionForKey(controls.keyBindings, 'ArrowUp'), 'forward');
+  controls.keyDown('ArrowUp', 'forward');
+  controls.sample();
+  assert.equal(controls.move.y, -1);
+});
 
-check(
-  'keyboard: N pass/tackle and I/J/K/L shot effects hold and release',
-  () => {
-    const keys = new Map<string, any>();
-    const scene: any = {
-      input: {
-        keyboard: {
-          addKey(code: string) {
-            if (!keys.has(code)) keys.set(code, { isDown: false, location: 0 });
-            return keys.get(code);
-          },
-        },
-      },
-    };
-    const controls = new Controls();
-    controls.bindKeyboard(scene);
-    keys.get('N').isDown = true;
-    controls.sample();
-    assert.equal(controls.isHeld(1), true);
-    assert.equal(controls.isHeld(2), false);
-    keys.get('N').isDown = false;
-    controls.sample();
-    assert.equal(controls.isHeld(1), false);
-    for (const [code, x, y] of [
-      ['I', 0, -1],
-      ['J', -1, 0],
-      ['K', 0, 1],
-      ['L', 1, 0],
-    ] as const) {
-      keys.get(code).isDown = true;
-      controls.sample();
-      assert.equal(controls.isHeld(1), false);
-      assert.equal(controls.isHeld(2), true);
-      assert.deepEqual(controls.swipeFor(2), { x, y });
-      controls.consume(2);
-      controls.sample();
-      assert.equal(
-        controls.pressAge(2),
-        Infinity,
-        'holding does not trigger repeated presses'
-      );
-      keys.get(code).isDown = false;
-      controls.sample();
-      assert.equal(controls.isHeld(2), false);
-      assert.deepEqual(
-        controls.swipeFor(2),
-        { x, y },
-        'effect survives release for the shot'
-      );
-    }
-    assert.equal(keys.has('T'), false);
-    assert.equal(keys.has('G'), false);
+check('keyboard: pass and shot styles keep their swipe after release', () => {
+  const controls = new Controls();
+  for (const [code, id, x, y] of [
+    ['KeyN', 1, 0, 0],
+    ['KeyB', 1, 0, -1],
+    ['KeyV', 1, -1, 0],
+    ['KeyM', 1, 1, 0],
+    ['KeyI', 2, 0, -1],
+    ['KeyJ', 2, -1, 0],
+    ['KeyK', 2, 0, 1],
+    ['KeyL', 2, 1, 0],
+  ] as const) {
+    const action = actionForKey(controls.keyBindings, code);
+    assert.ok(action);
+    controls.keyDown(code, action);
+    assert.equal(controls.isHeld(id), true);
+    assert.equal(controls.isHeld(id === 1 ? 2 : 1), false);
+    assert.deepEqual(controls.swipeFor(id), { x, y });
+    controls.consume(id);
+    controls.keyDown(code, action);
+    assert.equal(controls.pressAge(id), Infinity, 'holding does not repeat');
+    controls.keyUp(code);
+    assert.equal(controls.isHeld(id), false);
+    assert.deepEqual(controls.swipeFor(id), { x, y });
   }
-);
+  controls.keyDown('KeyB', 'lob');
+  controls.keyUp('KeyB');
+  assert.ok(controls.pressAge(1) < 1, 'a quick tap stays buffered');
+  controls.clearKeyboard();
+  assert.equal(controls.pressAge(1), Infinity);
+});
 
 check('tackle timeline: windup -> active -> recover -> none', () => {
   const p = player({});
@@ -686,11 +659,16 @@ check(
   }
 );
 
-check('pass swipes lob, drive or curl toward the selected teammate', () => {
+check('pass swipes: air, ground or curl toward the selected teammate', () => {
   const passer = player({ x: 500, y: 500 });
   const receiver = player({ x: 1000, y: 500 });
   const blocker = player({ team: 'away', x: 750, y: 500 });
-  const strike = (x: number, y: number, blocked = false) => {
+  const strike = (
+    x: number,
+    y: number,
+    blocked = false,
+    weight: number | null = null
+  ) => {
     const b = ball({ x: passer.x, y: passer.y });
     kickPass(
       b,
@@ -698,22 +676,40 @@ check('pass swipes lob, drive or curl toward the selected teammate', () => {
       receiver,
       blocked ? [blocker] : [],
       () => 0.5,
-      null,
+      weight,
       1,
       { x, y }
     );
     return b;
   };
+  // Where an airborne pass first comes down.
+  const firstLanding = (b: ReturnType<typeof strike>) => {
+    stepFreeBall(b, 1 / SIM.hz);
+    for (let frame = 0; frame < SIM.hz * 3 && b.z > 0; frame++)
+      stepFreeBall(b, 1 / SIM.hz);
+    return b.x;
+  };
   const tap = strike(0, 0);
   assert.equal(tap.vz, 0);
   assert.equal(tap.spin, 0);
   assert.equal(strike(0, 0, true).vz, PASS.chipVz);
-  const lob = strike(0, -1);
-  assert.ok(lob.vz > 0);
-  assert.equal(lob.speed, tap.speed);
-  const drive = strike(0, 1, true);
-  assert.equal(drive.vz, 0);
-  assert.ok(drive.speed > tap.speed);
+  // Up: a real aerial pass, carried to the receiver (not a hop).
+  const air = strike(0, -1);
+  assert.ok(air.vz > PASS.chipVz);
+  assert.ok(Math.abs(firstLanding(air) - receiver.x) < 40, 'lands at receiver');
+  // Down: on the ground, even with a defender in the lane.
+  const ground = strike(0, 1, true);
+  assert.equal(ground.vz, 0);
+  assert.ok(ground.speed > tap.speed);
+  // Curl: on the ground when tapped (no auto-chip), aerial when held hard.
+  assert.equal(strike(1, 0, true).vz, 0);
+  assert.equal(strike(1, 0, false, PASS.curlAirWeight - 0.1).vz, 0);
+  const airCurl = strike(1, 0, false, 0.9);
+  assert.ok(airCurl.vz > PASS.chipVz && airCurl.spin > 0);
+  assert.ok(
+    Math.abs(firstLanding(airCurl) - receiver.x) < 60,
+    'aerial curl lands near the receiver'
+  );
   for (const direction of [-1, 1]) {
     const curl = strike(direction, 0);
     assert.equal(Math.sign(curl.spin), direction);

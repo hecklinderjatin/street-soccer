@@ -102,7 +102,9 @@ export function idealPassWeight(dist: number) {
 // distance, with a small aim error (bigger under pressure). An opponent
 // close to the pass line turns it into a chip over them. With a `weight`
 // (a held PASS, 0..1) the player sets the pace instead: it can stop short
-// of the receiver or run past them. `swipe` shapes the human's pass.
+// of the receiver or run past them. `swipe` shapes the human's pass (see
+// passAirShare): up = aerial, down = ground, left / right = curl (aerial
+// when held hard, on the ground otherwise).
 // `errorScale` scales the aim error (the CPU team's difficulty).
 export function kickPass(
   ball: Ball,
@@ -122,7 +124,9 @@ export function kickPass(
   const shape =
     swipe && (swipe.x !== 0 || swipe.y !== 0) ? shotShape(swipe) : undefined;
   const speed = baseSpeed * (1 + PASS.driveSpeedGain * (shape?.power ?? 0));
-  const travel = dist / speed;
+  const air = shape ? passAirShare(shape, weight) : 0;
+  // An aerial pass hangs: lead the receiver by its flight time instead.
+  const travel = lerp(dist / speed, airPass(dist).time, air);
   const tx = receiver.x + receiver.vx * travel * PASS.leadFactor;
   const ty = receiver.y + receiver.vy * travel * PASS.leadFactor;
   strikePass(
@@ -135,8 +139,40 @@ export function kickPass(
     opponents,
     rand,
     errorScale,
-    shape
+    shape,
+    air
   );
+}
+
+// How aerial (0..1) a swiped pass is. Up lifts it (a chip that carries all
+// the way to the receiver), scaled by the swipe; down keeps it on the
+// ground. A curl (user request) flies when the pass is held to at least
+// PASS.curlAirWeight and rolls on the ground otherwise (a tap included).
+export function passAirShare(
+  shape: ReturnType<typeof shotShape>,
+  weight: number | null
+) {
+  let air = shape.chip;
+  if (Math.abs(shape.curl) >= PASS.curlMin) {
+    const curlAir = weight !== null && weight >= PASS.curlAirWeight ? 1 : 0;
+    air = Math.max(air, curlAir);
+  }
+  return air * (1 - shape.power);
+}
+
+// An aerial pass over `dist`: launched at a lift that grows with the
+// distance (about 45 degrees x PASS.airLoft, clamped), at the pace whose
+// first bounce lands at the target despite air drag; and its flight time.
+export function airPass(dist: number) {
+  const vz = clamp(
+    Math.sqrt((BALL.gravity * dist) / 2) * PASS.airLoft,
+    PASS.airMinVz,
+    PASS.airMaxVz
+  );
+  const time = (2 * vz) / BALL.gravity;
+  const k = -Math.log(BALL.airDrag);
+  const carry = (1 - Math.exp(-k * time)) / k; // px covered per px/s of pace
+  return { vz, speed: Math.min(dist / carry, PASS.airMaxSpeed), time };
 }
 
 // A through ball (AI): into the path of a teammate running forward, struck
@@ -222,7 +258,8 @@ function strikePass(
   opponents: readonly Player[],
   rand: () => number,
   errorScale: number,
-  shape?: ReturnType<typeof shotShape>
+  shape?: ReturnType<typeof shotShape>,
+  air = 0 // 0..1: rolling .. aerial (passAirShare)
 ) {
   ball.strikes += 1;
   ball.pendingShot = false;
@@ -247,16 +284,23 @@ function strikePass(
   );
 
   let lift = chip ? PASS.chipVz : 0;
+  let pace = speed;
   let spin = 0;
   let angle = Math.atan2(ty - ball.y, tx - ball.x) + error;
   if (shape) {
-    const lobVz = Math.min(PASS.lobVz, (BALL.gravity * lineLen) / (2 * speed));
-    lift = lerp(lift, lobVz, shape.chip) * (1 - shape.power);
+    // A chosen ground pass (down, or a soft curl) stays down: no auto-chip.
+    const ground = Math.max(
+      shape.power,
+      Math.abs(shape.curl) >= PASS.curlMin ? 1 - air : 0
+    );
+    const flight = airPass(lineLen);
+    lift = lerp(lift * (1 - ground), flight.vz, air);
+    pace = lerp(speed, flight.speed, air);
     spin = shape.curl * PASS.curlSpin;
-    if (spin !== 0) angle -= passCurlOffset(lineLen, speed, lift, spin);
+    if (spin !== 0) angle -= passCurlOffset(lineLen, pace, lift, spin);
   }
-  ball.vx = Math.cos(angle) * speed;
-  ball.vy = Math.sin(angle) * speed;
+  ball.vx = Math.cos(angle) * pace;
+  ball.vy = Math.sin(angle) * pace;
   ball.vz = lift;
   ball.spin = spin;
   ball.dip = 0;
@@ -533,22 +577,33 @@ export function shotShape(swipe: SwipeVec) {
   };
 }
 
-// Short label for a swipe, for the HUD: e.g. "CHIP 60 CURL R 40".
+// Short label for a swipe, for the HUD: e.g. "CHIP 60 CURL R 40". For a
+// pass, `weight` (the charge so far) tells an aerial curl from a ground one.
 export function strikeLabel(
   swipe: SwipeVec,
-  action: 'shoot' | 'kick' | 'pass'
+  action: 'shoot' | 'kick' | 'pass',
+  weight: number | null = null
 ) {
   const s = shotShape(swipe);
   const pct = (v: number) => Math.round(Math.abs(v) * 10) * 10;
   const parts: string[] = [];
   if (pct(s.chip) > 0)
     parts.push(
-      `${action === 'pass' ? 'LOB' : action === 'kick' ? 'PUNT' : 'CHIP'} ${pct(s.chip)}`
+      `${action === 'pass' ? 'AIR' : action === 'kick' ? 'PUNT' : 'CHIP'} ${pct(s.chip)}`
     );
   if (pct(s.power) > 0)
-    parts.push(`${action === 'shoot' ? 'POWER' : 'DRIVE'} ${pct(s.power)}`);
-  if (pct(s.curl) > 0)
-    parts.push(`CURL ${s.curl < 0 ? 'L' : 'R'} ${pct(s.curl)}`);
+    parts.push(
+      `${action === 'shoot' ? 'POWER' : action === 'pass' ? 'GROUND' : 'DRIVE'} ${pct(s.power)}`
+    );
+  if (pct(s.curl) > 0) {
+    const kind =
+      action === 'pass' && Math.abs(s.curl) >= PASS.curlMin
+        ? passAirShare(s, weight) >= 0.5
+          ? 'AIR '
+          : 'LOW '
+        : '';
+    parts.push(`${kind}CURL ${s.curl < 0 ? 'L' : 'R'} ${pct(s.curl)}`);
+  }
   return parts.join(' ');
 }
 

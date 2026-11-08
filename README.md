@@ -13,12 +13,14 @@ A fast 5v5 arcade street football match against the AI, played right inside a Re
 
 - **Joystick (left):** move; push to the edge to sprint.
 - **PASS:** tap passes to the ringed teammate; hold to set the pace. Slide up to lob, down for a driven ground pass, or left / right to curl.
+- **PASS swipes:** slide up for an aerial pass, down for a ground pass, left / right to curl (held hard it flies, tapped it rolls).
 - **SHOOT:** hold to charge, release to shoot; slide while holding for a chip (up), a driven shot (down) or curl (left / right).
 - **TACKLE:** slide tackle (or dive, when controlling the goalkeeper).
 - **SWITCH:** change the player you control.
-- **Desktop movement:** W forward/up, S backward/down, A left, D right (arrows also work); hold Left Shift to sprint.
-- **Desktop actions:** N pass/tackle (keeper throw/dive); hold and release I for chip, J for left curl, L for right curl or K for power shot (keeper kick / outfield switch without the ball).
-- **Desktop shortcuts:** Space opens/advances match info, M toggles sound, Escape closes overlays or pauses/resumes, and Enter advances the briefing.
+- **Desktop movement:** W forward, A left, S backward, D right. Hold either Shift key to sprint.
+- **Desktop shots:** I chip, J curl left, L curl right, K power shot / switch.
+- **Desktop passes:** N pass / tackle, B aerial pass, V curl left, M curl right (hold for an aerial curl).
+- **Desktop shortcuts:** Escape pauses or closes an overlay, Tab opens match info, and Space toggles sound. Open **Pause → Key Bindings** to customize the keys or restore defaults. Changes are saved in the current browser.
 
 ## For moderators
 

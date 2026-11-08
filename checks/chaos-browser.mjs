@@ -51,8 +51,8 @@ const briefing = async (page) => {
       () => window.__game.scene.getScene('Hud').detailsLayer.visible
     )
   ) {
-    await page.keyboard.press('Space');
-    await page.keyboard.press('Space');
+    await page.keyboard.press('Tab');
+    await page.keyboard.press('Tab');
   }
   await page.waitForFunction(() => !window.__game.scene.isPaused('Match'));
 };

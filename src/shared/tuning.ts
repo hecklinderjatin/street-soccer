@@ -194,9 +194,17 @@ export const PASS = {
   chipLane: 60, // an opponent this close to the pass line turns it into a chip ...
   chipFromAhead: 30, // ... if the ball still has to pass it (this far along the line or more; not one beside or behind the passer)
   chipVz: 380, // vertical speed of a chip
-  lobVz: 540, // maximum lift of a full swipe-up pass
+  // Aerial pass (swipe up, or a hard curl; user request: a chip that
+  // carries to the receiver, not a hop that rolls on). Lift ~ a 45 degree
+  // launch for the distance x airLoft, clamped; pace fitted to land there.
+  airLoft: 0.9,
+  airMinVz: 300, // lift of the shortest aerial pass ...
+  airMaxVz: 680, // ... and the longest (about 1 s in the air)
+  airMaxSpeed: 1300, // pace cap: a very long aerial pass may land short
   driveSpeedGain: 0.18, // extra speed at full swipe down, which also keeps the ball on the ground
   curlSpin: 1.0, // sidespin in rad/s at full swipe left or right
+  curlMin: 0.3, // swiped sideways at least this much = a curl pass (ground or aerial) ...
+  curlAirWeight: 0.5, // ... aerial when PASS is held to this charge or more, else on the ground
   receiverStopBelow: 60, // the receiver stops running onto the pass once the ball is slower than this (px/s)
   // Weighted pass (user request): hold PASS to set the pace yourself. A tap
   // is the normal pass above (pace fitted to the distance); held, the charge

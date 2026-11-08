@@ -10,9 +10,15 @@ import Phaser from 'phaser';
 import { VIEW } from '../../shared/tuning';
 import type { Team, TeamSetup, MatchConfig } from '../../shared/types';
 import type { Controls } from '../systems/Controls';
+import {
+  actionForKey,
+  loadKeyBindings,
+  type KeyBindings,
+} from '../systems/keyBindings';
 import { ActionButtons, type ButtonContext } from '../ui/ActionButtons';
 import { buildHelpLayer } from '../ui/HelpPanel';
 import { Joystick } from '../ui/Joystick';
+import { KeyBindingsPanel } from '../ui/KeyBindingsPanel';
 import { Minimap, type MinimapState } from '../ui/Minimap';
 import { JERSEY_SWATCH, PAL, PX } from '../ui/palette';
 import { pixelText } from '../ui/pixelFont';
@@ -37,6 +43,7 @@ export type MatchHudState = {
 
 export type HudData = {
   onMatchStart: () => void;
+  onInputCancel: () => void;
   onMatchQuit: () => void;
   config: MatchConfig;
   controls: Controls;
@@ -64,8 +71,13 @@ export class HudScene extends Phaser.Scene {
   private debugText!: Phaser.GameObjects.BitmapText;
   private showDebug = false;
   private pauseLayer!: Phaser.GameObjects.Container;
+  private keyPanel: KeyBindingsPanel | null = null;
+  private desktop = false;
+  private refreshHelpKeys!: (bindings: Readonly<KeyBindings>) => void;
   private introPending = false;
   private detailsLayer!: Phaser.GameObjects.Container;
+  private setDetailsStartLabel!: (text: string) => void;
+  private keysReturn: 'pause' | 'details' = 'pause'; // where the key panel's BACK goes
   private helpLayer!: Phaser.GameObjects.Container; // how to play (the i button)
 
   constructor() {
@@ -76,16 +88,18 @@ export class HudScene extends Phaser.Scene {
     this.hud = data;
     this.showDebug = false;
     this.introPending = false;
+    this.keyPanel = null;
   }
 
   create() {
+    this.desktop = window.matchMedia(
+      '(pointer: fine) and (hover: hover)'
+    ).matches;
+    if (this.desktop) this.hud.controls.setKeyBindings(loadKeyBindings());
     this.joystick = new Joystick(this, this.hud.controls);
     this.actionButtons = new ActionButtons(this, this.hud.controls);
     // Never leave the player running (or a button held) if the app loses focus mid-touch.
-    const release = () => {
-      this.joystick.release();
-      this.actionButtons.release();
-    };
+    const release = () => this.releaseInputs();
     this.game.events.on(Phaser.Core.Events.BLUR, release);
     this.game.events.on(Phaser.Core.Events.HIDDEN, release);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
@@ -218,35 +232,30 @@ export class HudScene extends Phaser.Scene {
       drawSound();
     };
     drawSound();
-    // Ignore key repeat so held shortcuts only toggle once per press.
-    this.input.keyboard?.addCapture('SPACE');
-    const shortcut = (key: string, action: () => void) => {
-      let lastEvent: KeyboardEvent | null = null;
-      this.input.keyboard?.on(`keydown-${key}`, (event: KeyboardEvent) => {
-        if (event.repeat || event === lastEvent) return;
-        lastEvent = event;
-        action();
-      });
-    };
-    shortcut('ESC', () => this.setOverlay(this.overlayOpen() ? null : 'pause'));
-    shortcut('SPACE', () => this.advanceInfo());
-    shortcut('M', toggleSound);
-
-    shortcut('ENTER', () => {
-      if (this.detailsLayer.visible || this.helpLayer.visible)
-        this.advanceInfo();
-    });
     this.pauseLayer = this.buildPauseLayer().setVisible(false);
-    this.helpLayer = buildHelpLayer(this, () => this.setOverlay(null), {
+    const help = buildHelpLayer(this, () => this.setOverlay(null), {
       label: 'PLAY MATCH',
       back: () => this.setOverlay('details'),
-    }).setVisible(false);
-    this.detailsLayer = buildMatchDetailsLayer(
+      desktop: this.desktop,
+    });
+    this.helpLayer = help.layer.setVisible(false);
+    this.refreshHelpKeys = help.refreshKeys;
+    const details = buildMatchDetailsLayer(
       this,
       this.hud.config,
       currentPostType(),
-      () => this.setOverlay('help')
-    ).setVisible(false);
+      {
+        // Straight into the match, skipping the how-to-play page.
+        start: () => this.setOverlay(null, true),
+        next: () => this.setOverlay('help'),
+        ...(this.desktop
+          ? { controls: () => this.openKeyBindings('details') }
+          : {}),
+      }
+    );
+    this.detailsLayer = details.layer.setVisible(false);
+    this.setDetailsStartLabel = details.setStartLabel;
+    this.listenForKeys(toggleSound);
     // First entry stays paused for match details, then how to play;
     // once per page load.
     if (this.registry.get('helpAtStart') === true) {
@@ -355,10 +364,78 @@ export class HudScene extends Phaser.Scene {
 
   private overlayOpen() {
     return (
+      this.keyPanel?.layer.visible ||
       this.pauseLayer.visible ||
       this.detailsLayer.visible ||
       this.helpLayer.visible
     );
+  }
+
+  private releaseInputs() {
+    this.joystick.release();
+    this.actionButtons.release();
+    this.hud.controls.clearKeyboard();
+    this.hud.onInputCancel();
+  }
+
+  private listenForKeys(toggleSound: () => void) {
+    const { controls } = this.hud;
+    // The HUD stays active when the match is paused. Use physical key
+    // codes to track both Shift keys and capture Tab before focus moves.
+    const down = (event: KeyboardEvent) => {
+      if (event.ctrlKey || event.altKey || event.metaKey || event.isComposing)
+        return;
+      if (!event.repeat && this.keyPanel?.capture(event.code)) {
+        event.preventDefault();
+        return;
+      }
+      const action = actionForKey(controls.keyBindings, event.code);
+      if (!action) {
+        if (
+          !event.repeat &&
+          event.code === 'Enter' &&
+          (this.detailsLayer.visible || this.helpLayer.visible)
+        ) {
+          event.preventDefault();
+          this.advanceInfo();
+        }
+        return;
+      }
+      event.preventDefault();
+      if (event.repeat) return;
+      if (action === 'pause') {
+        this.setOverlay(
+          this.keyPanel?.layer.visible
+            ? this.keysReturn
+            : this.overlayOpen()
+              ? null
+              : 'pause'
+        );
+      } else if (action === 'info') {
+        if (!this.keyPanel?.layer.visible) this.advanceInfo();
+      } else if (action === 'mute') {
+        toggleSound();
+      } else if (!this.overlayOpen()) {
+        // Lob and curl keys are passes; the regular Pass key also tackles
+        // or handles keeper actions when its on-screen button changes.
+        if (
+          (action === 'lob' ||
+            action === 'passLeft' ||
+            action === 'passRight') &&
+          this.hud.state.buttons.b1 !== 'PASS'
+        )
+          return;
+        controls.keyDown(event.code, action);
+      }
+    };
+    const up = (event: KeyboardEvent) => controls.keyUp(event.code);
+    window.addEventListener('keydown', down, true);
+    window.addEventListener('keyup', up, true);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      window.removeEventListener('keydown', down, true);
+      window.removeEventListener('keyup', up, true);
+      controls.clearKeyboard();
+    });
   }
 
   // Advance the two-page briefing without resuming between its pages.
@@ -368,22 +445,45 @@ export class HudScene extends Phaser.Scene {
     else this.setOverlay('details');
   }
 
-  private setOverlay(which: 'pause' | 'details' | 'help' | null) {
-    if (which === null && this.introPending && !this.helpLayer.visible)
+  // The key bindings panel, opened from the pause menu or match info; its
+  // BACK returns there.
+  private openKeyBindings(from: 'pause' | 'details') {
+    this.keysReturn = from;
+    this.keyPanel ??= new KeyBindingsPanel(this, this.hud.controls, () =>
+      this.setOverlay(this.keysReturn)
+    );
+    this.setOverlay('keys');
+  }
+
+  // `skipIntro`: close the first-entry briefing from page 1 (START GAME)
+  // without showing how to play first.
+  private setOverlay(
+    which: 'pause' | 'details' | 'help' | 'keys' | null,
+    skipIntro = false
+  ) {
+    if (
+      which === null &&
+      this.introPending &&
+      !this.helpLayer.visible &&
+      !skipIntro
+    )
       which = 'help';
     else if (which === null) {
       if (this.introPending) this.hud.onMatchStart();
       this.introPending = false;
     }
+    if (which === 'details')
+      this.setDetailsStartLabel(this.introPending ? 'START GAME' : 'RESUME');
     this.detailsLayer.setVisible(which === 'details');
     this.pauseLayer.setVisible(which === 'pause');
     this.helpLayer.setVisible(which === 'help');
+    if (which === 'help') this.refreshHelpKeys(this.hud.controls.keyBindings);
+    this.keyPanel?.setVisible(which === 'keys');
     const paused = which !== null;
     this.joystick.enabled = !paused;
     this.actionButtons.enabled = !paused;
     if (paused) {
-      this.joystick.release();
-      this.actionButtons.release();
+      this.releaseInputs();
       if (!this.scene.isPaused('Match')) this.scene.pause('Match');
     } else if (this.scene.isPaused('Match')) {
       this.scene.resume('Match');
@@ -407,7 +507,7 @@ export class HudScene extends Phaser.Scene {
     const resume = new TextButton(
       this,
       cx,
-      360,
+      this.desktop ? 330 : 360,
       'RESUME',
       () => this.setOverlay(null),
       {
@@ -418,7 +518,7 @@ export class HudScene extends Phaser.Scene {
     const quit = new TextButton(
       this,
       cx,
-      470,
+      this.desktop ? 530 : 470,
       'QUIT',
       () => {
         this.hud.onMatchQuit();
@@ -429,6 +529,18 @@ export class HudScene extends Phaser.Scene {
       },
       { width: 320, fill: PAL.red }
     );
-    return this.add.container(0, 0, [dim, title, resume, quit]).setDepth(10);
+    const items = [dim, title, resume, quit];
+    if (this.desktop)
+      items.push(
+        new TextButton(
+          this,
+          cx,
+          430,
+          'KEY BINDINGS',
+          () => this.openKeyBindings('pause'),
+          { width: 320, fill: PAL.blue, textSize: PX * 0.75 }
+        )
+      );
+    return this.add.container(0, 0, items).setDepth(10);
   }
 }

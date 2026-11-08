@@ -493,7 +493,6 @@ export class MatchScene extends Phaser.Scene {
       survivalLimits(this.config).conceded
     );
     this.controls = new Controls();
-    if (!this.demo) this.controls.bindKeyboard(this);
     this.resetForKickoff();
     this.rig.snapTo(this.ball.x, this.ball.y);
 
@@ -549,6 +548,10 @@ export class MatchScene extends Phaser.Scene {
     }
     const hud: HudData = {
       onMatchStart: () => this.journey?.start(),
+      onInputCancel: () => {
+        this.chargeSince = null;
+        this.passChargeSince = null;
+      },
       onMatchQuit: () => {
         this.measure?.('quit');
         this.journey?.end(
@@ -1809,8 +1812,14 @@ export class MatchScene extends Phaser.Scene {
             this.controls.swipeFor(2),
             c.holding ? 'kick' : 'shoot'
           ) || (c.holding ? 'KICK' : 'SHOT');
-      else if (this.passChargeSince !== null)
-        label = strikeLabel(this.controls.swipeFor(1), 'pass');
+      else if (this.passChargeSince !== null) {
+        const held = realNow() - this.passChargeSince;
+        label = strikeLabel(
+          this.controls.swipeFor(1),
+          'pass',
+          held <= PASS.weightTapSec ? null : passWeight(held)
+        );
+      }
     }
     this.strikeText.setVisible(label !== '');
     if (!label) return;

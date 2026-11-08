@@ -2,7 +2,9 @@ import Phaser from 'phaser';
 import { context } from '@devvit/web/client';
 import { VIEW } from '../../shared/tuning';
 import { STICK_BASE, STICK_KNOB, createButtonTexture } from '../art/playerArt';
+import { keyLabel, type KeyBindings } from '../systems/keyBindings';
 import { ACTION_COLORS } from './ActionButtons';
+import { CARD, infoFrame, tile } from './infoCard';
 import { PAL, PX } from './palette';
 import { pixelText } from './pixelFont';
 import { TextButton } from './TextButton';
@@ -29,33 +31,23 @@ type Item = Phaser.GameObjects.GameObject;
 export function buildHelpLayer(
   scene: Phaser.Scene,
   onClose: () => void,
-  options: { label?: string; back?: () => void } = {}
-): Phaser.GameObjects.Container {
+  options: { label?: string; back?: () => void; desktop?: boolean } = {}
+) {
   const items: Item[] = [];
   const cx = VIEW.width / 2;
 
-  // Dim the match and swallow taps behind the panel.
-  items.push(
-    scene.add
-      .rectangle(0, 0, VIEW.width, VIEW.height, PAL.black, 0.7)
-      .setOrigin(0)
-      .setInteractive()
-  );
-  const panel = scene.add.graphics();
-  panel.fillStyle(PAL.black, 1).fillRect(36, 20, VIEW.width - 72, 688);
-  panel.fillStyle(PAL.ink, 0.97).fillRect(40, 24, VIEW.width - 80, 680);
-  panel.fillStyle(PAL.white, 0.12).fillRect(40, 24, VIEW.width - 80, PX);
-  items.push(panel);
+  // The results-card frame (infoCard) with the two columns on tiles.
+  infoFrame(scene, items, {
+    accent: PAL.orange,
+    tag: options.desktop ? 'TOUCH + KEYBOARD' : 'TOUCH CONTROLS',
+    tagColor: PAL.blue,
+    page: options.back ? 'MATCH INFO  2 / 2' : '',
+  });
   items.push(
     pixelText(scene, cx, 62, 'HOW TO PLAY', PX, PAL.yellow).setOrigin(0.5)
   );
-
-  if (options.back)
-    items.push(
-      pixelText(scene, 1140, 64, '2 / 2', 0.6 * PX, PAL.lightGray).setOrigin(
-        0.5
-      )
-    );
+  tile(scene, items, 60, 92, 560, 500);
+  tile(scene, items, cx + 20, 92, 560, 500);
 
   // --- Left column: moving, the ball, keyboard ---
   const left = 80;
@@ -70,8 +62,8 @@ export function buildHelpLayer(
   disc(scene, items, left + DISC_R, y + DISC_R, 'PASS');
   y = rowText(scene, items, left, y, [
     'TAP: PASS   HOLD: SET PACE',
-    'SLIDE UP: LOB  DOWN: DRIVE',
-    'SLIDE LEFT / RIGHT: CURL',
+    'SLIDE UP: AIR  DOWN: GROUND',
+    'CURL: HOLD HARD = AIR',
   ]);
   disc(scene, items, left + DISC_R, y + DISC_R + 8, 'SHOOT');
   swipeArrows(scene, items, left + DISC_R, y + DISC_R + 8);
@@ -88,17 +80,14 @@ export function buildHelpLayer(
     ],
     ROW + 24
   );
-  y = header(scene, items, left, y, 'KEYBOARD');
-  for (const line of [
-    'WASD / ARROWS: MOVE',
-    'LEFT SHIFT: HOLD TO SPRINT',
-    'N: PASS / TACKLE  K: POWER / SWITCH',
-    'I: CHIP  J / L: LEFT / RIGHT CURL',
-    'SPACE: INFO  M: MUTE  ESC: PAUSE',
-    'ENTER: NEXT BRIEFING PAGE',
-  ]) {
-    items.push(pixelText(scene, left, y, line, BODY, PAL.lightGray));
-    y += LINE;
+  const keyRows: Phaser.GameObjects.BitmapText[] = [];
+  if (options.desktop) {
+    y = header(scene, items, left, y, 'KEYBOARD');
+    for (let i = 0; i < 4; i++) {
+      const row = pixelText(scene, left, y + i * LINE, '', BODY, PAL.lightGray);
+      keyRows.push(row);
+      items.push(row);
+    }
   }
 
   // --- Right column: without the ball, the goalkeeper ---
@@ -147,44 +136,60 @@ export function buildHelpLayer(
     pixelText(
       scene,
       cx,
-      596,
+      606,
       'DELETE SAVED SCORES: SUBREDDIT MENU > DELETE MY STREET SOCCER DATA',
       BODY,
-      PAL.lightGray
+      CARD.soft
     ).setOrigin(0.5),
     pixelText(
       scene,
       cx,
-      618,
+      626,
       `REPORT A PROBLEM: ${where}`,
       BODY,
-      PAL.lightGray
+      CARD.soft
     ).setOrigin(0.5)
   );
 
+  // Results-card buttons: the primary in orange, BACK in navy.
   items.push(
     new TextButton(
       scene,
       options.back ? cx + 160 : cx,
-      660,
+      666,
       options.label ?? 'GOT IT',
       onClose,
       {
         width: options.back ? 340 : 280,
         height: 56,
-        fill: PAL.green,
+        fill: PAL.orange,
       }
     )
   );
   if (options.back)
     items.push(
-      new TextButton(scene, cx - 210, 660, 'BACK', options.back, {
+      new TextButton(scene, cx - 210, 666, 'BACK', options.back, {
         width: 220,
         height: 56,
-        fill: PAL.darkGray,
+        fill: CARD.secondary,
       })
     );
-  return scene.add.container(0, 0, items).setDepth(10);
+  return {
+    layer: scene.add.container(0, 0, items).setDepth(10),
+    refreshKeys(bindings: Readonly<KeyBindings>) {
+      const key = (action: keyof KeyBindings) => keyLabel(bindings[action]);
+      const lines = [
+        `${key('forward')}/${key('left')}/${key('backward')}/${key('right')} MOVE  ${key('sprint')} SPRINT`,
+        `${key('pass')}/${key('lob')}/${key('passLeft')}/${key('passRight')} PASS TYPES`,
+        `${key('chip')}/${key('shotLeft')}/${key('power')}/${key('shotRight')} SHOT TYPES`,
+        `${key('pause')} PAUSE  ${key('info')} INFO  ${key('mute')} MUTE`,
+      ];
+      keyRows.forEach((row, i) => {
+        row.setText(lines[i] ?? '').setScale(1);
+        if (row.displayWidth > 510) row.setScale(510 / row.displayWidth);
+      });
+    },
+  };
 }
 
 // A section title with a faint underline; returns the next free y.

@@ -8,11 +8,17 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Desktop key bindings (2026-11-08):** The desktop pause menu opens a remapping panel for movement, sprint, shot/pass styles and match shortcuts. The defaults are WASD, either Shift, I/J/L/K for chip/curls/power, N/B/V/M for pass/lob/curls, Escape for pause, Tab for info and Space for mute. The panel applies edits immediately, rejects duplicate keys and restores defaults. Local browser storage remembers the layout across matches and reloads, and desktop help displays the active keys. Types, lint, production build and 61 logic checks pass. Mocked Chromium verified desktop editing, reload, reset, all four pass keys and the touch-only pause menu.
+
 **Forgiving keeper pressure (2026-11-08):** Noob covers a dribbler's lane from 90 px off the goal line and reads the actual ball within 110 px. Easy uses 130 px for both. The lane depth also caps how far the keeper rushes out. Normal through Pro retain 170 px lane coverage and a 150 px smother read that can anticipate the ball's path. The match simulation shows a near-post sprint can beat Noob after the keeper is pulled across, while Easy and Normal smother the same run. Central runs are smothered at all three levels.
 
 **Keeper difficulty timing (2026-11-08):** Separate base delays for dribbles and shots. Noob through Pro use dribble delays of 0.30 / 0.22 / 0.19 / 0.15 / 0.12 seconds and shot delays of 0.68 / 0.55 / 0.40 / 0.32 / 0.26 seconds. Easy closes down a straight dribble faster and gives a shot a longer reaction window. The player's AI keeper uses Normal. The keeper and Chaos logic checks, types, lint and production build pass.
 
 **Chaos bot balance (2026-11-08):** Power Surge bots move closer under reduced power and check their chosen charge against the real shot flight. They adjust if it would stop short or go over the bar. Goal Resize bots read lanes from the ball, use the smaller opening to judge placement and aim error, and adjust shot height for the lower bar. AI keepers cover wider goals earlier and have extra reach on airborne saves in taller goals. Gameplay regressions cover both teams at 50% and 150% power, Easy finishing at 50% goal size, and high and wide saves at 150% goal size. Types, lint, the production build and all six mocked Chromium Chaos scenarios pass. Live balance review remains pending.
+
+**Match info screens (2026-11-08):** The i button's two landscape canvas pages now share the full-time results card look (`ui/infoCard.ts`): navy card with a coloured top edge, mode tag and "MATCH INFO 1/2 · 2/2" in the header, kit-striped team cards, green stat tiles, orange primary and navy secondary buttons. Page 1 (match details) shows team cards with start score, tiles for time / difficulty / rule, the objective, and buttons START GAME (RESUME mid-match; skips how-to-play and kicks off) and NEXT; desktop adds CONTROLS, which opens key bindings and returns to page 1. Page 2 (how to play) keeps its content, now on two column tiles with BACK / PLAY MATCH. Not playtested.
+
+**Aerial / ground passes (2026-11-08):** Slide up on PASS for an aerial pass: a chip whose lift grows with distance and whose pace is fitted (air drag included) to land at the receiver's lead spot, instead of the old low hop that rolled on. Slide down for a ground pass, which never auto-chips. Curl passes fly when PASS is held to at least `PASS.curlAirWeight` (0.5 charge) and roll on the ground when tapped or held lightly. Labels now read AIR / GROUND, and the overhead label shows AIR CURL or LOW CURL. New tuning: `PASS.airLoft`, `airMinVz`, `airMaxVz`, `airMaxSpeed`, `curlMin`, `curlAirWeight` (`lobVz` removed). The logic check now confirms aerial and hard-curl passes land at the receiver and ground and soft-curl passes stay down. Types, lint, build and 61 logic checks pass; not playtested.
 
 **Pass swipes (2026-11-08):** Slide up on PASS to lob, down to drive on the ground, or left/right to curl. Swipe distance scales the effect and diagonals blend it. The joystick still chooses the ringed teammate and holding sets the base pace. The button and overhead label show the selected effect. Types, lint, the production build and match, Daily and Free Kick logic pass. Simulated touch input on the built canvas confirmed all four swipes and an ordinary tap, including receiver handoff.
 
@@ -552,6 +558,9 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Aerial passes solve their pace from the launch lift and air drag so the first bounce lands at the receiver; a curl's air/ground choice uses the held pass charge (user: "more power = aerial"), so a tap curl always rolls.
+- Save desktop bindings in local storage and expose the editor for fine-pointer devices with hover. Track physical keyboard codes for either Shift key and keep keyboard button holds separate from touch holds.
+
 - On Noob and Easy, have the keeper close dribbling lanes later and wait until the actual ball is in range. Preserve shot timing and the physical reach of tackles.
 
 - Set dribble and shot reaction delays independently so Easy can punish walk-ins sooner while giving players more room to shoot.
@@ -896,6 +905,10 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Check the restyled match info pages on phone and desktop (text fit of long team names, Chaos/Rampage lines, three-button row).
+- Playtest the aerial pass height/hang time (`PASS.airLoft`, `airMaxVz`) and the curl air threshold (`PASS.curlAirWeight`).
+- Verify desktop key remapping and iframe focus in a live Reddit playtest.
+
 - Playtest a near-post dribble and a central run on Noob and Easy in Reddit with touch controls.
 
 - Compare straight runs and quick shots on Easy using touch controls in a live Reddit match.
@@ -1215,6 +1228,10 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-08:** Match info (i button) restyled like the results card; page 1 gains START GAME / NEXT, plus CONTROLS on desktop.
+- **2026-11-08:** Pass swipes reworked: up = aerial pass that carries to the receiver, down = ground pass (no auto-chip), curl = aerial when held to half charge or more, ground otherwise. AIR / GROUND / AIR CURL / LOW CURL labels.
+- **2026-11-08:** Added desktop pause-menu key remapping with saved defaults, both Shift keys and keyboard lob and curl passes.
 
 - **2026-11-08:** Shortened Noob and Easy keeper approach and smother ranges against dribblers.
 
