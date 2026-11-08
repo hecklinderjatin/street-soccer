@@ -203,14 +203,17 @@ export type Swipe = {
 
 // The chord gives the launch direction. A tap or a swipe that isn't up
 // won't shoot.
-export function readSwipe(points: readonly ScreenPoint[]): Swipe | null {
+export function readSwipe(
+  points: readonly ScreenPoint[],
+  minDistance: number = FK.swipeMinPx
+): Swipe | null {
   const first = points[0];
   const last = points[points.length - 1];
   if (!first || !last) return null;
   const cx = last.x - first.x;
   const cy = last.y - first.y;
   const length = Math.hypot(cx, cy);
-  if (length < FK.swipeMinPx || cy > -FK.swipeMinPx / 2) return null;
+  if (length < minDistance || cy > -minDistance / 2) return null;
   return { dirX: cx / length, dirY: cy / length };
 }
 

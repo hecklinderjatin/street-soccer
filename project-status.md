@@ -8,7 +8,7 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
-**Free Kick controls (2026-11-08):** The contact frame sits over the in-play ball and the vertical power slider sits on the left. Drag the dot to set contact, drag the slider up for more power, then swipe up from the pitch outside the frame to shoot. The dotted preview uses the selected contact and power and follows the swipe while it is held. A fresh kick starts centred at 65% power, while a retry keeps both settings and shows the previous power tick and flight ghost. Types, lint, production build and 12 Free Kick rules checks pass. Headless Chromium verified touch at 320x568 and 390x844 and mouse at 1280x720 using the built game with local fixtures.
+**Free Kick controls (2026-11-08):** The contact frame over the ball sets shot type, the left slider sets power and a separate pad below the ball starts the shooting swipe. An upward swipe shows a straight launch arrow and highlights the pad when the shot is ready to release. Gestures stay with the control where they start. The retry retains the selected settings and the orange power tick. Types, lint, production build and all 18 Free Kick rules checks pass. Headless Chromium checked the gesture boundaries, launch direction and trail reset at two phone sizes with touch and at desktop size with a mouse.
 
 **Desktop key bindings (2026-11-08):** The desktop pause menu opens a remapping panel for movement, sprint, shot/pass styles and match shortcuts. The defaults are WASD, either Shift, I/J/L/K for chip/curls/power, N/B/V/M for pass/lob/curls, Escape for pause, Tab for info and Space for mute. The panel applies edits immediately, rejects duplicate keys and restores defaults. Local browser storage remembers the layout across matches and reloads, and desktop help displays the active keys. Types, lint, production build and 61 logic checks pass. Mocked Chromium verified desktop editing, reload, reset, all four pass keys and the touch-only pause menu.
 
@@ -63,7 +63,7 @@ Atlases now hold 98 frames (13 rows, 1792x1664). Re-baked with `art:bake` and `o
 - Camera: behind the kicker on the goal-ball line, looking straight down the pitch so the goal faces it square on. Focal length and lens shift are solved per kick (ball 80% down, crossbar 25% down, goal at most 86% of the width), and it pushes in during the flight.
 - Move the contact dot, set the power slider and swipe up to shoot along the swipe's heading. Side contact curves the ball away from that heading.
 - The slider's green guide estimates wall clearance and bar height with the selected contact.
-- Trails: a dotted aim preview uses the same launch and flight rules as the shot. The yellow-green ball trail is split into depth bands so the wall, keeper and frame cover it correctly. The last miss stays as a ghost on the retry, with an orange tick at its power.
+- The launch arrow appears during the shooting swipe. The yellow-green trail appears during the actual flight and is split into depth bands so the wall, keeper and frame cover it correctly. An orange tick shows the previous power on a retry.
 - Wall: 2-4 men by level; it jumps.
 - Keeper: reacts after a level-scaled delay (later when screened by the wall), cannot read curl or dip, shuffles, then stands, jumps or dives.
 - Lives and scoring: 3 lives; a miss retakes the same kick with a tip. A goal scores 100 plus 50 per style tag (top bins, over the wall, curler, off the post, long range), times the streak multiplier. Level up every 2 goals; best score kept on the device.
@@ -614,7 +614,7 @@ public/ball.svg             pixel ball shown on the splash
 
 - Free Kick difficulty is tuned with simulated players (aim off by up to 25 px, power off by up to 0.08). Skilled shots (over the wall, curled round it) score about 50-65% at every level; random swipes score about 17%. Levels add wall men, distance and angle, and a sharper keeper standing closer to the wall.
 
-- The vertical Free Kick slider shows a green wall clearance guide when there is a power range that clears the jumping wall and stays below the bar with the selected contact. The frame and hit area follow the projected ball. The aim preview starts toward goal centre and updates to the launch heading during a valid swipe. It stops before the wall and the ghost of the last miss shows the resulting path on a retry.
+- The vertical Free Kick slider shows a green wall clearance guide when there is a power range that clears the jumping wall and stays below the bar with the selected contact. The on-ball frame and slider capture their own gestures. Only the swipe pad can arm a shot, and the arrow uses the same launch heading as the released swipe. Retry clears the last flight trail so the arrow has a single meaning.
 
 - Merge post flair selection into local main by fast-forward; keep the pre-existing package whitespace edit outside the commits.
 
@@ -958,7 +958,7 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 - Verify the post analytics form, CSV copy and event counts in a Reddit playtest. Use the report to compare Easy and Noob over the same duration and publish window.
 
-- Playtest the on-ball frame, vertical power slider and swipe preview on a phone in Reddit (feed card -> PLAY FREE KICK -> expanded). Tune the strike and difficulty curve from real play.
+- Playtest the on-ball frame, vertical power slider and dedicated shooting pad on a phone in Reddit (feed card -> PLAY FREE KICK -> expanded). Tune the strike and difficulty curve from real play.
 
 - Free Kick follow-ups (not built): a server leaderboard or daily best, Journeys/games-played tracking, hiding the power band at high levels.
 
@@ -1266,6 +1266,7 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 
 ## Changelog
 
+- **2026-11-08:** Separated Free Kick shot type, power and shooting gestures. Added a swipe pad with release feedback and a straight launch arrow, and cleared the previous trail on retry.
 - **2026-11-08:** Free Kick: the wall sometimes stays down, low drives slip under a jumping wall (UNDER THE WALL tag), a man may lie behind it; keepers may cheat to the wall side, guess a corner or read part of the curl.
 - **2026-11-08:** Moved the Free Kick contact frame onto the ball, moved power to a vertical slider on the left and added a live dotted preview of the shot.
 - **2026-11-08:** Free Kick now uses a draggable contact dot and separate power slider. The swipe chooses the launch direction and shoots. Updated the wall guide, retry tips and flight checks.

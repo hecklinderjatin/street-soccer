@@ -51,7 +51,6 @@ const R = BALL.radius;
 
 export const TRAIL_COLOR = 0xc8ff2a; // the glowing yellow-green streak ...
 const TRAIL_CORE = 0xf4ffb8; // ... and its bright core
-const GHOST_COLOR = PAL.white;
 
 const at = newProjected();
 const at2 = newProjected();
@@ -100,7 +99,7 @@ export type StagePose = {
 // The world of a free kick, drawn through the KickCamera: the court
 // (rebuilt per kick so nothing behind the camera is drawn), chalk and
 // spray marks, the goal with a rippling net, the kicker, the wall, the
-// keeper, the ball and its trail (plus the last miss as a ghost).
+// keeper, the ball and its trail.
 export class Stage {
   private planes: ProjectedPlane[] = [];
   private readonly lines: Phaser.GameObjects.Graphics;
@@ -114,7 +113,6 @@ export class Stage {
   private readonly ball: Phaser.GameObjects.Image;
   private readonly shadow: Phaser.GameObjects.Image;
   private trail: Pt[] = [];
-  private ghost: Pt[] = [];
   private trailFade = 1;
   private rolled = 0;
   private last: Pt = { x: 0, y: 0, z: 0 };
@@ -140,10 +138,8 @@ export class Stage {
     this.ball = scene.add.image(0, 0, BALL_KEY, 'a');
   }
 
-  // A new kick: rebuild the court for this camera; the last trail becomes
-  // the ghost when `keepGhost` (a retry from the same spot).
-  setKick(cam: KickCamera, keepGhost: boolean) {
-    this.ghost = keepGhost ? this.trail : [];
+  // Rebuild the court for the camera and clear the previous flight trail.
+  setKick(cam: KickCamera) {
     this.trail = [];
     this.trailFade = 1;
     for (const plane of this.planes) plane.mesh.destroy();
@@ -657,7 +653,7 @@ export class Stage {
       .setDepth(-b.x + 0.5);
   }
 
-  // Trail and ghost as glowing ribbons, cut into depth bands at the wall,
+  // Draw the flight trail in depth bands at the wall,
   // the keeper and the goal line so each part sorts with what it passes.
   private drawTrails(cam: KickCamera, setup: KickSetup, play: KickPlay | null) {
     const cuts = [
@@ -722,7 +718,6 @@ export class Stage {
         }
       }
     };
-    ribbon(this.ghost, GHOST_COLOR, GHOST_COLOR, 0.3, 0.7);
     ribbon(this.trail, TRAIL_COLOR, TRAIL_CORE, this.trailFade, 1.1);
   }
 }
