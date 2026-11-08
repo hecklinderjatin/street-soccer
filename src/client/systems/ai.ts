@@ -1244,12 +1244,14 @@ export class TeamBrain {
     // each carrier is varies per possession (appetite): some shoot from
     // outside the box, some walk it in.
     const dGoal = Math.hypot(oppGoalX - c.x, goalY - c.y);
-    if (!keeper && dGoal < AI.shootRange) {
+    const { pitch, power } = rulesOf(c);
+    if (!keeper && dGoal < AI.shootRange * Math.min(1, power)) {
       const aim = this.shotTarget(view, c, oppGoalX);
+      const widthScale = Math.min(1, pitch.goalMouth / PITCH.goalMouth);
       // Not every shot is perfectly placed: pulled toward the centre by up
-      // to the level's aim spread.
+      // to the level's aim spread, with less room for error in a small goal.
       const pull = Math.min(
-        rand() * this.skill.aimSpread,
+        rand() * this.skill.aimSpread * widthScale ** 2,
         Math.abs(aim.y - goalY)
       );
       const ty = aim.y - Math.sign(aim.y - goalY) * pull;
@@ -1257,7 +1259,13 @@ export class TeamBrain {
         (o) =>
           distToSegment(o.x, o.y, ball.x, ball.y, oppGoalX, ty) < AI.laneBlock
       );
-      const quality = shotQuality(c, oppGoalX, dGoal, aim.clear, blocked);
+      const quality = shotQuality(
+        c,
+        oppGoalX,
+        dGoal,
+        aim.clear / widthScale,
+        blocked
+      );
       let crowd = 0;
       for (const o of others)
         if (
@@ -1417,26 +1425,36 @@ export class TeamBrain {
   // in degrees.
   private shotTarget(view: TeamView, c: Player, oppGoalX: number) {
     const goalY = PITCH.height / 2;
-    const spread = rulesOf(c).pitch.goalMouth / 2 - AI.shootInside;
+    const { pitch, power } = rulesOf(c);
+    const widthScale = pitch.goalMouth / PITCH.goalMouth;
+    const inset = Math.max(
+      BALL.radius + BALL.postRadius + AI.chaosPostMargin,
+      AI.shootInside * Math.min(1, widthScale)
+    );
+    const spread = pitch.goalMouth / 2 - inset;
+    const origin = widthScale !== 1 || power !== 1 ? view.ball : c;
     const blockers = [...view.opponents, view.oppKeeper].filter(
-      (o) => Math.abs(oppGoalX - o.x) < Math.abs(oppGoalX - c.x)
+      (o) => Math.abs(oppGoalX - o.x) < Math.abs(oppGoalX - origin.x)
     );
     let bestY = goalY;
     let bestClear = 0;
     let bestScore = -Infinity;
     for (let i = 0; i < AI.shotPoints; i++) {
       const y = goalY - spread + (2 * spread * i) / (AI.shotPoints - 1);
-      const line = Math.atan2(y - c.y, oppGoalX - c.x);
+      const line = Math.atan2(y - origin.y, oppGoalX - origin.x);
       let clear: number = AI.shotClearMaxDeg;
       for (const o of blockers) {
-        const d = Math.hypot(o.x - c.x, o.y - c.y);
+        const d = Math.hypot(o.x - origin.x, o.y - origin.y);
         if (d < 1) continue;
         const width =
           Math.atan(
             (o.role === 'keeper' ? KEEPER.reach : PLAYER.bodyRadius) / d
           ) / DEG;
         const off =
-          Math.abs(angleDiff(Math.atan2(o.y - c.y, o.x - c.x), line)) / DEG -
+          Math.abs(
+            angleDiff(Math.atan2(o.y - origin.y, o.x - origin.x), line)
+          ) /
+            DEG -
           width;
         clear = Math.min(clear, Math.max(0, off));
       }

@@ -3,6 +3,7 @@ import { launchSpeedKmh } from '../../shared/goalSpeed';
 import { AI, BALL, PASS, PITCH, SHOOT, SIM, STICK } from '../../shared/tuning';
 import type { Ball } from '../entities/Ball';
 import type { Player } from '../entities/Player';
+import { stepFreeBall } from './ballPhysics';
 import type { StickInput, SwipeVec } from './Controls';
 import { DEG, angleDiff, clamp, distToSegment, lerp } from './geometry';
 
@@ -101,8 +102,8 @@ export function idealPassWeight(dist: number) {
 // distance, with a small aim error (bigger under pressure). An opponent
 // close to the pass line turns it into a chip over them. With a `weight`
 // (a held PASS, 0..1) the player sets the pace instead: it can stop short
-// of the receiver or run past them. `errorScale` scales the aim error (the
-// CPU team's difficulty).
+// of the receiver or run past them. `swipe` shapes the human's pass.
+// `errorScale` scales the aim error (the CPU team's difficulty).
 export function kickPass(
   ball: Ball,
   passer: Player,
@@ -110,13 +111,17 @@ export function kickPass(
   opponents: readonly Player[],
   rand: () => number,
   weight: number | null = null,
-  errorScale = 1 // x the aim error (AI difficulty; 1 for the human)
+  errorScale = 1, // x the aim error (AI difficulty; 1 for the human)
+  swipe?: SwipeVec
 ) {
   const dist = Math.hypot(receiver.x - ball.x, receiver.y - ball.y);
-  const speed =
+  const baseSpeed =
     weight === null
       ? passSpeed(dist)
       : passSpeed(weightDistance(weight), PASS.weightMaxSpeed);
+  const shape =
+    swipe && (swipe.x !== 0 || swipe.y !== 0) ? shotShape(swipe) : undefined;
+  const speed = baseSpeed * (1 + PASS.driveSpeedGain * (shape?.power ?? 0));
   const travel = dist / speed;
   const tx = receiver.x + receiver.vx * travel * PASS.leadFactor;
   const ty = receiver.y + receiver.vy * travel * PASS.leadFactor;
@@ -129,7 +134,8 @@ export function kickPass(
     speed,
     opponents,
     rand,
-    errorScale
+    errorScale,
+    shape
   );
 }
 
@@ -215,7 +221,8 @@ function strikePass(
   speed: number,
   opponents: readonly Player[],
   rand: () => number,
-  errorScale: number
+  errorScale: number,
+  shape?: ReturnType<typeof shotShape>
 ) {
   ball.strikes += 1;
   ball.pendingShot = false;
@@ -228,7 +235,6 @@ function strikePass(
     errorScale *
     DEG *
     (rand() * 2 - 1);
-  const angle = Math.atan2(ty - ball.y, tx - ball.x) + error;
   // Chipped only over an opponent the ball still has to pass (one beside
   // or behind the passer, like a presser at its shoulder, isn't in the way).
   const lineLen = Math.hypot(tx - ball.x, ty - ball.y) || 1;
@@ -240,14 +246,49 @@ function strikePass(
       distToSegment(o.x, o.y, ball.x, ball.y, tx, ty) < PASS.chipLane
   );
 
+  let lift = chip ? PASS.chipVz : 0;
+  let spin = 0;
+  let angle = Math.atan2(ty - ball.y, tx - ball.x) + error;
+  if (shape) {
+    const lobVz = Math.min(PASS.lobVz, (BALL.gravity * lineLen) / (2 * speed));
+    lift = lerp(lift, lobVz, shape.chip) * (1 - shape.power);
+    spin = shape.curl * PASS.curlSpin;
+    if (spin !== 0) angle -= passCurlOffset(lineLen, speed, lift, spin);
+  }
   ball.vx = Math.cos(angle) * speed;
   ball.vy = Math.sin(angle) * speed;
-  ball.vz = chip ? PASS.chipVz : 0;
-  ball.spin = 0;
+  ball.vz = lift;
+  ball.spin = spin;
   ball.dip = 0;
   ball.lastTouch = passer;
   receiver.receiving = true;
   receiver.receivingThrough = false;
+}
+
+// Start a curl wide enough for it to bend back toward the same receiver.
+// Simulate along +x first, then rotate the path by the resulting offset.
+function passCurlOffset(
+  dist: number,
+  pace: number,
+  lift: number,
+  spin: number
+) {
+  const flight = {
+    x: 0,
+    y: 0,
+    z: 0,
+    vx: pace,
+    vy: 0,
+    vz: lift,
+    dip: 0,
+    spin,
+    get speed() {
+      return Math.hypot(this.vx, this.vy);
+    },
+  };
+  while (flight.speed > 0 && Math.hypot(flight.x, flight.y) < dist)
+    stepFreeBall(flight, 1 / SIM.hz);
+  return Math.atan2(flight.y, flight.x);
 }
 
 // Shot (skill-based, user request: no help from the game). The ball leaves
@@ -275,25 +316,20 @@ export function kickShot(
   charge: number,
   opponents: readonly Player[],
   rand: () => number,
-  swipe: SwipeVec = { x: 0, y: 0 }
+  swipe: SwipeVec = { x: 0, y: 0 },
+  maxErrorDeg = Infinity
 ) {
   ball.strikes += 1;
   ball.shotAnimationAge = 0;
   ball.pendingShot = true;
   const shape = shotShape(swipe);
   const aim = shotDirection(shooter, move);
-  const overHit = Math.max(
-    0,
-    (charge - SHOOT.sweetSpot) / (1 - SHOOT.sweetSpot)
+  const { speed, lift, across, overHit } = shotPace(
+    shooter,
+    aim,
+    charge,
+    shape
   );
-
-  // The run feeds the strike (FIFA-like): running onto the ball toward the
-  // shot adds pace and height; striking back across or against the run
-  // loses power and accuracy. `across` is 0 shooting along the run, 1
-  // shooting straight back against it.
-  const runAngle = angleDiff(shooter.heading, aim);
-  const runAlong = shooter.speed * Math.cos(runAngle);
-  const across = shooter.speed > 20 ? (1 - Math.cos(runAngle)) / 2 : 0;
 
   // Stray: timing first, then body shape and pressure, scaled by the shape.
   const pressured = opponents.some(
@@ -313,8 +349,43 @@ export function kickShot(
       (shooter.sprinting ? SHOOT.sprintErrorDeg : 0) +
       SHOOT.acrossErrorDeg * across +
       (pressured ? SHOOT.pressureErrorDeg : 0));
-  const launch = aim + errorDeg * DEG * (rand() + rand() - 1);
+  const launch =
+    aim + Math.min(errorDeg, maxErrorDeg) * DEG * (rand() + rand() - 1);
 
+  ball.vx = Math.cos(launch) * speed;
+  ball.vy = Math.sin(launch) * speed;
+  ball.vz = lift;
+  ball.spin = shape.curl * SHOOT.curlSpin;
+  ball.dip = SHOOT.powerDip * shape.power;
+  ball.lastTouch = shooter;
+  ball.goalStrike = {
+    human: shooter.controlled,
+    team: shooter.team,
+    kmh: launchSpeedKmh(ball.vx, ball.vy, ball.vz),
+    style:
+      shape.chip >= 0.5
+        ? 'CHIP'
+        : Math.abs(shape.curl) >= 0.5
+          ? 'CURL'
+          : 'STRIKE',
+  };
+}
+
+// Shared by the strike and Chaos AI's flight check. Running onto the ball
+// adds pace and lift; shooting back across the run reduces pace and accuracy.
+function shotPace(
+  shooter: Player,
+  aim: number,
+  charge: number,
+  shape: ReturnType<typeof shotShape>
+) {
+  const overHit = Math.max(
+    0,
+    (charge - SHOOT.sweetSpot) / (1 - SHOOT.sweetSpot)
+  );
+  const runCos = Math.cos(angleDiff(shooter.heading, aim));
+  const runAlong = shooter.speed * runCos;
+  const across = shooter.speed > 20 ? (1 - runCos) / 2 : 0;
   // The driven strike: pace and lift from the charge and the run, more
   // with power, less with curl.
   const drivenSpeed = Math.max(
@@ -334,29 +405,121 @@ export function kickShot(
   const lobSpeed = lerp(SHOOT.chipMinSpeed, SHOOT.chipMaxSpeed, charge);
   const lobLift = lerp(SHOOT.chipMinLift, SHOOT.chipMaxLift, charge);
 
-  const speed =
-    lerp(drivenSpeed, lobSpeed, shape.chip) * rulesOf(shooter).power;
-  const lift =
-    lerp(drivenLift, lobLift, shape.chip) +
-    SHOOT.overHitLift * overHit * (1 + SHOOT.powerOverHit * shape.power);
-
-  ball.vx = Math.cos(launch) * speed;
-  ball.vy = Math.sin(launch) * speed;
-  ball.vz = lift * rulesOf(shooter).power;
-  ball.spin = shape.curl * SHOOT.curlSpin;
-  ball.dip = SHOOT.powerDip * shape.power;
-  ball.lastTouch = shooter;
-  ball.goalStrike = {
-    human: shooter.controlled,
-    team: shooter.team,
-    kmh: launchSpeedKmh(ball.vx, ball.vy, ball.vz),
-    style:
-      shape.chip >= 0.5
-        ? 'CHIP'
-        : Math.abs(shape.curl) >= 0.5
-          ? 'CURL'
-          : 'STRIKE',
+  const power = rulesOf(shooter).power;
+  return {
+    speed: lerp(drivenSpeed, lobSpeed, shape.chip) * power,
+    lift:
+      (lerp(drivenLift, lobLift, shape.chip) +
+        SHOOT.overHitLift * overHit * (1 + SHOOT.powerOverHit * shape.power)) *
+      power,
+    across,
+    overHit,
   };
+}
+
+export function kickBotShot(
+  ball: Ball,
+  shooter: Player,
+  target: { x: number; y: number; charge: number; chip: number },
+  opponents: readonly Player[],
+  rand: () => number
+) {
+  const { pitch, power } = rulesOf(shooter);
+  const resized = pitch.goalMouth !== PITCH.goalMouth;
+  const origin = resized || power !== 1 ? ball : shooter;
+  const dx = target.x - origin.x;
+  const dy = target.y - origin.y;
+  const len = Math.hypot(dx, dy) || 1;
+  const aim = Math.atan2(dy, dx);
+  const swipe = { x: 0, y: -target.chip };
+  const charge =
+    (power !== 1 || pitch.goalHeight < PITCH.goalHeight) &&
+    Math.abs(dx) > BALL.radius
+      ? fitBotCharge(
+          ball.z,
+          shooter,
+          aim,
+          target.charge,
+          shotShape(swipe),
+          Math.abs(dx),
+          len,
+          pitch.goalHeight
+        )
+      : target.charge;
+  let maxError = Infinity;
+  if (pitch.goalMouth < PITCH.goalMouth) {
+    const safeHalf = pitch.goalMouth / 2 - BALL.radius - BALL.postRadius;
+    const centre = pitch.height / 2 - origin.y;
+    const angleToEdge = (y: number) =>
+      Math.abs(angleDiff(Math.atan2(y, dx), aim));
+    maxError =
+      Math.min(angleToEdge(centre - safeHalf), angleToEdge(centre + safeHalf)) /
+      DEG;
+  }
+  kickShot(
+    ball,
+    shooter,
+    { x: dx / len, y: dy / len, r: 1 },
+    charge,
+    opponents,
+    rand,
+    swipe,
+    maxError
+  );
+}
+
+// Keep the difficulty's chosen charge when it works. Only look for another
+// on a shot that would run out of pace or reach the goal above the bar.
+function fitBotCharge(
+  startHeight: number,
+  shooter: Player,
+  aim: number,
+  preferred: number,
+  shape: ReturnType<typeof shotShape>,
+  depth: number,
+  distance: number,
+  goalHeight: number
+) {
+  const near = distance * (1 - BALL.radius / depth);
+  const far = distance * (1 + BALL.radius / depth);
+  const under = goalHeight - BALL.radius - AI.chaosBarMargin;
+  const miss = (charge: number) => {
+    const { speed, lift } = shotPace(shooter, aim, charge, shape);
+    const flight = {
+      x: 0,
+      y: 0,
+      z: startHeight,
+      vx: speed,
+      vy: 0,
+      vz: lift,
+      spin: 0,
+      dip: 0,
+      get speed() {
+        return this.vx;
+      },
+    };
+    let high = 0;
+    while (flight.x <= far && flight.speed > 0) {
+      stepFreeBall(flight, 1 / SIM.hz);
+      if (flight.x >= near) high = Math.max(high, flight.z);
+    }
+    return flight.x <= far ? far - flight.x : Math.max(0, high - under);
+  };
+  let best = preferred;
+  let bestMiss = miss(preferred);
+  if (bestMiss === 0) return best;
+  let closest = Infinity;
+  for (let i = 0; i <= AI.chaosChargeSteps; i++) {
+    const charge = i / AI.chaosChargeSteps;
+    const change = Math.abs(charge - preferred);
+    if (change >= closest) continue;
+    const error = miss(charge);
+    if (error > bestMiss) continue;
+    best = charge;
+    bestMiss = error;
+    if (error === 0) closest = change;
+  }
+  return best;
 }
 
 // A swipe as amounts of each effect: chip and power 0..1 (up / down),
@@ -371,13 +534,19 @@ export function shotShape(swipe: SwipeVec) {
 }
 
 // Short label for a swipe, for the HUD: e.g. "CHIP 60 CURL R 40".
-export function shotLabel(swipe: SwipeVec, kick = false) {
+export function strikeLabel(
+  swipe: SwipeVec,
+  action: 'shoot' | 'kick' | 'pass'
+) {
   const s = shotShape(swipe);
   const pct = (v: number) => Math.round(Math.abs(v) * 10) * 10;
   const parts: string[] = [];
-  if (pct(s.chip) > 0) parts.push(`${kick ? 'PUNT' : 'CHIP'} ${pct(s.chip)}`);
+  if (pct(s.chip) > 0)
+    parts.push(
+      `${action === 'pass' ? 'LOB' : action === 'kick' ? 'PUNT' : 'CHIP'} ${pct(s.chip)}`
+    );
   if (pct(s.power) > 0)
-    parts.push(`${kick ? 'DRIVE' : 'POWER'} ${pct(s.power)}`);
+    parts.push(`${action === 'shoot' ? 'POWER' : 'DRIVE'} ${pct(s.power)}`);
   if (pct(s.curl) > 0)
     parts.push(`CURL ${s.curl < 0 ? 'L' : 'R'} ${pct(s.curl)}`);
   return parts.join(' ');

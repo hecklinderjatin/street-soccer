@@ -7,10 +7,8 @@ export type StickInput = { x: number; y: number; r: number };
 // The two context buttons (1 = pass / tackle, 2 = shoot / switch).
 export type ButtonId = 1 | 2;
 
-// A swipe on the SHOOT (or keeper KICK) button, analog: how far the thumb
-// slid from where it pressed, each axis -1..1 (screen axes, y down; full
-// at SHOOT.swipeFullPx). Up = chip, down = power, left / right = curl, and
-// the size is how much of that effect the strike gets; diagonals mix.
+// An action button's swipe from where the thumb pressed, each axis -1..1
+// (screen axes, y down; full at SHOOT.swipeFullPx). Diagonals mix effects.
 export type SwipeVec = { x: number; y: number };
 
 type ButtonState = {
@@ -32,9 +30,11 @@ export class Controls {
   move: StickInput = { x: 0, y: 0, r: 0 };
   sprint = false;
 
-  // Swipe of the latest press of button 2 (kept after release so the
-  // simulation can read it when it fires the shot).
-  swipe: SwipeVec = { x: 0, y: 0 };
+  // Keep each button's last swipe after release for the simulation.
+  private readonly swipes: Record<ButtonId, SwipeVec> = {
+    1: { x: 0, y: 0 },
+    2: { x: 0, y: 0 },
+  };
 
   // Feedback from the simulation for the HUD.
   sprinting = false;
@@ -86,11 +86,15 @@ export class Controls {
     b.held = true;
     b.pressedAt = now();
     b.heldSince = b.pressedAt;
-    if (id === 2) this.swipe = { x: 0, y: 0 };
+    this.setSwipe(id, 0, 0);
   }
 
-  setSwipe(x: number, y: number) {
-    this.swipe = { x, y };
+  setSwipe(id: ButtonId, x: number, y: number) {
+    this.swipes[id] = { x, y };
+  }
+
+  swipeFor(id: ButtonId): SwipeVec {
+    return this.swipes[id];
   }
 
   release(id: ButtonId) {
@@ -134,7 +138,7 @@ export class Controls {
       const isDown = down(keys) || (id === 2 && keySwipe !== undefined);
       if (isDown && !this.keyHeld[id]) {
         this.press(id);
-        if (id === 2 && keySwipe) this.swipe = keySwipe;
+        if (id === 2 && keySwipe) this.setSwipe(id, keySwipe.x, keySwipe.y);
       }
       if (!isDown && this.keyHeld[id]) this.release(id);
       this.keyHeld[id] = isDown;

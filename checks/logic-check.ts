@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 import { firstAssets } from '../src/client/art/assetList';
 import { chaosRules, NORMAL_RULES, chaosLabel } from '../src/shared/chaos';
-import { collideBall } from '../src/client/systems/ballPhysics';
+import { collideBall, stepFreeBall } from '../src/client/systems/ballPhysics';
 import { separatePlayers } from '../src/client/systems/collisions';
 import { stepPlayer, constrainMove } from '../src/client/systems/movement';
 import {
@@ -10,7 +10,7 @@ import {
   goalStyle,
 } from '../src/shared/goalSpeed';
 import { gainBall, stepPossession } from '../src/client/systems/possession';
-import { kickShot, kickPass } from '../src/client/systems/actions';
+import { kickBotShot, kickShot, kickPass } from '../src/client/systems/actions';
 // Logic checks for the Phase 3 rules (tackles, keeper reaction, AI brain,
 // pass weight): pure functions driven with hand-made players, no game and
 // no browser. Run with `npm run test:logic` (bundles this file with rolldown,
@@ -40,6 +40,7 @@ import {
 } from '../src/client/systems/actions';
 import {
   AI,
+  BALL,
   FORMATIONS,
   KEEPER,
   LEVELS,
@@ -334,7 +335,7 @@ check(
       controls.sample();
       assert.equal(controls.isHeld(1), false);
       assert.equal(controls.isHeld(2), true);
-      assert.deepEqual(controls.swipe, { x, y });
+      assert.deepEqual(controls.swipeFor(2), { x, y });
       controls.consume(2);
       controls.sample();
       assert.equal(
@@ -346,7 +347,7 @@ check(
       controls.sample();
       assert.equal(controls.isHeld(2), false);
       assert.deepEqual(
-        controls.swipe,
+        controls.swipeFor(2),
         { x, y },
         'effect survives release for the shot'
       );
@@ -459,27 +460,30 @@ check(
       y: PITCH.height / 2,
       owner: carrier,
     });
-    const react = LEVELS.normal.keeperReactSec;
-    cpuKeeperReact(k, b, 10, react, () => 0.5); // jitter 0
+    const level = LEVELS.easy;
+    cpuKeeperReact(k, b, 10, level, () => 0.5); // jitter 0
     assert.equal(k.reactKind, 'smother');
     const carryDeadline = k.reactAt;
     assert.ok(
-      Math.abs(carryDeadline - (10 + react * KEEPER.smotherReact)) < 1e-9
+      Math.abs(carryDeadline - (10 + level.keeperDribbleSec)) < 1e-9
     );
     // Moving into standing tackle range keeps the original carrier read.
     b.x += 40;
-    cpuKeeperReact(k, b, 10.1, react, () => 0.5);
+    cpuKeeperReact(k, b, 10.1, level, () => 0.5);
     assert.equal(k.reactAt, carryDeadline);
     // Before the keeper reacts, the carrier shoots toward the top corner.
     b.owner = null;
     b.vx = 1100;
     b.vy = -1000; // crosses the keeper about 36 px to its side, inside the post
     const shotAt = 10.15;
-    cpuKeeperReact(k, b, shotAt, react, () => 0.5);
+    cpuKeeperReact(k, b, shotAt, level, () => 0.5);
     assert.equal(k.reactKind, 'dive', 'now a shot');
-    assert.ok(Math.abs(k.reactAt - (shotAt + react)) < 1e-9, 'timer restarted');
+    assert.ok(
+      Math.abs(k.reactAt - (shotAt + level.keeperReactSec)) < 1e-9,
+      'timer restarted'
+    );
     // Not diving yet at the old smother deadline.
-    cpuKeeperReact(k, b, carryDeadline + 0.01, react, () => 0.5);
+    cpuKeeperReact(k, b, carryDeadline + 0.01, level, () => 0.5);
     assert.equal(k.diveUntil, 0);
   }
 );
@@ -497,7 +501,7 @@ check('keeper: reads a shot before side-stepping toward it', () => {
     vx: 1100,
     vy: 220, // crosses its line about 80 px to its side, inside the post
   });
-  cpuKeeperReact(k, b, 10, LEVELS.normal.keeperReactSec, () => 0.5);
+  cpuKeeperReact(k, b, 10, LEVELS.normal, () => 0.5);
   assert.equal(k.reactKind, 'dive');
   assert.equal(keeperStick(k, b, [], [], 10).move.r, 0, 'still reading it');
   const step = keeperStick(k, b, [], [], 10 + KEEPER.shuffleDelay);
@@ -558,15 +562,15 @@ check('keeper: a high ball straight at it is a jump, timed to meet it', () => {
     vz: 0.6 * 700,
   });
   const react = LEVELS.normal.keeperReactSec;
-  cpuKeeperReact(k, b, 10, react, () => 0.5);
+  cpuKeeperReact(k, b, 10, LEVELS.normal, () => 0.5);
   assert.equal(k.reactKind, 'jump');
   // Reaction done but the ball still 0.6 s out: waits for it.
-  cpuKeeperReact(k, b, 10 + react + 0.01, react, () => 0.5);
+  cpuKeeperReact(k, b, 10 + react + 0.01, LEVELS.normal, () => 0.5);
   assert.equal(k.jumpAt, -Infinity, 'too early to jump');
   // 0.2 s out: jumps (straight up, no dive).
   b.x = PITCH.width - 40 - 200;
   b.vz = 0.2 * 700;
-  cpuKeeperReact(k, b, 10 + react + 0.02, react, () => 0.5);
+  cpuKeeperReact(k, b, 10 + react + 0.02, LEVELS.normal, () => 0.5);
   assert.ok(Math.abs(k.jumpAt - (10 + react + 0.02)) < 1e-9, 'jumped');
   assert.equal(k.diveUntil, 0, 'no dive');
 });
@@ -625,14 +629,7 @@ check(
           const level = LEVELS.noob; // even the slowest read must cover a straight run
           for (let t = 0; t < 4 && b.owner === c; t += dt) {
             stepPlayer(c, { x: sign, y: 0, r: 1 }, sprint, dt, true);
-            cpuKeeperReact(
-              k,
-              b,
-              t,
-              level.keeperReactSec,
-              lateRead,
-              level.keeperDiveError
-            );
+            cpuKeeperReact(k, b, t, level, lateRead);
             if (!stepKeeperBody(k, t, dt)) {
               const steer = keeperStick(k, b, [defender], [c], t);
               stepPlayer(k, steer.move, steer.sprint, dt, false);
@@ -658,6 +655,72 @@ check(
 );
 
 // --- Passing helpers --------------------------------------------------------
+check(
+  'pass swipes are separate from shot swipes and reset on a new press',
+  () => {
+    const controls = new Controls();
+    controls.press(1);
+    controls.setSwipe(1, 0, -1);
+    controls.press(2);
+    controls.setSwipe(2, -1, 0);
+    controls.release(1);
+    const released = controls.swipeFor(1);
+    assert.deepEqual(released, { x: 0, y: -1 });
+    controls.press(1);
+    assert.deepEqual(controls.swipeFor(1), { x: 0, y: 0 });
+    assert.deepEqual(controls.swipeFor(2), { x: -1, y: 0 });
+    assert.deepEqual(released, { x: 0, y: -1 });
+  }
+);
+
+check('pass swipes lob, drive or curl toward the selected teammate', () => {
+  const passer = player({ x: 500, y: 500 });
+  const receiver = player({ x: 1000, y: 500 });
+  const blocker = player({ team: 'away', x: 750, y: 500 });
+  const strike = (x: number, y: number, blocked = false) => {
+    const b = ball({ x: passer.x, y: passer.y });
+    kickPass(
+      b,
+      passer,
+      receiver,
+      blocked ? [blocker] : [],
+      () => 0.5,
+      null,
+      1,
+      { x, y }
+    );
+    return b;
+  };
+  const tap = strike(0, 0);
+  assert.equal(tap.vz, 0);
+  assert.equal(tap.spin, 0);
+  assert.equal(strike(0, 0, true).vz, PASS.chipVz);
+  const lob = strike(0, -1);
+  assert.ok(lob.vz > 0);
+  assert.equal(lob.speed, tap.speed);
+  const drive = strike(0, 1, true);
+  assert.equal(drive.vz, 0);
+  assert.ok(drive.speed > tap.speed);
+  for (const direction of [-1, 1]) {
+    const curl = strike(direction, 0);
+    assert.equal(Math.sign(curl.spin), direction);
+    assert.equal(Math.sign(curl.vy), -direction);
+    let midpointY = curl.y;
+    for (let frame = 0; frame < SIM.hz * 3 && curl.x < receiver.x; frame++) {
+      stepFreeBall(curl, 1 / SIM.hz);
+      if (curl.x < 750) midpointY = curl.y;
+    }
+    assert.ok(
+      (midpointY - receiver.y) * direction < -10,
+      'bends around the lane'
+    );
+    assert.ok(curl.x >= receiver.x && Math.abs(curl.y - receiver.y) < 5);
+  }
+  const lobCurl = strike(0.6, -0.8);
+  assert.ok(lobCurl.spin > 0 && lobCurl.vz > 0);
+  assert.equal(receiver.receiving, true);
+});
+
 check(
   'weighted pass: tap is no charge, full hold is 1, ideal weights span 0..1',
   () => {
@@ -750,6 +813,7 @@ check(
       assert.ok(easier, 'levels listed easiest first');
       assert.ok(easier.thinkSec > level.thinkSec);
       assert.ok(easier.keeperReactSec > level.keeperReactSec);
+      assert.ok(easier.keeperDribbleSec > level.keeperDribbleSec);
       assert.ok(easier.tackleChance < level.tackleChance);
       assert.ok(easier.keeperDiveError > level.keeperDiveError);
     });
@@ -1387,6 +1451,137 @@ const makeChaos = (effect: 'power' | 'slippery' | 'goals', percent: number) =>
     chaosEffect: effect,
     chaosStrength: percent,
   });
+
+check('Chaos bots fit underpowered and boosted shots to the goal', () => {
+  for (const team of ['home', 'away'] as const) {
+    const sign = team === 'home' ? 1 : -1;
+    const x = team === 'home' ? PITCH.width : 0;
+    const y = PITCH.height / 2;
+    for (const [percent, depth, charge] of [
+      [50, 330, 0.45],
+      [150, 340, 0.95],
+    ]) {
+      const rules = makeChaos('power', percent);
+      const shooter = player({
+        team,
+        rules,
+        x: x - sign * (depth + 20),
+        y,
+        heading: (percent === 50 ? -sign : sign) === 1 ? 0 : Math.PI,
+        speed: 205,
+      });
+      const attempt = () => ball({ rules, x: x - sign * depth, y });
+      const play = (b: ReturnType<typeof attempt>) => {
+        for (let frame = 0; frame < SIM.hz * 3; frame++) {
+          stepFreeBall(b, 1 / SIM.hz);
+          const contact = collideBall(b);
+          if (contact.goal || contact.out || contact.hitPost)
+            return contact.goal;
+        }
+        return 0;
+      };
+      const old = attempt();
+      kickShot(old, shooter, { x: sign, y: 0, r: 1 }, charge, [], () => 0.5);
+      assert.equal(play(old), 0, `${percent}%: original Easy shot misses`);
+      const adjusted = attempt();
+      kickBotShot(adjusted, shooter, { x, y, charge, chip: 0 }, [], () => 0.5);
+      assert.equal(play(adjusted), sign, `${percent}%: bot adapts`);
+    }
+  }
+});
+
+check(
+  'Chaos Easy bot picks a finish outside keeper reach in a small goal',
+  () => {
+    const rules = makeChaos('goals', 50);
+    const y = PITCH.height / 2;
+    const c = player({
+      team: 'away',
+      rules,
+      x: 270,
+      y: y + 50,
+      heading: Math.PI,
+      speed: 205,
+    });
+    const b = ball({ rules, x: 245, y: y + 24, owner: c });
+    const v = view([c], [], b);
+    v.oppKeeper = player({ role: 'keeper', rules, x: 30, y });
+    const brain = new TeamBrain('away', LEVELS.easy);
+    brain.think(v, 1);
+    const due = brain.takeAction(2, b);
+    assert.equal(due?.act.kind, 'shoot');
+    if (due?.act.kind !== 'shoot') return;
+    assert.ok(Math.abs(due.act.y - y) > KEEPER.reach);
+    assert.ok(
+      Math.abs(due.act.y - y) < rules.pitch.goalMouth / 2 - BALL.radius
+    );
+    for (const roll of [0, 0.5, 1]) {
+      const shot = ball({ rules, x: b.x, y: b.y });
+      kickBotShot(shot, c, due.act, [v.oppKeeper], () => roll);
+      for (
+        let frame = 0;
+        frame < SIM.hz * 2 && !shot.inNet && !shot.out;
+        frame++
+      ) {
+        stepFreeBall(shot, 1 / SIM.hz);
+        const contact = collideBall(shot);
+        assert.equal(contact.hitPost, false);
+      }
+      assert.equal(shot.inNet, -1, `narrow goal with error roll ${roll}`);
+    }
+  }
+);
+
+check(
+  'Chaos wide and tall goals give the AI keeper time to cover both saves',
+  () => {
+    const rules = makeChaos('goals', 150);
+    const y = PITCH.height / 2;
+    for (const team of ['home', 'away'] as const) {
+      const sign = team === 'home' ? -1 : 1;
+      const line = team === 'home' ? 0 : PITCH.width;
+      for (const shot of ['high', 'wide']) {
+        const k = player({
+          team,
+          role: 'keeper',
+          rules,
+          x: line - sign * 50,
+          y,
+        });
+        const b =
+          shot === 'high'
+            ? ball({
+                rules,
+                x: k.x - sign * 560,
+                y,
+                z: 96,
+                vx: sign * 950,
+                vz: 590,
+              })
+            : ball({ rules, x: k.x - sign * 520, y: y + 195, vx: sign * 1100 });
+        const dt = 1 / SIM.hz;
+        let saved = false;
+        for (let frame = 0; frame < SIM.hz * 2; frame++) {
+          const t = 1 + frame * dt;
+          cpuKeeperReact(k, b, t, LEVELS.easy, () => 0.5);
+          if (!stepKeeperBody(k, t, dt)) {
+            const steer = keeperStick(k, b, [], [], t);
+            stepPlayer(k, steer.move, steer.sprint, dt, false);
+          }
+          stepFreeBall(b, dt);
+          const event = stepKeeperHands(k, b, [], [], t, dt, () => 0.5, false);
+          if (event === 'caught' || event === 'parried') {
+            saved = true;
+            break;
+          }
+          if (collideBall(b).goal) break;
+        }
+        assert.ok(saved, `${team} saves the ${shot} shot`);
+        assert.ok(shot === 'high' ? k.jumpAt > 0 : k.diveAt > 0);
+      }
+    }
+  }
+);
 check(
   'Chaos shot power scales the actual strike and leaves ordinary shots alone',
   () => {

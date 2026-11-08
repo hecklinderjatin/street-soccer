@@ -65,9 +65,10 @@ import { Court } from '../render/Court';
 import { Projector, newProjected } from '../render/Projector';
 import {
   isPerfectCharge,
-  shotLabel,
+  strikeLabel,
   shotShape,
   choosePassTarget,
+  kickBotShot,
   kickPass,
   assistedShotDirection,
   kickShot,
@@ -78,7 +79,7 @@ import {
 } from '../systems/actions';
 import { collideBall, stepFreeBall } from '../systems/ballPhysics';
 import { CameraRig } from '../systems/CameraRig';
-import { Controls, type StickInput } from '../systems/Controls';
+import { Controls, type StickInput, type SwipeVec } from '../systems/Controls';
 import { FixedStep } from '../systems/FixedStep';
 import { DEG, angleDiff, clamp } from '../systems/geometry';
 import {
@@ -180,7 +181,7 @@ export class MatchScene extends Phaser.Scene {
   private hudState!: MatchHudState;
   private marker!: Phaser.GameObjects.Graphics; // ring + pointer + charge gauge under the controlled player
   private switchMarker!: Phaser.GameObjects.Graphics; // subtle ring under the next SWITCH target
-  private shotText!: Phaser.GameObjects.BitmapText; // the swipe shape, above the shooter
+  private strikeText!: Phaser.GameObjects.BitmapText; // the swipe shape above the player
 
   private simTime = 0;
   private feedbackTime = 0; // active real seconds: UI feedback pauses with the scene
@@ -193,6 +194,7 @@ export class MatchScene extends Phaser.Scene {
     receiver: Player;
     at: number;
     weight: number | null; // weighted pass charge 0..1, null = normal pass
+    swipe: SwipeVec;
   } | null = null;
   private passChargeSince: number | null = null; // real time a held PASS started charging
   // Receive assist (PASS.receiveAssist): our receiver of the pass in flight
@@ -449,7 +451,7 @@ export class MatchScene extends Phaser.Scene {
     this.ball.rules = this.rules;
     this.marker = this.add.graphics();
     this.switchMarker = this.add.graphics();
-    this.shotText = pixelText(this, 0, 0, '', 0.6 * PX, PAL.white)
+    this.strikeText = pixelText(this, 0, 0, '', 0.6 * PX, PAL.white)
       .setOrigin(0.5, 1)
       .setDepth(SHOT_TEXT_DEPTH)
       .setVisible(false);
@@ -684,7 +686,7 @@ export class MatchScene extends Phaser.Scene {
     this.ball.interpolate(alpha);
     if (!this.demo) {
       this.updatePassPreview();
-      this.updateShotText();
+      this.updateStrikeText();
       this.updateRoleText();
       this.updateGroundMarker();
       this.updateSwitchMarker();
@@ -797,14 +799,7 @@ export class MatchScene extends Phaser.Scene {
       const home = k.team === 'home';
       const level = home ? LEVELS.normal : LEVELS[this.botDifficulty];
       if ((this.demo || k !== this.controlled) && !frozen)
-        cpuKeeperReact(
-          k,
-          ball,
-          t,
-          level.keeperReactSec,
-          Math.random,
-          level.keeperDiveError
-        );
+        cpuKeeperReact(k, ball, t, level, Math.random);
       if (stepKeeperBody(k, t, dt)) continue; // diving or down after a dive
       const human = !this.demo && k === this.controlled;
       const steer = frozen
@@ -1047,7 +1042,7 @@ export class MatchScene extends Phaser.Scene {
     const c = this.controlled;
 
     if (this.pendingPass && t >= this.pendingPass.at) {
-      const { passer, receiver, weight } = this.pendingPass;
+      const { passer, receiver, weight, swipe } = this.pendingPass;
       this.pendingPass = null;
       if (ball.owner === passer) {
         kickPass(
@@ -1056,7 +1051,9 @@ export class MatchScene extends Phaser.Scene {
           receiver,
           this.opponentsOf(passer),
           Math.random,
-          weight
+          weight,
+          1,
+          swipe
         );
         releaseBall(ball, passer, t);
         this.stats.passes += 1;
@@ -1112,6 +1109,7 @@ export class MatchScene extends Phaser.Scene {
             receiver,
             at: t + PASS.windUpSec,
             weight: held <= PASS.weightTapSec ? null : passWeight(held),
+            swipe: controls.swipeFor(1),
           };
       }
     } else if (fresh(1)) {
@@ -1162,7 +1160,7 @@ export class MatchScene extends Phaser.Scene {
           charge,
           this.opponentsOf(c),
           Math.random,
-          controls.swipe
+          controls.swipeFor(2)
         );
         releaseBall(ball, c, t);
         this.stats.shots += 1;
@@ -1259,7 +1257,7 @@ export class MatchScene extends Phaser.Scene {
       // Analog swipes as on SHOOT: up = high punt, down = driven (fast,
       // flat), left / right = curling kick bending that way; it leaves
       // along the stick (no assist), each effect scaled by the swipe.
-      const shape = shotShape(controls.swipe);
+      const shape = shotShape(controls.swipeFor(2));
       const speedScale =
         1 +
         (KEEPER.puntSpeedScale - 1) * shape.chip +
@@ -1507,25 +1505,23 @@ export class MatchScene extends Phaser.Scene {
         this.passReaction(p.team, t);
         continue;
       }
-      const dx = act.x - p.x;
-      const dy = act.y - p.y;
-      const len = Math.hypot(dx, dy) || 1;
-      // A clearance is lofted; a chip shot is a full swipe up.
-      const swipe =
-        act.kind === 'clear'
-          ? { x: 0, y: -AI.clearChip }
-          : act.chip > 0
-            ? { x: 0, y: -act.chip }
-            : undefined;
-      kickShot(
-        ball,
-        p,
-        { x: dx / len, y: dy / len, r: 1 },
-        act.kind === 'shoot' ? act.charge : AI.clearCharge,
-        this.opponentsOf(p),
-        Math.random,
-        swipe
-      );
+      const opponents = this.opponentsOf(p);
+      if (act.kind === 'shoot') {
+        kickBotShot(ball, p, act, opponents, Math.random);
+      } else {
+        const dx = act.x - p.x;
+        const dy = act.y - p.y;
+        const len = Math.hypot(dx, dy) || 1;
+        kickShot(
+          ball,
+          p,
+          { x: dx / len, y: dy / len, r: 1 },
+          AI.clearCharge,
+          opponents,
+          Math.random,
+          { x: 0, y: -AI.clearChip }
+        );
+      }
       releaseBall(ball, p, t);
       p.playShoot();
     }
@@ -1801,21 +1797,26 @@ export class MatchScene extends Phaser.Scene {
     this.setControlled(this.forward);
   }
 
-  // While a shot (or keeper kick) charges: the swipe shape above the
-  // shooter's head (the thumb hides the button). The strike direction is
-  // shown by the ground marker's pointer stretching out (updateGroundMarker).
-  private updateShotText() {
+  // Show the swipe above the player while a thumb covers the button.
+  private updateStrikeText() {
     const c = this.controlled;
-    const charging = this.chargeSince !== null && this.ball.owner === c;
-    this.shotText.setVisible(charging);
-    if (!charging) return;
-    const label =
-      shotLabel(this.controls.swipe, c.holding) ||
-      (c.holding ? 'KICK' : 'SHOT');
-    if (this.shotText.text !== label) this.shotText.setText(label);
+    let label = '';
+    if (this.ball.owner === c) {
+      if (this.chargeSince !== null)
+        label =
+          strikeLabel(
+            this.controls.swipeFor(2),
+            c.holding ? 'kick' : 'shoot'
+          ) || (c.holding ? 'KICK' : 'SHOT');
+      else if (this.passChargeSince !== null)
+        label = strikeLabel(this.controls.swipeFor(1), 'pass');
+    }
+    this.strikeText.setVisible(label !== '');
+    if (!label) return;
+    if (this.strikeText.text !== label) this.strikeText.setText(label);
     // Above the overhead arrow (which sits over the sprite).
     this.projector.project(c.renderX, c.renderY, PLAYER_HEIGHT + 48, AIM_AT);
-    this.shotText.setPosition(AIM_AT.x, AIM_AT.y);
+    this.strikeText.setPosition(AIM_AT.x, AIM_AT.y);
   }
 
   // How far the shot (or keeper kick) is charged, 0..1, or null when the

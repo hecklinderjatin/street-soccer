@@ -12,7 +12,7 @@ A fast 5v5 arcade street football match against the AI, played right inside a Re
 ## Controls
 
 - **Joystick (left):** move; push to the edge to sprint.
-- **PASS:** tap passes to the ringed teammate; hold for a weighted pass.
+- **PASS:** tap passes to the ringed teammate; hold to set the pace. Slide up to lob, down for a driven ground pass, or left / right to curl.
 - **SHOOT:** hold to charge, release to shoot; slide while holding for a chip (up), a driven shot (down) or curl (left / right).
 - **TACKLE:** slide tackle (or dive, when controlling the goalkeeper).
 - **SWITCH:** change the player you control.

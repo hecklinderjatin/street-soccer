@@ -69,8 +69,9 @@ export function buildHelpLayer(
   y = header(scene, items, left, y, 'WITH THE BALL');
   disc(scene, items, left + DISC_R, y + DISC_R, 'PASS');
   y = rowText(scene, items, left, y, [
-    'TAP: PASS TO THE RINGED MATE',
-    'HOLD: WEIGHTED PASS',
+    'TAP: PASS   HOLD: SET PACE',
+    'SLIDE UP: LOB  DOWN: DRIVE',
+    'SLIDE LEFT / RIGHT: CURL',
   ]);
   disc(scene, items, left + DISC_R, y + DISC_R + 8, 'SHOOT');
   swipeArrows(scene, items, left + DISC_R, y + DISC_R + 8);

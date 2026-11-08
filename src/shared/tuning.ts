@@ -194,6 +194,9 @@ export const PASS = {
   chipLane: 60, // an opponent this close to the pass line turns it into a chip ...
   chipFromAhead: 30, // ... if the ball still has to pass it (this far along the line or more; not one beside or behind the passer)
   chipVz: 380, // vertical speed of a chip
+  lobVz: 540, // maximum lift of a full swipe-up pass
+  driveSpeedGain: 0.18, // extra speed at full swipe down, which also keeps the ball on the ground
+  curlSpin: 1.0, // sidespin in rad/s at full swipe left or right
   receiverStopBelow: 60, // the receiver stops running onto the pass once the ball is slower than this (px/s)
   // Weighted pass (user request): hold PASS to set the pace yourself. A tap
   // is the normal pass above (pace fitted to the distance); held, the charge
@@ -320,6 +323,10 @@ export const KEEPER = {
   setAbove: 450, // a free ball faster than this (a shot): the keeper sets itself ...
   shuffleStick: 0.5, // ... side-stepping toward where it will cross at this stick (~140 px/s, a walk), until its dive ...
   shuffleDelay: 0.1, // ... starting only this long after it sees the shot (reading it; was at once, which smothered placed shots)
+  wideGoalCoverage: 0.7, // how much extra goal width feeds keeper depth, shuffle and reaction
+  wideDiveLead: 0.12, // extra seconds to commit before a wide-goal dive reaches the ball
+  tallGoalReach: 0.3, // share of added bar height the AI can cover in the air
+  highJumpWidth: 0.8, // share of jump reach used when reading a high shot in a taller goal
   // Keeper reaction dive (cpuKeeperReact): sees a shot coming, waits its
   // reaction time (LEVELS.keeperReactSec), then dives toward where it will
   // pass, as far as needed.
@@ -355,7 +362,6 @@ export const KEEPER = {
   rushMax: 170, // ... at most this far off its line (staying in the box)
   coverCarryDepth: 170, // close down the dribbler's lane this far from the goal line
   smotherRange: 150, // start reading a carrier's ball within this reach, inside the box
-  smotherReact: 0.5, // multiplier on the difficulty's reaction time for dribbles
   smotherLead: 0.15, // seconds of carrier movement to lead a dive by
   // Distribution (a keeper holding the ball and not human-controlled).
   throwMinDist: 120, // throw candidates between these distances
@@ -505,6 +511,9 @@ export const AI = {
   shotWeight: 1.1, // shoot score at exactly the quality wanted ...
   shotScoreCap: 1.6, // ... up to this many times that for a better chance
   shootInside: 30, // shot spots stay this far inside the posts
+  chaosPostMargin: 5, // extra clearance beyond ball and post radii in narrow goals
+  chaosBarMargin: 6, // clearance below the bar when checking Chaos shot charge
+  chaosChargeSteps: 16, // increments to try if the bot's preferred shot cannot fit
   shotPoints: 5, // spots across the goal mouth the AI picks its shot from (the most open one) ...
   shotPickNoiseDeg: 6, // ... with up to this much random preference
   shotClearMaxDeg: 45, // a spot's openness: the angle from its line to the nearest blocker, capped here ...
@@ -625,7 +634,8 @@ export const LEVELS = {
     dangerPressScale: 1, // near-goal stand-off multiplier; 1 keeps existing behaviour
     dangerSpacingScale: 1, // near-goal teammate gap for markers/cover; retain separation
     recoverSlack: 260,
-    keeperReactSec: 0.6,
+    keeperReactSec: 0.68,
+    keeperDribbleSec: 0.3,
     keeperDiveError: 45,
   },
   easy: {
@@ -642,7 +652,8 @@ export const LEVELS = {
     dangerPressScale: 1, // near-goal stand-off multiplier; 1 keeps existing behaviour
     dangerSpacingScale: 1, // near-goal teammate gap for markers/cover; retain separation
     recoverSlack: 150, // px a defender may be upfield of the ball before he sprints back goal-side (AI recovery runs)
-    keeperReactSec: 0.5, // keeper reaction to a shot (+- KEEPER.reactJitter)
+    keeperReactSec: 0.55, // keeper reaction to a shot (+- KEEPER.reactJitter)
+    keeperDribbleSec: 0.22, // separate read for a dribbler in range
     keeperDiveError: 30, // px a keeper's dive may fall short or overshoot by
   },
   normal: {
@@ -660,6 +671,7 @@ export const LEVELS = {
     dangerSpacingScale: 1, // near-goal teammate gap for markers/cover; retain separation
     recoverSlack: 60,
     keeperReactSec: 0.4,
+    keeperDribbleSec: 0.19,
     keeperDiveError: 12,
   },
   hard: {
@@ -677,6 +689,7 @@ export const LEVELS = {
     dangerSpacingScale: 0.67, // near-goal teammate gap for markers/cover; retain separation
     recoverSlack: 20,
     keeperReactSec: 0.32,
+    keeperDribbleSec: 0.15,
     keeperDiveError: 5,
   },
   pro: {
@@ -694,6 +707,7 @@ export const LEVELS = {
     dangerSpacingScale: 0.53, // near-goal teammate gap for markers/cover; retain separation
     recoverSlack: 0,
     keeperReactSec: 0.26,
+    keeperDribbleSec: 0.12,
     keeperDiveError: 2,
   },
 } as const;

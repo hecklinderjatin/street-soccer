@@ -14,7 +14,13 @@ export type BallContact = {
 
 // Free flight for one fixed step: gravity and bounces, rolling or air drag,
 // and spin that bends a fast ball's path a few degrees.
-export function stepFreeBall(ball: Ball, dt: number) {
+export function stepFreeBall(
+  ball: Pick<
+    Ball,
+    'x' | 'y' | 'z' | 'vx' | 'vy' | 'vz' | 'speed' | 'dip' | 'spin'
+  >,
+  dt: number
+) {
   ball.vz -= BALL.gravity * (1 + ball.dip) * dt;
   ball.z += ball.vz * dt;
   if (ball.z <= 0) {

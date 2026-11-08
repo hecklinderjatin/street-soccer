@@ -16,28 +16,23 @@ export type ButtonContext = {
 // Width of the green "perfect strike" band on the shot charge ring.
 const SWEET_BAND = SHOOT.perfectBand;
 
-// Swipe directions on SHOOT and the effect each one adds (see
-// actions.shotShape), and what the same swipe does to a keeper's KICK.
 type SwipeDir = {
-  name: string;
-  kickName: string;
   dx: number;
   dy: number;
 };
 const SWIPES: SwipeDir[] = [
-  { name: 'CHIP', kickName: 'PUNT', dx: 0, dy: -1 },
-  { name: 'POWER', kickName: 'DRIVE', dx: 0, dy: 1 },
-  { name: 'CURL', kickName: 'CURL', dx: -1, dy: 0 },
-  { name: 'CURL', kickName: 'CURL', dx: 1, dy: 0 },
+  { dx: 0, dy: -1 },
+  { dx: 0, dy: 1 },
+  { dx: -1, dy: 0 },
+  { dx: 1, dy: 0 },
 ];
-const swipeName = (s: SwipeDir, action: string) =>
-  action === 'KICK' ? s.kickName : s.name;
+const SWIPE_NAMES: Record<string, readonly string[]> = {
+  PASS: ['LOB', 'DRIVE', 'CURL', 'CURL'],
+  SHOOT: ['CHIP', 'POWER', 'CURL', 'CURL'],
+  KICK: ['PUNT', 'DRIVE', 'CURL', 'CURL'],
+};
 // Below this amount a direction counts as not swiped (display only).
 const SWIPE_SHOWN = 0.1;
-
-// Button-2 actions that take swipes (the keeper's KICK uses the same ones:
-// up a high punt, down a driven kick, left / right a curling kick).
-const SWIPE_ACTIONS = new Set(['SHOOT', 'KICK']);
 
 export const ACTION_COLORS: Record<string, number> = {
   PASS: PAL.green,
@@ -56,6 +51,7 @@ type Button = {
   radius: number; // screen px
   disc: Phaser.GameObjects.Image;
   label: Phaser.GameObjects.BitmapText;
+  swipeLabels: Phaser.GameObjects.BitmapText[];
   pointerId: number | null;
   downX: number; // where the thumb went down (for swipes)
   downY: number;
@@ -68,43 +64,27 @@ type Button = {
 // id, so the joystick thumb and the button thumb never interfere. Labels and
 // colours swap instantly with the situation (PASS/SHOOT with the ball,
 // TACKLE/SWITCH without). Button 2 shows a ring filling with shot charge.
-// On SHOOT / KICK the thumb can also slide (up CHIP, down POWER, left /
-// right CURL bending that way). The slide is analog: how far the thumb goes
+// On PASS, SHOOT and KICK the thumb can also slide. The slide is analog:
+// how far the thumb goes
 // (up to SHOOT.swipeFullPx) is how much of each effect the strike gets, and
 // diagonals mix. Arrows around the button grow and light up with the
-// amount; the shooter's label in the Match scene spells it out.
+// amount; the label above the player spells it out.
 export class ActionButtons {
   enabled = true;
   private readonly buttons: Button[];
   private readonly chargeArc: Phaser.GameObjects.Graphics;
   private readonly swipeArrows: Phaser.GameObjects.Graphics;
-  private readonly swipeLabels: Phaser.GameObjects.BitmapText[];
 
   constructor(
     scene: Phaser.Scene,
     private readonly controls: Controls
   ) {
+    this.chargeArc = scene.add.graphics().setDepth(1);
+    this.swipeArrows = scene.add.graphics().setDepth(1);
     this.buttons = [
       this.makeButton(scene, 1, VIEW.width - 300, VIEW.height - 104, 14),
       this.makeButton(scene, 2, VIEW.width - 136, VIEW.height - 196, 18),
     ];
-    this.chargeArc = scene.add.graphics();
-    this.swipeArrows = scene.add.graphics();
-    const b2 = this.buttons[1];
-    this.swipeLabels = SWIPES.map((s) => {
-      // Up / down labels sit beyond their arrow; left / right ones above
-      // it (beside it, the right label would run off the screen edge).
-      const r = (b2?.radius ?? 0) + (s.dx === 0 ? 7 : 3.5) * PX;
-      return pixelText(
-        scene,
-        (b2?.x ?? 0) + s.dx * r,
-        (b2?.y ?? 0) + s.dy * r - (s.dx === 0 ? 0 : 5 * PX),
-        s.name,
-        0.4 * PX,
-        PAL.white
-      ).setOrigin(0.5);
-    });
-
     scene.input.on(Phaser.Input.Events.POINTER_DOWN, this.onDown, this);
     scene.input.on(Phaser.Input.Events.POINTER_MOVE, this.onMove, this);
     scene.input.on(Phaser.Input.Events.POINTER_UP, this.onUp, this);
@@ -112,20 +92,14 @@ export class ActionButtons {
   }
 
   update(context: ButtonContext) {
+    this.swipeArrows.clear();
     for (const b of this.buttons) {
       const action = b.id === 1 ? context.b1 : context.b2;
       if (action !== b.action) {
         b.action = action;
         b.disc.setTint(ACTION_COLORS[action] ?? PAL.darkGray);
       }
-      const main = this.strongestSwipe();
-      const shown =
-        b.id === 2 &&
-        SWIPE_ACTIONS.has(action) &&
-        main &&
-        this.controls.isHeld(2)
-          ? swipeName(main, action)
-          : action;
+      const shown = this.drawSwipeHints(b, SWIPE_NAMES[action]) ?? action;
       if (shown !== b.shown) {
         b.shown = shown;
         b.label.setText(shown).setScale(shown === 'TACKLE' ? 0.75 : 1);
@@ -135,8 +109,6 @@ export class ActionButtons {
     }
 
     const b2 = this.buttons[1];
-    this.drawSwipeHints(b2, context.b2);
-
     this.chargeArc.clear();
     if (b2 && context.charge >= 0) {
       const start = -Math.PI / 2;
@@ -168,41 +140,26 @@ export class ActionButtons {
     }
   }
 
-  // How much the current swipe goes in this direction (0..1).
-  private swipeAmount(s: SwipeDir) {
-    const v = this.controls.swipe;
-    return Math.max(0, v.x * s.dx + v.y * s.dy);
-  }
-
-  // The direction swiped most, if any.
-  private strongestSwipe(): SwipeDir | null {
-    let best: SwipeDir | null = null;
-    let amount = SWIPE_SHOWN;
-    for (const s of SWIPES) {
-      const a = this.swipeAmount(s);
-      if (a >= amount) {
-        best = s;
-        amount = a;
-      }
-    }
-    return best;
-  }
-
-  // Small arrows around SHOOT / KICK: faint while idle, bright while the
+  // Small arrows around swipe actions: faint while idle, bright while the
   // thumb is on it; each grows and turns yellow with how far it's swiped.
-  private drawSwipeHints(b: Button | undefined, action: string) {
+  private drawSwipeHints(b: Button, names: readonly string[] | undefined) {
     const g = this.swipeArrows;
-    g.clear();
-    const show = SWIPE_ACTIONS.has(action);
-    const pressed = show && this.controls.isHeld(2);
+    const pressed = names !== undefined && this.controls.isHeld(b.id);
+    const swipe = this.controls.swipeFor(b.id);
+    let strongest = SWIPE_SHOWN;
+    let best: string | undefined;
     SWIPES.forEach((s, i) => {
-      const amount = pressed ? this.swipeAmount(s) : 0;
+      const amount = pressed ? Math.max(0, swipe.x * s.dx + swipe.y * s.dy) : 0;
       const chosen = amount >= SWIPE_SHOWN;
-      const label = this.swipeLabels[i];
-      if (label && pressed && label.text !== swipeName(s, action))
-        label.setText(swipeName(s, action));
+      const name = names?.[i];
+      const label = b.swipeLabels[i];
+      if (label && pressed && name && label.text !== name) label.setText(name);
       label?.setVisible(pressed).setTint(chosen ? PAL.yellow : PAL.white);
-      if (!show || !b) return;
+      if (!name) return;
+      if (amount >= strongest) {
+        strongest = amount;
+        best = name;
+      }
       const r = b.radius + (3.5 + 2 * amount) * PX;
       const cx = b.x + s.dx * r;
       const cy = b.y + s.dy * r;
@@ -220,6 +177,7 @@ export class ActionButtons {
         cy - s.dy * size - py * size
       );
     });
+    return best;
   }
 
   // Lets go of everything (pause, app losing focus).
@@ -238,17 +196,34 @@ export class ActionButtons {
     artRadius: number
   ): Button {
     const key = createButtonTexture(scene, artRadius);
+    const radius = artRadius * PX;
     const disc = scene.add.image(x, y, key).setScale(PX).setAlpha(0.9);
     const label = pixelText(scene, x, y, '', 0.75 * PX, PAL.white).setOrigin(
       0.5
     );
+    const swipeLabels = SWIPES.map(({ dx, dy }) => {
+      // Vertical labels sit beyond their arrow; horizontal ones sit above it.
+      const r = radius + (dx === 0 ? 7 : 3.5) * PX;
+      return pixelText(
+        scene,
+        x + dx * r,
+        y + dy * r - (dx === 0 ? 0 : 5 * PX),
+        '',
+        0.4 * PX,
+        PAL.white
+      )
+        .setOrigin(0.5)
+        .setDepth(2)
+        .setVisible(false);
+    });
     return {
       id,
       x,
       y,
-      radius: artRadius * PX,
+      radius,
       disc,
       label,
+      swipeLabels,
       pointerId: null,
       downX: x,
       downY: y,
@@ -271,25 +246,24 @@ export class ActionButtons {
     }
   }
 
-  // The thumb's slide on SHOOT / KICK from where it pressed, as the analog
+  // The thumb's slide from where it pressed, as the analog
   // swipe: wobble under swipeDeadPx is ignored, full effect at
   // swipeFullPx. It follows the thumb, so sliding back takes effect away.
   private onMove(pointer: Phaser.Input.Pointer) {
-    const b = this.buttons[1];
-    if (!b || b.pointerId !== pointer.id || !SWIPE_ACTIONS.has(b.action))
-      return;
+    const b = this.buttons.find((button) => button.pointerId === pointer.id);
+    if (!b || !SWIPE_NAMES[b.action]) return;
     const dx = pointer.x - b.downX;
     const dy = pointer.y - b.downY;
     const len = Math.hypot(dx, dy);
     if (len < SHOOT.swipeDeadPx) {
-      this.controls.setSwipe(0, 0);
+      this.controls.setSwipe(b.id, 0, 0);
       return;
     }
     const amount = Math.min(
       1,
       (len - SHOOT.swipeDeadPx) / (SHOOT.swipeFullPx - SHOOT.swipeDeadPx)
     );
-    this.controls.setSwipe((dx / len) * amount, (dy / len) * amount);
+    this.controls.setSwipe(b.id, (dx / len) * amount, (dy / len) * amount);
   }
 
   private onUp(pointer: Phaser.Input.Pointer) {

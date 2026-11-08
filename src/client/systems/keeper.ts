@@ -29,11 +29,26 @@ export type KeeperEvent =
 
 export type KeeperSteer = { move: StickInput; sprint: boolean };
 
+type KeeperSkill = {
+  keeperReactSec: number;
+  keeperDribbleSec: number;
+  keeperDiveError: number;
+};
+
 // What the AI keeper does about a threat: dive at a shot to its side, jump
 // at a high one coming at it, or close down a carrier (smother).
 type KeeperMove = 'dive' | 'jump' | 'smother';
 
 const STAND: KeeperSteer = { move: { x: 0, y: 0, r: 0 }, sprint: false };
+const AIR_LOG_DRAG = Math.log(BALL.airDrag);
+
+const wideCoverage = (keeper: Player) =>
+  1 +
+  KEEPER.wideGoalCoverage *
+    Math.max(0, rulesOf(keeper).pitch.goalMouth / PITCH.goalMouth - 1);
+const highSaveBonus = (keeper: Player) =>
+  KEEPER.tallGoalReach *
+  Math.max(0, rulesOf(keeper).pitch.goalHeight - PITCH.goalHeight);
 
 // The keeper's own big box, where it may use its hands. Outside it the
 // keeper is free to roam but plays the ball with its feet like anyone else.
@@ -120,7 +135,10 @@ export function keeperStick(
       move: {
         x: 0,
         y: Math.sign(dy),
-        r: KEEPER.shuffleStick * Math.min(1, Math.abs(dy) / 40),
+        r:
+          KEEPER.shuffleStick *
+          wideCoverage(k) *
+          Math.min(1, Math.abs(dy) / 40),
       },
       sprint: false,
     };
@@ -168,7 +186,9 @@ export function keeperStick(
     0,
     1
   );
-  const out = KEEPER.lineOut + (KEEPER.maxOut - KEEPER.lineOut) * near;
+  const out =
+    (KEEPER.lineOut + (KEEPER.maxOut - KEEPER.lineOut) * near) *
+    wideCoverage(k);
   const ux = d > 1 ? Math.abs(bx) / d : 1; // always out into the pitch
   const uy = d > 1 ? by / d : 0;
   const tx =
@@ -260,10 +280,11 @@ export function stepKeeperHands(
     : jumping
       ? KEEPER.jumpReach
       : KEEPER.reach;
+  const highBonus = humanControlled ? 0 : highSaveBonus(keeper);
   const reachHeight = diving
-    ? diveReachHeight(keeper, time)
+    ? diveReachHeight(keeper, time) + highBonus
     : jumping
-      ? jumpReachHeight(keeper, time)
+      ? jumpReachHeight(keeper, time, highBonus)
       : KEEPER.standReachHeight;
   if (dist > reach || ball.z > reachHeight) return null;
   // A save made standing shows the block pose.
@@ -372,8 +393,8 @@ function distribute(
   return 'punted';
 }
 
-// Keeper reactions (whenever the human isn't controlling it), after its
-// reaction time `reactSec` (LEVELS.keeperReactSec, +- KEEPER.reactJitter):
+// Keeper reactions (whenever the human isn't controlling it), with separate
+// delays by difficulty for shots and dribbles (+- KEEPER.reactJitter):
 // - a shot heading for its goal: a dive toward where the ball will pass
 //   it, only as far as needed. Only what it can reach in the time left gets
 //   saved, so a fast shot placed toward a corner beats it and a slow or
@@ -381,36 +402,45 @@ function distribute(
 //   (no curl), so a late-bending curler can fool it.
 // - a carrier close in its box (KEEPER.smotherRange): a quicker read, then
 //   a standing tackle if the ball is in reach or a dive at its path.
-// Either dive's length is off by up to `diveError` (by difficulty), so a
+// Either dive's length is off by up to the level's dive error, so a
 // weaker keeper sometimes dives short or past the ball.
 export function cpuKeeperReact(
   keeper: Player,
   ball: Ball,
   time: number,
-  reactSec: number,
-  rand: () => number,
-  diveError = 0 // px the dive may fall short or overshoot by (LEVELS.keeperDiveError)
+  skill: KeeperSkill,
+  rand: () => number
 ) {
   const target = keeperThreat(keeper, ball, time);
   if (!target) {
     keeper.reactAt = -1;
     return;
   }
+  const coverage = wideCoverage(keeper);
   // A new threat, or a different kind (the carrier it was setting itself
   // to smother shoots): the reaction time starts again, so a close-range
   // shot doesn't inherit a half-run smother countdown.
   if (keeper.reactAt < 0 || keeper.reactKind !== target.kind) {
     keeper.reactKind = target.kind;
     const delay =
-      target.kind === 'smother' ? reactSec * KEEPER.smotherReact : reactSec;
+      target.kind === 'smother'
+        ? skill.keeperDribbleSec
+        : skill.keeperReactSec / coverage;
     keeper.reactAt = time + delay + (rand() * 2 - 1) * KEEPER.reactJitter;
-    keeper.shuffleAt = time + KEEPER.shuffleDelay;
+    keeper.shuffleAt = time + KEEPER.shuffleDelay / coverage;
     return;
   }
   if (time < keeper.reactAt) return;
   // Ready to jump: wait until the ball is close enough for the top of the
   // jump to meet it.
   if (target.kind === 'jump' && target.t > KEEPER.jumpLead) return;
+  // With a wide goal, stay upright and cover ground before committing.
+  if (
+    coverage > 1 &&
+    target.kind === 'dive' &&
+    target.t > Math.max(0, target.dist) / KEEPER.diveSpeed + KEEPER.wideDiveLead
+  )
+    return;
   keeper.reactAt = -1;
   if (target.kind === 'jump') startJump(keeper, time);
   else if (
@@ -423,7 +453,7 @@ export function cpuKeeperReact(
       keeper,
       target.dir,
       time,
-      target.dist + (rand() * 2 - 1) * diveError
+      target.dist + (rand() * 2 - 1) * skill.keeperDiveError
     );
 }
 
@@ -463,14 +493,22 @@ function keeperThreat(
     };
   }
   const goalX = keeper.team === 'home' ? 0 : PITCH.width;
-  const t =
+  const crossing =
     Math.abs(ball.vx) > KEEPER.reactMinSpeed &&
     Math.sign(goalX - ball.x) === Math.sign(ball.vx)
       ? (keeper.x - ball.x) / ball.vx
       : -1;
-  if (t <= 0 || t > KEEPER.reactHorizonSec) return null;
+  if (crossing <= 0 || crossing > KEEPER.reactHorizonSec) return null;
   // Where and how high the ball passes the keeper.
-  const y = ball.y + ball.vy * t;
+  const y = ball.y + ball.vy * crossing;
+  const highBonus = highSaveBonus(keeper);
+  // Read a high flight using air drag so a tall-goal keeper does not
+  // mistake a ball that will drop into reach for one sailing overhead.
+  const remaining = 1 + AIR_LOG_DRAG * crossing;
+  const t =
+    highBonus > 0 && (ball.z > 0 || ball.vz > 0) && remaining > 0
+      ? Math.log(remaining) / AIR_LOG_DRAG
+      : crossing;
   const z = ball.z + ball.vz * t - 0.5 * BALL.gravity * (1 + ball.dip) * t * t;
   const mouthTop = (PITCH.height - rulesOf(keeper).pitch.goalMouth) / 2;
   const mouthBottom = (PITCH.height + rulesOf(keeper).pitch.goalMouth) / 2;
@@ -478,12 +516,21 @@ function keeperThreat(
     y > mouthTop - KEEPER.reactMargin && y < mouthBottom + KEEPER.reactMargin;
   const offset = y - keeper.y;
   if (!onTarget) return null;
-  // Coming at it: no dive needed; a jump if it is too high to reach standing.
-  if (Math.abs(offset) < KEEPER.reach * 0.7) {
-    if (z <= KEEPER.standReachHeight || z > KEEPER.jumpReachHeight) return null;
+  // A taller opening gives the keeper more reason to jump for a high ball
+  // a little off-centre, as long as it still comes within its hands.
+  const jumpLine =
+    highBonus > 0
+      ? KEEPER.jumpReach * KEEPER.highJumpWidth
+      : KEEPER.reach * 0.7;
+  if (
+    Math.abs(offset) < KEEPER.reach * 0.7 ||
+    (z > KEEPER.standReachHeight && Math.abs(offset) < jumpLine)
+  ) {
+    if (z <= KEEPER.standReachHeight || z > KEEPER.jumpReachHeight + highBonus)
+      return null;
     return { kind: 'jump', dir: 0, dist: 0, t };
   }
-  if (z > KEEPER.reachHeight) return null;
+  if (z > KEEPER.reachHeight + highBonus) return null;
   return {
     kind: 'dive',
     dir: offset < 0 ? -Math.PI / 2 : Math.PI / 2,
@@ -505,11 +552,12 @@ function diveReachHeight(keeper: Player, time: number) {
 
 // How high a jumping keeper reaches: from its standing reach up to
 // KEEPER.jumpReachHeight at the top of the jump and back.
-function jumpReachHeight(keeper: Player, time: number) {
+function jumpReachHeight(keeper: Player, time: number, highBonus: number) {
   const p = clamp((time - keeper.jumpAt) / KEEPER.jumpSec, 0, 1);
   return (
     KEEPER.standReachHeight +
-    (KEEPER.jumpReachHeight - KEEPER.standReachHeight) * Math.sin(Math.PI * p)
+    (KEEPER.jumpReachHeight + highBonus - KEEPER.standReachHeight) *
+      Math.sin(Math.PI * p)
   );
 }
 

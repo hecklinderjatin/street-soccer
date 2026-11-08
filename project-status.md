@@ -8,6 +8,12 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Keeper difficulty timing (2026-11-08):** Separate base delays for dribbles and shots. Noob through Pro use dribble delays of 0.30 / 0.22 / 0.19 / 0.15 / 0.12 seconds and shot delays of 0.68 / 0.55 / 0.40 / 0.32 / 0.26 seconds. Easy closes down a straight dribble faster and gives a shot a longer reaction window. The player's AI keeper uses Normal. The keeper and Chaos logic checks, types, lint and production build pass.
+
+**Chaos bot balance (2026-11-08):** Power Surge bots move closer under reduced power and check their chosen charge against the real shot flight. They adjust if it would stop short or go over the bar. Goal Resize bots read lanes from the ball, use the smaller opening to judge placement and aim error, and adjust shot height for the lower bar. AI keepers cover wider goals earlier and have extra reach on airborne saves in taller goals. Gameplay regressions cover both teams at 50% and 150% power, Easy finishing at 50% goal size, and high and wide saves at 150% goal size. Types, lint, the production build and all six mocked Chromium Chaos scenarios pass. Live balance review remains pending.
+
+**Pass swipes (2026-11-08):** Slide up on PASS to lob, down to drive on the ground, or left/right to curl. Swipe distance scales the effect and diagonals blend it. The joystick still chooses the ringed teammate and holding sets the base pace. The button and overhead label show the selected effect. Types, lint, the production build and match, Daily and Free Kick logic pass. Simulated touch input on the built canvas confirmed all four swipes and an ordinary tap, including receiver handoff.
+
 **Match goalkeeper (2026-11-08):** AI keepers cover straight dribble lanes near the goal line and use one earlier, difficulty-scaled read of a carrier. They tackle a ball already in reach or dive ahead of the carrier. The regression reproduces a near-post walk-in with the previous keeper and covers both goals, three lanes and walk/sprint at Noob with the slowest reaction roll. Match logic, Daily and Free Kick checks, types and the production build pass. Live balance review remains pending.
 
 **Post analytics (2026-11-08):** Added a moderator-only report on playable posts. It shows seven UTC days of aggregate Play taps, ready and load metrics, kickoff, first shot and home goal, completions, explicit quits, rematch taps and score-share actions. The copyable CSV groups by post, build, coarse device, mode and available match settings. Includes Classic, Daily, Custom and Free Kick. Types, lint, production build, gameplay and server regressions passed. Mocked Hono and Redis checks covered access, validation, CSV and post deletion. A mocked Chromium run verified readiness, completion, rematch and quit across Journey success and failure cases. Live Reddit verification remains pending.
@@ -544,6 +550,12 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Set dribble and shot reaction delays independently so Easy can punish walk-ins sooner while giving players more room to shoot.
+
+- Keep the bot's preferred charge whenever its flight fits. Search alternatives only at launch for affected Chaos shots. Scale keeper coverage for both teams when AI-controlled, keeping the regular rules at 100%.
+
+- Pass swipes shape the flight while keeping the same targeting and base charge. Curl aim reuses the free-ball step to bend the path back toward the receiver. The default tap, weighted pass, AI passes and keeper throws retain their existing mechanics.
+
 - Defend close dribbles with earlier keeper positioning and contact-based tackles. A shot starts its own reaction timer, and a dribbler who gets past the keeper can still score under the existing goal rules.
 
 - Keep the post report in installation-scoped Devvit Redis with 30-day expiry and post-deletion cleanup. Record aggregate event counts without player identifiers. Keep the existing Reddit Journey map separate from the new counters.
@@ -880,6 +892,12 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Compare straight runs and quick shots on Easy using touch controls in a live Reddit match.
+
+- Play Easy Chaos matches on Reddit at the Power Surge and Goal Resize extremes and compare bot goals and keeper saves.
+
+- Review pass swipe reach and reception on a phone in Reddit, especially short lobs and long curls.
+
 - Playtest the match keeper on touch controls in Reddit, including late changes of direction and quick near-post shots on Noob and Normal.
 
 - Verify the post analytics form, CSV copy and event counts in a Reddit playtest. Use the report to compare Easy and Noob over the same duration and publish window.
@@ -1191,6 +1209,12 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-08:** Tuned goalkeeper difficulty with separate reaction delays for dribbles and shots.
+
+- **2026-11-08:** Balanced Chaos bots for weak and boosted shots, smaller goals and wider or taller keeper coverage.
+
+- **2026-11-08:** Added analog lob, driven and curling swipes to PASS with on-button hints and receiver-directed curl.
 
 - **2026-11-08:** Fixed straight dribble walk-ins by covering the goal lane earlier and preserving the AI keeper's reaction when the carrier comes into standing tackle range.
 
