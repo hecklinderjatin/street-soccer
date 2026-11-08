@@ -88,6 +88,7 @@ export type MatchConfig = {
 };
 
 export type MatchResult = {
+  rematch?: boolean;
   elapsedSec?: number; // live match clock elapsed; excludes pauses/celebrations
   fastestGoalKmh?: number; // fastest qualifying home goal this match
   newSpeedBest?: boolean; // beat the device record during this match

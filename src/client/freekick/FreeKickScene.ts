@@ -6,6 +6,7 @@ import { createCourtTextures } from '../art/pitchArt';
 import { registerPlayerAtlases } from '../art/playerArt';
 import { startingConfig } from '../challenge';
 import { releaseEarlyDownloads, withEarlyDownloads } from '../earlyAssets';
+import { playAttempt, playReady } from '../playMetrics';
 import { newProjected } from '../render/Projector';
 import { PAL, PX } from '../ui/palette';
 import { createPixelFont, pixelText } from '../ui/pixelFont';
@@ -129,6 +130,7 @@ export class FreeKickScene extends Phaser.Scene {
   private setup: KickSetup = makeKick(levelFor(0), Math.random);
   private band: Band | null = null;
   private retry = false;
+  private measure = playAttempt('freekick');
   private lastPower: number | null = null; // the miss being retaken
   private hint = '';
   private strike: Strike | null = null;
@@ -213,6 +215,7 @@ export class FreeKickScene extends Phaser.Scene {
     this.music.play(); // or on the first touch, if the browser refuses
     this.newKick(false);
     this.layout();
+    playReady('freekick');
   }
 
   // Effects load in the background; each plays only once it is in.
@@ -276,6 +279,7 @@ export class FreeKickScene extends Phaser.Scene {
   // The swipe's direction from the ball, as it looks on screen, picks the
   // point on the goal line it aims at.
   private shoot(power: number, curl: number, dirX: number, dirY: number) {
+    this.measure('kickoff');
     const z = BAR_Z * FK.aimHeight;
     const { spot } = this.setup;
     this.cam.project(GOAL_X, GOAL_Y - POST_HALF, z, at);
@@ -292,6 +296,7 @@ export class FreeKickScene extends Phaser.Scene {
 
   private strikeBall() {
     if (!this.strike) return;
+    this.measure('first_shot');
     this.play = startPlay(this.setup, this.strike, Math.random);
     const b = this.play.ball;
     this.prevBall = { x: b.x, y: b.y, z: b.z };
@@ -323,6 +328,7 @@ export class FreeKickScene extends Phaser.Scene {
     const outcome = play.outcome;
     if (!outcome) return;
     if (outcome === 'goal') {
+      this.measure('first_goal');
       const level = levelFor(this.goals).level;
       this.goals++;
       this.streak++;
@@ -372,6 +378,7 @@ export class FreeKickScene extends Phaser.Scene {
   }
 
   private gameOver() {
+    this.measure('completed');
     this.setPhase('over');
     this.sfx('match-over');
     this.bestBefore = readBest();
@@ -380,6 +387,8 @@ export class FreeKickScene extends Phaser.Scene {
   }
 
   private restart() {
+    this.measure('rematch_tap');
+    this.measure = playAttempt('freekick');
     for (const node of this.card) node.destroy();
     this.card = [];
     this.score = this.goals = this.streak = this.bestStreak = this.kicks = 0;

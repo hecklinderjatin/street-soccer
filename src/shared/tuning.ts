@@ -345,8 +345,7 @@ export const KEEPER = {
   // standing tackle on a carrier right at its feet (instead of a smother
   // dive), the keeper plays its block pose, standing still.
   blockSec: 0.35,
-  standTackleRange: 60, // a carrier this close (in its box): standing tackle ...
-  standTackleReach: 50, // ... which takes the ball within this
+  standTackleReach: 50, // a standing tackle takes a carrier's ball within this
   // Claiming: a loose ball the keeper reaches first, in or near its box.
   claimMargin: 0.15, // s it must beat every opponent by
   claimBoxMargin: 40, // the meeting point may be this far outside the box
@@ -354,7 +353,10 @@ export const KEEPER = {
   rushDist: 450, // carrier this close to the goal centre (and nearer to goal than our outfielders) ...
   rushGap: 110, // ... the keeper comes out to this far from it (was 80: so close it blocked every angle) ...
   rushMax: 170, // ... at most this far off its line (staying in the box)
-  smotherRange: 95, // dives at the ball of a carrier this close (in its box), after its reaction time
+  coverCarryDepth: 170, // close down the dribbler's lane this far from the goal line
+  smotherRange: 150, // start reading a carrier's ball within this reach, inside the box
+  smotherReact: 0.5, // multiplier on the difficulty's reaction time for dribbles
+  smotherLead: 0.15, // seconds of carrier movement to lead a dive by
   // Distribution (a keeper holding the ball and not human-controlled).
   throwMinDist: 120, // throw candidates between these distances
   throwMaxDist: 800,
@@ -640,7 +642,7 @@ export const LEVELS = {
     dangerPressScale: 1, // near-goal stand-off multiplier; 1 keeps existing behaviour
     dangerSpacingScale: 1, // near-goal teammate gap for markers/cover; retain separation
     recoverSlack: 150, // px a defender may be upfield of the ball before he sprints back goal-side (AI recovery runs)
-    keeperReactSec: 0.5, // keeper reaction to a shot / a carrier through on goal (+- KEEPER.reactJitter)
+    keeperReactSec: 0.5, // keeper reaction to a shot (+- KEEPER.reactJitter)
     keeperDiveError: 30, // px a keeper's dive may fall short or overshoot by
   },
   normal: {

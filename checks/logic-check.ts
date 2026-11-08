@@ -2,13 +2,14 @@ import { existsSync } from 'node:fs';
 import { firstAssets } from '../src/client/art/assetList';
 import { chaosRules, NORMAL_RULES, chaosLabel } from '../src/shared/chaos';
 import { collideBall } from '../src/client/systems/ballPhysics';
+import { separatePlayers } from '../src/client/systems/collisions';
 import { stepPlayer, constrainMove } from '../src/client/systems/movement';
 import {
   launchSpeedKmh,
   qualifyingGoal,
   goalStyle,
 } from '../src/shared/goalSpeed';
-import { gainBall } from '../src/client/systems/possession';
+import { gainBall, stepPossession } from '../src/client/systems/possession';
 import { kickShot, kickPass } from '../src/client/systems/actions';
 // Logic checks for the Phase 3 rules (tackles, keeper reaction, AI brain,
 // pass weight): pure functions driven with hand-made players, no game and
@@ -24,6 +25,7 @@ import {
 import {
   cpuKeeperReact,
   keeperStick,
+  stepKeeperBody,
   stepKeeperHands,
 } from '../src/client/systems/keeper';
 import { TeamBrain, interceptPoint } from '../src/client/systems/ai';
@@ -44,6 +46,7 @@ import {
   PASS,
   PITCH,
   SHOOT,
+  SIM,
   TACKLE,
 } from '../src/shared/tuning';
 import {
@@ -450,25 +453,33 @@ check(
       x: PITCH.width - 50,
       y: PITCH.height / 2,
     });
-    const carrier = player({ x: PITCH.width - 120, y: PITCH.height / 2 });
+    const carrier = player({ x: PITCH.width - 150, y: PITCH.height / 2 });
     const b = ball({
-      x: PITCH.width - 110,
+      x: PITCH.width - 130,
       y: PITCH.height / 2,
       owner: carrier,
     });
     const react = LEVELS.normal.keeperReactSec;
     cpuKeeperReact(k, b, 10, react, () => 0.5); // jitter 0
-    assert.equal(k.reactKind, 'tackle', 'carrier at its feet: standing tackle');
-    assert.ok(Math.abs(k.reactAt - (10 + react)) < 1e-9);
-    // 0.3 s later the carrier shoots toward the top corner.
+    assert.equal(k.reactKind, 'smother');
+    const carryDeadline = k.reactAt;
+    assert.ok(
+      Math.abs(carryDeadline - (10 + react * KEEPER.smotherReact)) < 1e-9
+    );
+    // Moving into standing tackle range keeps the original carrier read.
+    b.x += 40;
+    cpuKeeperReact(k, b, 10.1, react, () => 0.5);
+    assert.equal(k.reactAt, carryDeadline);
+    // Before the keeper reacts, the carrier shoots toward the top corner.
     b.owner = null;
     b.vx = 1100;
-    b.vy = -600; // crosses the keeper about 33 px to its side, inside the post
-    cpuKeeperReact(k, b, 10.3, react, () => 0.5);
+    b.vy = -1000; // crosses the keeper about 36 px to its side, inside the post
+    const shotAt = 10.15;
+    cpuKeeperReact(k, b, shotAt, react, () => 0.5);
     assert.equal(k.reactKind, 'dive', 'now a shot');
-    assert.ok(Math.abs(k.reactAt - (10.3 + react)) < 1e-9, 'timer restarted');
+    assert.ok(Math.abs(k.reactAt - (shotAt + react)) < 1e-9, 'timer restarted');
     // Not diving yet at the old smother deadline.
-    cpuKeeperReact(k, b, 10 + react + 0.01, react, () => 0.5);
+    cpuKeeperReact(k, b, carryDeadline + 0.01, react, () => 0.5);
     assert.equal(k.diveUntil, 0);
   }
 );
@@ -584,6 +595,67 @@ check('keeper: a standing tackle takes a carrier ball in reach', () => {
   assert.equal(event, 'smothered');
   assert.equal(b.owner, k);
 });
+
+check(
+  'keeper: cuts out straight dribbles through the middle and near the posts',
+  () => {
+    const dt = 1 / SIM.hz;
+    const lateRead = () => 1;
+    const gy = PITCH.height / 2;
+    for (const team of ['home', 'away'] as const) {
+      const sign = team === 'home' ? -1 : 1;
+      const line = team === 'home' ? 0 : PITCH.width;
+      for (const lane of [-135, 0, 135]) {
+        for (const sprint of [false, true]) {
+          const k = player({
+            team,
+            role: 'keeper',
+            x: line - sign * KEEPER.lineOut,
+            y: gy,
+          });
+          const defender = player({ team, x: line - sign * 110, y: gy + 240 });
+          const c = player({
+            team: team === 'home' ? 'away' : 'home',
+            x: line - sign * 500,
+            y: gy + lane,
+            heading: sign === 1 ? 0 : Math.PI,
+          });
+          const b = ball({ x: c.x + sign * 20, y: c.y });
+          gainBall(b, c);
+          const level = LEVELS.noob; // even the slowest read must cover a straight run
+          for (let t = 0; t < 4 && b.owner === c; t += dt) {
+            stepPlayer(c, { x: sign, y: 0, r: 1 }, sprint, dt, true);
+            cpuKeeperReact(
+              k,
+              b,
+              t,
+              level.keeperReactSec,
+              lateRead,
+              level.keeperDiveError
+            );
+            if (!stepKeeperBody(k, t, dt)) {
+              const steer = keeperStick(k, b, [defender], [c], t);
+              stepPlayer(k, steer.move, steer.sprint, dt, false);
+            }
+            separatePlayers([c, defender, k]);
+            stepPossession(b, [c, defender, k], t, dt);
+            stepKeeperHands(k, b, [defender], [c], t, dt, lateRead, false);
+            assert.equal(
+              collideBall(b).goal,
+              0,
+              `${team}: lane ${lane}, sprint ${sprint}`
+            );
+          }
+          assert.equal(
+            b.owner,
+            k,
+            `${team}: keeper claims lane ${lane}, sprint ${sprint}`
+          );
+        }
+      }
+    }
+  }
+);
 
 // --- Passing helpers --------------------------------------------------------
 check(

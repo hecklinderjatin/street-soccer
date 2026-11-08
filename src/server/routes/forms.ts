@@ -49,7 +49,7 @@ forms.post('/delete-data', async (c) => {
 });
 
 // Moderators can create posts with fixed match settings.
-const isModerator = async () => {
+export const isModerator = async () => {
   const user = await reddit.getCurrentUser();
   if (!user || !context.subredditName) return false;
   const permissions = await user.getModPermissionsForSubreddit(
@@ -57,6 +57,9 @@ const isModerator = async () => {
   );
   return permissions.length > 0;
 };
+
+// Closing the analytics form discards any edits to the copyable report.
+forms.post('/play-metrics', (c) => c.json<UiResponse>({}));
 
 const loadPostFlairs = async (): Promise<PostFlairChoice[] | null> => {
   try {

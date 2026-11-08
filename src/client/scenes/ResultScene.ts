@@ -11,7 +11,9 @@ import type {
   PostScoreRequest,
 } from '../../shared/api';
 import { type MatchResult } from '../../shared/types';
+import { journeySettings } from '../../shared/journeys';
 import { currentPostType } from '../challenge';
+import { playAttempt } from '../playMetrics';
 import { casualButton } from '../ui/casualScreen';
 import { resultsScreen } from '../ui/resultsScreen';
 import { pixelLabel } from '../ui/pixelLabel';
@@ -23,6 +25,7 @@ export class ResultScene extends Phaser.Scene {
   private result!: MatchResult;
   private alive = false; // false once the scene has left (late replies are ignored)
   private posted = false;
+  private measure!: ReturnType<typeof playAttempt>;
 
   constructor() {
     super('Result');
@@ -31,19 +34,27 @@ export class ResultScene extends Phaser.Scene {
   init(data: MatchResult) {
     this.result = data;
     this.posted = false;
+    const settings = journeySettings(
+      data.config,
+      currentPostType(),
+      data.rematch === true
+    );
+    this.measure = playAttempt(settings.mode, settings);
   }
 
   create() {
     this.alive = true;
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => (this.alive = false));
     const r = this.result;
+    const rematch = () => {
+      this.measure('rematch_tap');
+      this.scene.start('Match', { ...r.config, rematch: true });
+    };
     const screen = resultsScreen(r, currentPostType());
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => screen.destroy());
     if (r.config.mode === 'casual') {
       screen.actions.append(
-        casualButton('REMATCH', () =>
-          this.scene.start('Match', { ...r.config, rematch: true })
-        ),
+        casualButton('REMATCH', rematch),
         casualButton('CHANGE SETTINGS', () => this.scene.start('Casual'), true),
         casualButton(
           'EXIT',
@@ -62,9 +73,7 @@ export class ResultScene extends Phaser.Scene {
       true
     );
     screen.actions.append(
-      casualButton('PLAY AGAIN', () =>
-        this.scene.start('Match', { ...r.config, rematch: true })
-      ),
+      casualButton('PLAY AGAIN', rematch),
       post,
       casualButton('PLAY CUSTOM', () => this.scene.start('Casual'), true)
     );
@@ -114,6 +123,8 @@ export class ResultScene extends Phaser.Scene {
       pixelLabel(button, 'ONLY ON REDDIT');
       return;
     }
+    const measure = this.measure;
+    measure('share_tap');
     let form;
     try {
       form = await showForm({
@@ -169,6 +180,7 @@ export class ResultScene extends Phaser.Scene {
         body: JSON.stringify(request),
       });
       if (res.ok) {
+        if (request.includeStats) measure('share_succeeded');
         if (this.result === result) this.posted = true;
         showToast({ text: 'Score posted!', appearance: 'success' });
         if (this.alive && button.isConnected) pixelLabel(button, 'POSTED!');

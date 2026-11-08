@@ -58,11 +58,15 @@ Results highlight your fastest goal. Fixed Daily Challenge/Classic matches can a
 
 The server checks integer speed bounds, a scored goal and at least one shot, applies the existing result rate limit and uses the post's fixed configuration. This limits invalid submissions; client-reported gameplay is not cheat-proof.
 
-## Match analytics (awaiting Reddit allowlisting)
+## Match analytics
 
 Reddit Journeys integration is **enabled by default** at the app owner’s request. The proposed map records interactive readiness, a committed match start/rematch, terminal results and explicit quits. Custom fields are limited to predefined mode, difficulty, duration, outcome, goals and elapsed match time; team names, usernames, Reddit IDs and free text are not added. Reddit supplies its standard contextual metadata. Tracking never blocks gameplay, and watching the AI preview does not start a journey.
 
 The app declares the Journeys permission and attempts tracking, but Reddit accepts events only after map approval and app allowlisting. No second code change is needed once Reddit grants access to a deployed enabled build. To disable tracking, build both client and server with `STREET_SOCCER_JOURNEYS_ENABLED=false`. See [the review map and activation guide](docs/journeys-review-map.md). No review submission, upload or publication is performed by this change. No third-party collector is configured. Platform analytics is managed by Reddit; the existing deletion tool covers our app’s Redis data.
+
+### Per-post report
+
+On a playable post, moderators can open **View Street Soccer analytics** from the post menu. The report covers seven UTC days including today and contains event totals and a copyable CSV grouped by app version, device category, mode and, where known, difficulty, match length and rematch. It covers Play taps, interactive readiness and load time bands, detected startup failures, kickoff, first shot and first home goal, completion, explicit quits, rematch taps and score sharing. In Free Kick, kickoff means the first valid swipe and completion means the run ended. These are best-effort event counts, including repeats and direct opens, so totals across stages do not represent a matched group of players.
 
 ## Games played
 
@@ -80,7 +84,8 @@ A real match registers a random receipt after its assets are ready. The server v
 - **Delete your data:** open the subreddit menu, select **Delete my Street Soccer data**, check the confirmation box and submit. This removes your saved match results, speed records and rate-limit records across this installation's retained leaderboards. Refresh the game afterward. Future completed matches can save new scores. Reddit comments/posts are managed through Reddit's own account controls. The game help screen includes directions to the deletion action.
 - **Deleted accounts:** a scheduled task runs every 10 minutes and scans one leaderboard page (target 25 entries) per tick, rotating through boards. Results for accounts Reddit no longer exposes (including deleted or suspended accounts) are removed across retained boards. API errors stop the batch for retry; they are not treated as deletions. The full sweep time depends on leaderboard size; 10 minutes is the job interval, not a deletion deadline.
 - **Migration:** before the first deletion/cleanup, the app indexes legacy boards using its app account's Reddit post history and the last 10 UTC days. If history hits Reddit's 1,000-post listing cap, deletion reports failure instead of claiming success; an administrator must migrate the remaining post IDs. Existing unindexed records expire within 8 days of their last write. New score writes register their board before storing player data.
-- **Deleted posts:** the PostDelete trigger removes that post's retained leaderboards and Scores comment IDs.
+- **Post analytics:** aggregate daily counters are kept in Devvit Redis for up to 30 days. The counters use the post ID, app version, coarse device category and gameplay settings. They contain no usernames, account IDs, raw device strings or player history.
+- **Deleted posts:** the PostDelete trigger removes that post's retained leaderboards, Scores comment IDs and aggregate play counters.
 - **Logged-out players** can play; their results are not saved and they cannot post a comment.
 - No external network requests, no payments, no data shared outside Reddit. Sound starts only after the player taps, and can be muted.
 

@@ -43,6 +43,14 @@
         "endpoint": "/internal/menu/post-create"
       },
       {
+        "label": "View Street Soccer analytics",
+        "description": "View the last seven days of aggregate play events for this post",
+        "location": "post",
+        "forUserType": "moderator",
+        "postFilter": "currentApp",
+        "endpoint": "/internal/menu/play-metrics"
+      },
+      {
         "label": "Delete my Street Soccer data",
         "description": "Remove your saved leaderboard results in this subreddit",
         "location": "subreddit",
@@ -54,6 +62,7 @@
     "dailyModeForm": "/internal/form/daily-mode",
     "matchTypeForm": "/internal/form/match-type",
     "challengeForm": "/internal/form/challenge-submit",
+    "playMetricsForm": "/internal/form/play-metrics",
     "deleteDataForm": "/internal/form/delete-data"
   },
   "triggers": {

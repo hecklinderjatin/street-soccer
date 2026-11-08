@@ -1,4 +1,6 @@
 import { journeyAppReady } from '../journeys';
+import { measurePlay } from '../playMetrics';
+import { journeySettings } from '../../shared/journeys';
 import Phaser from 'phaser';
 import { context, requestExpandedMode } from '@devvit/web/client';
 import type { DailyLeadersResponse } from '../../shared/api';
@@ -19,6 +21,10 @@ export class MenuScene extends Phaser.Scene {
     const inline = this.registry.get('inline') === true;
     const play = (event: MouseEvent, casual: boolean) => {
       if (inline && context?.postId) {
+        measurePlay(
+          'play_tap',
+          casual ? 'casual' : journeySettings(config, type, false).mode
+        );
         requestExpandedMode(event, casual ? 'casual' : 'game');
         return;
       }
@@ -42,6 +48,7 @@ export class MenuScene extends Phaser.Scene {
         // Reddit the button's link (freekick.html) opens it.
         if (!inline || !context?.postId) return;
         event.preventDefault();
+        measurePlay('play_tap', 'freekick');
         requestExpandedMode(event, 'freekick');
       }
     );

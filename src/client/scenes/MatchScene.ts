@@ -3,6 +3,7 @@ import { chaosRules, chaosLabel, NORMAL_RULES } from '../../shared/chaos';
 import { currentPostType } from '../challenge';
 import { createMatchJourney } from '../matchJourney';
 import { journeyAppReady, sendJourney } from '../journeys';
+import { playAttempt, playReady } from '../playMetrics';
 import { journeySettings, journeyResult } from '../../shared/journeys';
 import {
   dailyPlans,
@@ -216,6 +217,7 @@ export class MatchScene extends Phaser.Scene {
   private switchCycle: Player[] = [];
   private switchIndex = 0;
   private journey: ReturnType<typeof createMatchJourney> | null = null;
+  private measure: ReturnType<typeof playAttempt> | undefined;
   private rematch = false;
   private rules = NORMAL_RULES;
   private weather: ChaosWeather | null = null;
@@ -245,6 +247,7 @@ export class MatchScene extends Phaser.Scene {
   // Phaser reuses this scene object on every restart, so reset per-match state here.
   init(data: MatchConfig & { demo?: boolean; rematch?: boolean }) {
     const { demo, rematch, ...config } = data;
+    this.measure = undefined;
     this.demo = demo === true;
     this.config = config;
     this.rules = chaosRules(config);
@@ -529,10 +532,14 @@ export class MatchScene extends Phaser.Scene {
       },
     };
     if (!this.demo) {
-      this.journey = createMatchJourney(
-        journeySettings(this.config, currentPostType(), this.rematch),
-        sendJourney
+      const settings = journeySettings(
+        this.config,
+        currentPostType(),
+        this.rematch
       );
+      this.journey = createMatchJourney(settings, sendJourney);
+      this.measure = playAttempt(settings.mode, settings);
+      playReady(settings.mode);
       journeyAppReady();
       // Initial entry waits for PLAY MATCH; later starts follow committed
       // menu/settings/rematch clicks and keep their existing quick-start flow.
@@ -540,7 +547,8 @@ export class MatchScene extends Phaser.Scene {
     }
     const hud: HudData = {
       onMatchStart: () => this.journey?.start(),
-      onMatchQuit: () =>
+      onMatchQuit: () => {
+        this.measure?.('quit');
         this.journey?.end(
           journeyResult(
             this.config,
@@ -549,7 +557,8 @@ export class MatchScene extends Phaser.Scene {
             this.flow.elapsedSec,
             true
           )
-        ),
+        );
+      },
       config: this.config,
       controls: this.controls,
       state: this.hudState,
@@ -932,6 +941,7 @@ export class MatchScene extends Phaser.Scene {
       if (scorer && !scorer.celebrating)
         scorer.celebrate(Math.floor(Math.random() * CELEBRATION_STYLES));
       if (this.flow.phase === 'live') {
+        if (scoring === 'home') this.measure?.('first_goal');
         const strike = qualifyingGoal(
           ball.goalStrike,
           scoring,
@@ -1056,6 +1066,7 @@ export class MatchScene extends Phaser.Scene {
         this.startReceiveAssist(receiver);
         // The passer (AI now) may burst forward for a one-two.
         this.homeBrain.passAndRun(passer, t, Math.random);
+        if (this.flow.awaitingKickoff) this.measure?.('kickoff');
         this.flow.kickedOff(); // a kickoff pass starts the match
         this.passReaction('home', t);
       }
@@ -1155,6 +1166,7 @@ export class MatchScene extends Phaser.Scene {
         );
         releaseBall(ball, c, t);
         this.stats.shots += 1;
+        this.measure?.('first_shot');
         c.playShoot();
         // From now on control follows the player closest to the ball
         // (see the check at the top).
@@ -1645,6 +1657,7 @@ export class MatchScene extends Phaser.Scene {
       this.passReaction(team, t);
     }
     this.flow.kickedOff();
+    this.measure?.('kickoff');
   }
 
   // After a pass or throw by `team`, the other side's AI only reacts once
@@ -2119,9 +2132,11 @@ export class MatchScene extends Phaser.Scene {
     if (this.demo) return;
     if (this.resultShown) return;
     this.resultShown = true;
+    this.measure?.('completed');
     void this.gameCount?.complete();
     const result: MatchResult = {
       config: this.config,
+      rematch: this.rematch,
       elapsedSec: Math.min(
         this.config.durationSec,
         Math.ceil(this.flow.elapsedSec)

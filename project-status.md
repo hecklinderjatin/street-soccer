@@ -8,6 +8,10 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Match goalkeeper (2026-11-08):** AI keepers cover straight dribble lanes near the goal line and use one earlier, difficulty-scaled read of a carrier. They tackle a ball already in reach or dive ahead of the carrier. The regression reproduces a near-post walk-in with the previous keeper and covers both goals, three lanes and walk/sprint at Noob with the slowest reaction roll. Match logic, Daily and Free Kick checks, types and the production build pass. Live balance review remains pending.
+
+**Post analytics (2026-11-08):** Added a moderator-only report on playable posts. It shows seven UTC days of aggregate Play taps, ready and load metrics, kickoff, first shot and home goal, completions, explicit quits, rematch taps and score-share actions. The copyable CSV groups by post, build, coarse device, mode and available match settings. Includes Classic, Daily, Custom and Free Kick. Types, lint, production build, gameplay and server regressions passed. Mocked Hono and Redis checks covered access, validation, CSV and post deletion. A mocked Chromium run verified readiness, completion, rematch and quit across Journey success and failure cases. Live Reddit verification remains pending.
+
 **Free Kick mode (2026-11-05):** a new portrait game mode on its own expanded entrypoint (`freekick` -> `freekick.html`, code in `src/client/freekick/`). A green PLAY FREE KICK button under the lobby's play buttons opens it (`requestExpandedMode(event, 'freekick')` from the feed card; off Reddit it is a plain link). It uses the same street court, kits, keeper, ball, sounds and music as the match; no new art or downloads.
 - Camera: behind the kicker on the goal-ball line, looking straight down the pitch so the goal faces it square on. Focal length and lens shift are solved per kick (ball 80% down, crossbar 25% down, goal at most 86% of the width), and it pushes in during the flight.
 - Swipe up to shoot. The direction aims (where it points on screen is where the ball goes on the goal line), the length sets power, and bending the swipe curls the ball (the heading is solved so a curler still ends where aimed).
@@ -540,6 +544,10 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Defend close dribbles with earlier keeper positioning and contact-based tackles. A shot starts its own reaction timer, and a dribbler who gets past the keeper can still score under the existing goal rules.
+
+- Keep the post report in installation-scoped Devvit Redis with 30-day expiry and post-deletion cleanup. Record aggregate event counts without player identifiers. Keep the existing Reddit Journey map separate from the new counters.
+
 - Free Kick is a separate Phaser game on its own entrypoint, not a scene in the match game. The match canvas is fixed landscape (forceLandscape rotates it in portrait), and Free Kick needs a portrait canvas (Scale.EXPAND around 720x1280). The feed card stays light: Phaser loads only in the expanded page.
 
 - Free Kick reuses the court art, kits, ball, sounds, TextButton and Projector/ProjectedPlane (KickCamera extends Projector). It has its own pure rules (`freekick/rules.ts`) and its own goal/net and figure drawing, because the camera looks down the pitch and needs different depth layers. No match code changed apart from the lobby button.
@@ -872,6 +880,10 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Playtest the match keeper on touch controls in Reddit, including late changes of direction and quick near-post shots on Noob and Normal.
+
+- Verify the post analytics form, CSV copy and event counts in a Reddit playtest. Use the report to compare Easy and Noob over the same duration and publish window.
+
 - Playtest Free Kick on a phone in Reddit (feed card -> PLAY FREE KICK -> expanded) after the next build/upload. Tune the swipe lengths (`FREE_KICK.swipeMinPx/swipeFullPx`) and the difficulty curve from real play.
 
 - Free Kick follow-ups (not built): a server leaderboard or daily best, Journeys/games-played tracking, hiding the power band at high levels.
@@ -1179,6 +1191,10 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-08:** Fixed straight dribble walk-ins by covering the goal lane earlier and preserving the AI keeper's reaction when the carrier comes into standing tackle range.
+
+- **2026-11-08:** Added aggregate post analytics and a moderator menu report for the playable-post funnel and in-game milestones.
 
 - **2026-11-05:** commit Free Kick mode to `main` and push to origin.
 - **2026-11-05:** add Free Kick mode: portrait expanded entrypoint (`freekick.html`), PLAY FREE KICK lobby button, swipe aim/power/curl with a live power meter, swipe and ball trails, wall/keeper AI, lives/levels/streak scoring, and `test:freekick` (12 rules checks, added to `test:local`). Every local check except the Windows-only dependency check passes.

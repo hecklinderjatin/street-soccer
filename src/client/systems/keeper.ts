@@ -30,9 +30,8 @@ export type KeeperEvent =
 export type KeeperSteer = { move: StickInput; sprint: boolean };
 
 // What the AI keeper does about a threat: dive at a shot to its side, jump
-// at a high one coming at it, dive at a carrier's feet (smother) or, right
-// at its feet, a standing tackle.
-type KeeperMove = 'dive' | 'jump' | 'smother' | 'tackle';
+// at a high one coming at it, or close down a carrier (smother).
+type KeeperMove = 'dive' | 'jump' | 'smother';
 
 const STAND: KeeperSteer = { move: { x: 0, y: 0, r: 0 }, sprint: false };
 
@@ -74,10 +73,11 @@ export function keepInBox(keeper: Player) {
 //    Not at a sprint, and only once it has read the shot
 //    (KEEPER.shuffleDelay after cpuKeeperReact first sees it): a
 //    well-placed shot still beats it.
-// 3. Rush out: an opposing carrier near goal with none of our outfielders
+// 3. Close the lane on a dribble near the goal line.
+// 4. Rush out: an opposing carrier near goal with none of our outfielders
 //    between it and the goal: it comes out toward the carrier (to
 //    KEEPER.rushGap from it, at most KEEPER.rushMax off its line).
-// 4. Otherwise it narrows the angle: on the bisector of the angle between
+// 5. Otherwise it narrows the angle: on the bisector of the angle between
 //    the ball and the two posts (both posts equally covered, so nearer the
 //    near post when the ball is wide), further off the line the closer the
 //    ball, within the mouth.
@@ -128,6 +128,18 @@ export function keeperStick(
 
   const c = ball.owner;
   if (c && c.team !== k.team && c.role !== 'keeper') {
+    if (
+      Math.abs(ball.x - gx) <= KEEPER.coverCarryDepth &&
+      inBox(k, ball.x, ball.y)
+    ) {
+      const outward = k.team === 'home' ? 1 : -1;
+      return toward(
+        k,
+        gx + outward * KEEPER.maxOut,
+        clamp(ball.y, gy - halfMouth, gy + halfMouth),
+        true
+      );
+    }
     const dc = Math.hypot(c.x - gx, c.y - gy);
     const through = mates.every((m) => Math.hypot(m.x - gx, m.y - gy) > dc);
     if (dc < KEEPER.rushDist && through) {
@@ -367,9 +379,8 @@ function distribute(
 //   saved, so a fast shot placed toward a corner beats it and a slow or
 //   central one doesn't. The prediction is a straight line with gravity
 //   (no curl), so a late-bending curler can fool it.
-// - a carrier close in its box (KEEPER.smotherRange): a dive at the ball's
-//   coming position (smother, see stepKeeperHands). Dribbling round it or
-//   shooting first beats it.
+// - a carrier close in its box (KEEPER.smotherRange): a quicker read, then
+//   a standing tackle if the ball is in reach or a dive at its path.
 // Either dive's length is off by up to `diveError` (by difficulty), so a
 // weaker keeper sometimes dives short or past the ball.
 export function cpuKeeperReact(
@@ -390,7 +401,9 @@ export function cpuKeeperReact(
   // shot doesn't inherit a half-run smother countdown.
   if (keeper.reactAt < 0 || keeper.reactKind !== target.kind) {
     keeper.reactKind = target.kind;
-    keeper.reactAt = time + reactSec + (rand() * 2 - 1) * KEEPER.reactJitter;
+    const delay =
+      target.kind === 'smother' ? reactSec * KEEPER.smotherReact : reactSec;
+    keeper.reactAt = time + delay + (rand() * 2 - 1) * KEEPER.reactJitter;
     keeper.shuffleAt = time + KEEPER.shuffleDelay;
     return;
   }
@@ -400,7 +413,11 @@ export function cpuKeeperReact(
   if (target.kind === 'jump' && target.t > KEEPER.jumpLead) return;
   keeper.reactAt = -1;
   if (target.kind === 'jump') startJump(keeper, time);
-  else if (target.kind === 'tackle') startBlock(keeper, time, true);
+  else if (
+    target.kind === 'smother' &&
+    Math.hypot(ball.x - keeper.x, ball.y - keeper.y) <= KEEPER.standTackleReach
+  )
+    startBlock(keeper, time, true);
   else
     startDive(
       keeper,
@@ -428,13 +445,18 @@ function keeperThreat(
   if (c) {
     if (c.team === keeper.team || c.holding || !inOwnBox(keeper)) return null;
     if (!inBox(keeper, ball.x, ball.y)) return null;
-    // Where the ball will be as the dive gets there.
-    const bx = ball.x + ball.vx * 0.15;
-    const by = ball.y + ball.vy * 0.15;
+    // Use the carrier's run to lead the dive, smoothing out dribble taps.
+    const lead = c.speed * KEEPER.smotherLead;
+    const bx = ball.x + Math.cos(c.heading) * lead;
+    const by = ball.y + Math.sin(c.heading) * lead;
     const d = Math.hypot(bx - keeper.x, by - keeper.y);
-    if (d > KEEPER.smotherRange) return null;
+    if (
+      d > KEEPER.smotherRange &&
+      Math.hypot(ball.x - keeper.x, ball.y - keeper.y) > KEEPER.smotherRange
+    )
+      return null;
     return {
-      kind: d <= KEEPER.standTackleRange ? 'tackle' : 'smother',
+      kind: 'smother',
       dir: Math.atan2(by - keeper.y, bx - keeper.x),
       dist: d,
       t: 0,

@@ -7,6 +7,7 @@ import type {
 import { context } from '@devvit/web/server';
 import { createPost } from '../core/post';
 import { forgetPost } from '../core/scoreThread';
+import { forgetPlayMetrics } from '../core/playMetrics';
 
 export const triggers = new Hono();
 
@@ -39,7 +40,10 @@ triggers.post('/on-app-install', async (c) => {
 triggers.post('/on-post-delete', async (c) => {
   try {
     const input = await c.req.json<OnPostDeleteRequest>();
-    if (input.postId) await forgetPost(input.postId);
+    if (input.postId) {
+      await forgetPost(input.postId);
+      await forgetPlayMetrics(input.postId);
+    }
     return c.json<TriggerResponse>({ status: 'success' }, 200);
   } catch (error) {
     console.error(`Error forgetting a deleted post: ${error}`);

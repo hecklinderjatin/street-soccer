@@ -1,6 +1,7 @@
 import { telemetry } from '@devvit/analytics/server/reddit';
 import { journeysEnabled } from '../shared/journeys';
 import { createJourneyRoutes } from './core/journeys';
+import { playMetrics } from './core/playMetrics';
 import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
 import { createServer, getServerPort, context } from '@devvit/web/server';
@@ -26,6 +27,7 @@ app.route(
   createJourneyRoutes(telemetry, journeysEnabled, () => Boolean(context.postId))
 );
 app.route('/api', api);
+app.route('/api/play-metrics', playMetrics);
 app.route('/internal', internal);
 
 serve({
