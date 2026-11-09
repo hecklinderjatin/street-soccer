@@ -99,8 +99,8 @@ export function buildFreeKickOverlay(
           'Practice does not submit scores or speed records.',
         ]
       : [
-          'Score goals and build streaks for bonus points.',
-          'Each miss costs one life. The run ends at zero lives.',
+          'Low XG spots pay more. A better finish (XGOT) pays up to 3x.',
+          'A miss costs a life. A great save (XGOT 0.5+) does not.',
           'Every two goals raises the wall and keeper difficulty.',
           'Completed runs rank by highest score.',
           'Fastest Goal uses scored-shot launch speed.',

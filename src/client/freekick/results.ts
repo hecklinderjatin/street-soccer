@@ -33,15 +33,16 @@ export function freeKickResults(
   if (bestLabel)
     bestLabel.textContent =
       stats.score > best ? 'NEW DEVICE BEST!' : `DEVICE BEST: ${best}`;
+  // Goals against expected goals: finishing above (+) or below (-) the
+  // average kicker from the same spots.
+  const xg = stats.xg / 100;
+  const finishing = stats.goals - xg;
   for (const [label, value] of [
-    ['GOALS', stats.goals],
-    ['SHOTS', stats.shots],
-    ['LEVEL', stats.level],
-    ['BEST STREAK', stats.bestStreak],
-    [
-      'ACCURACY',
-      `${Math.round((stats.goals / Math.max(1, stats.shots)) * 100)}%`,
-    ],
+    ['GOALS', `${stats.goals} / ${stats.shots}`],
+    ['EXPECTED (XG)', xg.toFixed(1)],
+    ['FINISHING', `${finishing >= 0 ? '+' : ''}${finishing.toFixed(1)}`],
+    ['GREAT SAVES', stats.greatSaves],
+    ['BEST STREAK', `${stats.bestStreak}  (LEVEL ${stats.level})`],
     ['FASTEST GOAL', `${stats.fastestGoalKmh} KM/H`],
   ]) {
     const tile = document.createElement('div'),

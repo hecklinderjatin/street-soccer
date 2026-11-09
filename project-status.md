@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Free Kick xG scoring (2026-11-09, on `main`, uncommitted):** `rules.ts` `SpotXg` / `spotXg`, `shotXgot`, `retryXg`, `goalPoints`, `greatSavePoints`, `streakMultiplier`; tuning under `FREE_KICK` (`pointsPerXg`, `xgSamples`, `xgStepSamples`, `xgotSamples`, `xgMin` 0.01, `xgMax` 0.5, `xgRetryScale`, `xgRetryMax`, `finishBase`, `greatSaveXgot`, `greatSavePoints`; `bonusPoints` removed). Measured spot xG: about 0.12 at level 1, 0.06 at 4, 0.03 at 8, 0.01-0.02 at 10, so goals are worth roughly 50-110 early and 300-1,500 late. `shared/freeKick.ts` adds `greatSaves` and `xg` (hundredths) to `FreeKickStats`, both optional for older runs; shots = goals + lives + great saves; per-goal bounds `freeKickGoalMin` / `freeKickGoalMax`. The Fastest Goal board is unchanged. Not playtested: check the xG ... -> value delay on a phone and whether xGOT numbers feel fair.
+
 **Playtest feedback fixes (2026-11-09, on `main`, uncommitted):** beaten human no longer suppresses the AI presser (`ai.ts` `pickPresser`); SWITCH on the opponent's ball prefers goal-side teammates (`playerSwitch.ts` `switchOrder`); PASS/TACKLE button enlarged to the SHOOT button's size (`ActionButtons.ts`). Still open from the same feedback: the joystick base is clamped 124 px from the left/bottom edges, so a thumb landing near the corner reads as a push (`Joystick.ts` `onDown`); and nothing explains that opponents jockey at walking pace (help text).
 
 **Main merge (2026-11-09):** fast-forwarded `movement_changes_main` through `50446b2` into `main` at the user's request. It brings in the smoother sprites and legs (`68dab02`), the playtest note (`e696a11`), and the back line, poke/slide tackles, sweeper keepers and smoother AI steering (`50446b2`). Types, lint, logic (69) and the build passed before the merge. Not playtested on a phone yet.
@@ -1376,6 +1378,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-09:** Free Kick scores by expected goals. Each spot gets an xG (share of 480 simulated "average kicks" that score against its wall and keeper, computed 30 per frame while aiming); each shot an xGOT (share of 32 re-simulated keeper reactions it beats, counting the real one; 0 off target). Goal = 10 / xG x (0.5 + xGOT) x streak (+0.25 per goal, max x2); style tags are labels only. A saved shot with xGOT 0.5+ is a GREAT SAVE: no life lost, 20 x xGOT points. Retries raise the spot's xG x1.5 (max 0.5). HUD shows XG and the goal's point range; banners show XGOT; results show goals/shots, xG, finishing (goals - xG) and great saves. Server validation accepts the new optional `greatSaves` / `xg` stats. Types, lint, Free Kick (25 + panels + server), logic (70) and build pass. Not playtested.
 
 - **2026-11-09:** a carrier standing on the ball is attacked sooner: `AI.idleSec` 1.5 -> 1.0, `AI.idleDoubleSec` 2.5 -> 2.0 (user request). Types and logic pass. Not playtested.
 

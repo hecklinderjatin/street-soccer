@@ -61,8 +61,16 @@ export function levelFor(goals: number): Level {
       180,
     wallJumpChance: lerp(FK.wallJumpChance[0], FK.wallJumpChance[1], t),
     wallLyerChance: lerp(FK.wallLyerChance[0], FK.wallLyerChance[1], t),
-    keeperCheatChance: lerp(FK.keeperCheatChance[0], FK.keeperCheatChance[1], t),
-    keeperGuessChance: lerp(FK.keeperGuessChance[0], FK.keeperGuessChance[1], t),
+    keeperCheatChance: lerp(
+      FK.keeperCheatChance[0],
+      FK.keeperCheatChance[1],
+      t
+    ),
+    keeperGuessChance: lerp(
+      FK.keeperGuessChance[0],
+      FK.keeperGuessChance[1],
+      t
+    ),
     keeperCurlRead: lerp(FK.keeperCurlRead[0], FK.keeperCurlRead[1], t),
   };
 }
@@ -695,13 +703,134 @@ export function stepPlay(play: KickPlay, dt: number) {
     end(play, play.hitPost ? 'post' : 'short');
 }
 
+// ---- Expected goals ----------------------------------------------------------
+
+// A small seeded generator (mulberry32): the same spot or shot always gets
+// the same xG / xGOT.
+export function seededRandom(seed: number) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const seedOf = (...values: number[]) =>
+  values.reduce(
+    (h, v) => Math.imul(h ^ Math.round(v * 16), 0x01000193),
+    0x811c9dc5
+  );
+
+// Plays a kick until something decides it.
+export function playToEnd(play: KickPlay) {
+  while (play.outcome === null) stepPlay(play, STEP);
+  return play;
+}
+
+// One average kick: any sensible strike, equally likely (power, any
+// contact, a heading anywhere from just outside one post to the other).
+function averageStrike(rand: () => number): Strike {
+  return {
+    power: lerp(0.2, 1, rand()),
+    targetY: GOAL_Y + lerp(-1.1, 1.1, rand()) * POST_HALF,
+    contact: ballContact(lerp(-0.8, 0.8, rand()), lerp(-0.5, 0.5, rand())),
+  };
+}
+
+// The spot's xG: the share of average kicks that score from it, against
+// its wall and keeper (their unseen rolls included), held in
+// [FK.xgMin, FK.xgMax]. Worked out a slice at a time (step) so a phone
+// doesn't stall; value() finishes it.
+export class SpotXg {
+  private readonly rand: () => number;
+  private done = 0;
+  private goals = 0;
+
+  constructor(private readonly setup: KickSetup) {
+    this.rand = seededRandom(
+      seedOf(
+        setup.spot.x,
+        setup.spot.y,
+        setup.level.level,
+        setup.wall.men.length
+      )
+    );
+  }
+
+  get ready() {
+    return this.done >= FK.xgSamples;
+  }
+
+  step(samples: number) {
+    const end = Math.min(FK.xgSamples, this.done + samples);
+    for (; this.done < end; this.done++) {
+      const play = startPlay(this.setup, averageStrike(this.rand), this.rand);
+      if (playToEnd(play).outcome === 'goal') this.goals++;
+    }
+  }
+
+  value() {
+    this.step(FK.xgSamples);
+    return clamp(this.goals / FK.xgSamples, FK.xgMin, FK.xgMax);
+  }
+}
+
+export const spotXg = (setup: KickSetup) => new SpotXg(setup).value();
+
+// The spot's xG for its nth retry (0: the first attempt).
+export const retryXg = (xg: number, retries: number) =>
+  retries > 0 ? Math.min(FK.xgRetryMax, xg * FK.xgRetryScale ** retries) : xg;
+
+// A shot's xGOT: 0 off target (wide, over, the frame, the wall, short);
+// on target, the share of keeper reactions (reaction time, misread, a
+// guess) that the same strike beats, with the wall as it actually was.
+// The real reaction counts as one of them, so a goal is never 0.
+export function shotXgot(play: KickPlay) {
+  if (play.outcome !== 'goal' && play.outcome !== 'saved') return 0;
+  const { strike } = play;
+  const rand = seededRandom(
+    seedOf(strike.power, strike.targetY, strike.contact.x, strike.contact.y)
+  );
+  let goals = play.outcome === 'goal' ? 1 : 0;
+  for (let i = 0; i < FK.xgotSamples; i++) {
+    const sim = startPlay(play.setup, strike, rand);
+    sim.wall.jumpAt = play.wall.jumpAt;
+    if (playToEnd(sim).outcome === 'goal') goals++;
+  }
+  return goals / (FK.xgotSamples + 1);
+}
+
+export const streakMultiplier = (streak: number) =>
+  Math.min(FK.streakMax, 1 + FK.streakStep * Math.max(0, streak - 1));
+
+// A goal's points: harder spots (lower xG) are worth more, better finishes
+// (higher xGOT) up to three times a weak one, times the streak (`streak`
+// counts this goal).
+export const goalPoints = (xg: number, xgot: number, streak: number) =>
+  Math.round(
+    (FK.pointsPerXg / clamp(xg, FK.xgMin, 1)) *
+      (FK.finishBase + clamp(xgot, 0, 1)) *
+      streakMultiplier(streak)
+  );
+
+// What a great save scores (it costs no life).
+export const greatSavePoints = (xgot: number) =>
+  Math.round(FK.greatSavePoints * clamp(xgot, 0, 1));
+
 // ---- Scoring and the power guide -------------------------------------------
 
 export type GoalScore = { points: number; tags: string[] };
 
-// A goal's points: base plus a bonus per style tag, times the streak
-// (`streak` counts this goal).
-export function scoreGoal(play: KickPlay, streak: number): GoalScore {
+// A goal's points (goalPoints) and its style tags, which are labels only.
+export function scoreGoal(
+  play: KickPlay,
+  streak: number,
+  xg: number,
+  xgot: number
+): GoalScore {
   const tags: string[] = [];
   const c = play.crossed;
   if (c && c.z >= BAR_Z * 0.6 && Math.abs(c.y - GOAL_Y) >= POST_HALF - 55)
@@ -711,16 +840,7 @@ export function scoreGoal(play: KickPlay, streak: number): GoalScore {
   if (Math.abs(play.strike.contact.x) >= 0.5) tags.push('CURLER');
   if (play.hitPost) tags.push('OFF THE POST');
   if (play.setup.distance >= FK.longRange) tags.push('LONG RANGE');
-  const multiplier = Math.min(
-    FK.streakMax,
-    1 + FK.streakStep * Math.max(0, streak - 1)
-  );
-  return {
-    points: Math.round(
-      (FK.goalPoints + FK.bonusPoints * tags.length) * multiplier
-    ),
-    tags,
-  };
+  return { points: goalPoints(xg, xgot, streak), tags };
 }
 
 // The power range that clears the wall's height and stays below the bar,

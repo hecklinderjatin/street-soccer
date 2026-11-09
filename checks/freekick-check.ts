@@ -1,4 +1,10 @@
-import { readFreeKickStats, rankFreeKicks, freeKickMaxKmh } from '../src/shared/freeKick';
+import {
+  readFreeKickStats,
+  rankFreeKicks,
+  freeKickMaxKmh,
+  freeKickGoalMax,
+  freeKickGoalMin,
+} from '../src/shared/freeKick';
 import { practiceLevel } from '../src/client/freekick/mode';
 import { postType, competitiveResultAllowed } from '../src/shared/postType';
 import { challengeFormFor, readChallenge } from '../src/server/core/challengeForm';
@@ -20,8 +26,12 @@ import {
   levelFor,
   makeKick,
   powerBand,
+  goalPoints,
   readSwipe,
+  retryXg,
   scoreGoal,
+  shotXgot,
+  spotXg,
   startPlay,
   stepPlay,
   strikeBall,
@@ -271,7 +281,7 @@ check('keeper: a shot straight at it is saved', () => {
   assert.equal(play.outcome, 'saved');
 });
 
-check('scoring: style tags and a capped streak multiplier', () => {
+check('scoring: xG x finish x a capped streak; tags are labels only', () => {
   const kick = makeKick(levelFor(0), seeded(13));
   const open = { ...kick, wall: { ...kick.wall, men: [] } };
   const play = startPlay(
@@ -279,15 +289,78 @@ check('scoring: style tags and a capped streak multiplier', () => {
     { power: 0.5, targetY: GOAL_Y, contact: ballContact(0.9, 0) },
     steady
   );
-  assert.deepEqual(scoreGoal(play, 1), {
-    points: FK.goalPoints + FK.bonusPoints,
+  const base = (FK.pointsPerXg / 0.1) * (FK.finishBase + 0.5);
+  assert.deepEqual(scoreGoal(play, 1, 0.1, 0.5), {
+    points: Math.round(base),
     tags: ['CURLER'],
   });
-  assert.equal(scoreGoal(play, 3).points, (FK.goalPoints + FK.bonusPoints) * 2);
+  assert.equal(scoreGoal(play, 3, 0.1, 0.5).points, Math.round(base * 1.5));
   assert.equal(
-    scoreGoal(play, 99).points,
-    (FK.goalPoints + FK.bonusPoints) * FK.streakMax
+    scoreGoal(play, 99, 0.1, 0.5).points,
+    Math.round(base * FK.streakMax)
   );
+  // Harder spots and better finishes are worth more.
+  assert.ok(goalPoints(0.05, 0.5, 1) > goalPoints(0.2, 0.5, 1));
+  assert.ok(goalPoints(0.1, 0.9, 1) > goalPoints(0.1, 0.1, 1));
+  assert.equal(goalPoints(0.1, 1, 1), goalPoints(0.1, 0, 1) * 3);
+  // Every goal lies within the bounds the server accepts.
+  for (const xg of [FK.xgMin, 0.05, FK.xgMax, FK.xgRetryMax])
+    for (const xgot of [0, 1])
+      for (const streak of [1, 99]) {
+        const points = goalPoints(xg, xgot, streak);
+        assert.ok(points >= freeKickGoalMin && points <= freeKickGoalMax);
+      }
+});
+
+check('xG: harder levels give lower spot xG, retries raise it', () => {
+  const mean = (goals: number) => {
+    const rand = seeded(21);
+    let sum = 0;
+    for (let i = 0; i < 6; i++) sum += spotXg(makeKick(levelFor(goals), rand));
+    return sum / 6;
+  };
+  const easy = mean(0);
+  const hard = mean((FK.maxLevel - 1) * FK.goalsPerLevel);
+  assert.ok(easy > hard * 2, `level 1 ${easy} vs top ${hard}`);
+  assert.ok(easy >= FK.xgMin && easy <= FK.xgMax);
+  // Seeded by the spot: the same spot always shows the same xG.
+  const kick = makeKick(levelFor(0), seeded(5));
+  assert.equal(spotXg(kick), spotXg(kick));
+  assert.equal(retryXg(0.1, 0), 0.1);
+  assert.ok(Math.abs(retryXg(0.1, 1) - 0.1 * FK.xgRetryScale) < 1e-9);
+  assert.equal(retryXg(0.1, 20), FK.xgRetryMax);
+});
+
+check('xGOT: 0 off target, higher for a corner than at the keeper', () => {
+  const kick = makeKick(levelFor(0), seeded(9));
+  const open = { ...kick, wall: { ...kick.wall, men: [] } };
+  const atKeeper = playOut(open, {
+    power: 0.3,
+    targetY: kick.keeperY,
+    contact: centre,
+  });
+  assert.equal(atKeeper.outcome, 'saved');
+  const wide = playOut(open, {
+    power: 0.6,
+    targetY: GOAL_Y + 2.5 * POST_HALF,
+    contact: centre,
+  });
+  assert.notEqual(wide.outcome, 'goal');
+  assert.equal(shotXgot(wide), 0);
+  // The best of a sweep of corner shots beats the keeper most of the time.
+  let best = 0;
+  for (const side of [-1, 1])
+    for (const power of [0.5, 0.7, 0.9])
+      for (const cx of [-0.8, 0, 0.8]) {
+        const play = playOut(open, {
+          power,
+          targetY: GOAL_Y + side * (POST_HALF - 20),
+          contact: ballContact(cx, 0),
+        });
+        best = Math.max(best, shotXgot(play));
+      }
+  assert.ok(best > shotXgot(atKeeper) + 0.3, `corner ${best}`);
+  assert.ok(best <= 1);
 });
 
 // A low drive at the middle of the wall: struck through the middle or
@@ -434,6 +507,13 @@ check('ranked Free Kick validates complete Play runs and keeps two independent b
   const result={mode:'play',score:500,goals:2,shots:5,bestStreak:2,level:2,fastestGoalKmh:100,elapsedSec:20};
   assert.ok(readFreeKickStats(result));
   for(const change of [{mode:'practice'},{shots:4},{score:100000},{goals:0},{level:10},{fastestGoalKmh:freeKickMaxKmh+1},{elapsedSec:0},{bestStreak:3}]) assert.equal(readFreeKickStats({...result,...change}),null);
+  // Great saves are extra shots that cost no life; xG must fit the shots.
+  const xgRun={...result,shots:6,greatSaves:1,xg:60,elapsedSec:30};
+  assert.deepEqual(readFreeKickStats(xgRun),{...xgRun});
+  assert.equal(readFreeKickStats({...result})?.greatSaves,0,'older runs read as no great saves');
+  for(const change of [{greatSaves:0},{xg:1},{xg:600},{score:2*freeKickGoalMax+21}]) assert.equal(readFreeKickStats({...xgRun,...change}),null);
+  assert.ok(readFreeKickStats({...xgRun,score:2*freeKickGoalMax+20}));
+  assert.equal(readFreeKickStats({...xgRun,score:2*freeKickGoalMin-1}),null);
   const board=rankFreeKicks([{member:'alice',score:400},{member:'alice',score:500},{member:'bob',score:500},{member:'zero',score:0}],'zero');
   assert.equal(board.top[0]?.username,'alice');
   assert.equal(board.top[1]?.username,'bob');

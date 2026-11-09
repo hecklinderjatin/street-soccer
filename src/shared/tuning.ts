@@ -1014,13 +1014,27 @@ export const FREE_KICK = {
   bounce: 0.45, // vertical speed kept on a bounce
   rollDrag: 0.3, // speed kept per second rolling
   maxFlightSec: 4, // a kick that hasn't finished by then is a miss
-  // Scoring.
-  goalPoints: 100,
-  bonusPoints: 50, // per style tag (top bins, over the wall, curler, off the post, long range)
-  longRange: 640, // distance for the long range tag
+  // Scoring by expected goals (user request, 2026-11-09). A spot's xG is
+  // the share of "average kicks" (rules.ts averageStrike) that score from it,
+  // simulated against its wall and keeper; a shot's xGOT is the share of
+  // keeper reactions it beats, re-simulating the actual strike. A goal is
+  // worth pointsPerXg / xG x (finishBase + xGOT) x the streak. Measured
+  // (2026-11-09): spot xG runs about 0.12 at level 1 down to 0.02 at 10.
+  pointsPerXg: 10, // a sure goal (xG 1) with a 0.5 finish would be worth 10 x 1
+  xgSamples: 480, // average kicks simulated per spot (about 0.01 standard error at xG 0.05) ...
+  xgStepSamples: 30, // ... this many per frame while aiming (all done within about 0.3 s)
+  xgotSamples: 32, // keeper reactions simulated per shot on target
+  xgMin: 0.01, // spot xG is held in [xgMin, xgMax] (a goal is worth at most pointsPerXg / xgMin x 1.5 x streak) ...
+  xgMax: 0.5,
+  xgRetryScale: 1.5, // ... and each retry of the same spot multiplies its xG by this (it has been seen) ...
+  xgRetryMax: 0.5, // ... up to this
+  finishBase: 0.5, // a goal's finish factor is this plus its xGOT (0.5 to 1.5)
+  greatSaveXgot: 0.5, // a save of a shot at least this good costs no life ...
+  greatSavePoints: 20, // ... and scores this x its xGOT
+  longRange: 640, // distance for the long range tag (tags are labels only, no points)
   pxPerMetre: 24, // world px per metre, for the distance readout only
-  streakStep: 0.5, // multiplier added per goal in a row ...
-  streakMax: 3, // ... up to this
+  streakStep: 0.25, // multiplier added per goal in a row ...
+  streakMax: 2, // ... up to this
   // Camera: behind the kicker, looking down the line to the goal.
   cameraBack: 300, // behind the ball along that line
   cameraSide: 18, // to the right of that line, away from the kicker

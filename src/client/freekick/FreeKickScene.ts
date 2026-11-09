@@ -34,15 +34,21 @@ import {
   GOAL_Y,
   POST_HALF,
   STEP,
+  SpotXg,
   aimAtGoalLine,
   ballContact,
+  goalPoints,
+  greatSavePoints,
   levelFor,
   makeKick,
   powerBand,
   readSwipe,
+  retryXg,
   scoreGoal,
+  shotXgot,
   startPlay,
   stepPlay,
+  streakMultiplier,
   type KickPlay,
   type KickSetup,
   type Outcome,
@@ -144,6 +150,14 @@ export class FreeKickScene extends Phaser.Scene {
   private lives: number = FK.lives;
   private streak = 0;
   private bestStreak = 0;
+  // Expected goals: this spot's xG (worked out while aiming), how often it
+  // has been retaken, the xG of the shot in flight, the run's xG so far and
+  // the great saves (on-target shots saved that cost no life).
+  private xgEstimate: SpotXg | null = null;
+  private retries = 0;
+  private shotXg = 0;
+  private xgTotal = 0;
+  private greatSaves = 0;
   private setup: KickSetup = makeKick(levelFor(0), Math.random);
   private contact = ballContact(0, 0);
   private power: number = FK.defaultPower;
@@ -170,6 +184,7 @@ export class FreeKickScene extends Phaser.Scene {
   private scoreLabel!: Phaser.GameObjects.BitmapText;
   private streakText!: Phaser.GameObjects.BitmapText;
   private kickText!: Phaser.GameObjects.BitmapText;
+  private xgText!: Phaser.GameObjects.BitmapText;
   private hintText!: Phaser.GameObjects.BitmapText;
   private banner!: Phaser.GameObjects.BitmapText;
   private bannerSub!: Phaser.GameObjects.BitmapText;
@@ -334,7 +349,9 @@ export class FreeKickScene extends Phaser.Scene {
       this.lastPower = null;
       this.contact = ballContact(0, 0);
       this.power = FK.defaultPower;
-    }
+      this.xgEstimate = new SpotXg(this.setup);
+      this.retries = 0;
+    } else this.retries++;
     this.retry = retry;
     this.band = powerBand(this.setup, this.contact);
     this.play = null;
@@ -360,7 +377,28 @@ export class FreeKickScene extends Phaser.Scene {
       `${this.practice ? `PRACTICE LEVEL ${this.setup.level.level}` : this.retry ? 'RETRY' : `LEVEL ${this.setup.level.level}`}  ${metres} M`
     );
     this.updateHud();
+    this.updateXgText();
     this.setPhase('aim');
+  }
+
+  // This attempt's xG (finishing the estimate if it isn't done yet).
+  private currentXg() {
+    const base = this.xgEstimate?.value() ?? FK.xgMax;
+    return retryXg(base, this.retries);
+  }
+
+  // Under the level line: the spot's xG and what a goal from it is worth
+  // with the current streak, from the weakest to the best finish.
+  private updateXgText() {
+    if (!this.xgEstimate?.ready) {
+      this.xgText.setText('XG ...');
+      return;
+    }
+    const xg = this.currentXg();
+    const next = this.streak + 1;
+    this.xgText.setText(
+      `XG ${xg.toFixed(2)}  GOAL ${goalPoints(xg, 0, next)}-${goalPoints(xg, 1, next)}`
+    );
   }
 
   private frameCamera() {
@@ -392,6 +430,8 @@ export class FreeKickScene extends Phaser.Scene {
       if (!this.practice) this.records.start();
     }
     this.shots++;
+    this.shotXg = this.currentXg();
+    this.xgTotal += this.shotXg;
     this.measure('kickoff');
     this.strike = strike;
     this.hintText.setText('');
@@ -432,6 +472,8 @@ export class FreeKickScene extends Phaser.Scene {
     this.outcomeAt = this.clock;
     const outcome = play.outcome;
     if (!outcome) return;
+    const xgot = shotXgot(play);
+    const xgotLine = `XGOT ${xgot.toFixed(2)}`;
     if (outcome === 'goal') {
       this.fastestGoalKmh = Math.max(this.fastestGoalKmh, this.shotKmh);
       this.measure('first_goal');
@@ -439,11 +481,17 @@ export class FreeKickScene extends Phaser.Scene {
       this.goals++;
       this.streak++;
       this.bestStreak = Math.max(this.bestStreak, this.streak);
-      const { points, tags } = scoreGoal(play, this.streak);
+      const { points, tags } = scoreGoal(play, this.streak, this.shotXg, xgot);
       this.score += points;
       const up = !this.practice && levelFor(this.goals).level > level;
       // One line per style tag: all five side by side overflow the view.
-      this.showBanner('GOAL!', PAL.yellow, [`+${points}`, ...tags].join('\n'));
+      this.showBanner(
+        'GOAL!',
+        PAL.yellow,
+        [this.practice ? xgotLine : `+${points}  ${xgotLine}`, ...tags].join(
+          '\n'
+        )
+      );
       if (up) this.hint = `LEVEL ${level + 1}! THE WALL GETS TOUGHER`;
       this.sfx('goal-celebration');
       if (!this.reducedMotion.matches) {
@@ -451,19 +499,29 @@ export class FreeKickScene extends Phaser.Scene {
         this.cameras.main.shake(220, 0.006);
       }
     } else {
-      if (!this.practice) this.lives--;
+      // A shot good enough to beat most keepers, saved: no life lost.
+      const great = outcome === 'saved' && xgot >= FK.greatSaveXgot;
+      if (great && !this.practice) {
+        this.greatSaves++;
+        this.score += greatSavePoints(xgot);
+      } else if (!this.practice) this.lives--;
       this.streak = 0;
       this.lastPower = this.strike?.power ?? null;
-      this.showBanner(
-        BANNER[outcome],
-        outcome === 'saved' ? PAL.blue : PAL.orange,
-        this.practice
-          ? 'UNLIMITED PRACTICE'
+      const livesLine = this.practice
+        ? 'UNLIMITED PRACTICE'
+        : great
+          ? `+${greatSavePoints(xgot)}  NO LIFE LOST`
           : this.lives > 0
             ? `${this.lives} ${this.lives === 1 ? 'LIFE' : 'LIVES'} LEFT`
-            : ''
+            : '';
+      this.showBanner(
+        great ? 'GREAT SAVE!' : BANNER[outcome],
+        outcome === 'saved' ? PAL.blue : PAL.orange,
+        [outcome === 'saved' ? xgotLine : '', livesLine]
+          .filter((line) => line !== '')
+          .join('\n')
       );
-      this.hint = advice(play);
+      this.hint = great ? 'UNLUCKY! SAME SPOT, HIGHER XG' : advice(play);
       this.sfx('goal-miss');
     }
     this.updateHud();
@@ -507,6 +565,7 @@ export class FreeKickScene extends Phaser.Scene {
     for (const node of this.card) node.destroy();
     this.card = [];
     this.score = this.goals = this.streak = this.bestStreak = 0;
+    this.xgTotal = this.greatSaves = this.shotXg = 0;
     this.lives = FK.lives;
     this.hint = '';
     this.sfx('match-start');
@@ -629,6 +688,10 @@ export class FreeKickScene extends Phaser.Scene {
     if (!this.stage) return;
     if (this.phase === 'runup' && this.clock - this.phaseAt >= FK.runupSec)
       this.strikeBall();
+    if (this.phase === 'aim' && this.xgEstimate && !this.xgEstimate.ready) {
+      this.xgEstimate.step(FK.xgStepSamples);
+      if (this.xgEstimate.ready) this.updateXgText();
+    }
     if (this.phase === 'flight') this.fly(dt);
     if (this.play?.outcome) this.stage.fadeTrail(dt);
     this.drawWorld();
@@ -899,6 +962,7 @@ export class FreeKickScene extends Phaser.Scene {
     this.scoreText = text(6);
     this.streakText = text(3, PAL.yellow);
     this.kickText = text(3).setOrigin(0.5, 0);
+    this.xgText = text(2, PAL.yellow).setOrigin(0.5, 0);
     this.hintText = text(2)
       .setOrigin(0.5, 1)
       .setDepth(HUD + 2);
@@ -1003,6 +1067,7 @@ export class FreeKickScene extends Phaser.Scene {
     this.scoreText.setPosition(24, 44);
     this.streakText.setPosition(24, 100);
     this.kickText.setPosition(W / 2, 132);
+    this.xgText.setPosition(W / 2, 166);
     const pad = this.swipeHintLayout();
     this.swipeLabel.setPosition(W / 2, pad.y + pad.height / 2);
     this.hintText.setPosition(W / 2, pad.y - 14);
@@ -1112,10 +1177,7 @@ export class FreeKickScene extends Phaser.Scene {
 
   private updateHud() {
     this.scoreText.setText(String(this.practice ? this.goals : this.score));
-    const multiplier = Math.min(
-      FK.streakMax,
-      1 + FK.streakStep * Math.max(0, this.streak - 1)
-    );
+    const multiplier = streakMultiplier(this.streak);
     this.streakText.setText(
       this.streak >= 2 ? `STREAK ${this.streak}  X${multiplier}` : ''
     );
@@ -1162,6 +1224,8 @@ export class FreeKickScene extends Phaser.Scene {
       level: levelFor(this.goals).level,
       fastestGoalKmh: this.fastestGoalKmh,
       elapsedSec: Math.floor(this.clock - this.runStartedAt),
+      greatSaves: this.greatSaves,
+      xg: Math.round(this.xgTotal * 100),
     };
     this.resultScreen = freeKickResults(
       stats,

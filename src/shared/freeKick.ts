@@ -9,6 +9,8 @@ export type FreeKickStats = {
   level: number;
   fastestGoalKmh: number;
   elapsedSec: number;
+  greatSaves: number; // saved shots on target that cost no life
+  xg: number; // the run's expected goals (sum over shots), in hundredths
 };
 export type FreeKickRun = { id: string; day: string };
 export type FreeKickLeader = { rank: number; username: string; value: number };
@@ -47,13 +49,18 @@ export function readFreeKickStats(body: unknown): FreeKickStats | null {
       ? v
       : null;
   };
-  const score = integer('score', 12_000_000),
+  // (Runs saved before xG scoring have neither of the last two: 0.)
+  const optional = (key: string, max: number) =>
+    Reflect.get(body, key) === undefined ? 0 : integer(key, max);
+  const score = integer('score', 60_000_000),
     goals = integer('goals', 10_000),
-    shots = integer('shots', 10_003);
+    shots = integer('shots', 20_003);
   const bestStreak = integer('bestStreak', 10_000),
     level = integer('level', FK.maxLevel);
   const fastestGoalKmh = integer('fastestGoalKmh', freeKickMaxKmh),
     elapsedSec = integer('elapsedSec', 86_400);
+  const greatSaves = optional('greatSaves', 10_000),
+    xg = optional('xg', 2_000_300);
   if (
     score === null ||
     goals === null ||
@@ -61,7 +68,9 @@ export function readFreeKickStats(body: unknown): FreeKickStats | null {
     bestStreak === null ||
     level === null ||
     fastestGoalKmh === null ||
-    elapsedSec === null
+    elapsedSec === null ||
+    greatSaves === null ||
+    xg === null
   )
     return null;
   if (
@@ -71,17 +80,24 @@ export function readFreeKickStats(body: unknown): FreeKickStats | null {
   )
     return null;
   if (
-    shots !== goals + FK.lives ||
+    shots !== goals + FK.lives + greatSaves ||
     bestStreak > goals ||
     (goals > 0 && bestStreak < 1)
   )
     return null;
   if (level !== Math.min(FK.maxLevel, 1 + Math.floor(goals / FK.goalsPerLevel)))
     return null;
+  // Every shot's xG lies in [xgMin, max(xgMax, xgRetryMax)] (0: not sent).
   if (
-    (goals === 0 && (score !== 0 || fastestGoalKmh !== 0)) ||
-    score < goals * FK.goalPoints ||
-    score > goals * (FK.goalPoints + FK.bonusPoints * 6) * FK.streakMax
+    xg > 0 &&
+    (xg < Math.floor(shots * FK.xgMin * 100) ||
+      xg > Math.ceil(shots * Math.max(FK.xgMax, FK.xgRetryMax) * 100))
+  )
+    return null;
+  if (
+    (goals === 0 && fastestGoalKmh !== 0) ||
+    score < goals * freeKickGoalMin ||
+    score > goals * freeKickGoalMax + greatSaves * FK.greatSavePoints
   )
     return null;
   return {
@@ -93,8 +109,20 @@ export function readFreeKickStats(body: unknown): FreeKickStats | null {
     level,
     fastestGoalKmh,
     elapsedSec,
+    greatSaves,
+    xg,
   };
 }
+
+// The fewest and most points a single goal can score (rules.ts
+// goalPoints): the easiest retried spot with the weakest finish and no
+// streak, and the hardest spot with a perfect finish at the top streak.
+export const freeKickGoalMin = Math.floor(
+  (FK.pointsPerXg / Math.max(FK.xgMax, FK.xgRetryMax)) * FK.finishBase
+);
+export const freeKickGoalMax = Math.ceil(
+  (FK.pointsPerXg / FK.xgMin) * (FK.finishBase + 1) * FK.streakMax
+);
 
 export function rankFreeKicks(
   entries: readonly { member: string; score: number }[],

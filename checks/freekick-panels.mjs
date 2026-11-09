@@ -35,10 +35,13 @@ vm.runInNewContext(
       Cameras: { Scene2D: { Events: { FADE_OUT_COMPLETE: 'fade' } } },
     },
     BALL: { radius: 10 },
-    FK: { pxPerMetre: 30, fadeSec: 0.4 },
+    FK: { pxPerMetre: 30, fadeSec: 0.4, greatSaveXgot: 0.5 },
     PAL: { yellow: 1, blue: 2, orange: 3 },
     levelFor: (goals) => ({ level: 1 + Math.floor(goals / 2) }),
     scoreGoal: () => ({ points: 100, tags: [] }),
+    shotXgot: () => 0,
+    greatSavePoints: () => 0,
+    streakMultiplier: () => 1,
     localStorage: {
       getItem: () => null,
       setItem: () => {
