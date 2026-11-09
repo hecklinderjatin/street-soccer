@@ -22,7 +22,7 @@ import type { Player } from '../entities/Player';
 import { chipFlight, passTravelTime, throughSpot } from './actions';
 import type { StickInput } from './Controls';
 import { DEG, angleDiff, clamp, distToSegment, lerp } from './geometry';
-import { canTackle } from './tackle';
+import { canTackle, type TackleKind } from './tackle';
 
 // Shared outfield AI (Phase 3), the same for both teams. A TeamBrain hands
 // out roles a few times a second (think); every fixed step each AI player
@@ -44,7 +44,8 @@ import { canTackle } from './tackle';
 // - mark: goal-side of an opponent in the danger zone near our goal,
 //   leaning toward the ball, sagging off the further he is from the ball.
 //   At most AI.maxMarkers, never everyone: zonal defence, not every
-//   attacker shadowed all over the pitch.
+//   attacker shadowed all over the pitch; none on an opponent right by the
+//   ball (AI.markFromBall: the presser and cover have him).
 // - backup: the cover defender, behind the presser (or our human pressing)
 //   on the line from the carrier to our goal, so beating the presser
 //   doesn't mean a clear run; a presser the carrier gets past hands the
@@ -54,10 +55,14 @@ import { canTackle } from './tackle';
 // stands on his inside shoulder, pushing him toward the touchline.
 // - cover: a formation spot, shifted with the ball; when defending, dropped
 //   back and pulled toward the middle (a zone, zoneSpot).
+// Defending, zones and the cover defender hold a back line (lineDepth: a
+// little goal-side of the ball, never deep in our box) and markers go no
+// deeper than AI.lineMin, so they don't all pile into the box.
 // - support: a formation spot pushed upfield and moved into open space.
 // - run: the furthest-forward supporter runs into space ahead of the ball;
 //   a player who has just passed may burst forward for a return pass
-//   (give-and-go, passAndRun).
+//   (give-and-go, passAndRun). Nobody waits on their keeper
+//   (AI.runnerDepth / AI.supportDepth: no goal-hanging).
 // - show: our carrier under pressure, the nearest teammate comes to a free
 //   spot close by for a short pass.
 // - rest: while we attack, our deepest player stays goal-side of their most
@@ -73,7 +78,8 @@ import { canTackle } from './tackle';
 // .posError, renewed every few seconds), so the shape is never machine-
 // perfect, and looser on easy. Positioning jobs move calmly: their spot
 // glides instead of jumping, and a player standing at it only sets off
-// again once it is AI.restartDist away (no fidgeting). The shape slides
+// again once it is AI.restartDist away (no fidgeting); the presser's and
+// cover's spots glide too, quicker (AI.activeEaseRate). The shape slides
 // only a little with the ball and stretches wide when we have it, so the
 // play doesn't all pile up round the ball.
 // Each team plays a plan (TeamStyle, a TACTICS row): ours attacking (every
@@ -119,7 +125,9 @@ export type CarryAction =
 export type BrainSkill = {
   thinkSec: number; // how often it re-thinks (reaction)
   readSec: number; // reacts to the opposing carrier as it was this long ago (Player.seenAgo): feints fool it
+  tackleCooldownSec: number; // after a tackle attempt, at least this long before the next
   tackleChance: number; // chance to go in per think while in range
+  slideShare: number; // x tackleChance for a slide (a poke: the full chance)
   shotChargeNoise: number; // shot charge spread around AI.shotCharge
   decisionNoise: number; // carrier option scores x (1 +- this)
   passErrorScale: number; // x the pass aim error
@@ -128,7 +136,7 @@ export type BrainSkill = {
   markGapScale: number; // x AI.markGap
   posError: number; // px, each player's positioning error (renewed every AI.posErrorSec)
   dangerPressScale: number; // near-goal stand-off multiplier
-  dangerSpacingScale: number; // near-goal teammate spacing multiplier for defending roles
+  pressScale: number; // x the presser's gap everywhere (harder: tighter)
   recoverSlack: number; // px a defender may be upfield of the ball before it sprints back goal-side
 };
 
@@ -165,7 +173,7 @@ const PREDICT_STEP = 0.05; // s, ball prediction step for intercepts
 
 export class TeamBrain {
   readonly orders = new Map<Player, AiOrder>();
-  readonly tackles: { p: Player; dir: number }[] = []; // tackles to start (drained by MatchScene)
+  readonly tackles: { p: Player; dir: number; kind: TackleKind }[] = []; // tackles to start (drained by MatchScene)
   private action: { p: Player; act: CarryAction; at: number } | null = null; // pass / shot due
   private lastOwner: Player | null = null;
   private ownerSince = 0; // sim time the current owner gained the ball (as seen when thinking)
@@ -314,10 +322,10 @@ export class TeamBrain {
         const at = this.pressPoint(owner, idleFor, false);
         this.set(presser, 'press', null, at.x, at.y, true);
         free = free.filter((p) => p !== presser);
-        const dir = view.canTackle
+        const tackle = view.canTackle
           ? this.wantsTackle(presser, owner, view, time, idleFor)
           : null;
-        if (dir !== null) this.tackles.push({ p: presser, dir });
+        if (tackle) this.tackles.push({ p: presser, ...tackle });
         // Still standing on the ball: a second player closes in from behind
         // (the same one as last think if still free).
         const second =
@@ -367,9 +375,9 @@ export class TeamBrain {
     let tx = order.x;
     let ty = order.y;
     const urgent = order.sprint;
-    // Going for the ball or the carrier (chase, press) or flat out: straight
-    // there. Positioning jobs (cover, support, run, show, mark, rest) are
-    // calm: their spot glides and they don't fidget at it.
+    // Positioning jobs (cover, support, run, show, mark, rest) are calm:
+    // their spot glides slowly and they don't fidget at it. The presser's
+    // and cover's spots glide too, quicker; a chaser runs at the ball.
     const calm =
       !urgent &&
       order.role !== 'chase' &&
@@ -388,7 +396,7 @@ export class TeamBrain {
       const at = this.withError(
         p,
         order.role === 'mark'
-          ? this.markPoint(order.mark, ball)
+          ? this.notDeeper(this.markPoint(order.mark, ball), AI.lineMin)
           : this.restPoint(order.mark, ball),
         PLAYER.radius
       );
@@ -408,44 +416,43 @@ export class TeamBrain {
         }
       }
     }
-    if (calm) {
+    // Everyone but the ball-winners (chase, press) keeps its distance from
+    // teammates, near our goal too (user: defenders crowded the box).
+    let crowded = false;
+    if (order.role !== 'chase' && order.role !== 'press') {
+      const spaced = this.keepApart(p, view.mates, tx, ty, AI.mateMinGap);
+      tx = spaced.x;
+      ty = spaced.y;
+      crowded = view.mates.some(
+        (q) => q !== p && Math.hypot(q.x - p.x, q.y - p.y) < AI.mateMinGap
+      );
+    }
+    if (order.role === 'chase') {
+      this.aims.delete(p);
+    } else {
       // The spot glides to where it should be (no jumps when the shape
-      // shifts, the positioning error is renewed or a teammate passes by);
-      // a new job far away is taken at once.
+      // shifts, the team re-thinks, the positioning error is renewed or a
+      // teammate passes by); a new job far away is taken at once.
       const aim = this.aims.get(p);
       if (!aim || Math.hypot(aim.x - tx, aim.y - ty) > AI.aimSnapDist) {
         this.aims.set(p, { x: tx, y: ty });
       } else {
-        const k = Math.min(1, AI.aimEaseRate / SIM.hz);
+        const rate = calm ? AI.aimEaseRate : AI.activeEaseRate;
+        const k = Math.min(1, rate / SIM.hz);
         aim.x += (tx - aim.x) * k;
         aim.y += (ty - aim.y) * k;
         tx = aim.x;
         ty = aim.y;
       }
-    } else {
-      this.aims.delete(p);
     }
-    // Preserve team shape, but let skilled markers and cover stay closer
-    // together when an opposing carrier threatens our goal. Never remove
-    // separation completely; pressing/chasing already go straight to the ball.
-    const free = order.role === 'chase' || order.role === 'press';
-    const defending =
-      order.role === 'mark' || order.role === 'backup' || order.role === 'rest';
-    const danger =
-      defending && ball.owner && ball.owner.team !== this.team
-        ? this.goalDanger(ball.owner)
-        : 0;
-    const gap = AI.mateMinGap * lerp(1, this.skill.dangerSpacingScale, danger);
-    let crowded = false;
-    if (!free) {
-      const spaced = this.keepApart(p, view.mates, tx, ty, gap);
-      tx = spaced.x;
-      ty = spaced.y;
-      crowded = view.mates.some(
-        (q) => q !== p && Math.hypot(q.x - p.x, q.y - p.y) < gap
-      );
-    }
-    return arrive(p, tx, ty, urgent, order.relax, calm && !crowded);
+    // (a chaser, or one too close to a teammate, sets off at once)
+    const restart =
+      order.role === 'chase' || crowded
+        ? 0
+        : calm
+          ? AI.restartDist
+          : AI.activeRestartDist;
+    return arrive(p, tx, ty, urgent, order.relax, restart);
   }
 
   // (tx, ty) pushed out of every teammate's spacing circle (a few
@@ -498,11 +505,7 @@ export class TeamBrain {
     if (rand() >= chance) return;
     this.runs.set(p, {
       until: time + AI.giveGoSec,
-      x: clamp(
-        p.x + this.dir * AI.giveGoDist,
-        AI.edgeMargin,
-        PITCH.width - AI.edgeMargin
-      ),
+      x: this.notPast(p.x + this.dir * AI.giveGoDist, AI.runnerDepth),
       y: clamp(
         p.y + (PITCH.height / 2 - p.y) * AI.giveGoInward,
         AI.edgeMargin,
@@ -715,6 +718,9 @@ export class TeamBrain {
         x += away.x * (AI.supportMinDist - dc);
         y += away.y * (AI.supportMinDist - dc);
       }
+      // Not on their keeper: no goal-hanging, nobody waiting in the box.
+      const depth = p === runner ? AI.runnerDepth : AI.supportDepth;
+      x = this.notPast(x, depth);
       const at = this.withError(p, { x, y });
       this.set(p, p === runner ? 'run' : 'support', null, at.x, at.y);
     }
@@ -946,7 +952,9 @@ export class TeamBrain {
           this.style.pressGapScale,
         AI.pressGapDeep,
         deep
-      ) * lerp(1, this.skill.dangerPressScale, this.goalDanger(c));
+      ) *
+      lerp(1, this.skill.dangerPressScale, this.goalDanger(c)) *
+      this.skill.pressScale;
     let lx = s.vx * AI.pressLeadSec;
     let ly = s.vy * AI.pressLeadSec;
     const along = lx * toGoal.x + ly * toGoal.y; // < 0: retreating
@@ -993,12 +1001,17 @@ export class TeamBrain {
     const s = carrier.seenAgo(this.skill.readSec);
     const gy = PITCH.height / 2;
     const toGoal = Math.hypot(this.goalX - s.x, gy - s.y);
+    const g = unit(this.goalX - s.x, gy - s.y);
+    // (no deeper than the back line: in our box the line does the covering)
+    const toLine =
+      ((s.x - this.goalX) * this.dir - this.lineDepth(view.ball)) /
+      Math.max(Math.abs(g.x), 0.05);
     const dist = Math.min(
       AI.pressGap * this.style.pressGapScale + AI.backupGap,
-      toGoal - AI.backupMinFromGoal
+      toGoal - AI.backupMinFromGoal,
+      toLine
     );
     if (dist < AI.backupMinGap) return null;
-    const g = unit(this.goalX - s.x, gy - s.y);
     const at = { x: s.x + g.x * dist, y: s.y + g.y * dist };
     let best: Player | null = null;
     let bestD = Infinity;
@@ -1017,7 +1030,10 @@ export class TeamBrain {
     }
     const pick = current && currentD < bestD + AI.pressKeep ? current : best;
     if (!pick) return null;
-    const spot = this.withError(pick, at);
+    const spot = this.notDeeper(
+      this.withError(pick, at),
+      this.lineDepth(view.ball)
+    );
     this.set(pick, 'backup', null, spot.x, spot.y, this.recovering(pick, view));
     return pick;
   }
@@ -1056,7 +1072,11 @@ export class TeamBrain {
         (o) =>
           o !== ball.owner &&
           Math.abs(o.x - this.goalX) <
-            AI.markZone + (marked.has(o) ? AI.markZoneKeep : 0)
+            AI.markZone + (marked.has(o) ? AI.markZoneKeep : 0) &&
+          // (one right by the ball is the presser's and cover's: a marked
+          // one keeps his marker a little closer in)
+          Math.hypot(o.x - ball.x, o.y - ball.y) >=
+            AI.markFromBall * (marked.has(o) ? 0.8 : 1)
       )
       .sort(
         (a, b) =>
@@ -1088,18 +1108,43 @@ export class TeamBrain {
       // (a marker caught upfield of the ball sprints back to its man)
       if (p) this.set(p, 'mark', o, p.x, p.y, this.recovering(p, view));
     }
+    const line = this.lineDepth(ball);
     for (const p of left) {
-      const at = this.zoneSpot(view, p);
-      if (this.recovering(p, view)) {
+      let at = this.zoneSpot(view, p);
+      const recover = this.recovering(p, view);
+      if (recover) {
         // Recovery run: flat out, at least goal-side of the ball.
         const limit = ball.x - this.dir * AI.recoverGoalSide;
         if ((at.x - limit) * this.dir > 0)
           at.x = clamp(limit, AI.edgeMargin, PITCH.width - AI.edgeMargin);
-        this.set(p, 'cover', null, at.x, at.y, true);
-      } else {
-        this.set(p, 'cover', null, at.x, at.y);
       }
+      at = this.notDeeper(at, line);
+      this.set(p, 'cover', null, at.x, at.y, recover);
     }
+  }
+
+  // The back line, as a depth from our goal line: AI.lineBehindBall goal-
+  // side of the ball, held between AI.lineMin and AI.lineMax. Defending,
+  // zones and the cover defender go no deeper (a marker follows its man
+  // down to lineMin: a runner isn't left free behind the line).
+  private lineDepth(ball: Ball) {
+    return clamp(
+      Math.abs(ball.x - this.goalX) - AI.lineBehindBall,
+      AI.lineMin,
+      AI.lineMax
+    );
+  }
+
+  // An x upfield, held at least `depth` short of their goal line.
+  private notPast(x: number, depth: number) {
+    const cap = PITCH.width - this.goalX - this.dir * depth;
+    return (x - cap) * this.dir > 0 ? cap : x;
+  }
+
+  // `at`, moved up to `depth` from our goal line if it is deeper.
+  private notDeeper(at: { x: number; y: number }, depth: number) {
+    const line = this.goalX + this.dir * depth;
+    return (at.x - line) * this.dir < 0 ? { x: line, y: at.y } : at;
   }
 
   // Goal-side of the man, leaning toward the ball (to cut the pass), and
@@ -1137,43 +1182,59 @@ export class TeamBrain {
     return ball.owner === a.p ? a : null;
   }
 
-  // The presser goes in when the ball (where it will be when the lunge
-  // starts) is within lunge reach and it is in front of or beside the
-  // carrier (from behind it gets goal-side first: tackles from there mostly
-  // fail); a chance per think (reaction and difficulty), more against a
-  // carrier standing idle on the ball. Returns the lunge direction, or null.
+  // The presser goes in when it is in front of or beside the carrier (from
+  // behind it gets goal-side first: tackles from there mostly fail) and the
+  // ball (where it will be when the lunge lands) is in reach: a standing
+  // poke with the ball close, a slide at a carrier on the move a little
+  // further off (less often: the level's slideShare). A chance per think
+  // (reaction and difficulty), more against a carrier standing idle on the
+  // ball; the wait after an attempt is the level's. Returns the lunge, or
+  // null.
   private wantsTackle(
     p: Player,
     carrier: Player,
     view: TeamView,
     time: number,
     idleFor: number
-  ): number | null {
+  ): { dir: number; kind: TackleKind } | null {
     if (!canTackle(p, time) || time < p.tackleReadyAt) return null;
     // Where it thinks the ball will be when the lunge lands: the carrier as
     // seen skill.readSec ago, the ball in front of it then, carried on at
-    // its speed then. A carrier that has cut away since makes it lunge at
-    // thin air (a feint works).
+    // its speed then until the lunge lands (a carrier running straight is
+    // read right). One that has cut away since makes it lunge at thin air
+    // (a feint works).
     const s = carrier.seenAgo(this.skill.readSec);
-    const ball = view.ball;
-    const ballGap = Math.hypot(ball.x - carrier.x, ball.y - carrier.y);
-    const lead = TACKLE.windupSec + TACKLE.activeSec / 2;
-    const bx = s.x + Math.cos(s.heading) * ballGap + s.vx * lead;
-    const by = s.y + Math.sin(s.heading) * ballGap + s.vy * lead;
-    const d = Math.hypot(bx - p.x, by - p.y);
-    if (d > (TACKLE.lungeDist + TACKLE.reach * 0.6) * rulesOf(p).tackle)
-      return null;
     const behind =
       Math.abs(angleDiff(Math.atan2(p.y - s.y, p.x - s.x), s.heading)) >
       TACKLE.frontArcDeg * DEG;
     if (behind) return null;
-    const chance =
-      idleFor >= AI.idleSec
-        ? Math.min(0.95, this.skill.tackleChance * AI.idleTackleBoost)
-        : this.skill.tackleChance;
+    const ball = view.ball;
+    const ballGap = Math.hypot(ball.x - carrier.x, ball.y - carrier.y);
+    const lands = (spec: { windupSec: number; activeSec: number }) => {
+      const lead = this.skill.readSec + spec.windupSec + spec.activeSec / 2;
+      const x = s.x + Math.cos(s.heading) * ballGap + s.vx * lead;
+      const y = s.y + Math.sin(s.heading) * ballGap + s.vy * lead;
+      return { x, y, d: Math.hypot(x - p.x, y - p.y) };
+    };
+    const scale = rulesOf(p).tackle;
+    let kind: TackleKind = 'poke';
+    let at = lands(TACKLE.poke);
+    let chance = this.skill.tackleChance;
+    if (at.d > (TACKLE.poke.lungeDist + TACKLE.poke.reach * 0.8) * scale) {
+      kind = 'slide';
+      at = lands(TACKLE);
+      if (
+        Math.hypot(s.vx, s.vy) < AI.idleSpeed ||
+        at.d > (TACKLE.lungeDist + TACKLE.reach * 0.6) * scale
+      )
+        return null;
+      chance *= this.skill.slideShare;
+    }
+    if (idleFor >= AI.idleSec)
+      chance = Math.min(0.95, chance * AI.idleTackleBoost);
     if (view.rand() >= chance) return null;
-    p.tackleReadyAt = time + AI.tackleCooldownSec;
-    return Math.atan2(by - p.y, bx - p.x);
+    p.tackleReadyAt = time + this.skill.tackleCooldownSec;
+    return { dir: Math.atan2(at.y - p.y, at.x - p.x), kind };
   }
 
   // Our AI carrier: score the options, then dribble (an order for steer)
@@ -1669,10 +1730,27 @@ export function interceptPoint(p: Player, ball: Ball) {
   let vx = ball.vx;
   let vy = ball.vy;
   const keep = Math.pow(BALL.groundDrag, PREDICT_STEP);
+  // The previous step's ball and race margin (slack > 0: the ball first).
+  let lastX = bx;
+  let lastY = by;
+  let lastSlack = 0;
   for (let t = 0; t <= AI.interceptMaxSec; t += PREDICT_STEP) {
     const gap = Math.hypot(bx - p.x, by - p.y) - POSSESSION.controlRadius;
-    if (gap <= PLAYER.sprintSpeed * rulesOf(p).movement * t)
-      return { x: bx, y: by, t };
+    const slack = gap - PLAYER.sprintSpeed * rulesOf(p).movement * t;
+    if (slack <= 0) {
+      if (t === 0) return { x: bx, y: by, t };
+      // Where the race is even between the two steps: the point slides
+      // smoothly instead of jumping a step at a time (the chaser's run).
+      const f = lastSlack / (lastSlack - slack);
+      return {
+        x: lerp(lastX, bx, f),
+        y: lerp(lastY, by, f),
+        t: t - PREDICT_STEP * (1 - f),
+      };
+    }
+    lastX = bx;
+    lastY = by;
+    lastSlack = slack;
     const speed = Math.hypot(vx, vy);
     if (speed < 1) {
       // It has stopped: run the rest of the way.
@@ -1699,21 +1777,21 @@ export function interceptPoint(p: Player, ball: Ball) {
 // Stick toward a target: stand when there, walk slower when close, sprint
 // when far (chasers and pressers sooner, any `urgent` order), saving
 // stamina when low; `relaxed` never sprints (a chaser sure to win the race).
-// `calm` (positioning jobs): once standing at its spot, a player only sets
-// off again when the spot is AI.restartDist away (no fidgeting).
+// Once standing at its spot, a player only sets off again when the spot is
+// `restart` away (no fidgeting; 0 = at once).
 function arrive(
   p: Player,
   tx: number,
   ty: number,
   urgent: boolean,
   relaxed: boolean,
-  calm: boolean
+  restart: number
 ): Steer {
   const dx = tx - p.x;
   const dy = ty - p.y;
   const d = Math.hypot(dx, dy);
   if (d < AI.arriveDist) return STAND;
-  if (calm && p.speed < AI.settledSpeed && d < AI.restartDist) return STAND;
+  if (p.speed < AI.settledSpeed && d < restart) return STAND;
   const tired = p.stamina < AI.saveStaminaBelow || p.sprintLocked;
   const sprint =
     !relaxed &&

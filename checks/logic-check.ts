@@ -29,6 +29,7 @@ import {
   stepKeeperHands,
 } from '../src/client/systems/keeper';
 import { TeamBrain, interceptPoint } from '../src/client/systems/ai';
+import { clamp } from '../src/client/systems/geometry';
 import {
   nextSwitchSelection,
   switchOrder,
@@ -437,6 +438,33 @@ check("a teammate's ball is never contested", () => {
   );
 });
 
+function pokeSetup(rand: number) {
+  // Tackler at (100,100) poking +x at the ball (130,100) at the feet of a
+  // carrier at (150,100) facing it.
+  const carrier = player({ team: 'away', x: 150, y: 100, heading: Math.PI });
+  carrier.wantDir = Math.PI;
+  const b = ball({ x: 130, y: 100, owner: carrier });
+  const p = player({ x: 100, y: 100 });
+  startTackle(p, 0, 0, carrier, 'poke');
+  const at = TACKLE.poke.windupSec + 0.01;
+  return { p, b, carrier, at, r: resolveTackle(p, b, at, () => rand) };
+}
+check('poke from the front: taken, rolled to the tackler, nobody falls', () => {
+  const { p, b, carrier, r } = pokeSetup(0);
+  assert.equal(r, 'won');
+  assert.equal(b.owner, null);
+  assert.equal(b.priority, p);
+  assert.ok(b.vx < 0, 'back toward the tackler');
+  assert.equal(carrier.staggerUntil, -Infinity, 'the carrier stays up');
+  assert.ok(carrier.lockUntil > 0, "but can't touch it for a moment");
+});
+check('poke missed: off balance on its feet, not down', () => {
+  const { p, at, r } = pokeSetup(0.99);
+  assert.equal(r, 'failed');
+  assert.equal(p.stumbling, false);
+  assert.ok(Math.abs(p.tackleUntil - (at + TACKLE.poke.failSec)) < 1e-9);
+});
+
 // --- Keeper reaction (stage 6 fix) -----------------------------------------
 check(
   'keeper: a shot after a carrier threat restarts the reaction time',
@@ -509,6 +537,45 @@ check('keeper: reads a shot before side-stepping toward it', () => {
     LEVELS.normal
   );
   assert.ok(step.move.r > 0 && step.move.y > 0, 'then side-steps toward it');
+});
+
+check(
+  'keeper: a sweeper off its line with play far away, back as it nears',
+  () => {
+    const gy = PITCH.height / 2;
+    const k = player({ role: 'keeper', x: 100, y: gy });
+    const at = (x: number) => {
+      const c = player({ team: 'away', x, y: gy });
+      const guard = player({ x: 150, y: gy }); // no rush: a defender in the way
+      return keeperStick(
+        k,
+        ball({ x, y: gy, owner: c }),
+        [guard],
+        [c],
+        10,
+        LEVELS.normal
+      );
+    };
+    assert.ok(at(1500).move.x > 0, 'comes out (keeperSweep)');
+    assert.ok(at(320).move.x < 0, 'drops back (maxOut)');
+  }
+);
+check('keeper: sweeps up a loose ball beyond its box, by level', () => {
+  const gy = PITCH.height / 2;
+  const b = ball({ x: PITCH.boxDepth + 80, y: gy });
+  const far = player({ team: 'away', x: 1100, y: gy });
+  const go = (level: (typeof LEVELS)[keyof typeof LEVELS]) =>
+    keeperStick(
+      player({ role: 'keeper', x: 60, y: gy }),
+      b,
+      [],
+      [far],
+      10,
+      level
+    );
+  const normal = go(LEVELS.normal);
+  assert.ok(normal.sprint && normal.move.x > 0, 'normal goes for it');
+  assert.equal(go(LEVELS.noob).sprint, false, 'noob stays home');
 });
 
 // --- Finishing assist ------------------------------------------------------
@@ -854,6 +921,13 @@ check(
       assert.ok(easier.keeperReactSec > level.keeperReactSec);
       assert.ok(easier.keeperDribbleSec > level.keeperDribbleSec);
       assert.ok(easier.tackleChance < level.tackleChance);
+      assert.ok(easier.tackleCooldownSec > level.tackleCooldownSec);
+      assert.ok(easier.pressScale > level.pressScale, 'closes down tighter');
+      assert.ok(
+        easier.keeperSweep < level.keeperSweep,
+        'keeper sweeps further'
+      );
+      assert.ok(easier.keeperRushDepth < level.keeperRushDepth);
       assert.ok(easier.keeperDiveError > level.keeperDiveError);
     });
     assert.ok(
@@ -912,7 +986,7 @@ check(
   }
 );
 check(
-  'Hard/Pro close down near either goal without changing build-up pressure',
+  'harder levels close down tighter everywhere, Hard/Pro more near either goal',
   () => {
     for (const side of ['home', 'away'] as const) {
       const dir = side === 'home' ? 1 : -1;
@@ -928,18 +1002,20 @@ check(
         assert.equal(order?.role, 'press');
         return Math.abs(order!.x - c.x);
       };
+      const close = (gap: number, want: number) =>
+        assert.ok(Math.abs(gap - want) < 1e-6, `${gap} vs ${want}`);
       for (const level of ['noob', 'easy', 'normal'] as const)
-        assert.equal(gapAt(level, 250), AI.pressGapClose);
+        close(gapAt(level, 250), AI.pressGapClose * LEVELS[level].pressScale);
       assert.ok(gapAt('hard', 250) < gapAt('normal', 250));
       assert.ok(gapAt('pro', 250) < gapAt('hard', 250));
       assert.ok(gapAt('hard', 440) > gapAt('hard', 250), 'smooth transition');
       for (const level of DIFFICULTIES)
-        assert.equal(gapAt(level, 900), AI.pressGapClose);
+        close(gapAt(level, 900), AI.pressGapClose * LEVELS[level].pressScale);
     }
   }
 );
 check(
-  'Hard/Pro cover holds a near-goal target instead of being pushed away',
+  'cover keeps its distance from a teammate near our goal at every level',
   () => {
     const gy = PITCH.height / 2;
     const direction = (
@@ -963,15 +1039,10 @@ check(
       });
       return brain.steer(p, view([p, q], [c], ball({ owner: c }))).move.x;
     };
-    for (const level of ['noob', 'easy', 'normal'] as const)
-      assert.ok(direction(level, 300) < 0, 'existing separation retained');
-    for (const level of ['hard', 'pro'] as const) {
-      assert.ok(direction(level, 300) > 0, 'cover can approach its target');
-      assert.ok(direction(level, 900) < 0, 'normal gap outside danger');
-      assert.ok(
-        direction(level, 300, true) < 0,
-        'normal gap with our possession'
-      );
+    for (const level of DIFFICULTIES) {
+      assert.ok(direction(level, 300) < 0, `${level}: kept apart near goal`);
+      assert.ok(direction(level, 900) < 0, `${level}: kept apart further out`);
+      assert.ok(direction(level, 300, true) < 0, `${level}: with our ball`);
     }
   }
 );
@@ -1012,6 +1083,62 @@ check('defending: AI players keep AI.mateMinGap apart (chaser exempt)', () => {
           Math.hypot(q.x - m.x, q.y - m.y) > AI.mateMinGap - 15,
           `${Math.round(Math.hypot(q.x - m.x, q.y - m.y))} px apart`
         );
+});
+check(
+  'AI tackles: a poke with the ball close, a slide at a moving carrier',
+  () => {
+    const gy = PITCH.height / 2;
+    const tackleBy = (carrierX: number, vx: number) => {
+      const c = carrierAt(carrierX, gy);
+      c.vx = vx;
+      c.speed = Math.abs(vx);
+      const mates = team('home', [540, 300, 300, 1500]);
+      mates[0].y = gy;
+      const brain = new TeamBrain('home', LEVELS.normal);
+      const v = view(mates, [c], ball({ x: c.x - 20, y: gy, owner: c }));
+      v.rand = () => 0;
+      brain.think(v, 1);
+      return brain.tackles[0];
+    };
+    const close = tackleBy(600, 0); // ball 40 px off the presser
+    assert.equal(close?.kind, 'poke');
+    assert.equal(close?.p.x, 540);
+    // Coming at it from further: read on (readSec + the lunge), a slide.
+    const running = tackleBy(700, -150);
+    assert.equal(running?.kind, 'slide');
+    assert.equal(tackleBy(700, 0), undefined, 'no slide at a standing carrier');
+  }
+);
+check('defending: zones and cover hold the back line, not the box', () => {
+  const gy = PITCH.height / 2;
+  const c = carrierAt(420, gy); // at the edge of our box
+  const mates = team('home', [520, 150, 120, 1500]);
+  mates[0].y = gy;
+  const brain = defend(mates, c);
+  const line = clamp(400 - AI.lineBehindBall, AI.lineMin, AI.lineMax); // ball at 400
+  let held = 0;
+  for (const m of mates) {
+    const o = brain.orders.get(m);
+    if (o?.role !== 'cover' && o?.role !== 'backup') continue;
+    held += 1;
+    assert.ok(o.x >= line - 1e-6, `${o.role} at ${o.x}, line ${line}`);
+  }
+  assert.ok(held >= 2);
+});
+check('attacking: no goal-hanging on their keeper', () => {
+  const gy = PITCH.height / 2;
+  const c = player({ x: 2350, y: gy, heading: 0 });
+  c.seenAgo = () => c;
+  const mates = [c, ...team('home', [1600, 1700, 2500])];
+  const brain = new TeamBrain('home', LEVELS.normal);
+  const b = ball({ x: 2370, y: gy, owner: c });
+  brain.think(view(mates, team('away', [600, 700, 800, 900]), b), 1);
+  for (const m of mates.slice(1)) {
+    const o = brain.orders.get(m);
+    const depth = o?.role === 'run' ? AI.runnerDepth : AI.supportDepth;
+    if (o?.role === 'run' || o?.role === 'support')
+      assert.ok(o.x <= PITCH.width - depth + 1e-6, `${o.role} at ${o.x}`);
+  }
 });
 check('defending B: a backup covers behind the presser, goal-side', () => {
   const gy = PITCH.height / 2;

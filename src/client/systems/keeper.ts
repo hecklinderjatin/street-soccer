@@ -12,7 +12,7 @@ import type { Player } from '../entities/Player';
 import { kickPass } from './actions';
 import { interceptPoint } from './ai';
 import type { StickInput } from './Controls';
-import { clamp, distToSegment } from './geometry';
+import { clamp, distToSegment, lerp } from './geometry';
 
 // Goalkeepers (both teams share this code; ours is AI-driven too whenever
 // the human isn't controlling it):
@@ -34,6 +34,8 @@ type KeeperSkill = {
   keeperDribbleSec: number;
   keeperCoverDepth: number;
   keeperSmotherRange: number;
+  keeperSweep: number;
+  keeperRushDepth: number;
   keeperDiveError: number;
 };
 
@@ -83,7 +85,9 @@ export function keepInBox(keeper: Player) {
 // Where the keeper goes this step (when the human isn't controlling it):
 // 1. Claim: a loose, not-too-fast ball it can meet in or near its box
 //    sooner than any opponent (by KEEPER.claimMargin) and any teammate:
-//    it sprints to the meeting point.
+//    it sprints to the meeting point. Further out, up to the level's
+//    keeperSweep beyond the box (a through ball), only when clearly first
+//    (KEEPER.sweepClaimMargin).
 // 2. A shot (a fast free ball) heading for its goal: it sets itself,
 //    side-stepping along its line toward where the ball will cross it at
 //    a walk (KEEPER.shuffleStick) until its reaction dive (cpuKeeperReact).
@@ -93,11 +97,12 @@ export function keepInBox(keeper: Player) {
 // 3. Close the lane on a dribble near the goal line.
 // 4. Rush out: an opposing carrier near goal with none of our outfielders
 //    between it and the goal: it comes out toward the carrier (to
-//    KEEPER.rushGap from it, capped by the level's cover depth).
+//    KEEPER.rushGap from it, at most the level's keeperRushDepth out).
 // 5. Otherwise it narrows the angle: on the bisector of the angle between
 //    the ball and the two posts (both posts equally covered, so nearer the
-//    near post when the ball is wide), further off the line the closer the
-//    ball, within the mouth.
+//    near post when the ball is wide), within the mouth: well off its line
+//    with play far away (the level's keeperSweep: a sweeper behind its
+//    defence), back to KEEPER.maxOut as the ball comes into range.
 export function keeperStick(
   k: Player,
   ball: Ball,
@@ -116,10 +121,15 @@ export function keeperStick(
     ball.speed < KEEPER.setAbove
   ) {
     const meet = interceptPoint(k, ball);
-    if (inBox(k, meet.x, meet.y, KEEPER.claimBoxMargin)) {
-      const beats = (ps: readonly Player[], margin: number) =>
-        ps.every((p) => meet.t + margin < interceptPoint(p, ball).t);
-      if (beats(opponents, KEEPER.claimMargin) && beats(mates, 0))
+    const margin = inBox(k, meet.x, meet.y, KEEPER.claimBoxMargin)
+      ? KEEPER.claimMargin
+      : inBox(k, meet.x, meet.y, skill.keeperSweep)
+        ? KEEPER.sweepClaimMargin
+        : null;
+    if (margin !== null) {
+      const beats = (ps: readonly Player[], by: number) =>
+        ps.every((p) => meet.t + by < interceptPoint(p, ball).t);
+      if (beats(opponents, margin) && beats(mates, 0))
         return toward(k, meet.x, meet.y, true);
     }
   }
@@ -167,7 +177,7 @@ export function keeperStick(
       const out = clamp(
         dc - KEEPER.rushGap,
         KEEPER.lineOut,
-        skill.keeperCoverDepth
+        skill.keeperRushDepth
       );
       const b = boxBounds(k, PLAYER.radius);
       return toward(
@@ -193,9 +203,7 @@ export function keeperStick(
     0,
     1
   );
-  const out =
-    (KEEPER.lineOut + (KEEPER.maxOut - KEEPER.lineOut) * near) *
-    wideCoverage(k);
+  const out = lerp(skill.keeperSweep, KEEPER.maxOut, near) * wideCoverage(k);
   const ux = d > 1 ? Math.abs(bx) / d : 1; // always out into the pitch
   const uy = d > 1 ? by / d : 0;
   const tx =

@@ -105,6 +105,7 @@ export class Player {
   passTarget = false; // drawn with the blue ring: where a pass would go now
   // Tackles (systems/tackle.ts; sim times in seconds).
   tackleAt = -Infinity; // the current / last tackle started
+  tackleKind: 'slide' | 'poke' = 'slide'; // ... a slide, or a standing poke
   tackleUntil = -Infinity; // it (with its recovery or stumble) ends
   tackleDir = 0; // lunge direction (radians)
   tackleSprint = false; // went in at a sprint
@@ -146,6 +147,7 @@ export class Player {
   private runView: RunView = 'side';
   private strideKey = ''; // the run / sprint cycle last started (playStride)
   private moved = 0; // px/s actually covered, smoothed: drives the legs
+  private running = false; // legs in a run cycle (hysteresis on `moved`)
   private lastRenderSec = 0;
 
   constructor(
@@ -292,7 +294,10 @@ export class Player {
     );
     this.shooting = false;
     this.sprite.anims.stop();
-    this.sprite.setTexture(playerTexture(this.kit), 'tackle1');
+    this.sprite.setTexture(
+      playerTexture(this.kit),
+      this.tackleKind === 'poke' ? 'shoot_windup' : 'tackle1'
+    );
   }
 
   // A strike animation stops (a jump or block pose takes over).
@@ -385,7 +390,10 @@ export class Player {
     this.lastRenderSec = timeSec;
     this.moved +=
       (covered - this.moved) * (1 - Math.exp(-dt / MOVED_SMOOTH_SEC));
-    const moving = this.moved > 10;
+    // Separate start / stop speeds: a player creeping onto its spot doesn't
+    // flicker between the run and idle poses.
+    this.running = this.moved > (this.running ? 6 : 14);
+    const moving = this.running;
     const strideRate = Math.max(MIN_STRIDE_RATE, this.moved / STRIDE_SPEED);
     const tackling = simTime >= this.tackleAt && simTime < this.tackleUntil;
     const hurting = simTime >= this.hurtAt && simTime < this.staggerUntil;
@@ -456,6 +464,19 @@ export class Player {
         Math.max(0.001, this.blockUntil - this.blockAt);
       const frame = progress < 0.3 ? 1 : progress < 0.6 ? 2 : 3;
       this.sprite.setTexture(playerTexture(this.kit), `block${frame}`);
+    } else if (tackling && this.tackleKind === 'poke') {
+      // Standing tackle: the strike's wind-up, foot in, then recover (also
+      // held while off balance after a miss), timed by the simulation.
+      const since = simTime - this.tackleAt;
+      const poke = TACKLE.poke;
+      this.sprite.setTexture(
+        playerTexture(this.kit),
+        since < poke.windupSec
+          ? 'shoot_windup'
+          : since < poke.windupSec + poke.activeSec
+            ? 'shoot_contact'
+            : 'shoot_recover'
+      );
     } else if (tackling) {
       const since = simTime - this.tackleAt;
       let frame: number;

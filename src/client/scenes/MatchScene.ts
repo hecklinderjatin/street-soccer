@@ -1,5 +1,10 @@
 import { ChaosWeather } from '../render/ChaosWeather';
-import { chaosRules, chaosLabel, NORMAL_RULES } from '../../shared/chaos';
+import {
+  chaosRules,
+  chaosLabel,
+  NORMAL_RULES,
+  rulesOf,
+} from '../../shared/chaos';
 import { currentPostType } from '../challenge';
 import { createMatchJourney } from '../matchJourney';
 import { journeyAppReady, sendJourney } from '../journeys';
@@ -81,7 +86,7 @@ import { collideBall, stepFreeBall } from '../systems/ballPhysics';
 import { CameraRig } from '../systems/CameraRig';
 import { Controls, type StickInput, type SwipeVec } from '../systems/Controls';
 import { FixedStep } from '../systems/FixedStep';
-import { DEG, angleDiff, clamp } from '../systems/geometry';
+import { DEG, angleDiff, clamp, rotateTowards } from '../systems/geometry';
 import {
   cpuKeeperReact,
   keepInBox,
@@ -768,9 +773,9 @@ export class MatchScene extends Phaser.Scene {
       this.awayBrain.think(awayView, t);
       // Tackles the AI decided on (never for the human's player).
       for (const brain of [this.homeBrain, this.awayBrain]) {
-        for (const { p, dir } of brain.tackles)
+        for (const { p, dir, kind } of brain.tackles)
           if (this.demo || p !== this.controlled)
-            startTackle(p, dir, t, ball.owner);
+            startTackle(p, dir, t, ball.owner, kind);
         brain.tackles.length = 0;
       }
     }
@@ -803,9 +808,14 @@ export class MatchScene extends Phaser.Scene {
         regen(p),
         held ? PASS.receiveHoldSpeed : Infinity
       );
-      // An AI player standing still keeps its eyes on the ball.
+      // An AI player standing still keeps its eyes on the ball (turning
+      // to it, not snapping).
       if (!human && !busy && steer.move.r <= STICK.deadZone && p.speed < 5)
-        p.heading = Math.atan2(ball.y - p.y, ball.x - p.x);
+        p.heading = rotateTowards(
+          p.heading,
+          Math.atan2(ball.y - p.y, ball.x - p.x),
+          PLAYER.pivotRate * DEG * dt
+        );
     }
     // Keepers: the human steers ours when controlling it; otherwise each is
     // AI (keeper.ts): positioning, claiming, rushing out (keeperStick) and
@@ -831,9 +841,13 @@ export class MatchScene extends Phaser.Scene {
               level
             );
       stepPlayer(k, steer.move, steer.sprint, dt, ball.owner === k, regen(k));
-      // Standing still, a keeper keeps its eyes on the ball.
+      // Standing still, a keeper keeps its eyes on the ball (turning to it).
       if (steer.move.r <= STICK.deadZone && k.speed < 5)
-        k.heading = Math.atan2(ball.y - k.y, ball.x - k.x);
+        k.heading = rotateTowards(
+          k.heading,
+          Math.atan2(ball.y - k.y, ball.x - k.x),
+          PLAYER.pivotRate * DEG * dt
+        );
     }
 
     // Bodies can't overlap; then everyone back inside their limits.
@@ -1134,9 +1148,23 @@ export class MatchScene extends Phaser.Scene {
         controls.consume(1); // already passing or shooting
       } else if (!ballClose) {
         controls.consume(1);
-        // TACKLE: a lunge along the stick (the facing with it centred).
+        // TACKLE: an opponent's ball right by us = a standing poke at it;
+        // otherwise a slide along the stick (the facing with it centred).
         // Not at a teammate's ball.
-        if (!ball.owner || ball.owner.team !== c.team)
+        const poke =
+          ball.owner !== null &&
+          ball.owner.team !== c.team &&
+          Math.hypot(ball.x - c.x, ball.y - c.y) <=
+            TACKLE.poke.range * rulesOf(c).tackle;
+        if (poke)
+          startTackle(
+            c,
+            Math.atan2(ball.y - c.y, ball.x - c.x),
+            t,
+            ball.owner,
+            'poke'
+          );
+        else if (!ball.owner || ball.owner.team !== c.team)
           startTackle(
             c,
             controls.move.r > STICK.deadZone

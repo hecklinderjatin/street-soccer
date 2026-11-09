@@ -321,10 +321,13 @@ export const KEEPER = {
   driveLiftScale: 0.4,
   curlKickSpin: 0.9, // rad/s
   // Off its line (CPU keepers, and ours when not controlled): stands on the
-  // line from goal centre toward the ball, further out the closer the ball.
-  lineOut: 30, // px off the goal line with the ball far away ...
-  maxOut: 60, // ... and with it close
-  outFarDist: 1000, // ball this far from goal = lineOut
+  // line from goal centre toward the ball, LEVELS.keeperSweep off its line
+  // with play far away (a sweeper, user request: keepers come out), dropping
+  // back to maxOut as the ball comes into shooting range (narrowing the
+  // angle without inviting a chip).
+  lineOut: 30, // px off the goal line at least
+  maxOut: 60, // with the ball close
+  outFarDist: 1300, // ball this far from goal = LEVELS.keeperSweep
   outNearDist: 350, // ball this close = maxOut
   setAbove: 450, // a free ball faster than this (a shot): the keeper sets itself ...
   shuffleStick: 0.5, // ... side-stepping toward where it will cross at this stick (~140 px/s, a walk), until its dive ...
@@ -362,9 +365,10 @@ export const KEEPER = {
   // Claiming: a loose ball the keeper reaches first, in or near its box.
   claimMargin: 0.15, // s it must beat every opponent by
   claimBoxMargin: 40, // the meeting point may be this far outside the box
+  sweepClaimMargin: 0.3, // further out (up to LEVELS.keeperSweep beyond the box, a through ball) it must win by this much
   // Rushing out: an opposing carrier through on goal.
   rushDist: 450, // carrier this close to the goal centre (and nearer to goal than our outfielders) ...
-  rushGap: 110, // ... the keeper comes out to this far from it (was 80: so close it blocked every angle) ...
+  rushGap: 110, // ... the keeper comes out to this far from it (was 80: so close it blocked every angle), at most LEVELS.keeperRushDepth from goal ...
   coverCarryDepth: 170, // regular distance to close the dribbler's lane and limit a rush
   smotherRange: 150, // start reading a carrier's ball within this reach, inside the box
   smotherLead: 0.15, // seconds of carrier movement to lead a dive by
@@ -403,6 +407,12 @@ export const AI = {
   settledSpeed: 15, // px/s: slower than this counts as standing at the spot
   aimEaseRate: 3,
   aimSnapDist: 250,
+  // Busier jobs move smoothly too (user: movement should look as smooth as
+  // eFootball): the presser's, cover's and marker's spots glide this fast
+  // (per second) instead of jumping at each think, and standing at one a
+  // player only sets off again once it is activeRestartDist away.
+  activeEaseRate: 8,
+  activeRestartDist: 22,
   posErrorSec: 3, // each player's positioning error (LEVELS.posError) is renewed about this often
   // Loose ball: one chaser per team (the quickest to reach it).
   chaseKeepSec: 0.25, // the current chaser keeps the job unless someone else is this much quicker
@@ -429,7 +439,16 @@ export const AI = {
   markGapMax: 170, // ... up to this
   markZone: 900, // only opponents this close to our goal line get a marker ...
   markZoneKeep: 120, // ... and a marked one keeps his marker until this much further out
+  markFromBall: 190, // ... and none this close to their carrier (the presser and cover deal with him: no crowd round the ball)
   maxMarkers: 2, // at most this many markers; at least one other player always holds a zone
+  // Back line (user request: defenders hold their lines instead of crowding
+  // the box). Defending, nobody but the presser goes deeper than the line,
+  // which stays lineBehindBall goal-side of the ball, never deeper than
+  // lineMin from our goal line (the keeper's area stays the keeper's), and
+  // holds at lineMax while the ball is further away.
+  lineBehindBall: 190,
+  lineMin: 150,
+  lineMax: 420,
   zoneCompact: 0.2, // zone spots move this fraction toward the line from the ball to our goal (closing the middle; was 0.35)
   // Attacking: supporters spread into open space, the furthest forward runs ahead.
   openDist: 140, // a support spot this close to an opponent shifts away from them
@@ -438,6 +457,8 @@ export const AI = {
   mateMinGap: 120, // hard rule, any job but going for the ball (chase / press): an AI player's target is never closer than this to a teammate (user request: defence too crowded)
   restGap: 110, // rest defence: our deepest player stays this far goal-side of their most advanced one ...
   restBehindBall: 150, // ... and at least this far behind the ball
+  runnerDepth: 170, // attacking, a runner goes no closer than this to their goal line (no goal-hanging on the keeper) ...
+  supportDepth: 380, // ... and the other supporters wait round the edge of the box (cut-back options), not in it
   showPress: 0.35, // our carrier pressed this hard (pressureOn): the nearest teammate shows for the ball ...
   showDist: 200, // ... at a free spot this far from the carrier ...
   showClear: 90, // ... with no opponent this close to it ...
@@ -481,7 +502,7 @@ export const AI = {
   beatenPenalty: 250, // ... and counts as this much further away when picking the presser (a goal-side teammate takes over)
   backupGap: 150, // the cover defender stands this far behind the presser's gap, on the line from the carrier to our goal ...
   backupMinFromGoal: 120, // ... never closer than this to our goal centre ...
-  backupMinGap: 120, // ... and there is none if that leaves it less than this from the carrier (right at our goal: the keeper's job)
+  backupMinGap: 200, // ... and there is none if that leaves it less than this from the carrier (near our box the back line covers; was 120)
   // (C) Show him wide: the presser stands on the carrier's inside shoulder,
   // so the carrier is pushed toward the touchline, away from goal.
   showWide: 0.45, // the presser shifts this fraction of its gap toward the middle of the pitch ...
@@ -489,8 +510,10 @@ export const AI = {
   showWideNear: 330, // ... none with him this close to our goal line (the box: straight goal-side) ...
   showWideFar: 560, // ... fully from this far
   // Tackles (the presser only, and only from the carrier's front or side:
-  // from behind it gets goal-side first), checked each think (chance: LEVELS).
-  tackleCooldownSec: 1, // after an attempt, at least this long before the next
+  // from behind it gets goal-side first), checked each think (chance, the
+  // wait after an attempt and how often it slides: LEVELS). A standing poke
+  // when the ball is in reach; a slide only at a carrier on the move a
+  // little further away.
   // Carrying (any AI player with the ball): a utility score per option,
   // each with some random variation (LEVELS.decisionNoise).
   carrySettleSec: 0.3, // first touch: no pass or shot sooner than this after gaining the ball
@@ -628,7 +651,9 @@ export const LEVELS = {
   noob: {
     thinkSec: 0.4,
     readSec: 0.5,
+    tackleCooldownSec: 1.6,
     tackleChance: 0.12,
+    slideShare: 0.4,
     shotChargeNoise: 0.35,
     decisionNoise: 0.4,
     passErrorScale: 3.2,
@@ -637,18 +662,22 @@ export const LEVELS = {
     markGapScale: 2,
     posError: 100,
     dangerPressScale: 1, // near-goal stand-off multiplier; 1 keeps existing behaviour
-    dangerSpacingScale: 1, // near-goal teammate gap for markers/cover; retain separation
+    pressScale: 1.15,
     recoverSlack: 260,
     keeperReactSec: 0.68,
     keeperDribbleSec: 0.3,
     keeperCoverDepth: 90, // start covering the carrier's lane closer to the goal line
     keeperSmotherRange: 110, // start reading the dribble closer to the ball
+    keeperSweep: 60,
+    keeperRushDepth: 90,
     keeperDiveError: 45,
   },
   easy: {
     thinkSec: 0.3, // re-thinks this often (reaction)
     readSec: 0.35, // reacts to the opponent's carrier as it was this long ago (feints and sudden turns fool it)
+    tackleCooldownSec: 1.3, // after a tackle attempt, at least this long before the next
     tackleChance: 0.25, // presser goes in, per think while in range
+    slideShare: 0.45, // x the tackle chance for a slide (the decisive tackle: harder sides slide in more)
     shotChargeNoise: 0.25, // shot charge spread around AI.shotCharge
     decisionNoise: 0.25, // option scores x (1 +- this): worse choices
     passErrorScale: 2.6, // x PASS.errorDeg (the human's, halved when passing was made easier: the CPU's stays as it was)
@@ -657,18 +686,22 @@ export const LEVELS = {
     markGapScale: 1.5, // x AI.markGap: looser marking
     posError: 70, // px each player's spot is off by at most (renewed every AI.posErrorSec): natural gaps
     dangerPressScale: 1, // near-goal stand-off multiplier; 1 keeps existing behaviour
-    dangerSpacingScale: 1, // near-goal teammate gap for markers/cover; retain separation
+    pressScale: 1.07, // x the presser gap everywhere: harder sides close down tighter (more tackles in reach)
     recoverSlack: 150, // px a defender may be upfield of the ball before he sprints back goal-side (AI recovery runs)
     keeperReactSec: 0.55, // keeper reaction to a shot (+- KEEPER.reactJitter)
     keeperDribbleSec: 0.22, // separate read for a dribbler in range
     keeperCoverDepth: 130,
     keeperSmotherRange: 130,
+    keeperSweep: 90, // px off its line with play far away, and how far beyond its box it comes for a loose ball it wins
+    keeperRushDepth: 130, // px from goal it may come out to meet a carrier through on goal
     keeperDiveError: 30, // px a keeper's dive may fall short or overshoot by
   },
   normal: {
     thinkSec: 0.2,
     readSec: 0.25,
+    tackleCooldownSec: 1,
     tackleChance: 0.45,
+    slideShare: 0.5,
     shotChargeNoise: 0.12,
     decisionNoise: 0.1,
     passErrorScale: 2,
@@ -677,18 +710,22 @@ export const LEVELS = {
     markGapScale: 1,
     posError: 30,
     dangerPressScale: 1, // near-goal stand-off multiplier; 1 keeps existing behaviour
-    dangerSpacingScale: 1, // near-goal teammate gap for markers/cover; retain separation
+    pressScale: 1,
     recoverSlack: 60,
     keeperReactSec: 0.4,
     keeperDribbleSec: 0.19,
     keeperCoverDepth: KEEPER.coverCarryDepth,
     keeperSmotherRange: KEEPER.smotherRange,
+    keeperSweep: 130,
+    keeperRushDepth: 190,
     keeperDiveError: 12,
   },
   hard: {
     thinkSec: 0.12,
     readSec: 0.15,
+    tackleCooldownSec: 0.8,
     tackleChance: 0.65,
+    slideShare: 0.85,
     shotChargeNoise: 0.05,
     decisionNoise: 0.05,
     passErrorScale: 1.4,
@@ -697,18 +734,22 @@ export const LEVELS = {
     markGapScale: 0.85,
     posError: 12,
     dangerPressScale: 0.8, // near-goal stand-off multiplier; 1 keeps existing behaviour
-    dangerSpacingScale: 0.67, // near-goal teammate gap for markers/cover; retain separation
+    pressScale: 0.9,
     recoverSlack: 20,
     keeperReactSec: 0.32,
     keeperDribbleSec: 0.15,
     keeperCoverDepth: KEEPER.coverCarryDepth,
     keeperSmotherRange: KEEPER.smotherRange,
+    keeperSweep: 150,
+    keeperRushDepth: 210,
     keeperDiveError: 5,
   },
   pro: {
     thinkSec: 0.08,
     readSec: 0.1,
+    tackleCooldownSec: 0.65,
     tackleChance: 0.8,
+    slideShare: 0.6,
     shotChargeNoise: 0.03,
     decisionNoise: 0.02,
     passErrorScale: 1.1,
@@ -717,12 +758,14 @@ export const LEVELS = {
     markGapScale: 0.75,
     posError: 6,
     dangerPressScale: 0.65, // near-goal stand-off multiplier; 1 keeps existing behaviour
-    dangerSpacingScale: 0.53, // near-goal teammate gap for markers/cover; retain separation
+    pressScale: 0.82,
     recoverSlack: 0,
     keeperReactSec: 0.26,
     keeperDribbleSec: 0.12,
     keeperCoverDepth: KEEPER.coverCarryDepth,
     keeperSmotherRange: KEEPER.smotherRange,
+    keeperSweep: 165,
+    keeperRushDepth: 230,
     keeperDiveError: 2,
   },
 } as const;
@@ -730,8 +773,12 @@ export const LEVELS = {
 // Tackles (B1 without the ball, and the AI's presser). Start-up, then a
 // lunge (active), then recovery. During the lunge the ball of an opposing
 // carrier within reach in front is contested: a success chance with
-// modifiers decides (a juke dodges it). Win: the ball pops out, the carrier
-// staggers, the tackler has first touch for a moment. Fail: a stumble.
+// modifiers decides (a juke dodges it). Two kinds (user: tackling was one-
+// dimensional): with the ball close (poke.range) a standing tackle (poke),
+// from further a slide. Slide won: the carrier falls and the ball pops out
+// (the tackler's first touch, or now and then knocked loose for anyone);
+// failed: a stumble. Poke won: taken cleanly from in front, else poked
+// loose, and everyone stays on their feet; failed: off balance a moment.
 export const TACKLE = {
   windupSec: 0.1, // start-up (no contact yet)
   activeSec: 0.15, // the lunge, when contact counts
@@ -744,15 +791,35 @@ export const TACKLE = {
   behindPenalty: 0.3, // ... or minus this from behind
   frontArcDeg: 110, // tackler within this of the carrier's facing = front / side
   carrierSprintPenalty: 0.15, // the carrier was sprinting (harder to catch)
-  tacklerSprintBonus: 0.1, // the tackler went in at a sprint
+  tacklerSprintBonus: 0.1, // the tackler went in at a sprint (slides)
+  exposedBonus: 0.2, // + up to this when the carrier's touch has the ball away from its feet (time it on a heavy touch)
   jukeDeg: 90, // carrier's stick turned this much since the tackle started = dodged (was 120: hard to fake, user feedback)
   popSpeed: 110, // won: the ball is knocked loose at this speed ...
   popAhead: 40, // ... toward the point this far ahead of the tackler on its lunge line
+  looseShare: 0.3, // ... except this share of won slides, which knock it on along the lunge for anyone ...
+  looseSpeed: 260, // ... this fast
   staggerSec: 1.0, // ... the carrier falls and gets up (cannot move or touch the ball); was 0.5, raised so the 8-pose fall reads (user choice)
   priorityTackleSec: 0.35, // ... and the tackler has first touch this long
   winRecoverSec: 0.1, // won: back on its feet this soon
   stumbleSec: 0.6, // failed: down this long
   kickoffGraceSec: 0.5, // no AI tackles this soon after kickoff
+  // Standing tackle: the same timeline and checks, quicker and shorter.
+  poke: {
+    range: 60, // the ball this close to the tackler when it starts = a poke (else a slide); lunge + reach
+    windupSec: 0.06,
+    activeSec: 0.12,
+    recoverSec: 0.18,
+    lungeDist: 18,
+    reach: 42,
+    arcDeg: 80,
+    baseChance: 0.5,
+    stealArcDeg: 60, // won within this of the carrier's facing (in front): the tackler takes it ...
+    knockSpeed: 210, // ... otherwise it is poked loose this fast ...
+    knockMinDeg: 30, // ... deflected off the poke's line to one side by this much ...
+    knockMaxDeg: 75, // ... up to this (never on along the carrier's run, past the tackler)
+    lockSec: 0.35, // won: the carrier can't touch the ball for this long (it stays on its feet)
+    failSec: 0.3, // missed: off balance (standing) this long
+  },
 } as const;
 
 export const INPUT = {

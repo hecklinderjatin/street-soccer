@@ -169,7 +169,7 @@ function touchColumns(
   y = header(scene, items, right, y, 'WITHOUT THE BALL');
   disc(scene, items, right + DISC_R, y + DISC_R, 'TACKLE');
   y = rowText(scene, items, right, y, [
-    'LUNGE AT THE BALL CARRIER',
+    'CLOSE: POKE  FURTHER: SLIDE',
     'CUT SHARPLY TO DODGE ONE',
   ]);
   disc(scene, items, right + DISC_R, y + DISC_R, 'SWITCH');
@@ -218,7 +218,7 @@ const LEFT_KEYS: Entry[] = [
 ];
 const RIGHT_KEYS: Entry[] = [
   { head: 'WITHOUT THE BALL' },
-  { keys: ['pass'], text: 'TACKLE' },
+  { keys: ['pass'], text: 'TACKLE: POKE OR SLIDE' },
   { keys: ['power'], text: 'SWITCH PLAYER' },
   { head: 'GOALKEEPER' },
   { keys: ['pass'], text: 'DIVE: AIM WITH MOVE KEYS' },

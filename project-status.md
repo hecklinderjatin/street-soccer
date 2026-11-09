@@ -8,6 +8,28 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Defence lines, two tackles, sweeper keepers, smoother AI steering (2026-11-09, branch `movement_changes_main`, not merged; user request: movement and gameplay still not smooth enough, CPU defenders crowd their box, tackling is one-dimensional, keepers (both sides) should come out without conceding, scoring must stay fair both ways, harder levels should tackle and chase more):**
+- **Back line (`ai.ts` `lineDepth` / `notDeeper`; `AI.lineBehindBall` 190, `lineMin` 150, `lineMax` 420):** defending, zones and the cover defender hold a line a little goal-side of the ball and never drop deep into the box; markers follow their man down to `lineMin` only. Nobody marks an opponent right by the ball (`AI.markFromBall` 190: the presser and cover have him). The cover defender is dropped when it would stand under `AI.backupMinGap` (now 200, was 120) from the carrier, so near the box the line covers. The Hard/Pro near-goal compaction (`dangerSpacingScale`) is removed: every level keeps `AI.mateMinGap`.
+- **No goal-hanging:** attacking runners (give-and-go bursts too) stop `AI.runnerDepth` 170 short of the goal line, other supporters `AI.supportDepth` 380.
+- **Two tackles (`tackle.ts`, `TACKLE.poke`), human and AI:** TACKLE with an opponent's ball within `poke.range` 60 px is a standing poke at the ball (quick, short reach, nobody falls). A clean win from the front rolls the ball to the tackler; otherwise it is deflected 30-75 degrees off to one side. A miss leaves the tackler off balance for 0.3 s on its feet. Further away it is the slide as before, but 30% of won slides now knock the ball loose for anyone (`looseShare`). Both get up to +20% against a carrier whose touch has the ball away from its feet (`exposedBonus`). The poke uses the shoot wind-up / contact / recover poses. AI pressers poke when the ball will be close and slide at a moving carrier from further (`LEVELS.slideShare` x the chance). They now read a straight-running carrier on (`readSec` plus the lunge) instead of lunging where it was: two thirds of AI slides used to touch nothing.
+- **Harder levels press and tackle more:** new `LEVELS` fields `tackleCooldownSec` (noob to pro 1.6 / 1.3 / 1 / 0.8 / 0.65 s), `pressScale` (x the presser's gap: 1.15 / 1.07 / 1 / 0.9 / 0.82) and `slideShare` (0.4 / 0.45 / 0.5 / 0.85 / 0.6).
+- **Sweeper keepers (CPU by level; ours at normal):** with play far away the keeper stands `LEVELS.keeperSweep` off its line (60 / 90 / 130 / 150 / 165 px), dropping back to `KEEPER.maxOut` 60 as the ball comes within `outNearDist` 350 (it used to go from 30 px to 60 px, further out the closer the ball). It claims a loose ball up to keeperSweep beyond its box when first by `KEEPER.sweepClaimMargin` 0.3 s. Rushing out at a through carrier is capped by `LEVELS.keeperRushDepth` (90 / 130 / 190 / 210 / 230). Within shooting range it stays under `AI.chipKeeperOut`, so AI chips are no more frequent.
+- **Smoother AI movement:**
+  - The presser's and cover defender's spots glide (`AI.activeEaseRate` 8/s) instead of jumping at each think.
+  - Every role but the chaser has a start deadband (`activeRestartDist` 22, calm jobs `restartDist` 45).
+  - The chaser's meeting point slides continuously (`interceptPoint` interpolates between prediction steps).
+  - Standing players and keepers turn to the ball at `PLAYER.pivotRate` instead of snapping.
+  - Legs switch between run and idle with hysteresis: start above 14 px, stop below 6.
+- **Measured** with a headless simulator: a scratch tool outside the repo, with a scripted human in our team, 40-60 matches per level. Goals per match, human-CPU, before -> after:
+  - Normal: 3.60-1.02 -> about 3.1-3.4 / 1.0-1.4.
+  - Hard: 0.45-3.67 -> about 0.9-1.0 / 3.0-3.4. Old Hard was nearly as hard as Pro; it now sits between Normal and Pro.
+  - Pro: 0.30-3.98 -> about 0.4 / 4.5.
+  - Near the CPU box, defenders within 150 px of the carrier went from about 1.67 to 1.5, and "3+ within 250 px" from 69-77% to 60-66% of the time.
+  - CPU tackles that touch the ball went from 35% to about 75%.
+  - The menu's AI-vs-AI demo scores less than before (about 0.8 a side at normal, was 1.5).
+- **Help:** touch help says "CLOSE: POKE  FURTHER: SLIDE", desktop "TACKLE: POKE OR SLIDE".
+- **Checks:** types, lint, logic (69; new: poke outcomes, AI tackle kind, back line, no goal-hanging, keeper sweeping, difficulty table) and the build pass. Not playtested on a phone.
+
 **Smoother match movement (2026-11-09, branch `movement_changes_main`, not merged; user request: 5v5 movement felt choppy, wanted eFootball / EA FC Mobile smoothness):** the choppiness came from how sprites were drawn, not from the simulation (the fixed 60 Hz step with render interpolation and the smooth-damp camera were already right). Match only; Free Kick keeps its look.
 - **Filtered player and ball textures:** a `smooth sprites` step at the end of `PREPARE_STEPS` (`gameAssets.ts`) sets LINEAR filtering on `PLAYER_ATLAS_KEYS` (kit atlases plus the skin and hair layers), the ball and its shadow. Players are drawn at about 82 px from 128 px frames and the ball at about 20 px from 64 px, at sub-pixel positions, so nearest sampling picked a different set of art pixels every frame (shimmer). Court, scenery and HUD textures stay nearest.
 - **Smooth canvas scaling:** `#game canvas` in `style.css` no longer has `image-rendering: pixelated`. The 1280x720 canvas is scaled by a non-integer factor (about 1.6 device px per canvas px on a 3x phone), and nearest scaling moved everything in uneven 1- and 2-pixel steps. HUD text looks slightly softer. The Free Kick stylesheets keep pixelated.
@@ -623,6 +645,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- **Defend with lines and tackles, not bunching (2026-11-09):** the user found 3-4 defenders crowding the box ugly and unfair to score against. Defenders now hold a back line, markers leave the opponent by the ball to the presser and cover, and the Hard/Pro near-goal compaction is gone. Difficulty comes from tackling instead: harder levels slide more, press tighter and wait less between tackles (`LEVELS.slideShare` was the lever that restored Hard in the simulator; more pokes or a tighter press did not). There are two tackle kinds (a poke close, a slide further away), so tackling isn't one-dimensional. A won poke never knocks the ball on along the carrier's run: that handed it straight back to the attacker and made Hard much easier in the simulator. Keepers sweep behind the line but drop back to the old 60 px as the ball comes into range, so chips stay as rare as before. Balanced with a headless simulator and a scripted human, so the numbers need a phone playtest.
+
 - **Smooth sprites in the match (2026-11-09):** draw players and the ball with filtered (LINEAR) textures and let the browser scale the canvas smoothly. At the match camera they are shrunk and moved by sub-pixel amounts, where nearest sampling shimmers and a non-integer pixelated upscale judders. This partly reverses the 2026-10-12 crisp-textures choice: court, scenery, HUD textures and all of Free Kick (its own game and close camera) stay nearest. Leg animation follows the distance actually covered (0.6 rate floor), and switching run cycles keeps the stride phase. Generated optical-flow in-betweens were rejected for ghosting; smoother runs need authored poses.
 
 - Share match-card action styles with Free Kick and keep detailed leaderboard controls in an ALL sheet so the feed prioritizes the live shot. Use direct interpolation for preview movement instead of expanding the trimmed Phaser API.
@@ -992,6 +1016,12 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- **Phone playtest of the defence / tackle / keeper changes on `movement_changes_main`:**
+  - Does the CPU still crowd its box when you attack?
+  - Do pokes (TACKLE right next to the carrier) and slides feel distinct and fair?
+  - Do keepers come out without being chipped too easily?
+  - Is Hard about right? In the simulator it is easier than before but clearly harder than Normal; old Hard was close to Pro.
+  - Knobs to tune: `LEVELS.slideShare` (difficulty), `AI.lineBehindBall` (how tight the line holds) and `LEVELS.keeperSweep`.
 - **Phone playtest of `movement_changes_main`** (`npm run dev` with the branch checked out in the main repo folder): do players and the ball move smoothly, is anything too soft (HUD text, sprite edges)? Watch for a faint, flickering 1-px line at the bottom of four poses: idle4, shoot_contact, carry2 and celebrate_c4. In the atlas they sit directly above run_down4, run_down1, celebrate_a4 and jump3, whose art touches the frame top, and filtered sampling can pick up a sliver of it. If it shows, pad the atlas rows in the bake. Note the debug overlay's `FRAME` / `SLOW` numbers during busy play.
 - If `SLOW` is more than a few per cent of frames, cut per-frame work next (the pitch lines and goal nets are redrawn every frame).
 - Optional A/B: interpolate with Phaser's raw frame delta instead of its 10-frame average. Raw delta is wrong under the inline preview's 30 fps limit, so it needs its own bookkeeping; do it only if the playtest still shows uneven motion with `SLOW` near 0.
@@ -1341,6 +1371,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-09:** gameplay on branch `movement_changes_main`. Defenders hold a back line: no marking right by the ball, no cover defender near the box, no Hard/Pro near-goal compaction. Attackers stop short of the keeper. Two tackles for the human and the AI: a standing poke close and a slide further away, with loose-ball outcomes and a bonus against a heavy touch. Harder levels tackle more often, press tighter and slide more. Keepers sweep by level. AI steering is smoother: gliding press and cover spots, start deadbands, continuous intercepts, turning to the ball, leg hysteresis. Help text updated. Types, lint, logic (69) and build pass; balanced with a headless simulator, not playtested.
 
 - **2026-11-09:** smoother 5v5 movement on branch `movement_changes_main`: filtered player/ball textures and smooth canvas scaling (match only), legs driven by the distance covered (0.6 rate floor), stride phase kept across run/sprint/view switches, ball spin capped at 30 frames a second, and a `FRAME` / `SLOW` frame-pacing line in the debug overlay. Generated in-between run poses tried and rejected (ghosting). Types, lint, unit, logic, Free Kick, privacy, games, speed, Daily, journeys and build pass; `test:dependencies` fails on Windows on `main` too. Not playtested.
 
