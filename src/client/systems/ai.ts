@@ -851,7 +851,14 @@ export class TeamBrain {
   // and the beaten one recovers.
   private pickPresser(view: TeamView, ai: readonly Player[], carrier: Player) {
     const h = view.human;
-    if (h && Math.hypot(h.x - carrier.x, h.y - carrier.y) < AI.humanPressDist) {
+    // Our human near the carrier presses for us, but not once beaten (upfield
+    // of the carrier, e.g. chasing a counter from behind): then an AI
+    // teammate goal-side still steps up.
+    if (
+      h &&
+      Math.hypot(h.x - carrier.x, h.y - carrier.y) < AI.humanPressDist &&
+      (h.x - carrier.x) * this.dir <= AI.beatenMargin
+    ) {
       this.mainPresser = null;
       return null;
     }

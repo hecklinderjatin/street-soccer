@@ -82,7 +82,8 @@ export class ActionButtons {
     this.chargeArc = scene.add.graphics().setDepth(1);
     this.swipeArrows = scene.add.graphics().setDepth(1);
     this.buttons = [
-      this.makeButton(scene, 1, VIEW.width - 300, VIEW.height - 104, 14),
+      // (PASS / TACKLE, same size as SHOOT / SWITCH; nudged up-left to fit)
+      this.makeButton(scene, 1, VIEW.width - 316, VIEW.height - 112, 18),
       this.makeButton(scene, 2, VIEW.width - 136, VIEW.height - 196, 18),
     ];
     scene.input.on(Phaser.Input.Events.POINTER_DOWN, this.onDown, this);
@@ -102,7 +103,7 @@ export class ActionButtons {
       const shown = this.drawSwipeHints(b, SWIPE_NAMES[action]) ?? action;
       if (shown !== b.shown) {
         b.shown = shown;
-        b.label.setText(shown).setScale(shown === 'TACKLE' ? 0.75 : 1);
+        b.label.setText(shown);
       }
       const pressed = b.pointerId !== null || this.controls.isHeld(b.id);
       b.disc.setScale(PX * (pressed ? 0.92 : 1));

@@ -1,7 +1,7 @@
 import type { Ball } from '../entities/Ball';
 import type { Player } from '../entities/Player';
 import { interceptPoint } from './ai';
-import { INPUT } from '../../shared/tuning';
+import { AI, INPUT } from '../../shared/tuning';
 
 export type SwitchCycle = {
   players: Player[];
@@ -38,10 +38,22 @@ export function switchOrder(
   ball: Ball,
   preferred: Player | null
 ): Player[] {
+  // Their carrier on the ball: teammates goal-side of him (who can still get
+  // between him and our goal) come first, nearest first; ones he has already
+  // got past (upfield of him, AI.beatenMargin) only after them.
+  const carrier =
+    ball.owner && ball.owner.team !== controlled.team ? ball.owner : null;
+  const dir = controlled.team === 'home' ? 1 : -1; // +1: our goal at x = 0
+  const beaten = (p: Player) =>
+    carrier !== null && (p.x - carrier.x) * dir > AI.beatenMargin;
   const candidates = teammates
     .filter((p) => p !== controlled && p.role !== 'keeper')
-    .map((p) => ({ player: p, time: interceptPoint(p, ball).t }))
-    .sort((a, b) => a.time - b.time)
+    .map((p) => ({
+      player: p,
+      beaten: beaten(p),
+      time: interceptPoint(p, ball).t,
+    }))
+    .sort((a, b) => Number(a.beaten) - Number(b.beaten) || a.time - b.time)
     .map(({ player }) => player);
   if (preferred && candidates.includes(preferred))
     return [preferred, ...candidates.filter((p) => p !== preferred)];

@@ -483,10 +483,10 @@ export const AI = {
   // behind. Moving off faster than idleBreakSpeed ends it.
   idleSpeed: 40,
   idleBreakSpeed: 120,
-  idleSec: 1.5,
+  idleSec: 1.0, // was 1.5 (user request, 2026-11-09)
   idleGap: 30, // the presser stands this far beyond the ball (DRIBBLE.closeLead in front of the carrier)
   idleTackleBoost: 2, // x the tackle chance (at most 0.95)
-  idleDoubleSec: 2.5,
+  idleDoubleSec: 2.0, // was 2.5 (user request, 2026-11-09)
   // Counter-attack: for this long after winning the ball from the other
   // side, an AI carrier with space ahead runs straight at goal.
   counterSec: 3,

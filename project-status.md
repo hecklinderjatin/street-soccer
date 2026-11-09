@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Playtest feedback fixes (2026-11-09, on `main`, uncommitted):** beaten human no longer suppresses the AI presser (`ai.ts` `pickPresser`); SWITCH on the opponent's ball prefers goal-side teammates (`playerSwitch.ts` `switchOrder`); PASS/TACKLE button enlarged to the SHOOT button's size (`ActionButtons.ts`). Still open from the same feedback: the joystick base is clamped 124 px from the left/bottom edges, so a thumb landing near the corner reads as a push (`Joystick.ts` `onDown`); and nothing explains that opponents jockey at walking pace (help text).
+
 **Main merge (2026-11-09):** fast-forwarded `movement_changes_main` through `50446b2` into `main` at the user's request. It brings in the smoother sprites and legs (`68dab02`), the playtest note (`e696a11`), and the back line, poke/slide tackles, sweeper keepers and smoother AI steering (`50446b2`). Types, lint, logic (69) and the build passed before the merge. Not playtested on a phone yet.
 
 **Defence lines, two tackles, sweeper keepers, smoother AI steering (2026-11-09, branch `movement_changes_main`, not merged; user request: movement and gameplay still not smooth enough, CPU defenders crowd their box, tackling is one-dimensional, keepers (both sides) should come out without conceding, scoring must stay fair both ways, harder levels should tackle and chase more):**
@@ -1374,6 +1376,10 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-09:** a carrier standing on the ball is attacked sooner: `AI.idleSec` 1.5 -> 1.0, `AI.idleDoubleSec` 2.5 -> 2.0 (user request). Types and logic pass. Not playtested.
+
+- **2026-11-09:** playtest feedback fixes. (1) A beaten human no longer counts as our presser: `pickPresser` only lets the human stand in when within `humanPressDist` and not upfield of the carrier by more than `AI.beatenMargin`, so on a counter an AI teammate steps up instead of the defenders holding their zones by the posts. (2) SWITCH while the opponent has the ball puts teammates goal-side of the carrier first (nearest first), beaten ones after (`switchOrder`; new logic check). (3) Button 1 (PASS / TACKLE) is the same size as button 2 (art radius 18, was 14), moved to `VIEW.width - 316, VIEW.height - 112` to fit; TACKLE's label is no longer shrunk. Types, lint and logic (70) pass. Not playtested.
 
 - **2026-11-09:** merged `movement_changes_main` into main through `50446b2` (smooth movement, back line, poke/slide tackles, sweeper keepers, smoother AI steering) and pushed it. Not playtested.
 

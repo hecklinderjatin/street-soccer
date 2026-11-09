@@ -181,6 +181,21 @@ check(
 );
 
 check(
+  'switch: on their counter, a goal-side teammate beats a nearer beaten one',
+  () => {
+    const controlled = player({ x: 1400, y: 700 });
+    const beside = player({ x: 1350, y: 750 }); // behind the carrier, close
+    const defender = player({ x: 600, y: 700 }); // goal-side, far
+    const carrier = player({ team: 'away', x: 1300, y: 700 });
+    const b = ball({ x: 1300, y: 700, owner: carrier });
+    assert.deepEqual(
+      switchOrder([controlled, beside, defender], controlled, b, null),
+      [defender, beside]
+    );
+  }
+);
+
+check(
   'switch: can leave a controlled keeper and handles no eligible teammate',
   () => {
     const keeper = player({ role: 'keeper', x: 40, y: 650 });
