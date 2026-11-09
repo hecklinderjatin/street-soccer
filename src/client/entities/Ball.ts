@@ -17,6 +17,10 @@ import { PLAYER_HEIGHT } from '../art/playerArt';
 
 const at = newProjected();
 const TRAIL_LENGTH = 14; // render frames of trail
+const ROLL_PX = 14; // distance rolled per rolling frame
+// The rolling frames change at most this often: faster (a hard pass flipped
+// 60+ a second) strobes against the screen's refresh and reads as jitter.
+const MAX_ROLL_FPS = 30;
 
 // The ball: 3D position (x, y on the ground plane, z height) and velocity.
 // Collisions happen in 2D on the ground plane (see systems/ballPhysics.ts).
@@ -134,9 +138,10 @@ export class Ball {
     // Rolling left plays the frames backwards; a straight up / down roll
     // keeps the last direction.
     if (Math.abs(this.vx) > 1) this.rollDir = this.vx < 0 ? -1 : 1;
-    this.rolled += this.speed * dtSec * this.rollDir;
+    this.rolled +=
+      Math.min(this.speed, ROLL_PX * MAX_ROLL_FPS) * dtSec * this.rollDir;
     const n = BALL_FRAMES.length;
-    const rollFrame = ((Math.floor(this.rolled / 14) % n) + n) % n;
+    const rollFrame = ((Math.floor(this.rolled / ROLL_PX) % n) + n) % n;
     const shotFrame = Math.floor(this.shotAnimationAge * 18);
     const shotVisual = shotFrame < BALL_SHOT_FRAMES.length;
     this.shotAnimationAge += dtSec;

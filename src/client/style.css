@@ -26,10 +26,11 @@ body {
   transform-origin: center center;
 }
 
+/* Smooth (default) scaling, not pixelated: the 1280x720 canvas is scaled by
+   a non-integer factor, and nearest-neighbour scaling moved players and the
+   ball in uneven 1- and 2-screen-pixel steps (judder). */
 #game canvas {
   display: block;
-  image-rendering: crisp-edges;
-  image-rendering: pixelated;
 }
 
 /* Loading screen in the page itself (index.html), before any game code runs. */

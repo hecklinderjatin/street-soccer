@@ -128,6 +128,7 @@ const DEBUG = new URLSearchParams(window.location.search).has('debug');
 const realNow = () => performance.now() / 1000;
 const AIM_AT = newProjected();
 const SHOT_TEXT_DEPTH = 3e6; // above players, markers and the stamina bar
+const FRAME_SAMPLES = 600; // debug frame pacing: 10 s at 60 fps
 // Controlled-player ground marker (ring, pointer and charge gauge).
 const RING_RADIUS = 44; // the ground marker ring round the controlled player, world px
 const RING_POINTS = 40;
@@ -239,6 +240,11 @@ export class MatchScene extends Phaser.Scene {
   // (tap the FPS readout): a smoothed average and a slowly decaying peak.
   private simMsAvg = 0;
   private simMsPeak = 0;
+  // Time between rendered frames (ms) over the last FRAME_SAMPLES frames,
+  // for the debug overlay: shows whether the phone drops frames.
+  private readonly frameGaps = new Float32Array(FRAME_SAMPLES);
+  private frameCount = 0;
+  private lastFrameAt = 0;
   private loadingText: Phaser.GameObjects.BitmapText | null = null;
   private ready = false;
 
@@ -268,6 +274,8 @@ export class MatchScene extends Phaser.Scene {
     this.liveSince = Infinity;
     this.simMsAvg = 0;
     this.simMsPeak = 0;
+    this.frameCount = 0;
+    this.lastFrameAt = 0;
     this.everyone = [];
     this.simTime = 0;
     this.feedbackTime = 0;
@@ -582,6 +590,11 @@ export class MatchScene extends Phaser.Scene {
   }
 
   override update(time: number, delta: number) {
+    // A gap over a second is a pause or a hidden tab, not a dropped frame.
+    const gap = time - this.lastFrameAt;
+    if (this.lastFrameAt > 0 && gap < 1000)
+      this.frameGaps[this.frameCount++ % FRAME_SAMPLES] = gap;
+    this.lastFrameAt = time;
     if (!this.ready) {
       if (!this.waitForPlayers()) {
         this.court.update(this.projector, time / 1000);
@@ -2176,6 +2189,13 @@ export class MatchScene extends Phaser.Scene {
     const b = this.ball;
     const f = this.rig.focus;
     const owner = b.owner ? `${b.owner.team} ${b.owner.role}` : 'loose';
+    // SLOW: frames that took over 1.5x the typical (median) frame, i.e. a
+    // missed screen refresh, out of the recent samples.
+    const gaps = Array.from(
+      this.frameGaps.subarray(0, Math.min(this.frameCount, FRAME_SAMPLES))
+    ).sort((x, y) => x - y);
+    const typical = gaps[gaps.length >> 1] ?? 0;
+    const slow = gaps.filter((g) => g > typical * 1.5).length;
     return [
       `AI ${this.botDifficulty} | ${this.flow.phase}`,
       `POS ${Math.round(p.x)},${Math.round(p.y)} SPEED ${Math.round(p.speed)}${p.sprinting ? ' SPRINT' : ''}`,
@@ -2183,6 +2203,7 @@ export class MatchScene extends Phaser.Scene {
       `BALL ${Math.round(b.x)},${Math.round(b.y)},${Math.round(b.z)} V ${Math.round(b.speed)} ${owner}`,
       `CAM ${Math.round(f.x)},${Math.round(f.y)} ZOOM ${this.rig.currentZoom.toFixed(2)}`,
       `SIM ${this.simMsAvg.toFixed(2)} MS/FRAME PEAK ${this.simMsPeak.toFixed(2)}`,
+      `FRAME ${typical.toFixed(1)} MS SLOW ${slow}/${gaps.length} WORST ${Math.round(gaps[gaps.length - 1] ?? 0)} MS`,
       `LOAD MS ${timingSummary()}`,
     ].join('\n');
   }

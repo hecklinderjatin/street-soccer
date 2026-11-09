@@ -42,6 +42,12 @@ const SEEN_STEPS = Math.ceil(AI.readMaxSec * SIM.hz) + 1; // one record per fixe
 
 const DEPTH_OVERLAY = 2_000_000; // above the fence
 const BAR_W = 14; // stamina bar width in art pixels
+// Legs: a stride cycle plays at its authored rate at STRIDE_SPEED px/s,
+// scaled by the speed actually covered, but never below MIN_STRIDE_RATE
+// (slow positioning played the 4-6 pose cycles at 2-4 frames a second).
+const STRIDE_SPEED = 220;
+const MIN_STRIDE_RATE = 0.6;
+const MOVED_SMOOTH_SEC = 0.08; // smooths that speed, so bodies pushing apart don't flicker the legs
 const feet = newProjected();
 const head = newProjected();
 
@@ -138,6 +144,9 @@ export class Player {
     this.shooting = false;
   };
   private runView: RunView = 'side';
+  private strideKey = ''; // the run / sprint cycle last started (playStride)
+  private moved = 0; // px/s actually covered, smoothed: drives the legs
+  private lastRenderSec = 0;
 
   constructor(
     scene: Phaser.Scene,
@@ -341,6 +350,23 @@ export class Player {
     this.renderY = this.prevY + (this.y - this.prevY) * alpha;
   }
 
+  // The run, sprint and view runs all cover one half-second stride, so a
+  // switch between them (a turn, a sprint) starts the new cycle at the same
+  // point of the stride instead of on its first pose: no hitch in the legs.
+  private playStride(key: string) {
+    const anims = this.sprite.anims;
+    const current = anims.currentAnim;
+    if (anims.isPlaying && current?.key === key) return;
+    const frame = anims.currentFrame;
+    const phase =
+      current && frame && current.key === this.strideKey
+        ? (frame.index - 1) / current.frames.length
+        : 0;
+    const frames = anims.animationManager.get(key)?.frames.length ?? 0;
+    this.strideKey = key;
+    this.sprite.play({ key, startFrame: Math.floor(phase * frames) });
+  }
+
   render(projector: Projector, timeSec: number, simTime = timeSec) {
     const x = this.renderX;
     const y = this.renderY;
@@ -351,6 +377,16 @@ export class Player {
       .setPosition(feet.x, feet.y)
       .setScale(PLAYER_PX * feet.scale)
       .setDepth(y);
+    // The legs follow the distance actually covered in the last step, not
+    // the intended speed: a body held back by another stops running on the spot.
+    const covered =
+      Math.hypot(this.x - this.prevX, this.y - this.prevY) * SIM.hz;
+    const dt = Math.min(0.1, Math.max(0, timeSec - this.lastRenderSec));
+    this.lastRenderSec = timeSec;
+    this.moved +=
+      (covered - this.moved) * (1 - Math.exp(-dt / MOVED_SMOOTH_SEC));
+    const moving = this.moved > 10;
+    const strideRate = Math.max(MIN_STRIDE_RATE, this.moved / STRIDE_SPEED);
     const tackling = simTime >= this.tackleAt && simTime < this.tackleUntil;
     const hurting = simTime >= this.hurtAt && simTime < this.staggerUntil;
     const diving =
@@ -463,10 +499,9 @@ export class Player {
     } else if (this.shooting) {
       // left alone until it completes
     } else if (this.role === 'keeper' && this.holding) {
-      const moving = this.speed > 10;
       this.sprite.play(holdAnim(this.kit, moving), true);
-      this.sprite.anims.timeScale = moving ? this.speed / 220 : 1;
-    } else if (this.speed > 10) {
+      this.sprite.anims.timeScale = moving ? strideRate : 1;
+    } else if (moving) {
       const vertical = Math.sin(this.heading);
       // Separate enter/exit thresholds avoid flicker around diagonal headings.
       const threshold =
@@ -486,14 +521,13 @@ export class Player {
               ? 'down-diagonal'
               : 'side';
       // Side-on sprinting has its own stride; other views keep the run.
-      this.sprite.play(
+      this.playStride(
         this.sprinting && this.runView === 'side'
           ? sprintAnim(this.kit)
-          : runAnim(this.kit, this.runView),
-        true
+          : runAnim(this.kit, this.runView)
       );
       // Leg cycle speeds up with running speed (sprint ~1.5x).
-      this.sprite.anims.timeScale = this.speed / 220;
+      this.sprite.anims.timeScale = strideRate;
     } else {
       this.sprite.play(idleAnim(this.kit), true);
       this.sprite.anims.timeScale = 1;
@@ -511,7 +545,7 @@ export class Player {
     } else if (
       !this.shooting &&
       !this.holding &&
-      this.speed > 10 &&
+      moving &&
       (this.runView === 'up' || this.runView === 'down')
     ) {
       this.sprite.setFlipX(false);

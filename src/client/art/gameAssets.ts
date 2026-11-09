@@ -4,9 +4,10 @@ import {
   AUTHORED_SHOT_BALL_TEXTURE,
   type Asset,
 } from './assetList';
-import { BALL_KEY, createBallTexture } from './ballArt';
+import { BALL_KEY, BALL_SHADOW_KEY, createBallTexture } from './ballArt';
 import { createCourtTextures } from './pitchArt';
 import { registerPlayerAtlases } from './playerArt';
+import { PLAYER_ATLAS_KEYS } from './playerSheets';
 import { createSceneryTextures } from './sceneryArt';
 
 // Everything a match needs that is downloaded or painted once per game.
@@ -57,4 +58,16 @@ export const PAINT_STEPS: readonly Step[] = [
 export const PREPARE_STEPS: readonly Step[] = [
   ['player frames', registerPlayerAtlases],
   ['ball', createBallTexture],
+  ['smooth sprites', smoothSprites],
 ];
+
+// Players and the ball are drawn smaller than their art, at sub-pixel
+// positions and sizes that change every frame. Nearest sampling picked a
+// different set of their pixels each frame (shimmer that made movement look
+// choppy); filtered sampling keeps them steady. Free Kick (its own game,
+// close camera) keeps the sharp default.
+function smoothSprites(scene: Phaser.Scene) {
+  for (const key of [...PLAYER_ATLAS_KEYS, BALL_KEY, BALL_SHADOW_KEY])
+    if (scene.textures.exists(key))
+      scene.textures.get(key).setFilter(Phaser.Textures.FilterMode.LINEAR);
+}

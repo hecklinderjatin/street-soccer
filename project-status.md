@@ -8,6 +8,16 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Smoother match movement (2026-11-09, branch `movement_changes_main`, not merged; user request: 5v5 movement felt choppy, wanted eFootball / EA FC Mobile smoothness):** the choppiness came from how sprites were drawn, not from the simulation (the fixed 60 Hz step with render interpolation and the smooth-damp camera were already right). Match only; Free Kick keeps its look.
+- **Filtered player and ball textures:** a `smooth sprites` step at the end of `PREPARE_STEPS` (`gameAssets.ts`) sets LINEAR filtering on `PLAYER_ATLAS_KEYS` (kit atlases plus the skin and hair layers), the ball and its shadow. Players are drawn at about 82 px from 128 px frames and the ball at about 20 px from 64 px, at sub-pixel positions, so nearest sampling picked a different set of art pixels every frame (shimmer). Court, scenery and HUD textures stay nearest.
+- **Smooth canvas scaling:** `#game canvas` in `style.css` no longer has `image-rendering: pixelated`. The 1280x720 canvas is scaled by a non-integer factor (about 1.6 device px per canvas px on a 3x phone), and nearest scaling moved everything in uneven 1- and 2-pixel steps. HUD text looks slightly softer. The Free Kick stylesheets keep pixelated.
+- **Legs follow the ground actually covered:** `Player.render` drives the run cycle from the distance moved per step, smoothed over `MOVED_SMOOTH_SEC` 0.08, not from the intended speed: a player held back by another body no longer runs on the spot. The stride rate never drops below 0.6 of the authored rate (`MIN_STRIDE_RATE`; slow positioning used to play the 4- and 6-pose cycles at 2-4 frames a second).
+- **No leg hitch when the run changes:** run, sprint and view runs all cover a half-second stride, so `Player.playStride` starts the new cycle at the same point of the stride instead of on its first pose (turns, sprint on/off).
+- **Ball spin cap:** the rolling frames change at most 30 times a second (`MAX_ROLL_FPS` in `Ball.ts`); a hard pass flipped them 60+ times a second, which strobed against the screen refresh.
+- **Frame pacing readout:** the debug overlay (tap the FPS readout) adds `FRAME x MS SLOW n/m WORST y MS`: the typical (median) frame time, how many of the last 600 frames took over 1.5x that (missed screen refreshes) and the worst gap.
+- **Generated in-between poses: tried, not shipped.** Optical-flow in-betweening (OpenCV DIS and Farneback, forward splatting) of the four-pose view runs and the ball frames ghosted badly where the limbs cross, so no poses were added. Smoother legs need more authored poses (see Next up).
+- **Checks:** types, lint, unit, logic (62), Free Kick (23), privacy, games, speed, Daily, journeys and the production build pass. `test:dependencies` fails on Windows on `main` too (glob assertion at `checks/dependency-check.mjs:72`), so `test:local` stops there; not caused by this branch. Not playtested on a phone yet.
+
 **Main merge (2026-11-08):** fast-forwarded `codex/freekick-preview-consistency` through `243d418` into `main` at the user’s request. Includes the shipped blank-preview fix, shared match-card action styling and compact leaderboard footer with an ALL sheet. Existing types, lint and source-only browser checks pass; no application build or Reddit deployment performed.
 
 **Free Kick preview cleanup (2026-11-08):** fix the blank shipped preview: `Phaser.Math.Linear` is absent from `tools/phaser-trim.cjs`; interpolate the kicker positions directly. Reuse normal-match responsive Play/secondary button styling, header spacing, settings row and gradient layout. Replace the LIVE badge with the life count, condense mode copy and move both leaderboard tabs/full results into an ALL sheet with close, Escape and focus handling; the feed shows the same compact seven-day Top 3 footer. Source-only WebGL checks deliberately remove Linear to reproduce the shipped API and verify repeated shots, four viewport sizes and off-screen sleep/resume. Types, lint, feed DOM checks and the full Free Kick intro/results/sharing/pause/Practice browser flow pass. Screenshot inspected at 390x600. No application build or live Reddit writes performed.
@@ -613,6 +623,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- **Smooth sprites in the match (2026-11-09):** draw players and the ball with filtered (LINEAR) textures and let the browser scale the canvas smoothly. At the match camera they are shrunk and moved by sub-pixel amounts, where nearest sampling shimmers and a non-integer pixelated upscale judders. This partly reverses the 2026-10-12 crisp-textures choice: court, scenery, HUD textures and all of Free Kick (its own game and close camera) stay nearest. Leg animation follows the distance actually covered (0.6 rate floor), and switching run cycles keeps the stride phase. Generated optical-flow in-betweens were rejected for ghosting; smoother runs need authored poses.
+
 - Share match-card action styles with Free Kick and keep detailed leaderboard controls in an ALL sheet so the feed prioritizes the live shot. Use direct interpolation for preview movement instead of expanding the trimmed Phaser API.
 
 - Keep Free Kick records separate from football-match rankings and use the same seven-day UTC window. Share only completed server-cached Play summaries after explicit confirmation; retain Practice isolation and native trusted-click quit behaviour.
@@ -906,7 +918,7 @@ public/ball.svg             pixel ball shown on the splash
   - **Camera focus clamps** (x 400..2000, y 400..960) keep the view on the court.
 - **Forced landscape via CSS rotation, not the Screen Orientation API.** `screen.orientation.lock` needs fullscreen, which the Reddit webview doesn't give. So `ui/landscape.ts` scales/rotates the fixed 1280x720 `#game` box; Phaser runs in `Scale.NONE`; `input.transformPointer` is wrapped to map touches back through the rotation; the layout is re-checked every frame.
 - **Retro pixel art style.**
-  - Crisp textures via `antialias: false` (nearest filtering) with `roundPixels: false`. Do NOT use `pixelArt: true`: it forces roundPixels, and rounding each sprite and ground vertex separately under the moving perspective camera made everything step and shimmer against each other. One art pixel = `PX` = 4 world px; only named colours from `PAL` (base PICO-8 plus character ramps added for the supplied reference). Don't snap HUD or overlay positions to the PX grid either: that made the stamina bar and joystick knob move in 4 px steps.
+  - Crisp textures via `antialias: false` (nearest filtering) with `roundPixels: false`. Exception since 2026-11-09: in the match, the player atlases, ball and ball shadow are switched to LINEAR (`smooth sprites` prepare step) and the canvas is no longer CSS-pixelated (see "Smooth sprites in the match"). Do NOT use `pixelArt: true`: it forces roundPixels, and rounding each sprite and ground vertex separately under the moving perspective camera made everything step and shimmer against each other. One art pixel = `PX` = 4 world px; only named colours from `PAL` (base PICO-8 plus character ramps added for the supplied reference). Don't snap HUD or overlay positions to the PX grid either: that made the stamina bar and joystick knob move in 4 px steps.
   - Text uses the generated bitmap font. Only capitals exist: **`setText()` does not upper-case, so do it yourself.**
   - Everything is generated in code (placeholder art until real atlases exist).
 - **HUD is a separate scene** (`Hud`, registered last), fed by a plain `MatchHudState` object.
@@ -979,6 +991,12 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 - The far wall and near fence are still infinitely tall for the ball; only the end walls have a height (120) for the ball to clear.
 
 ## Next up
+
+- **Phone playtest of `movement_changes_main`** (run `npm run dev` from the branch's own folder, the worktree `street-soccer-movement_changes_main` next to the main repo): do players and the ball move smoothly, is anything too soft (HUD text, sprite edges)? Watch for a faint, flickering 1-px line at the bottom of four poses: idle4, shoot_contact, carry2 and celebrate_c4. In the atlas they sit directly above run_down4, run_down1, celebrate_a4 and jump3, whose art touches the frame top, and filtered sampling can pick up a sliver of it. If it shows, pad the atlas rows in the bake. Note the debug overlay's `FRAME` / `SLOW` numbers during busy play.
+- If `SLOW` is more than a few per cent of frames, cut per-frame work next (the pitch lines and goal nets are redrawn every frame).
+- Optional A/B: interpolate with Phaser's raw frame delta instead of its 10-frame average. Raw delta is wrong under the inline preview's 30 fps limit, so it needs its own bookkeeping; do it only if the playtest still shows uneven motion with `SLOW` near 0.
+- Smoother legs need more poses: user-supplied 8-pose up/down/diagonal runs (now 4 poses at 8 fps) and/or a 12-pose side jog. Or use the 12-pose sprint sheet for jogging too, but the user chose the current run/sprint split on 2026-11-08, so ask first.
+- Merge `movement_changes_main` into `main` once the user approves the feel.
 
 - Review the cleaned Free Kick feed preview and ALL leaderboard sheet on Reddit/mobile after the next user-run upload; local source-only checks reproduce the missing shipped helper but do not replace native host validation.
 
@@ -1298,7 +1316,7 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 **Step 6, phone playtest (the user; `npm run dev` in WSL, then open the post on a phone).** Checklist (plan v3 phase 6 + the v2 regression matrix), on easy, normal and hard:
 
-1. Match start: menu -> each difficulty; 10 players; tap the FPS readout and note FPS and the `SIM` line during busy play.
+1. Match start: menu -> each difficulty; 10 players; tap the FPS readout and note FPS, the `SIM` line and the `FRAME` / `SLOW` line during busy play.
 2. Kickoffs both ways: after we score the CPU kicks off and vice versa; the other side's forward waits outside the circle; you start on our forward. **New:** at our kickoff nothing moves and the clock stays until you PASS (banner PASS TO START); the CPU kicks off by itself after ~0.8 s.
    **Also new:** the CPU presser keeps its distance (a pass back to the player behind you should be on); stand still on the ball for 1.5 s and it comes for the ball (a second player after 2.5 s), and after winning it the CPU runs at your goal.
 3. Control ownership: SWITCH tap / repeat taps / hold for the keeper; the player you leave keeps playing (AI), never two players on your stick; control follows a pass to the receiver and a won ball to the winner; after a shot it follows the player nearest the ball.
@@ -1323,6 +1341,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-09:** smoother 5v5 movement on branch `movement_changes_main`: filtered player/ball textures and smooth canvas scaling (match only), legs driven by the distance covered (0.6 rate floor), stride phase kept across run/sprint/view switches, ball spin capped at 30 frames a second, and a `FRAME` / `SLOW` frame-pacing line in the debug overlay. Generated in-between run poses tried and rejected (ghosting). Types, lint, unit, logic, Free Kick, privacy, games, speed, Daily, journeys and build pass; `test:dependencies` fails on Windows on `main` too. Not playtested.
 
 - **2026-11-08:** merge the Free Kick blank-preview fix and consistent feed UI into main through `243d418`; prepare the requested GitHub push. No application build or deployment performed.
 
