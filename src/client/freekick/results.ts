@@ -5,68 +5,132 @@ import {
   showToast,
 } from '@devvit/web/client';
 import type { FreeKickStats } from '../../shared/freeKick';
+import { casualButton, casualScreen } from '../ui/casualScreen';
+import { css } from '../ui/menuCard';
+import { PAL } from '../ui/palette';
 import { pixelLabel } from '../ui/pixelLabel';
 import type { FreeKickRecords } from './records';
-import { freeKickLeaderboard } from './leaderboard';
+import { freeKickResultsBoard } from './leaderboard';
 
+// The run summary, built as the normal match's full-time card
+// (ui/resultsScreen.ts, style.css .results-*): mode tag, hero title, the
+// score where the scoreboard goes, a row of stat tiles, the fastest-goal
+// line, the seven-day board with its category tabs, then PLAY AGAIN (full
+// width), POST MY SCORE and EXIT. One column in portrait.
 export function freeKickResults(
   stats: FreeKickStats,
   best: number,
   records: FreeKickRecords,
   again: () => void
 ) {
-  const root = document.createElement('section');
-  root.className = 'fk-results';
-  root.setAttribute('role', 'dialog');
-  root.setAttribute('aria-label', 'Free Kick run results');
-  const panel = document.createElement('div');
-  panel.className = 'fk-results-panel';
-  root.append(panel);
-  panel.innerHTML =
-    '<span class="mobile-match-tag">FREE KICK</span><h1>RUN COMPLETE</h1><div class="fk-results-score"></div><p class="fk-results-best"></p><div class="fk-results-stats"></div><div class="fk-results-actions"></div><p class="fk-results-status" role="status"></p>';
-  const score = panel.querySelector<HTMLElement>('.fk-results-score'),
-    bestLabel = panel.querySelector('.fk-results-best'),
-    grid = panel.querySelector('.fk-results-stats'),
-    actions = panel.querySelector('.fk-results-actions'),
-    status = panel.querySelector('.fk-results-status');
-  if (score) pixelLabel(score, `${stats.score} POINTS`);
-  if (bestLabel)
-    bestLabel.textContent =
-      stats.score > best ? 'NEW DEVICE BEST!' : `DEVICE BEST: ${best}`;
+  const newBest = stats.score > best;
+  const screen = casualScreen(
+    'RUN COMPLETE',
+    `RANKED RUN · LEVEL ${stats.level}`,
+    false,
+    {
+      compactBelow: 700,
+      minimalBelow: 640,
+    }
+  );
+  screen.element.classList.add('results-screen', 'fk-results-screen');
+  screen.element.setAttribute('role', 'dialog');
+  screen.panel.classList.add('results-panel');
+  screen.panel.dataset.mode = 'ranked';
+  screen.panel.style.setProperty(
+    '--outcome',
+    css(newBest ? PAL.green : PAL.yellow)
+  );
+
+  const header = document.createElement('header');
+  header.className = 'results-header';
+  const mode = document.createElement('span');
+  mode.className = 'results-mode';
+  pixelLabel(mode, 'FREE KICK');
+  const over = document.createElement('span');
+  over.textContent = 'RUN OVER';
+  header.append(mode, over);
+
+  const content = document.createElement('div');
+  content.className = 'results-content';
+  const summary = document.createElement('div');
+  summary.className = 'results-summary';
+  const hero = document.createElement('div');
+  hero.className = 'results-hero';
+  hero.append(screen.heading, screen.description);
+  summary.append(hero);
+
+  // The score in the scoreboard's place: one block, with the device best.
+  const scoreboard = document.createElement('div');
+  scoreboard.className = 'results-scoreboard fk-results-scoreboard';
+  scoreboard.setAttribute('role', 'group');
+  scoreboard.setAttribute('aria-label', `${stats.score} points`);
+  const block = document.createElement('div');
+  block.className = 'results-team';
+  block.style.setProperty('--kit', css(PAL.orange));
+  const label = document.createElement('strong');
+  label.className = 'results-team-name';
+  pixelLabel(label, 'POINTS');
+  const bestLine = document.createElement('span');
+  bestLine.className = 'results-formation';
+  bestLine.textContent = newBest
+    ? 'NEW DEVICE BEST!'
+    : `DEVICE BEST: ${best.toLocaleString()}`;
+  const points = document.createElement('strong');
+  points.className = 'results-goals';
+  pixelLabel(points, stats.score.toLocaleString());
+  block.append(label, bestLine, points);
+  scoreboard.append(block);
+  summary.append(scoreboard);
+
   // Goals against expected goals: finishing above (+) or below (-) the
   // average kicker from the same spots.
   const xg = stats.xg / 100;
   const finishing = stats.goals - xg;
-  for (const [label, value] of [
-    ['GOALS', `${stats.goals} / ${stats.shots}`],
-    ['EXPECTED (XG)', xg.toFixed(1)],
+  const tiles = document.createElement('div');
+  tiles.className = 'results-stats';
+  for (const [caption, value] of [
+    ['GOALS', `${stats.goals}/${stats.shots}`],
+    ['XG', xg.toFixed(1)],
     ['FINISHING', `${finishing >= 0 ? '+' : ''}${finishing.toFixed(1)}`],
-    ['GREAT SAVES', stats.greatSaves],
-    ['BEST STREAK', `${stats.bestStreak}  (LEVEL ${stats.level})`],
-    ['FASTEST GOAL', `${stats.fastestGoalKmh} KM/H`],
+    ['GREAT SAVES', String(stats.greatSaves)],
+    ['BEST STREAK', String(stats.bestStreak)],
+    ['LEVEL', String(stats.level)],
   ]) {
-    const tile = document.createElement('div'),
-      caption = document.createElement('small'),
-      number = document.createElement('strong');
-    caption.textContent = String(label);
-    number.textContent = String(value);
-    tile.append(caption, number);
-    grid?.append(tile);
+    const item = document.createElement('div');
+    const number = document.createElement('strong');
+    pixelLabel(number, value ?? '');
+    const text = document.createElement('span');
+    text.textContent = caption ?? '';
+    item.append(number, text);
+    tiles.append(item);
   }
-  const button = (label: string, callback: (event: MouseEvent) => void) => {
-    const node = document.createElement('button');
-    node.type = 'button';
-    pixelLabel(node, label);
-    node.addEventListener('click', callback);
-    actions?.append(node);
-    return node;
-  };
-  button('PLAY AGAIN', again);
-  const post = button('POST MY SCORE', () => {
-    void share();
-  });
+  summary.append(tiles);
+  if (stats.fastestGoalKmh) {
+    const highlight = document.createElement('p');
+    highlight.className = 'results-speed-highlight';
+    highlight.textContent = `FASTEST GOAL ${stats.fastestGoalKmh} KM/H`;
+    summary.append(highlight);
+  }
+  content.append(summary);
+  const board = freeKickResultsBoard();
+  content.append(board.root);
+
+  const actions = document.createElement('div');
+  actions.className = 'results-actions';
+  const status = document.createElement('p');
+  status.className = 'results-board-status fk-results-status';
+  status.setAttribute('role', 'status');
+  screen.panel.append(header, content, actions, status);
+
+  const post = casualButton('POST MY SCORE', () => void share(), true);
   post.disabled = true;
+  const retry = casualButton('RETRY SAVE', () => void save(), true);
+  retry.hidden = true;
+  // EXIT leaves the expanded view with the trusted click on Reddit; off
+  // Reddit it goes back to the feed card page.
   const exit = document.createElement('a');
+  exit.className = 'casual-button secondary';
   exit.href = 'splash.html';
   pixelLabel(exit, 'EXIT');
   exit.addEventListener('click', (event) => {
@@ -75,34 +139,29 @@ export function freeKickResults(
       exitExpandedMode(event);
     }
   });
-  actions?.append(exit);
-  const board = freeKickLeaderboard();
-  panel.append(board.root);
+  actions.append(casualButton('PLAY AGAIN', again), post, exit, retry);
+
   let saved = false,
     posted = false,
     posting = false,
     closed = false;
-  const save = async () => {
-    if (status) status.textContent = 'Saving run...';
+  async function save() {
+    status.textContent = 'Saving run...';
     try {
       await records.save(stats);
       if (closed) return;
       saved = true;
       post.disabled = false;
-      if (status) status.textContent = 'Run saved. Sharing is optional.';
+      status.textContent = 'Run saved. Sharing is optional.';
       retry.hidden = true;
-      await board.refresh();
     } catch (error) {
-      if (!closed && status)
+      if (!closed)
         status.textContent =
           error instanceof Error ? error.message : 'Could not save run';
       retry.hidden = false;
     }
-  };
-  const retry = button('RETRY SAVE', () => {
-    void save();
-  });
-  retry.hidden = true;
+    if (!closed) await board.refresh();
+  }
   async function share() {
     if (!saved || posted || posting || closed) return;
     posting = true;
@@ -149,13 +208,11 @@ export function freeKickResults(
       posting = false;
     }
   }
-  document.getElementById('freekick')?.append(root);
   void save();
   return {
     destroy() {
       closed = true;
-      board.destroy();
-      root.remove();
+      screen.destroy();
     },
   };
 }

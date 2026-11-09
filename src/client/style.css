@@ -254,7 +254,7 @@ body {
   grid-template-columns: 1.6fr 1fr;
   gap: 10px;
 }
-#mobile-lobby button {
+:is(#mobile-lobby, .freekick-lobby) button {
   cursor: pointer;
   touch-action: manipulation;
   font: inherit;
@@ -294,14 +294,14 @@ body {
   border-bottom: 4px solid #162435;
   font-size: 11px;
 }
-#mobile-lobby button[hidden],
+:is(#mobile-lobby, .freekick-lobby) button[hidden],
 .mobile-board-modal[hidden] {
   display: none;
 }
-#mobile-lobby button:active {
+:is(#mobile-lobby, .freekick-lobby) button:active {
   transform: translateY(2px);
 }
-#mobile-lobby button:focus-visible {
+:is(#mobile-lobby, .freekick-lobby) button:focus-visible {
   outline: 3px solid #ffec27;
   outline-offset: 3px;
 }
@@ -350,7 +350,7 @@ body {
   color: #ffec27;
   font-weight: 400;
 }
-#mobile-lobby .mobile-more {
+:is(#mobile-lobby, .freekick-lobby) .mobile-more {
   min-height: 44px;
   padding: 0 4px 0 16px;
   background: transparent;
@@ -435,7 +435,7 @@ body {
   font-size: 12px;
   color: #ffec27;
 }
-#mobile-lobby .mobile-board-close {
+:is(#mobile-lobby, .freekick-lobby) .mobile-board-close {
   min-width: 44px;
   min-height: 44px;
   background: #22354c;

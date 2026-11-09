@@ -182,21 +182,28 @@ try {
     s.runStartedAt = s.clock - 30;
     s.gameOver();
   });
-  await page.locator('.fk-results').waitFor();
+  await page.locator('.fk-results-screen').waitFor();
   await page.waitForFunction(
     () =>
-      !document.querySelector('.fk-results-actions button:nth-child(2)')
-        .disabled
+      !document.querySelector('.results-actions button:nth-child(2)').disabled
   );
   assert.equal(saves.length, 1);
   assert.equal(saves[0].result.fastestGoalKmh, 120);
   assert.equal(saves[0].result.shots, 6);
-  await page.getByRole('button', { name: 'FASTEST GOAL', exact: true }).click();
-  assert.match(await page.locator('.fk-board ol').textContent(), /125 KM\/H/);
+  await page
+    .getByRole('button', { name: 'FASTEST GOALS', exact: true })
+    .click();
+  assert.match(
+    await page.locator('.results-board ol').textContent(),
+    /125 KM\/H/
+  );
   await page
     .getByRole('button', { name: 'HIGHEST SCORE', exact: true })
     .click();
-  assert.match(await page.locator('.fk-board ol').textContent(), /1000 PTS/);
+  assert.match(
+    await page.locator('.results-board ol').textContent(),
+    /1,?000 pts/
+  );
   for (const [width, height] of [
     [320, 480],
     [390, 600],
@@ -206,12 +213,12 @@ try {
     await page.waitForTimeout(150);
     assert.ok(
       await page
-        .locator('.fk-results-actions')
+        .locator('.results-actions')
         .evaluate((e) => e.scrollWidth <= e.clientWidth + 1)
     );
     assert.ok(
       await page
-        .locator('.fk-results-panel')
+        .locator('.results-panel')
         .evaluate((e) => e.scrollWidth <= e.clientWidth + 1)
     );
   }
@@ -227,14 +234,14 @@ try {
     .click();
   await page.waitForFunction(
     () =>
-      document.querySelector('.fk-results-actions button:nth-child(2)').disabled
+      document.querySelector('.results-actions button:nth-child(2)').disabled
   );
   assert.equal(posts.length, 1);
   assert.equal('result' in posts[0], false);
   assert.equal(posts[0].id, starts[0].id);
   await page.getByRole('button', { name: 'PLAY AGAIN', exact: true }).click();
   await ready();
-  assert.equal(await page.locator('.fk-results').count(), 0);
+  assert.equal(await page.locator('.fk-results-screen').count(), 0);
   assert.equal(saves.length, 1);
   await press('NEXT');
   await press('START');

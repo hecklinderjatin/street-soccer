@@ -1,4 +1,4 @@
-import { freeKickLeaderboard } from './leaderboard';
+import { freeKickFeedBoard } from './leaderboard';
 import { watchFreeKickPreview } from './previewLifecycle';
 import { context, requestExpandedMode } from '@devvit/web/client';
 import { pixelLabel } from '../ui/pixelLabel';
@@ -36,7 +36,7 @@ export function showFreeKickLobby() {
   if (description)
     description.textContent = typeof value === 'string' ? value : '';
   for (const [selector, text, entry] of [
-    ['.freekick-play', 'PLAY', 'freekick'],
+    ['.freekick-play', 'PLAY FREE KICK', 'freekick'],
     ['.freekick-practice', 'PRACTICE', 'freekick-practice'],
   ]) {
     const button = card.querySelector<HTMLAnchorElement>(selector ?? '');
@@ -59,8 +59,10 @@ export function showFreeKickLobby() {
     const label = card.querySelector<HTMLElement>(selector ?? '');
     if (label && text) pixelLabel(label, text);
   }
-  const board = freeKickLeaderboard(true);
-  card.querySelector('.freekick-lobby-details')?.append(board.root);
+  // The match card's ranking block and full-board sheet (mobileLobby.ts).
+  const board = freeKickFeedBoard();
+  card.querySelector('.freekick-lobby-details')?.append(board.ranking);
+  card.append(board.modal);
   stopBoard = () => board.destroy();
   host.replaceChildren(card);
   const preview = card.querySelector<HTMLElement>('.freekick-preview');

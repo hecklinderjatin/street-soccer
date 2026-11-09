@@ -107,7 +107,7 @@ try {
       content:
         '{const exports={};' +
         compile('src/client/freekick/leaderboard.ts') +
-        ';window.freeKickLeaderboard=exports.freeKickLeaderboard;}',
+        ';window.freeKickFeedBoard=exports.freeKickFeedBoard;}',
     });
     await page.addScriptTag({
       content:
@@ -125,40 +125,42 @@ try {
     assert.equal(await page.locator('img[onerror]').count(), 0);
     await page.getByRole('button', { name: 'ALL >', exact: true }).click();
     await page
-      .getByRole('button', { name: 'FASTEST GOAL', exact: true })
+      .getByRole('button', { name: 'FASTEST GOALS', exact: true })
       .click();
     await page.waitForFunction(() =>
       document
-        .querySelector('.fk-board-sheet ol')
-        ?.textContent.includes('120 KM/H')
+        .querySelector('.mobile-board-rows')
+        ?.textContent.includes('120 km/h')
     );
     await page
       .getByRole('button', { name: 'HIGHEST SCORE', exact: true })
       .click();
     await page.waitForFunction(() =>
       document
-        .querySelector('.fk-board-sheet ol')
-        ?.textContent.includes('500 PTS')
+        .querySelector('.mobile-board-rows')
+        ?.textContent.includes('500 pts')
     );
-    await page.getByRole('button', { name: 'CLOSE', exact: true }).click();
-    assert.equal(await page.locator('.fk-board-modal').isVisible(), false);
+    await page
+      .getByRole('button', { name: 'Close leaderboard', exact: true })
+      .click();
+    assert.equal(await page.locator('.mobile-board-modal').isVisible(), false);
     await page.getByRole('button', { name: 'ALL >', exact: true }).click();
     await page.keyboard.press('Shift+Tab');
     assert.equal(
       await page
-        .getByRole('button', { name: 'FASTEST GOAL', exact: true })
+        .getByRole('button', { name: 'FASTEST GOALS', exact: true })
         .evaluate((node) => node === document.activeElement),
       true
     );
     await page.keyboard.press('Tab');
     assert.equal(
       await page
-        .getByRole('button', { name: 'CLOSE', exact: true })
+        .getByRole('button', { name: 'Close leaderboard', exact: true })
         .evaluate((node) => node === document.activeElement),
       true
     );
     await page.keyboard.press('Escape');
-    assert.equal(await page.locator('.fk-board-modal').isVisible(), false);
+    assert.equal(await page.locator('.mobile-board-modal').isVisible(), false);
     await page.locator('.freekick-play').click();
     await page.locator('.freekick-practice').click();
     assert.deepEqual(await page.evaluate(() => window.calls), [

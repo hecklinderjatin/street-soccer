@@ -70,7 +70,7 @@ Object.assign(scene, {
   stage: {},
   overlay: null,
   overlayLayer: null,
-  helpReturn: null,
+
   clock: 10,
   phaseAt: 9.5,
   acc: 0.01,
@@ -121,17 +121,19 @@ scene.onUp({ id: 1, x: 400, y: 700 });
 assert.equal(scene.gesture, null);
 assert.equal(shots, 0, 'opening a panel cancels a pending shooting release');
 
-scene.overlayLayer.options.help();
+// The match's i flow: page 1 -> NEXT -> page 2 -> BACK -> page 1 ->
+// RESUME closes (no detour back to pause).
+scene.setOverlay('details');
 assert.equal(scene.overlay, 'details');
+assert.ok(!scene.overlayLayer.options.intro, 'mid-run page 1 offers RESUME');
 scene.overlayLayer.options.next();
 assert.equal(scene.overlay, 'help');
-assert.equal(scene.overlayLayer.options.backToPause, true);
 scene.update(5000, 1000);
 assert.equal(scene.clock, 10, 'help remains paused');
-assert.equal(musicResumes, 0, 'pause to help does not resume music');
-scene.overlayLayer.options.back();
-assert.equal(scene.overlay, 'pause');
-scene.overlayLayer.options.resume();
+assert.equal(musicResumes, 0, 'switching pages does not resume music');
+scene.overlayLayer.options.previous();
+assert.equal(scene.overlay, 'details');
+scene.overlayLayer.options.start();
 assert.equal(scene.overlay, null);
 assert.equal(tweensPaused, false);
 assert.equal(musicResumes, 1);
@@ -141,15 +143,13 @@ assert.equal(scene.phaseAt, 9.5);
 assert.equal(worldUpdates, 1);
 
 scene.setOverlay('help');
-assert.equal(scene.overlayLayer.options.backToPause, false);
 const before = scene.clock;
-scene.renderOverlay(); // resize rebuild must retain the open panel and return target
+scene.renderOverlay(); // resize rebuild must retain the open panel
 assert.equal(scene.overlay, 'help');
-assert.equal(scene.overlayLayer.options.backToPause, false);
 scene.update(8000, 1000);
 assert.equal(scene.clock, before);
 document.hidden = true;
-scene.overlayLayer.options.back();
+scene.overlayLayer.options.close();
 assert.equal(scene.overlay, null);
 assert.equal(
   musicResumes,
@@ -242,9 +242,16 @@ scene.setOverlay(null);
 assert.equal(
   scene.overlay,
   'help',
-  'closing intro details advances to Controls'
+  'closing the intro briefing from page 1 shows how to play first'
 );
-scene.overlayLayer.options.back();
+scene.overlayLayer.options.close();
+assert.equal(scene.overlay, null);
+assert.equal(scene.introPending, false);
+// Page 1's START GAME skips how to play, as the match.
+scene.introPending = true;
+scene.setOverlay('details');
+assert.equal(scene.overlayLayer.options.intro, true);
+scene.overlayLayer.options.start();
 assert.equal(scene.overlay, null);
 assert.equal(scene.introPending, false);
 assert.equal(

@@ -5,7 +5,11 @@ import { FreeKickRecords } from './records';
 import { freeKickResults } from './results';
 import { pixelLabel } from '../ui/pixelLabel';
 import { practiceLevel } from './mode';
-import { buildFreeKickOverlay, type FreeKickOverlay } from './overlay';
+import {
+  buildFreeKickOverlay,
+  pauseLayout,
+  type FreeKickOverlay,
+} from './overlay';
 import {
   freeKickControls,
   freeKickGesture,
@@ -199,7 +203,6 @@ export class FreeKickScene extends Phaser.Scene {
   private infoButton!: TextButton;
   private pauseButton!: TextButton;
   private overlay: FreeKickOverlay = null;
-  private helpReturn: 'pause' | null = null;
   private overlayLayer: Phaser.GameObjects.Container | null = null;
   private lifeIcons: Phaser.GameObjects.Image[] = [];
   private card: Phaser.GameObjects.GameObject[] = [];
@@ -216,7 +219,6 @@ export class FreeKickScene extends Phaser.Scene {
     );
     if (this.practice) this.measure = () => {};
     this.overlay = null;
-    this.helpReturn = null;
     this.overlayLayer = null;
     createPixelFont(this);
     this.buildHud();
@@ -251,18 +253,13 @@ export class FreeKickScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-ESC', (event: KeyboardEvent) => {
       if (event.repeat) return;
       event.preventDefault();
-      if (this.overlay === 'details' && this.introPending)
-        this.setOverlay('help');
-      else if (this.overlay === 'details' || this.overlay === 'help')
-        this.finishInfo();
-      else this.setOverlay(this.overlay ? null : 'pause');
+      // As the match: Escape closes any panel, else pauses.
+      this.setOverlay(this.overlay ? null : 'pause');
     });
     this.input.keyboard?.on('keydown-TAB', (event: KeyboardEvent) => {
       if (event.repeat) return;
       event.preventDefault();
-      if (this.overlay === 'details') this.setOverlay('help');
-      else if (this.overlay === 'help') this.finishInfo();
-      else this.setOverlay('details');
+      this.advanceInfo();
     });
 
     // The art usually started downloading before this code arrived
@@ -1076,9 +1073,10 @@ export class FreeKickScene extends Phaser.Scene {
     const slider = this.powerLayout();
     this.powerLabel.setPosition(slider.x, slider.top - 39);
     this.powerValue.setPosition(slider.x, slider.bottom + 19);
-    this.soundButton.setPosition(W - 60, 56);
+    // As the match's HUD: pause at the right, i left of it, sound left of i.
+    this.pauseButton.setPosition(W - 60, 56);
     this.infoButton.setPosition(W - 144, 56);
-    this.pauseButton.setPosition(W - 228, 56);
+    this.soundButton.setPosition(W - 228, 56);
     this.lifeIcons.forEach((icon, i) =>
       icon.setPosition(W - 288 - (FK.lives - 1 - i) * 44, 56).setScale(36 / 64)
     );
@@ -1087,17 +1085,20 @@ export class FreeKickScene extends Phaser.Scene {
     if (this.overlay !== null) this.renderOverlay();
   }
 
-  private setOverlay(which: FreeKickOverlay) {
+  // The match's flow (HudScene.setOverlay): closing the first-entry
+  // briefing from page 1 shows how to play first, unless `skipIntro`
+  // (page 1's START GAME); any other close resumes play.
+  private setOverlay(which: FreeKickOverlay, skipIntro = false) {
     if (this.phase === 'loading' || this.phase === 'over' || !this.stage)
       return;
-    if (this.introPending && which === null && this.overlay === 'details')
-      which = 'help';
     if (
-      (which === 'help' || which === 'details') &&
+      which === null &&
+      this.introPending &&
       this.overlay !== 'help' &&
-      this.overlay !== 'details'
+      !skipIntro
     )
-      this.helpReturn = this.overlay === 'pause' ? 'pause' : null;
+      which = 'help';
+    else if (which === null) this.introPending = false;
     this.overlay = which;
     // Releasing a held control while opening/closing a panel cannot shoot.
     this.resetGesture();
@@ -1135,20 +1136,21 @@ export class FreeKickScene extends Phaser.Scene {
         this.hint = '';
         this.newKick(false);
       },
-      backToPause: this.helpReturn === 'pause',
+      intro: this.introPending,
       resume: () => this.setOverlay(null),
-      help: () => this.setOverlay('details'),
+      start: () => this.setOverlay(null, true),
       next: () => this.setOverlay('help'),
       previous: () => this.setOverlay('details'),
-      intro: this.introPending,
-      back: () => this.finishInfo(),
+      close: () => this.setOverlay(null),
     }).setDepth(HUD + 20);
     if (this.overlay === 'pause') this.renderQuit();
   }
 
-  private finishInfo() {
-    this.introPending = false;
-    this.setOverlay(this.helpReturn);
+  // i (or Tab): page 1 -> page 2 -> play, as the match's advanceInfo.
+  private advanceInfo() {
+    if (this.overlay === 'details') this.setOverlay('help');
+    else if (this.overlay === 'help') this.setOverlay(null);
+    else this.setOverlay('details');
   }
 
   private renderQuit() {
@@ -1158,10 +1160,11 @@ export class FreeKickScene extends Phaser.Scene {
     quit.href = 'splash.html';
     quit.className = 'fk-pause-quit';
     pixelLabel(quit, 'QUIT');
-    const panelHeight = this.practice ? 660 : 550,
-      row = this.practice ? 540 : 430;
-    quit.style.top = `${(((this.scale.height - panelHeight) / 2 + row) / this.scale.height) * 100}%`;
+    // Under RESUME (and NEW SPOT), the size of the canvas buttons.
+    const { quitY } = pauseLayout(this.scale.height, this.practice);
+    quit.style.top = `${(quitY / this.scale.height) * 100}%`;
     quit.style.width = `${(360 / this.scale.width) * 100}%`;
+    quit.style.height = `${(80 / this.scale.height) * 100}%`;
     quit.addEventListener('click', (event) => {
       this.resetGesture();
       this.music?.stop();

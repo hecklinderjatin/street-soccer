@@ -1,182 +1,59 @@
-.fk-board {
-  border-top: 1px solid #3b506b;
-  margin-top: 16px;
-  padding-top: 12px;
-  color: #a8b9cd;
-  font:
-    12px/1.4 ui-monospace,
-    monospace;
+/* Free Kick's results card and leaderboards use the normal match's
+   styles (style.css: .results-*, .casual-button, .leaderboard-tabs,
+   .preview-ranking, .mobile-board-*). Only Free Kick's differences live here. */
+
+/* One score block where the match shows two teams. */
+.fk-results-scoreboard {
+  grid-template-columns: minmax(0, 1fr);
 }
-.fk-board header {
+
+/* EXIT is a link (a trusted click leaves the expanded view on Reddit),
+   drawn as the match's secondary results button. */
+.results-actions > a.casual-button {
+  box-sizing: border-box;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 0;
-  font: inherit;
-}
-.fk-board header strong {
-  color: #ffec27;
+  justify-content: center;
+  min-width: 0;
   font-size: 12px;
+  text-decoration: none;
 }
-.fk-board button {
-  cursor: pointer;
-  font: inherit;
-  color: #fff1e8;
-  background: #22354c;
-  border: 1px solid #3b506b;
-  padding: 8px;
-  touch-action: manipulation;
-}
-.fk-board .fk-board-tabs {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
-  margin: 8px 0;
-}
-.fk-board [aria-pressed='true'] {
-  color: #ffec27;
-  border-color: #ffec27;
-}
-.fk-board ol {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  min-height: 30px;
-}
-.fk-board li {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 6px 0;
-}
-.fk-board li span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.fk-board li strong {
-  flex-shrink: 0;
-  color: #fff1e8;
-}
-.fk-board.is-expanded ol {
-  max-height: 160px;
-  overflow-y: auto;
-  touch-action: pan-y;
-  overscroll-behavior: contain;
-}
-.fk-board p {
-  margin: 6px 0 0;
-  font-size: 11px;
-}
-.fk-board-me:empty,
-.fk-board-status:empty {
+.results-actions > [hidden] {
   display: none;
 }
-.fk-results {
-  position: absolute;
-  inset: 0;
-  z-index: 30;
-  box-sizing: border-box;
-  padding: 16px;
-  background: #06101aee;
-  color: #fff1e8;
-  display: flex;
-  justify-content: center;
-  font-family: ui-monospace, monospace;
+
+.fk-results-status {
+  padding: 0;
+  text-align: center;
 }
-.fk-results-panel {
-  width: 100%;
-  max-width: 680px;
-  box-sizing: border-box;
-  border: 1px solid #3b506b;
-  border-top: 4px solid #ffa300;
-  padding: 20px;
-  background: #0c192a;
-  overflow-y: auto;
-  touch-action: pan-y;
-  overscroll-behavior: contain;
+.fk-results-status:empty {
+  display: none;
 }
-.fk-results h1 {
-  font-size: clamp(20px, 5vw, 32px);
-  margin: 14px 0;
-}
-.fk-results-score {
-  color: #ffec27;
-  font-size: clamp(20px, 5vw, 32px);
-}
-.fk-results p {
-  color: #a8b9cd;
-  font-size: 12px;
-  line-height: 1.5;
-}
-.fk-results-stats {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  margin: 16px 0;
-}
-.fk-results-stats > div {
-  padding: 12px;
-  background: #112037;
-  border: 1px solid #293e58;
-}
-.fk-results-stats small,
-.fk-results-stats strong {
-  display: block;
-}
-.fk-results-stats small {
-  font-size: 10px;
-  color: #91a4bc;
-  margin-bottom: 6px;
-}
-.fk-results-stats strong {
-  font-size: 18px;
-}
-.fk-results-actions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-.fk-results-actions button,
-.fk-results-actions a,
+
+/* Pause menu QUIT: a DOM link (trusted click) placed under the canvas
+   RESUME button, coloured as the match's red QUIT. */
 .fk-pause-quit {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%) translateY(-50%);
+  z-index: 40;
   box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: 44px;
+  padding: 8px;
   text-decoration: none;
   cursor: pointer;
   touch-action: manipulation;
   color: #fff1e8;
-  background: #22354c;
-  border: 1px solid #69819a;
-  padding: 12px 8px;
+  background: #ff004d;
+  border: 0;
+  border-bottom: 4px solid #7e2553;
   font:
     13px ui-monospace,
     monospace;
 }
-.fk-results-actions button:first-child {
-  background: #ffa300;
-  border-color: #ffcc66;
-}
-.fk-results-actions button:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-.fk-results-actions [hidden] {
-  display: none;
-}
-.fk-pause-quit {
-  position: absolute;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 40;
-  background: #b72f4b;
-  border-bottom: 3px solid #6d1830;
-}
-.fk-results .lobby-readable,
 .fk-pause-quit .lobby-readable {
   position: absolute;
   width: 1px;
@@ -188,100 +65,25 @@
   white-space: nowrap;
   border: 0;
 }
-.fk-results .lobby-pixel,
 .fk-pause-quit .lobby-pixel {
   display: inline-block;
   height: 1em;
   max-width: 100%;
 }
 
-.fk-board button,
-.fk-results-actions button,
-.fk-results-actions a,
-.fk-results-stats > div {
-  min-width: 0;
-}
-.fk-results-stats strong {
-  overflow-wrap: anywhere;
-}
-
-/* Feed ranking follows the normal match card. Full boards open above it. */
-.freekick-lobby .fk-board-compact {
-  margin-top: 10px;
-  padding-top: 0;
-  border-color: #6c7b8c66;
-}
-.fk-board-compact .fk-board-preview-heading {
-  padding: 0;
-  background: none;
-}
-.fk-board-preview-heading > strong {
-  font-weight: 400;
-  font-size: 10px;
-}
-.fk-board .fk-board-more {
-  min-height: 44px;
-  padding: 0 4px 0 16px;
-  background: transparent;
-  border: 0;
-  color: #ffec27;
-  font-size: 10px;
-}
-.fk-board-preview li {
-  padding: 5px 0;
-  border-bottom: 1px solid #ffffff15;
-}
-.fk-board-preview li strong {
-  color: #00e436;
-}
-.fk-board-preview:empty {
-  min-height: 0;
-}
-.fk-board-modal {
-  position: fixed;
-  inset: 0;
+/* Feed card: the match's ranking block and board sheet, placed inside the
+   Free Kick card. */
+.freekick-lobby .mobile-board-modal {
   z-index: 20;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  background: #020711d9;
-  pointer-events: auto;
-}
-.fk-board-modal[hidden] {
-  display: none;
-}
-.fk-board-sheet {
-  box-sizing: border-box;
-  width: 100%;
-  max-width: 580px;
-  max-height: 100%;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  touch-action: pan-y;
-  padding: 16px;
-  color: #fff1e8;
-  background: #0c192a;
-  border: 1px solid #3b506b;
-}
-.fk-board-sheet > header {
-  margin-bottom: 12px;
-  padding: 0;
-  background: none;
-}
-.fk-board-sheet .fk-board-all {
-  min-height: 44px;
 }
 @media (max-height: 650px) {
-  .freekick-lobby .fk-board-preview li:nth-child(n + 2) {
+  .freekick-lobby .mobile-leaders li:nth-child(n + 2),
+  .freekick-lobby .mobile-best {
     display: none;
-  }
-  .freekick-lobby .fk-board-compact {
-    margin-top: 8px;
   }
 }
 @media (max-height: 520px) {
-  .freekick-lobby .fk-board-preview {
+  .freekick-lobby .mobile-leaders {
     display: none;
   }
 }
