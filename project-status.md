@@ -8,6 +8,11 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Free Kick wall men animation (2026-11-11, branch `freekick-strike-animation`, uncommitted; user-supplied 4-pose sheet).** The wall no longer borrows celebration frames. New `public/art/player-wall-authored.png` (4 x 352 x 724 cells like idle): poses stand, crouch (take-off), in the air, crouch (landing); scaled 1.134 so the standing pose is as tall as idle (643 px), head centred, every pose's boots on ground 681 (the source's own small lift dropped). Plain `waist` / `shortsEnd` per pose (398/450/400/427, 505/525/495/515), `outfieldOnly`. `WALL_FRAMES` (`wall1`..`4`); atlases now 114 frames (15 rows, 1792 x 1920, still under 2048). Release art 4.00 MiB (pink 326 KiB).
+- **Stage:** `Figure.draw` takes an optional `z` lift. A wall that jumps shows wall2 from the strike, wall3 in the air, wall4 for the landing (until `wallLandUntil` 1.3 of `wallJumpSec`), switching at `wallAirFrom` 0.15 / 0.85 of the jump; it is lifted by `wallTop(wall, t) - wallHeight` (16-24 px at the top), so the head is where the rules' reach is. A wall that stays down stays in wall1. The feet are drawn lower than the rules' `wallFeetLift` 40, so a shot slipping under may look like it clips the boots; the frame's baked shadow rises with the man. Not seen in a live game.
+
+**Free Kick strike: one sheet for both curls, mirrored at the shot for left curl (2026-11-11, branch `freekick-strike-animation`, uncommitted on top of 807f674; user request).** The user supplied a second 12-pose sheet as the right-curl strike and asked to play it mirrored from the moment of the shot for left curl. It replaces `public/art/player-freekick-authored.png` (same cut: scale 1.755, head centred, row's lowest boot on 681; the first four poses match the earlier sheet), so frame names, atlas size and code paths are unchanged. New poses: 1 set, 2-3 turn, 4-5 run, 6 backswing, 7 strike, 8-9 follow-through, 10-11 recover, 12 stand. Splits re-read (only pose 4's raised leg needs `socksAlso`). `kickerFrame(run, play, curlLeft)` now returns `{ frame, mirror }`: `mirror` is true from pose 7 on when the kick curls left (the rules' `strike.contact.x > 0`, which also covers a curved swipe). The sprite's flip is `side > 0` (mirrored on the ball's right) XOR `mirror`, so the strike always turns the other way from the run-up for a left curl; the goal celebration keeps the run-up's flip. The feed-card preview cycles left / straight / right kicks, so it shows both. Release art 3.86 MiB (pink 313 KiB). Not seen in a live game.
+
 **Free Kick strike animation (2026-11-11, user-supplied 12-pose sheet):** the free kick taker now uses his own animation instead of the run up-diagonal / run up poses. New `public/art/player-freekick-authored.png` (4 x 3 cells of 640 x 724, the usual layout): poses cut from the transparent WebP, one uniform nearest-neighbour scale (1.752, the source's median figure height to the run sheet's 625.5 px), head centred in each cell (clamped inside it), the lowest boot of each source row on ground 681. Per-pose `splits` read off a shirt / shorts / socks preview, with `socksAlso` for the raised kicking legs (poses 4, 6, 9). `FREEKICK_FRAMES` (`freekick1`..`12`) are `outfieldOnly` (keeper atlases skip them). Atlases now hold 110 frames (14 rows, 1792 x 1792). Re-baked with `art:bake` and `optimize_art.py`: each outfield kit WebP grew 45-55 KiB (pink 251 to 306 KiB), keepers unchanged; release art 3.79 MiB. Checked baked in blue, red and white kits.
 - **Use (`freekick/kickerFrames.ts`, shared by the scene and the feed-card preview):** pose 1 (set, facing the camera) while aiming; poses 2-7 spread over the 0.55 s run-up (turn, run, plant); after the strike 8-12 (contact, follow-through, recover, stand) at `FREE_KICK.strikePoseSec` 0.1 each, then pose 12 holds. A goal still switches to the celebration after 0.3 s. Unflipped the sheet is a right-footer on the ball's left; on the right he is mirrored, as before.
 - Not seen in a live game (no browser gameplay tests, per the user). Note: the source draws the last back-view poses about 10% taller than the first, which the uniform scale keeps.
@@ -1051,7 +1056,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
-- **Watch the new free kick strike animation in play:** does the set pose facing the camera, the 0.55 s run-up (6 poses) and the 0.1 s follow-through poses read well? Tune `runupSec` / `strikePoseSec` if it feels rushed.
+- **Watch the new wall animation:** does the jump read, and does a shot under a jumping wall look like it clips the boots (drawn lift 16-24 vs `wallFeetLift` 40)? If so, lift by `wallFeet` instead or lower `wallFeetLift`.
+- **Watch the new free kick strike animation in play:** does the mirror flip at the strike on a left curl look right from both sides (CHANGE SIDE)? Does the set pose facing the camera, the 0.55 s run-up (6 poses) and the 0.1 s follow-through poses read well? Tune `runupSec` / `strikePoseSec` if it feels rushed.
 - **Phone playtest of the Free Kick changes (branch `freekick-cinematic`):**
   - Is aiming comfortable with the goal up and to the left of the ball? If not, lower `cameraOrbitDeg`.
   - The kicker is a mirrored right-footer (looks left-footed); the wall can sit partly behind the power slider on central kicks.
@@ -1415,6 +1421,10 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-11:** Free Kick wall men get their own 4-pose animation (`player-wall-authored.png`, `WALL_FRAMES`), lifted by the rules' reach while jumping (`wallAirFrom`, `wallLandUntil`).
+
+- **2026-11-11:** Free Kick strike sheet replaced with the user's right-curl sheet; left curl plays it mirrored from the strike pose (`kickerFrame` returns `mirror`).
 
 - **2026-11-11:** Free Kick strike animation from the user's 12-pose sheet (`player-freekick-authored.png`, `FREEKICK_FRAMES`, `kickerFrames.ts`, `strikePoseSec`); atlases 110 frames, re-baked.
 

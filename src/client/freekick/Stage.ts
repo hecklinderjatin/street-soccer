@@ -35,6 +35,7 @@ import {
   GOAL_X,
   GOAL_Y,
   POST_HALF,
+  wallTop,
   type KickPlay,
   type KickSetup,
 } from './rules';
@@ -85,8 +86,16 @@ class Figure {
     for (const layer of this.layers) layer.setOrigin(0.5, PLAYER_ORIGIN_Y);
   }
 
-  draw(cam: KickCamera, x: number, y: number, frame: string, flip = false) {
-    cam.project(x, y, 0, at);
+  // `z`: height the feet are lifted off the ground (a jumping wall man).
+  draw(
+    cam: KickCamera,
+    x: number,
+    y: number,
+    frame: string,
+    flip = false,
+    z = 0
+  ) {
+    cam.project(x, y, z, at);
     for (const layer of this.layers)
       layer
         .setVisible(true)
@@ -705,19 +714,26 @@ export class Stage {
       pose.kicker.flip
     );
 
-    // The wall braces, then jumps as the ball is struck.
+    // The wall stands covering up; a jumping wall crouches from the strike,
+    // rises as far as its reach does in the rules (so it blocks what it
+    // looks like it blocks) and lands crouched. A wall that stays down
+    // never moves.
     const wall = play?.wall ?? setup.wall;
     const u = (t - wall.jumpAt) / FK.wallJumpSec;
+    const takeOff = -FK.wallReactSec / FK.wallJumpSec; // the strike
     const wallFrame =
-      u < 0 || u >= 1
-        ? 'celebrate_a2'
-        : u < 0.2 || u > 0.8
-          ? 'celebrate_a3'
-          : 'celebrate_a4';
+      u < takeOff || u >= FK.wallLandUntil
+        ? 'wall1'
+        : u < FK.wallAirFrom
+          ? 'wall2'
+          : u < 1 - FK.wallAirFrom
+            ? 'wall3'
+            : 'wall4';
+    const lift = wallTop(wall, t) - FK.wallHeight;
     this.wall.forEach((man, i) => {
       const y = wall.men[i];
       if (y === undefined) man.hide();
-      else man.draw(cam, wall.x, y, wallFrame);
+      else man.draw(cam, wall.x, y, wallFrame, false, lift);
     });
     // A man lying across the back of the wall (the lying hurt pose).
     if (wall.lyer && wall.men.length > 0) {

@@ -136,14 +136,20 @@ class FreeKickPreviewScene extends Phaser.Scene {
       FK.kickerStartBack + (FK.kickerContactBack - FK.kickerStartBack) * run;
     const side =
       FK.kickerStartSide + (FK.kickerContactSide - FK.kickerStartSide) * run;
+    // Mirrored on the ball's right; a left curl flips back at the strike.
+    const kick = kickerFrame(
+      run,
+      this.play?.t ?? null,
+      this.strike.contact.x > 0
+    );
     this.stage.render(this.cam, this.setup, this.play, {
       ball: this.play?.ball ?? { ...spot, z: BALL.radius },
       ballAge: this.play?.t ?? Infinity,
       kicker: {
         x: spot.x - ux * back - uy * side,
         y: spot.y - uy * back + ux * side,
-        frame: kickerFrame(run, this.play?.t ?? null),
-        flip: true,
+        frame: kick.frame,
+        flip: !kick.mirror,
       },
       timeSec: this.clock,
       goalFlash: false,
