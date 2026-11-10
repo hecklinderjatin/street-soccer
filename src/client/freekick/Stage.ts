@@ -11,7 +11,6 @@ import {
   BACKDROP_KEY,
   BACKDROP_WALL_V,
   CAP_KEY,
-  END_WALL_KEY,
   FENCE_KEY,
   GROUND_EXTENT,
   GROUND_KEY,
@@ -30,6 +29,7 @@ import { ProjectedPlane, type PlaneCorners } from '../render/ProjectedPlane';
 import { newProjected } from '../render/Projector';
 import { PAL, PX } from '../ui/palette';
 import type { KickCamera } from './KickCamera';
+import { drawRibbon, type RibbonLayer, type RibbonPoint } from './ribbon';
 import {
   BAR_Z,
   GOAL_X,
@@ -46,11 +46,26 @@ import {
 const DEPTH_GROUND = -10_000_000;
 const DEPTH_LINES = DEPTH_GROUND + 1;
 const DEPTH_FAR = -1_000_000;
-const NET_BACK_X = GOAL_X + PITCH.goalDepth;
+const DEPTH_SKY = DEPTH_GROUND - 1;
+const SKY_TOP = 0x0d1533; // night sky overhead ...
+const SKY_LOW = 0x4b3463; // ... to the city glow at the horizon
+const SKYLINE_SCALE = 2.6; // the far skyline: the facade this much bigger ...
+const SKYLINE_BEYOND = 900; // ... this far past the end of the street ...
+const SKYLINE_SIDE = 1500; // ... reaching this far out either side ...
+const SKYLINE_SHADE = 0x59648f; // ... tinted into the night
+const NET_BACK_X = GOAL_X + FK.goalDepth;
 const R = BALL.radius;
+const NET_SHADE = 0x1d2b53; // the net's inside is shaded dark
+const MAX_ROLL_PX_PER_SEC = 14 * 30; // the ball's spin frames change at most 30 times a second (as the match)
 
 export const TRAIL_COLOR = 0xc8ff2a; // the glowing yellow-green streak ...
 const TRAIL_CORE = 0xf4ffb8; // ... and its bright core
+// A soft glow, the streak and its core.
+const TRAIL_LAYERS: readonly RibbonLayer[] = [
+  [2, TRAIL_COLOR, 0.12],
+  [1.25, TRAIL_COLOR, 0.42],
+  [0.5, TRAIL_CORE, 0.95],
+];
 
 const at = newProjected();
 const at2 = newProjected();
@@ -79,7 +94,9 @@ class Figure {
         .setPosition(at.x, at.y)
         .setScale(PLAYER_PX * at.scale)
         .setFlipX(flip)
-        .setDepth(-x);
+        // By distance down the pitch; side by side (the wall), the nearer
+        // man covers the further.
+        .setDepth(-x - at.depth * 1e-3);
   }
 
   hide() {
@@ -91,7 +108,7 @@ class Figure {
 export type StagePose = {
   ball: Pt; // ball centre
   ballAge: number; // seconds since the strike (Infinity before it)
-  kicker: { x: number; y: number; frame: string };
+  kicker: { x: number; y: number; frame: string; flip: boolean };
   timeSec: number;
   goalFlash: boolean;
 };
@@ -102,6 +119,7 @@ export type StagePose = {
 // keeper, the ball and its trail.
 export class Stage {
   private planes: ProjectedPlane[] = [];
+  private readonly sky: Phaser.GameObjects.Graphics;
   private readonly lines: Phaser.GameObjects.Graphics;
   private readonly net: Phaser.GameObjects.Graphics;
   private readonly frame: Phaser.GameObjects.Graphics;
@@ -116,15 +134,20 @@ export class Stage {
   private trailFade = 1;
   private rolled = 0;
   private last: Pt = { x: 0, y: 0, z: 0 };
+  private lastTime = 0;
+  private near = 0; // nothing at a lower x is on screen
 
   constructor(
     private readonly scene: Phaser.Scene,
     kits: { kicker: Kit; wall: Kit }
   ) {
+    this.sky = scene.add.graphics().setDepth(DEPTH_SKY);
     this.lines = scene.add.graphics().setDepth(DEPTH_LINES);
     this.net = scene.add.graphics().setDepth(-NET_BACK_X);
     this.frame = scene.add.graphics().setDepth(-GOAL_X);
-    this.trailBands = Array.from({ length: 4 }, () => scene.add.graphics());
+    this.trailBands = Array.from({ length: 4 }, () =>
+      scene.add.graphics().setBlendMode(Phaser.BlendModes.ADD)
+    );
     const look = (i: number) =>
       LOOKS[i % LOOKS.length] ?? { skin: 0xffffff, hair: 0xffffff };
     this.kicker = new Figure(scene, kits.kicker, look(0));
@@ -144,7 +167,8 @@ export class Stage {
     this.trailFade = 1;
     for (const plane of this.planes) plane.mesh.destroy();
     this.planes = [];
-    this.buildCourt(cam.x + 150); // nothing nearer than this is on screen
+    this.near = cam.nearX() - 60;
+    this.buildCourt(this.near);
   }
 
   // Ball positions of the flight so far (call once per sim step).
@@ -157,7 +181,7 @@ export class Stage {
   }
 
   fadeTrail(dt: number) {
-    this.trailFade = Math.max(0.35, this.trailFade - dt * 0.6);
+    this.trailFade = Math.max(0, this.trailFade - dt / FK.trailFadeSec);
   }
 
   render(
@@ -166,12 +190,17 @@ export class Stage {
     play: KickPlay | null,
     pose: StagePose
   ) {
+    const { width, height } = this.scene.scale;
+    this.sky
+      .clear()
+      .fillGradientStyle(SKY_TOP, SKY_TOP, SKY_LOW, SKY_LOW)
+      .fillRect(0, 0, width, height * 0.6);
     for (const plane of this.planes) plane.update(cam);
     this.drawLines(cam, setup);
     this.drawGoal(cam, play, pose);
     this.drawPeople(cam, setup, play, pose);
     this.drawBall(cam, pose);
-    this.drawTrails(cam, setup, play);
+    this.drawTrails(cam, setup, play, pose);
   }
 
   private quad(
@@ -181,14 +210,15 @@ export class Stage {
     rows: number,
     uv: { u0: number; v0: number; u1: number; v1: number },
     depth: number,
-    alpha = 1
+    alpha = 1,
+    tint = 0xffffff
   ) {
     const plane = new ProjectedPlane(this.scene, key, corners, {
       cols,
       rows,
       uv,
     });
-    plane.mesh.setDepth(depth).setAlpha(alpha);
+    plane.mesh.setDepth(depth).setAlpha(alpha).setTint(tint);
     this.planes.push(plane);
   }
 
@@ -196,7 +226,6 @@ export class Stage {
   // match, plus the facade closing the view beyond the car park.
   private buildCourt(near: number) {
     const { x0, x1, y1 } = GROUND_EXTENT;
-    const W = PITCH.width;
     const H = PITCH.height;
     const T = PITCH.wallThickness;
     const wh = PITCH.wallHeight;
@@ -275,64 +304,51 @@ export class Stage {
       0.6
     );
 
-    // Facade across the far end, behind the car park.
+    // Buildings across the far end, behind the car park: the facade only,
+    // standing on the ground (no brick wall behind the goal).
     this.quad(
       BACKDROP_KEY,
       {
-        tl: v(x1, y1, bh),
-        tr: v(x1, -T, bh),
+        tl: v(x1, y1, bh - wh),
+        tr: v(x1, -T, bh - wh),
         bl: v(x1, y1, 0),
         br: v(x1, -T, 0),
       },
       12,
       3,
-      { u0: 0, v0: 0, u1: (y1 + T) / (x1 - x0), v1: 1 },
+      { u0: 0, v0: 0, u1: (y1 + T) / (x1 - x0), v1: BACKDROP_WALL_V },
       DEPTH_FAR - 1
     );
 
-    // End walls either side of the goal: front face and coping.
-    const eh = PITCH.endWallHeight;
-    const gTop = GOAL_Y - POST_HALF;
-    const gBot = GOAL_Y + POST_HALF;
-    for (const [ya, yb] of [
-      [0, gTop],
-      [gBot, H],
-    ] as const) {
-      const cols = Math.max(2, Math.round((yb - ya) / 80));
-      this.quad(
-        END_WALL_KEY,
-        {
-          tl: v(W, yb, eh),
-          tr: v(W, ya, eh),
-          bl: v(W, yb, 0),
-          br: v(W, ya, 0),
-        },
-        cols,
-        2,
-        { u0: ya / H, v0: 0, u1: yb / H, v1: 1 },
-        -W - 5
-      );
-      this.quad(
-        CAP_KEY,
-        {
-          tl: v(W + T, yb, eh),
-          tr: v(W + T, ya, eh),
-          bl: v(W, yb, eh),
-          br: v(W, ya, eh),
-        },
-        cols,
-        1,
-        { u0: 0, v0: 0, u1: (yb - ya) / (x1 - x0), v1: 1 },
-        -W - 5
-      );
-    }
+    // A taller, darker skyline further off, so the sky is never bare.
+    const span = y1 + T + 2 * SKYLINE_SIDE;
+    this.quad(
+      BACKDROP_KEY,
+      {
+        tl: v(x1 + SKYLINE_BEYOND, y1 + SKYLINE_SIDE, bh * SKYLINE_SCALE),
+        tr: v(x1 + SKYLINE_BEYOND, -T - SKYLINE_SIDE, bh * SKYLINE_SCALE),
+        bl: v(x1 + SKYLINE_BEYOND, y1 + SKYLINE_SIDE, 0),
+        br: v(x1 + SKYLINE_BEYOND, -T - SKYLINE_SIDE, 0),
+      },
+      12,
+      2,
+      {
+        u0: 0,
+        v0: 0,
+        u1: span / ((x1 - x0) * SKYLINE_SCALE),
+        v1: BACKDROP_WALL_V,
+      },
+      DEPTH_FAR - 2,
+      1,
+      SKYLINE_SHADE
+    );
   }
 
   // Chalk markings near the goal, and the referee's spray: a line where
   // the wall stands and an arc around the ball.
   private drawLines(cam: KickCamera, setup: KickSetup) {
     const g = this.lines.clear();
-    const near = cam.x + 120;
+    const near = this.near;
     const W = PITCH.width;
     const H = PITCH.height;
     const segment = (
@@ -478,7 +494,7 @@ export class Stage {
         g.lineBetween(at.x, at.y, at2.x, at2.y);
       }
     };
-    net.lineStyle(2, PAL.lightGray, 0.55);
+    net.lineStyle(2, PAL.lightGray, 0.8);
     // Back net.
     for (let i = 0; i <= 12; i++) {
       const y = top + (i / 12) * (bot - top);
@@ -504,7 +520,7 @@ export class Stage {
     for (const y of [top, bot]) {
       for (let i = 0; i <= 3; i++) {
         const f = i / 3;
-        const x = GOAL_X + f * PITCH.goalDepth;
+        const x = GOAL_X + f * FK.goalDepth;
         line(
           net,
           { x, y, z: 0 },
@@ -524,8 +540,61 @@ export class Stage {
         );
       }
     }
+    // Net panels, faintly filled so the box of the goal reads as solid: the
+    // back, both sides and the roof, with shading that darkens with depth.
+    const panel = (
+      g: Phaser.GameObjects.Graphics,
+      p: Pt[],
+      color: number,
+      alpha: number
+    ) => {
+      const q = p.map((pt) => {
+        cam.project(pt.x, pt.y, pt.z, at);
+        return { x: at.x, y: at.y };
+      });
+      const [a0, a1, a2, a3] = q;
+      if (!a0 || !a1 || !a2 || !a3) return;
+      g.fillStyle(color, alpha);
+      g.fillTriangle(a0.x, a0.y, a1.x, a1.y, a2.x, a2.y);
+      g.fillTriangle(a0.x, a0.y, a2.x, a2.y, a3.x, a3.y);
+    };
+    const P = (x: number, y: number, z: number): Pt => ({ x, y, z });
+    panel(
+      net,
+      [
+        P(NET_BACK_X, top, 0),
+        P(NET_BACK_X, bot, 0),
+        P(NET_BACK_X, bot, backZ),
+        P(NET_BACK_X, top, backZ),
+      ],
+      NET_SHADE,
+      0.5
+    );
+    for (const y of [top, bot])
+      panel(
+        net,
+        [
+          P(GOAL_X, y, 0),
+          P(NET_BACK_X, y, 0),
+          P(NET_BACK_X, y, backZ),
+          P(GOAL_X, y, BAR_Z),
+        ],
+        NET_SHADE,
+        0.4
+      );
+    panel(
+      front,
+      [
+        P(GOAL_X, top, BAR_Z),
+        P(GOAL_X, bot, BAR_Z),
+        P(NET_BACK_X, bot, backZ),
+        P(NET_BACK_X, top, backZ),
+      ],
+      NET_SHADE,
+      0.3
+    );
     // Roof net (over a ball in the goal, so with the frame).
-    front.lineStyle(2, PAL.lightGray, 0.45);
+    front.lineStyle(2, PAL.lightGray, 0.7);
     for (let i = 0; i <= 12; i++) {
       const y = top + (i / 12) * (bot - top);
       line(
@@ -538,10 +607,62 @@ export class Stage {
     }
     for (let j = 1; j <= 2; j++) {
       const f = j / 3;
-      const x = GOAL_X + f * PITCH.goalDepth;
+      const x = GOAL_X + f * FK.goalDepth;
       const z = BAR_Z + (backZ - BAR_Z) * f;
       line(front, { x, y: top, z }, { x, y: bot, z }, 1, false);
     }
+    // The goal's rear and base: thinner tubes (they are further off) from
+    // the back posts, along the ground and down the sloping roof.
+    const tube = (
+      g: Phaser.GameObjects.Graphics,
+      a: Pt,
+      b: Pt,
+      radius: number,
+      color: number
+    ) => {
+      cam.project(a.x, a.y, a.z, at);
+      cam.project(b.x, b.y, b.z, at2);
+      const width = Math.max(2, (radius * (at.scale + at2.scale)) / 2);
+      g.lineStyle(width + 3, PAL.black, 0.8).lineBetween(
+        at.x,
+        at.y,
+        at2.x,
+        at2.y
+      );
+      g.lineStyle(width, color, 1).lineBetween(at.x, at.y, at2.x, at2.y);
+    };
+    const rear = BALL.postRadius * 0.7;
+    for (const y of [top, bot]) {
+      tube(
+        net,
+        P(NET_BACK_X, y, 0),
+        P(NET_BACK_X, y, backZ),
+        rear,
+        PAL.lightGray
+      );
+      tube(net, P(GOAL_X, y, 0), P(NET_BACK_X, y, 0), rear, PAL.white);
+      tube(
+        net,
+        P(GOAL_X, y, BAR_Z),
+        P(NET_BACK_X, y, backZ),
+        rear,
+        PAL.lightGray
+      );
+    }
+    tube(
+      net,
+      P(NET_BACK_X, top, backZ),
+      P(NET_BACK_X, bot, backZ),
+      rear,
+      PAL.lightGray
+    );
+    tube(
+      net,
+      P(NET_BACK_X, top, 0),
+      P(NET_BACK_X, bot, 0),
+      rear,
+      PAL.lightGray
+    );
     // Frame: white tubes with a dark outline.
     const color = pose.goalFlash ? PAL.yellow : PAL.white;
     for (const [a, b] of [
@@ -575,7 +696,14 @@ export class Stage {
     pose: StagePose
   ) {
     const t = play?.t ?? 0;
-    this.kicker.draw(cam, pose.kicker.x, pose.kicker.y, pose.kicker.frame);
+    // Mirrored when he stands to the ball's right.
+    this.kicker.draw(
+      cam,
+      pose.kicker.x,
+      pose.kicker.y,
+      pose.kicker.frame,
+      pose.kicker.flip
+    );
 
     // The wall braces, then jumps as the ball is struck.
     const wall = play?.wall ?? setup.wall;
@@ -638,8 +766,12 @@ export class Stage {
     cam.project(b.x, b.y, b.z, at2);
     // Spinning frames by distance travelled; the squash-and-stretch shot
     // frames right after the strike.
-    this.rolled += Math.hypot(b.x - this.last.x, b.y - this.last.y);
+    this.rolled += Math.min(
+      Math.hypot(b.x - this.last.x, b.y - this.last.y),
+      MAX_ROLL_PX_PER_SEC * Math.max(0, pose.timeSec - this.lastTime)
+    );
     this.last = { ...b };
+    this.lastTime = pose.timeSec;
     const shot = Math.floor(pose.ballAge * 18);
     const frame =
       shot < BALL_SHOT_FRAMES.length
@@ -653,9 +785,15 @@ export class Stage {
       .setDepth(-b.x + 0.5);
   }
 
-  // Draw the flight trail in depth bands at the wall,
-  // the keeper and the goal line so each part sorts with what it passes.
-  private drawTrails(cam: KickCamera, setup: KickSetup, play: KickPlay | null) {
+  // The flight trail: a glowing streak, thin and faint where the kick was
+  // struck, widest and brightest at the ball. Drawn in depth bands at the
+  // wall, the keeper and the goal line so each part sorts with what it passes.
+  private drawTrails(
+    cam: KickCamera,
+    setup: KickSetup,
+    play: KickPlay | null,
+    pose: StagePose
+  ) {
     const cuts = [
       setup.wall.x,
       play?.keeper.x ?? GOAL_X - FK.keeperLineOff,
@@ -663,61 +801,27 @@ export class Stage {
       NET_BACK_X,
     ];
     this.trailBands.forEach((g, i) =>
-      g.clear().setDepth(-(cuts[i] ?? GOAL_X) + 0.5)
+      g.clear().setDepth(-(cuts[i] ?? GOAL_X) + 0.45)
     );
-    const band = (x: number) => {
-      const i = cuts.findIndex((c) => x < c);
-      return this.trailBands[i < 0 ? 3 : i];
-    };
-    const ribbon = (
-      pts: Pt[],
-      color: number,
-      core: number,
-      alpha: number,
-      width: number
-    ) => {
-      const n = pts.length;
-      for (let i = 1; i < n; i++) {
-        const p = pts[i - 1];
-        const q = pts[i];
-        if (!p || !q) continue;
-        const g = band((p.x + q.x) / 2);
-        if (!g) continue;
-        cam.project(p.x, p.y, p.z, at);
-        cam.project(q.x, q.y, q.z, at2);
-        const f = i / n; // newer = wider and brighter
-        const wa = Math.max(1.5, width * R * at.scale * (0.25 + 0.75 * f));
-        const wb = Math.max(1.5, width * R * at2.scale * (0.25 + 0.75 * f));
-        const dx = at2.x - at.x;
-        const dy = at2.y - at.y;
-        const len = Math.hypot(dx, dy) || 1;
-        const nx = -dy / len;
-        const ny = dx / len;
-        const a = alpha * (0.2 + 0.8 * f);
-        for (const [scale, layerAlpha, layerColor] of [
-          [1, a * 0.5, color],
-          [0.45, a, core],
-        ] as const) {
-          g.fillStyle(layerColor, layerAlpha);
-          g.fillTriangle(
-            at.x + nx * wa * scale,
-            at.y + ny * wa * scale,
-            at.x - nx * wa * scale,
-            at.y - ny * wa * scale,
-            at2.x + nx * wb * scale,
-            at2.y + ny * wb * scale
-          );
-          g.fillTriangle(
-            at.x - nx * wa * scale,
-            at.y - ny * wa * scale,
-            at2.x - nx * wb * scale,
-            at2.y - ny * wb * scale,
-            at2.x + nx * wb * scale,
-            at2.y + ny * wb * scale
-          );
-        }
-      }
-    };
-    ribbon(this.trail, TRAIL_COLOR, TRAIL_CORE, this.trailFade, 1.1);
+    if (this.trailFade <= 0 || this.trail.length < 2) return;
+    // Up to the ball as drawn (between sim steps) while it is in flight.
+    const path =
+      play && play.outcome === null ? [...this.trail, pose.ball] : this.trail;
+    const last = path.length - 1;
+    const pts: RibbonPoint[] = path.map((p, i) => {
+      cam.project(p.x, p.y, p.z, at);
+      const f = i / last; // newer = wider and brighter
+      return {
+        x: at.x,
+        y: at.y,
+        w: Math.max(1.2, R * at.scale * (0.15 + 0.75 * f)),
+        a: this.trailFade * (0.1 + 0.9 * f ** 1.6),
+      };
+    });
+    drawRibbon(pts, TRAIL_LAYERS, (i) => {
+      const x = ((path[i - 1]?.x ?? 0) + (path[i]?.x ?? 0)) / 2;
+      const band = cuts.findIndex((c) => x < c);
+      return this.trailBands[band < 0 ? 3 : band];
+    });
   }
 }

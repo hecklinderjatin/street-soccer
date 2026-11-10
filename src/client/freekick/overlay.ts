@@ -13,6 +13,7 @@ type OverlayOptions = {
   metres: number;
   lives: number;
   practice?: boolean;
+  challenge?: boolean;
   newSpot?: () => void;
   intro: boolean; // first entry: page 1's primary is START GAME, else RESUME
   resume: () => void; // pause: RESUME
@@ -148,23 +149,32 @@ function detailsPage(
   buttonY: number
 ) {
   const practice = options.practice === true;
+  const challenge = options.challenge === true;
   items.push(
     pixelText(
       scene,
       left + inner / 2,
       card.y + 140,
-      practice ? 'UNRANKED PRACTICE' : 'RANKED RUN',
+      practice
+        ? 'UNRANKED PRACTICE'
+        : challenge
+          ? 'STREAK CHALLENGE'
+          : 'RANKED RUN',
       BODY,
       CARD.muted
     ).setOrigin(0.5)
   );
   const entries = [
-    ['MODE', practice ? 'PRACTICE' : 'PLAY'],
-    ['LIVES', practice ? 'UNLIMITED' : String(options.lives)],
+    ['MODE', practice ? 'PRACTICE' : challenge ? 'CHALLENGE' : 'PLAY'],
+    challenge
+      ? ['KICKS LEFT', String(options.lives)]
+      : ['LIVES', practice ? 'UNLIMITED' : String(options.lives)],
     ['LEVEL', `${options.level} / ${FK.maxLevel}`],
     ['DISTANCE', `${options.metres} M`],
-    ['LEVEL UP', practice ? 'FIXED LEVEL' : `${FK.goalsPerLevel} GOALS`],
-    ['RECORDS', practice ? 'UNRANKED' : '7 DAYS'],
+    challenge
+      ? ['TARGET', `${FK.challengeStreak} IN A ROW`]
+      : ['LEVEL UP', practice ? 'FIXED LEVEL' : `${FK.goalsPerLevel} GOALS`],
+    ['RECORDS', practice || challenge ? 'UNRANKED' : '7 DAYS'],
   ];
   const gap = 16;
   const tileW = (inner - gap) / 2;
@@ -183,12 +193,19 @@ function detailsPage(
         'The same spot repeats. Pause > New Spot changes it.',
         'Practice does not submit scores or speed records.',
       ]
-    : [
-        'Low XG spots pay more. A better finish (XGOT) pays up to 3x.',
-        'A miss costs a life. A great save (XGOT 0.5+) does not.',
-        `Every ${FK.goalsPerLevel} goals raises the wall and keeper difficulty.`,
-        'Completed runs rank by highest score over seven UTC days.',
-      ];
+    : challenge
+      ? [
+          `Score ${FK.challengeStreak} free kicks in a row. You have ${FK.challengeKicks} kicks.`,
+          'Every kick uses one, scored or not. A miss resets the streak.',
+          'It ends as soon as the kicks left cannot complete the streak.',
+          'Harder spots (low XG) and better finishes (XGOT) score more points.',
+        ]
+      : [
+          'Low XG spots pay more. A better finish (XGOT) pays up to 3x.',
+          'A miss costs a life. A great save (XGOT 0.5+) does not.',
+          `Every ${FK.goalsPerLevel} goals raises the wall and keeper difficulty.`,
+          'Completed runs rank by highest score over seven UTC days.',
+        ];
   const notesTop = card.y + 180 + 3 * 116 + 16;
   notes.forEach((line, i) =>
     items.push(
@@ -235,10 +252,11 @@ function helpPage(
   buttonY: number
 ) {
   const practice = options.practice === true;
+  const challenge = options.challenge === true;
   const sections: [string, string][] = [
     [
       '1. SET POWER',
-      'Use the slider on the left. Green marks wall-clearing power. Orange marks the last missed shot.',
+      'Use the slider at the side. Green marks wall-clearing power. Orange marks the last missed shot.',
     ],
     [
       '2. CHOOSE SHOT TYPE',
@@ -246,13 +264,15 @@ function helpPage(
     ],
     [
       '3. SWIPE TO SHOOT',
-      'Swipe upward on the clear pitch to the right, then release. Direction aims.',
+      'Swipe from the ball toward the part of the goal you want, then release. The arrow shows your aim. Draw a curve and the ball curls along it.',
     ],
     [
       '4. LIVES AND LEVELS',
       practice
         ? 'Unlimited retries at this level and spot. Pause > New Spot changes the setup.'
-        : `Start with ${FK.lives} lives. A miss costs one and retries the spot. Every ${FK.goalsPerLevel} goals raises the level.`,
+        : challenge
+          ? `${FK.challengeKicks} kicks to score ${FK.challengeStreak} in a row. A miss retries the spot and resets the streak.`
+          : `Start with ${FK.lives} lives. A miss costs one and retries the spot. Every ${FK.goalsPerLevel} goals raises the level.`,
     ],
     [
       '5. READ THE DEFENCE',
@@ -262,7 +282,9 @@ function helpPage(
       '6. XG SCORING',
       practice
         ? 'XG shows how hard the spot is. XGOT how hard your shot was to save.'
-        : 'Low XG spots pay more. A high XGOT finish pays up to 3x. A great save costs no life.',
+        : challenge
+          ? 'Low XG spots pay more. A high XGOT finish pays up to 3x. Your points are shown at the end.'
+          : 'Low XG spots pay more. A high XGOT finish pays up to 3x. A great save costs no life.',
     ],
   ];
   const sectionH = 118;

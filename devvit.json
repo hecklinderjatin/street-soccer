@@ -20,6 +20,9 @@
       },
       "freekick-practice": {
         "entry": "freekick-practice.html"
+      },
+      "freekick-challenge": {
+        "entry": "freekick-challenge.html"
       }
     }
   },

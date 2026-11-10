@@ -81,6 +81,7 @@ Object.assign(scene, {
   swipe: [{ x: 400, y: 1000 }],
   swipeTrailUntil: 20,
   swipeTrail: { clear() {} },
+  resultFx: { show() {}, hide() {}, update() {} },
   tweens: {
     pauseAll() {
       tweensPaused = true;

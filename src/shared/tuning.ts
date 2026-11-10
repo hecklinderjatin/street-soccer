@@ -946,7 +946,7 @@ export const FREE_KICK = {
   anglePerLevelDeg: 3, // ... wider every level ...
   maxAngleDeg: 28, // ... up to this either side
   // The wall: shoulder to shoulder across the line to the near post.
-  wallMen: [2, 2, 2, 3, 3, 3, 3, 4, 4, 4], // players by level
+  wallMen: [2, 2, 2, 3, 3, 3, 3, 3, 3, 3], // players by level
   wallSpacing: 30, // centre to centre (no gap a ball fits through)
   wallHalfWidth: 14, // half a player's blocking width
   wallShare: 0.48, // the wall stands this share of the way to goal ...
@@ -993,6 +993,10 @@ export const FREE_KICK = {
   keeperCurlRead: [0, 0.6], // share of curl and dip it allows for in its read (level 1, top level)
   // Swipe (logical px of the portrait canvas).
   swipeMinPx: 70, // shorter (or not upward) is not a shot
+  // A curved swipe is the ball's path (user request, 2026-11-10): it starts
+  // out toward the bend and curls back to where the swipe ends.
+  swipeBowMin: 0.05, // a swipe bending off its straight line by under this share of its length is straight (the ball dot sets any curl) ...
+  swipeBowFull: 0.28, // ... and one bending this much gives full curl
   aimHeight: 0.55, // the swipe aims at the goal line this share of the bar height up
   // Strike, by slider power 0..1 and contact point on the ball.
   defaultPower: 0.65, // starting slider setting on a fresh kick
@@ -1035,23 +1039,51 @@ export const FREE_KICK = {
   pxPerMetre: 24, // world px per metre, for the distance readout only
   streakStep: 0.25, // multiplier added per goal in a row ...
   streakMax: 2, // ... up to this
-  // Camera: behind the kicker, looking down the line to the goal.
-  cameraBack: 300, // behind the ball along that line
-  cameraSide: 18, // to the right of that line, away from the kicker
-  cameraHeight: 168, // eye height
-  cameraPitchDeg: 4, // looks down this much
-  ballScreenY: 0.8, // the ball sits this far down the logical view ...
-  barScreenY: 0.25, // ... and the crossbar this far
-  flightZoom: 1.12, // pushes in toward the goal while the ball flies
-  // Kicker, along the shot line: behind the ball and to its left.
-  kickerStartBack: 42, // waiting for the swipe ...
-  kickerStartSide: 30,
-  kickerContactBack: 14, // ... and where the run-up meets the ball
-  kickerContactSide: 12,
+  goalDepth: 150, // how far the Free Kick net reaches behind the line: deeper than the match's (PITCH.goalDepth) so the goal reads as a box from the camera, and the ball runs on into it
+  // Camera (user request, 2026-11-10, from reference shots of mobile
+  // free-kick games): low and close behind the ball, a little to the side
+  // away from the kicker and turned toward the goal. The kicker is big in
+  // the foreground (the right edge may crop him), the wall stands large in
+  // front of the goal and the chalk runs at an angle. The same from every
+  // spot: the swing is always measured from that spot's line to the goal.
+  cameraBack: 290, // from the ball
+  cameraOrbitDeg: 10, // swung this far round the ball from straight behind it
+  cameraLookAt: 0.72, // turned to look at the point this share of the way from the ball to the goal
+  cameraHeight: 105, // eye height (a player is about 100)
+  cameraPitchDeg: 3.5, // looks down this much
+  cameraZoom: 1, // share of the tightest goal fit (the kicker fit below can still cap it)
+  cameraKickerEdgePx: 4, // the kicker stays this far inside the view edge
+  cameraEdgePx: 24, // the goal stays this far inside the view's edge ...
+  cameraControlsPx: 150, // ... and this far inside the edge with the power slider, which would cover it
+  ballScreenX: [0.5, 0.66], // the ball sits between these shares of the way across the view from the controls' edge (further when the goal needs the room) ...
+  ballScreenY: 0.76, // ... and this far down it ...
+  barScreenY: 0.2, // ... with the crossbar no higher than this
+  flightZoom: 1.14, // pushes in toward the goal while the ball flies ...
+  flightZoomSec: 1.1, // ... over this long
+  flightCentre: 0.6, // bringing the goal this share of the way to the middle of the view
+  // Kicker, along the shot line: behind the ball and to its right (the
+  // sides are negative: positive is its left), drawn mirrored.
+  // He waits wide and well back and runs in on a diagonal, as a free-kick
+  // taker does, planting beside the ball and striking across it.
+  kickerStartBack: 56, // waiting for the swipe ...
+  kickerStartSide: -40,
+  kickerContactBack: 4, // ... and where the run-up meets the ball
+  kickerContactSide: -17,
+  runupAccel: 1.5, // he speeds up over the run (1 = steady) ...
+  kickerFollow: 34, // ... and carries on this far along the run after the strike
   // Timing.
-  runupSec: 0.3, // kicker's run-up after the swipe
+  runupSec: 0.55, // kicker's run-up after the swipe
   slowMoSec: 0.45, // a goal plays on in slow motion this long (real seconds) ...
   slowMoScale: 0.35, // ... at this speed
-  resultSec: 1.6, // result banner before the next kick
+  approachSec: 0.16, // the last moment before the goal line plays slower ...
+  approachScale: 0.6, // ... at this speed
+  timeEaseRate: 14, // the play speed eases toward its target this fast (1/s), never a hard cut
+  trailFadeSec: 1.1, // the flight trail fades out this long after the kick is decided
+  // Challenge (user request, 2026-11-10): score challengeStreak goals in a
+  // row within challengeKicks kicks; every kick, scored or not, uses one.
+  challengeKicks: 5,
+  challengeStreak: 3,
+  challengeLevel: 3, // wall, keeper and distance of every challenge kick
+  resultSec: 1.9, // result animation before the next kick
   fadeSec: 0.3, // cut to the next spot
 } as const;

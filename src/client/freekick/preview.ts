@@ -145,6 +145,7 @@ class FreeKickPreviewScene extends Phaser.Scene {
           run > 0 && !this.play
             ? `run_up_diagonal${1 + Math.min(3, Math.floor(run * 4))}`
             : 'run_up4',
+        flip: true,
       },
       timeSec: this.clock,
       goalFlash: false,

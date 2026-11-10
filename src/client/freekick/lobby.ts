@@ -25,9 +25,10 @@ export function showFreeKickLobby() {
       <p class="freekick-description"></p>
       <div class="preview-actions">
         <a class="freekick-play mobile-play" href="freekick.html">PLAY</a>
+        <a class="freekick-challenge mobile-casual" href="freekick-challenge.html">CHALLENGE</a>
         <a class="freekick-practice mobile-casual" href="freekick-practice.html">PRACTICE</a>
       </div>
-      <p class="freekick-mode-notes preview-activity">Practice: choose a level, unlimited retries.</p>
+      <p class="freekick-mode-notes preview-activity">Challenge: ${FK.challengeStreak} in a row from ${FK.challengeKicks} kicks. Practice: any level, unlimited retries.</p>
     </div>`;
   const description = card.querySelector('.freekick-description');
   const data: unknown = context?.postData;
@@ -37,6 +38,7 @@ export function showFreeKickLobby() {
     description.textContent = typeof value === 'string' ? value : '';
   for (const [selector, text, entry] of [
     ['.freekick-play', 'PLAY FREE KICK', 'freekick'],
+    ['.freekick-challenge', 'CHALLENGE', 'freekick-challenge'],
     ['.freekick-practice', 'PRACTICE', 'freekick-practice'],
   ]) {
     const button = card.querySelector<HTMLAnchorElement>(selector ?? '');
