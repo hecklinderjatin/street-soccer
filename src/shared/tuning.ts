@@ -957,6 +957,8 @@ export const FREE_KICK = {
   wallJumpHeight: [16, 24], // extra reach at the top of the jump, arms up (level 1, top level)
   wallJumpSec: 0.5, // time in the air
   wallReactSec: 0.06, // the wall leaves the ground this long after the strike
+  wallAirFrom: 0.15, // share of the jump drawn in the take-off crouch (and the landing crouch at its end) ...
+  wallLandUntil: 1.3, // ... and the landing crouch holds until this share of the jump time has passed
   // Wall variety (user request): it doesn't always jump, and a jumping
   // wall's feet leave a gap a low drive can slip under.
   wallJumpChance: [0.85, 0.6], // chance it jumps on a kick (level 1, top level); decided at the strike, unseen
@@ -1073,6 +1075,7 @@ export const FREE_KICK = {
   kickerFollow: 34, // ... and carries on this far along the run after the strike
   // Timing.
   runupSec: 0.55, // kicker's run-up after the swipe
+  strikePoseSec: 0.1, // each pose after contact (strike, follow-through, recover) shows this long
   slowMoSec: 0.45, // a goal plays on in slow motion this long (real seconds) ...
   slowMoScale: 0.35, // ... at this speed
   approachSec: 0.16, // the last moment before the goal line plays slower ...

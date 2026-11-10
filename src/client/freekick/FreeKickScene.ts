@@ -31,6 +31,7 @@ import { setSoundMuted, soundMuted } from '../ui/soundSetting';
 import { StreamMusic } from '../ui/streamMusic';
 import { TextButton } from '../ui/TextButton';
 import { KickCamera } from './KickCamera';
+import { kickerFrame } from './kickerFrames';
 import { ResultFx } from './resultFx';
 import { drawRibbon, smoothLine } from './ribbon';
 import { Stage } from './Stage';
@@ -819,7 +820,7 @@ export class FreeKickScene extends Phaser.Scene {
     stage.render(this.cam, this.setup, play, {
       ball,
       ballAge: play ? play.t : Infinity,
-      kicker: { ...this.kickerPose(), flip: this.side > 0 },
+      kicker: this.kickerPose(),
       timeSec: this.clock,
       goalFlash:
         goal && Math.floor((this.clock - this.outcomeAt) * 8) % 2 === 0,
@@ -834,8 +835,16 @@ export class FreeKickScene extends Phaser.Scene {
   }
 
   // Waiting behind and left of the ball, the run-up, the follow-through,
-  // and a celebration after a goal.
+  // and a celebration after a goal. Drawn mirrored on the ball's right; a
+  // left-curl strike (the rules' contact right of centre) flips the sprite
+  // again from the moment of the shot.
   private kickerPose() {
+    const flip = this.side > 0;
+    const curlLeft = (this.strike?.contact.x ?? 0) > 0;
+    const strike = (run: number | null, play: number | null) => {
+      const k = kickerFrame(run, play, curlLeft);
+      return { frame: k.frame, flip: flip !== k.mirror };
+    };
     const { spot } = this.setup;
     const dx = GOAL_X - spot.x;
     const dy = GOAL_Y - spot.y;
@@ -857,12 +866,11 @@ export class FreeKickScene extends Phaser.Scene {
       return {
         x: start.x + (contact.x - start.x) * run,
         y: start.y + (contact.y - start.y) * run,
-        // The stride cycles twice over the run.
-        frame: `run_up_diagonal${1 + (Math.floor(t * 8) % 4)}`,
+        ...strike(t, null),
       };
     }
     const play = this.play;
-    if (!play) return { ...start, frame: 'run_up4' };
+    if (!play) return { ...start, ...strike(null, null) };
     // On after the strike along the diagonal he ran in on, easing to a stop.
     const run = Math.hypot(contact.x - start.x, contact.y - start.y) || 1;
     const follow = FK.kickerFollow * (1 - Math.exp(-Math.min(play.t, 0.4) * 9));
@@ -875,8 +883,9 @@ export class FreeKickScene extends Phaser.Scene {
       return {
         ...pose,
         frame: `celebrate_a${1 + (Math.floor(since * 6) % 6)}`,
+        flip,
       };
-    return { ...pose, frame: play.t < 0.3 ? 'run_up_diagonal3' : 'run_up4' };
+    return { ...pose, ...strike(null, play.t) };
   }
 
   private drawLaunchArrow(

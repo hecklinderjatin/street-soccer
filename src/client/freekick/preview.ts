@@ -8,6 +8,7 @@ import { startingConfig } from '../challenge';
 import { releaseEarlyDownloads, withEarlyDownloads } from '../earlyAssets';
 import { PAL } from '../ui/palette';
 import { KickCamera } from './KickCamera';
+import { kickerFrame } from './kickerFrames';
 import { Stage } from './Stage';
 import {
   GOAL_X,
@@ -135,17 +136,20 @@ class FreeKickPreviewScene extends Phaser.Scene {
       FK.kickerStartBack + (FK.kickerContactBack - FK.kickerStartBack) * run;
     const side =
       FK.kickerStartSide + (FK.kickerContactSide - FK.kickerStartSide) * run;
+    // Mirrored on the ball's right; a left curl flips back at the strike.
+    const kick = kickerFrame(
+      run,
+      this.play?.t ?? null,
+      this.strike.contact.x > 0
+    );
     this.stage.render(this.cam, this.setup, this.play, {
       ball: this.play?.ball ?? { ...spot, z: BALL.radius },
       ballAge: this.play?.t ?? Infinity,
       kicker: {
         x: spot.x - ux * back - uy * side,
         y: spot.y - uy * back + ux * side,
-        frame:
-          run > 0 && !this.play
-            ? `run_up_diagonal${1 + Math.min(3, Math.floor(run * 4))}`
-            : 'run_up4',
-        flip: true,
+        frame: kick.frame,
+        flip: !kick.mirror,
       },
       timeSec: this.clock,
       goalFlash: false,
