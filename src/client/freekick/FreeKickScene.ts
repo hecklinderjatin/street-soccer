@@ -31,6 +31,7 @@ import { setSoundMuted, soundMuted } from '../ui/soundSetting';
 import { StreamMusic } from '../ui/streamMusic';
 import { TextButton } from '../ui/TextButton';
 import { KickCamera } from './KickCamera';
+import { kickerFrame } from './kickerFrames';
 import { ResultFx } from './resultFx';
 import { drawRibbon, smoothLine } from './ribbon';
 import { Stage } from './Stage';
@@ -857,12 +858,11 @@ export class FreeKickScene extends Phaser.Scene {
       return {
         x: start.x + (contact.x - start.x) * run,
         y: start.y + (contact.y - start.y) * run,
-        // The stride cycles twice over the run.
-        frame: `run_up_diagonal${1 + (Math.floor(t * 8) % 4)}`,
+        frame: kickerFrame(t, null),
       };
     }
     const play = this.play;
-    if (!play) return { ...start, frame: 'run_up4' };
+    if (!play) return { ...start, frame: kickerFrame(null, null) };
     // On after the strike along the diagonal he ran in on, easing to a stop.
     const run = Math.hypot(contact.x - start.x, contact.y - start.y) || 1;
     const follow = FK.kickerFollow * (1 - Math.exp(-Math.min(play.t, 0.4) * 9));
@@ -876,7 +876,7 @@ export class FreeKickScene extends Phaser.Scene {
         ...pose,
         frame: `celebrate_a${1 + (Math.floor(since * 6) % 6)}`,
       };
-    return { ...pose, frame: play.t < 0.3 ? 'run_up_diagonal3' : 'run_up4' };
+    return { ...pose, frame: kickerFrame(null, play.t) };
   }
 
   private drawLaunchArrow(

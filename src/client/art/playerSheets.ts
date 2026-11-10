@@ -71,6 +71,13 @@ export const SPRINT_FRAMES = Array.from(
   { length: 12 },
   (_, i) => `sprint${i + 1}`
 );
+// Free kick strike, back view (user-supplied sheet): set facing the camera,
+// turn (2-3), run-up (4-6), plant (7), contact (8), follow-through (9-10),
+// recover (11) and stand watching (12).
+export const FREEKICK_FRAMES = Array.from(
+  { length: 12 },
+  (_, i) => `freekick${i + 1}`
+);
 
 // Every atlas (each kit and the two look layers) holds these frames in this
 // order, ATLAS_COLUMNS to a row: 8 x 224 = 1792 px wide, within the 2048 px
@@ -97,6 +104,7 @@ const FRAMES = [
   ...JUMP_FRAMES,
   ...BLOCK_FRAMES,
   ...SPRINT_FRAMES,
+  ...FREEKICK_FRAMES,
 ];
 export const ATLAS_W = PLAYER_W * ATLAS_COLUMNS;
 export const ATLAS_H = PLAYER_H * Math.ceil(FRAMES.length / ATLAS_COLUMNS);
@@ -386,6 +394,33 @@ export const SOURCE_SHEETS: readonly SourceSheet[] = [
     ground: 681,
     waist: [384, 386, 388, 382, 356, 376, 382, 386, 382, 372, 380, 384],
     shortsEnd: [470, 468, 468, 470, 450, 458, 466, 470, 472, 462, 466, 470],
+  },
+  {
+    // Free kick strike (user-supplied sheet, same scale as the run: lowest
+    // boot of each source row on the ground). Lines read off a preview;
+    // raised kicking legs get their own sock lines. Outfield kits only.
+    file: 'player-freekick-authored',
+    frames: FREEKICK_FRAMES,
+    cellW: 640,
+    columns: 4,
+    ground: 681,
+    waist: [],
+    shortsEnd: [],
+    outfieldOnly: true,
+    splits: [
+      { waist: [0, 392, 640, 392], shortsEnd: [0, 486, 640, 502] },
+      { waist: [0, 395, 640, 395], shortsEnd: [0, 486, 640, 486] },
+      { waist: [0, 412, 640, 392], shortsEnd: [0, 478, 640, 500] },
+      { waist: [0, 366, 640, 366], shortsEnd: [0, 495, 640, 495], socksAlso: [380, 520, 480, 420] },
+      { waist: [0, 350, 640, 350], shortsEnd: [0, 445, 640, 445] },
+      { waist: [0, 372, 640, 338], shortsEnd: [0, 470, 640, 470], socksAlso: [330, 520, 450, 400] },
+      { waist: [0, 352, 640, 340], shortsEnd: [200, 450, 640, 505] },
+      { waist: [0, 355, 640, 340], shortsEnd: [200, 440, 640, 510] },
+      { waist: [0, 345, 640, 345], shortsEnd: [0, 470, 640, 470], socksAlso: [312, 380, 312, 700] },
+      { waist: [0, 358, 640, 345], shortsEnd: [200, 440, 640, 480] },
+      { waist: [0, 356, 640, 356], shortsEnd: [0, 474, 640, 474] },
+      { waist: [0, 357, 640, 357], shortsEnd: [0, 476, 640, 476] },
+    ],
   },
   {
     // Redrawn head; the swung-back and kicking legs get their own sock lines.

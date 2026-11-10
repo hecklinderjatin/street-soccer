@@ -8,6 +8,7 @@ import { startingConfig } from '../challenge';
 import { releaseEarlyDownloads, withEarlyDownloads } from '../earlyAssets';
 import { PAL } from '../ui/palette';
 import { KickCamera } from './KickCamera';
+import { kickerFrame } from './kickerFrames';
 import { Stage } from './Stage';
 import {
   GOAL_X,
@@ -141,10 +142,7 @@ class FreeKickPreviewScene extends Phaser.Scene {
       kicker: {
         x: spot.x - ux * back - uy * side,
         y: spot.y - uy * back + ux * side,
-        frame:
-          run > 0 && !this.play
-            ? `run_up_diagonal${1 + Math.min(3, Math.floor(run * 4))}`
-            : 'run_up4',
+        frame: kickerFrame(run, this.play?.t ?? null),
         flip: true,
       },
       timeSec: this.clock,

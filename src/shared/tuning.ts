@@ -1073,6 +1073,7 @@ export const FREE_KICK = {
   kickerFollow: 34, // ... and carries on this far along the run after the strike
   // Timing.
   runupSec: 0.55, // kicker's run-up after the swipe
+  strikePoseSec: 0.1, // each pose after contact (strike, follow-through, recover) shows this long
   slowMoSec: 0.45, // a goal plays on in slow motion this long (real seconds) ...
   slowMoScale: 0.35, // ... at this speed
   approachSec: 0.16, // the last moment before the goal line plays slower ...
