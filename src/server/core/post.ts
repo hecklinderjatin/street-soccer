@@ -17,15 +17,19 @@ export const createPost = async (challenge?: Challenge, flairId?: string) => {
             challenge.matchType,
             challenge.title,
             challenge.description,
-            ...(challenge.matchType === 'freekick'
-              ? []
-              : [JSON.stringify(challenge.config)]),
+            JSON.stringify(
+              challenge.matchType === 'freekick'
+                ? (challenge.freeKick ?? {})
+                : challenge.config
+            ),
           ].join('\n\n'),
         },
         postData: {
           matchType: challenge.matchType,
           ...(challenge.matchType === 'freekick'
-            ? {}
+            ? challenge.freeKick
+              ? { freeKick: challenge.freeKick }
+              : {}
             : { match: challenge.config }),
           description: challenge.description,
         },

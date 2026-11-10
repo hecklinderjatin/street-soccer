@@ -76,6 +76,16 @@ try {
         },
       };
       window.FK = { lives: 3, goalsPerLevel: 2 };
+      window.freeKickChallenge = () => ({
+        kicker: 'pink',
+        wall: 'blue',
+        lives: 3,
+        goals: 5,
+        distanceM: 25,
+        wallFromGoalM: 14,
+        difficulty: 'normal',
+      });
+      window.DIFFICULTY_LABEL = { normal: 'NORMAL' };
       window.measurePlay = () => {};
       window.fetch = async () => ({
         ok: true,
@@ -115,7 +125,7 @@ try {
         compile('src/client/freekick/lobby.ts') +
         ';exports.showFreeKickLobby();}',
     });
-    for (const selector of ['.freekick-play', '.freekick-practice']) {
+    for (const selector of ['.freekick-challenge', '.freekick-practice']) {
       const box = await page.locator(selector).boundingBox();
       assert.ok(
         box && box.x >= 0 && box.y >= 0 && box.y + box.height <= height,
@@ -123,48 +133,12 @@ try {
       );
     }
     assert.equal(await page.locator('img[onerror]').count(), 0);
-    await page.getByRole('button', { name: 'ALL >', exact: true }).click();
-    await page
-      .getByRole('button', { name: 'FASTEST GOALS', exact: true })
-      .click();
-    await page.waitForFunction(() =>
-      document
-        .querySelector('.mobile-board-rows')
-        ?.textContent.includes('120 km/h')
-    );
-    await page
-      .getByRole('button', { name: 'HIGHEST SCORE', exact: true })
-      .click();
-    await page.waitForFunction(() =>
-      document
-        .querySelector('.mobile-board-rows')
-        ?.textContent.includes('500 pts')
-    );
-    await page
-      .getByRole('button', { name: 'Close leaderboard', exact: true })
-      .click();
-    assert.equal(await page.locator('.mobile-board-modal').isVisible(), false);
-    await page.getByRole('button', { name: 'ALL >', exact: true }).click();
-    await page.keyboard.press('Shift+Tab');
-    assert.equal(
-      await page
-        .getByRole('button', { name: 'FASTEST GOALS', exact: true })
-        .evaluate((node) => node === document.activeElement),
-      true
-    );
-    await page.keyboard.press('Tab');
-    assert.equal(
-      await page
-        .getByRole('button', { name: 'Close leaderboard', exact: true })
-        .evaluate((node) => node === document.activeElement),
-      true
-    );
-    await page.keyboard.press('Escape');
-    assert.equal(await page.locator('.mobile-board-modal').isVisible(), false);
-    await page.locator('.freekick-play').click();
+    // The card has no leaderboard since Play left it (2026-11-11).
+    assert.equal(await page.locator('.mobile-board-modal').count(), 0);
+    await page.locator('.freekick-challenge').click();
     await page.locator('.freekick-practice').click();
     assert.deepEqual(await page.evaluate(() => window.calls), [
-      'freekick',
+      'freekick-challenge',
       'freekick-practice',
     ]);
     console.log(

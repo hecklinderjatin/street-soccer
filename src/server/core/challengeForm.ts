@@ -17,7 +17,12 @@ import {
   parsePostType,
   type PostType,
 } from '../../shared/postType';
-import { CUSTOM_MATCH, DAILY } from '../../shared/tuning';
+import { CUSTOM_MATCH, DAILY, FREE_KICK as FK } from '../../shared/tuning';
+import {
+  FREE_KICK_CHALLENGE_DEFAULT,
+  parseFreeKickChallenge,
+  type FreeKickChallengeConfig,
+} from '../../shared/freeKickChallenge';
 import {
   DIFFICULTIES,
   DIFFICULTY_LABEL,
@@ -52,6 +57,14 @@ export type ChallengeValues = {
   difficulty?: string[];
   durationSec?: string[];
   startGoalsAgainst?: string[];
+  // Free Kick posts: the Challenge settings.
+  fkKicker?: string[];
+  fkWall?: string[];
+  fkLives?: string[];
+  fkGoals?: string[];
+  fkDistance?: string[];
+  fkWallDistance?: string[];
+  fkDifficulty?: string[];
 };
 
 export type Challenge = {
@@ -59,6 +72,7 @@ export type Challenge = {
   title: string;
   description: string;
   config: MatchConfig;
+  freeKick?: FreeKickChallengeConfig; // Free Kick posts only
 };
 
 export type PostFlairChoice = { id: string; text: string };
@@ -222,7 +236,7 @@ export function challengeFormFor(
     title: 'Create a Street Soccer match',
     description:
       matchType === 'freekick'
-        ? 'Create a standalone Free Kick post with Play and unlimited Practice.'
+        ? 'Create a Free Kick post: a Challenge with these settings, plus unlimited Practice.'
         : matchType === 'casual'
           ? 'Create a Custom post from your Reddit account. Players freely choose their formations, difficulty and match time.'
           : 'Create a post from your Reddit account. Ranked matches use these fixed settings; players can also choose unranked Custom.',
@@ -270,6 +284,7 @@ export function challengeFormFor(
         helpText: `Shown on the post before playing, up to ${CUSTOM_MATCH.descriptionMaxLength} characters`,
       },
       ...dailyFields,
+      ...(matchType === 'freekick' ? freeKickFields : []),
       ...(['casual', 'freekick'].includes(matchType)
         ? []
         : matchFields
@@ -365,6 +380,77 @@ const matchFields: FormField[] = [
   },
 ];
 
+// A Free Kick post's Challenge settings (user request, 2026-11-11).
+const numbers = (values: readonly number[], unit = '') =>
+  values.map((n) => ({ value: String(n), label: `${n}${unit}` }));
+const range = (lo: number, hi: number) =>
+  Array.from({ length: hi - lo + 1 }, (_, i) => lo + i);
+const freeKickFields: FormField[] = [
+  {
+    type: 'group',
+    label: 'Team colours',
+    fields: [
+      {
+        type: 'select',
+        name: 'fkKicker',
+        label: "Kicker's team",
+        options: options(JERSEY_COLORS),
+        required: true,
+      },
+      {
+        type: 'select',
+        name: 'fkWall',
+        label: "Wall's team",
+        options: options(JERSEY_COLORS),
+        required: true,
+      },
+    ],
+  },
+  {
+    type: 'select',
+    name: 'fkLives',
+    label: 'Lives',
+    helpText: 'Each miss costs one; the challenge fails when none are left.',
+    options: numbers(range(1, FK.challengeMaxLives)),
+    required: true,
+  },
+  {
+    type: 'select',
+    name: 'fkGoals',
+    label: 'Goals to win',
+    options: numbers(range(1, FK.challengeMaxGoals)),
+    required: true,
+  },
+  {
+    type: 'select',
+    name: 'fkDistance',
+    label: 'Shot distance from goal',
+    helpText: `Each round's spot varies up to ${FK.challengeDistanceRangeM} m either way, from a new angle.`,
+    options: numbers(FK.challengeDistanceChoicesM, ' m'),
+    required: true,
+  },
+  {
+    type: 'select',
+    name: 'fkWallDistance',
+    label: 'Wall distance from goal',
+    helpText: `At least ${FK.challengeWallGapM} m in front of the chosen shot distance; nearer spots pull it toward goal.`,
+    options: numbers(FK.challengeWallChoicesM, ' m'),
+    required: true,
+  },
+  {
+    type: 'select',
+    name: 'fkDifficulty',
+    label: 'Difficulty',
+    helpText:
+      'Sets the first round. Every goal brings a new angle and a tougher wall and keeper, up to the limit for this difficulty.',
+    options: DIFFICULTIES.map((value) => ({
+      value,
+      label: capital(DIFFICULTY_LABEL[value].toLowerCase()),
+    })),
+    required: true,
+  },
+];
+
 export const challengeForm = challengeFormFor('daily');
 
 // The form's starting values: the default match, or a rejected submission.
@@ -393,6 +479,13 @@ export function challengeFormData(values?: ChallengeValues): ChallengeValues {
     startGoalsAgainst: [
       values?.matchType?.[0] === 'daily' && dailyMode !== 'chaos' ? '2' : '0',
     ],
+    fkKicker: [FREE_KICK_CHALLENGE_DEFAULT.kicker],
+    fkWall: [FREE_KICK_CHALLENGE_DEFAULT.wall],
+    fkLives: [String(FREE_KICK_CHALLENGE_DEFAULT.lives)],
+    fkGoals: [String(FREE_KICK_CHALLENGE_DEFAULT.goals)],
+    fkDistance: [String(FREE_KICK_CHALLENGE_DEFAULT.distanceM)],
+    fkWallDistance: [String(FREE_KICK_CHALLENGE_DEFAULT.wallFromGoalM)],
+    fkDifficulty: [FREE_KICK_CHALLENGE_DEFAULT.difficulty],
     ...values,
   };
 }
@@ -414,8 +507,23 @@ export function readChallenge(
   const description = (values.description ?? '').trim();
   if (description.length > CUSTOM_MATCH.descriptionMaxLength)
     return `Challenge text: at most ${CUSTOM_MATCH.descriptionMaxLength} characters`;
+  let freeKick: FreeKickChallengeConfig | undefined;
+  if (matchType === 'freekick') {
+    const parsed = parseFreeKickChallenge({
+      kicker: values.fkKicker?.[0],
+      wall: values.fkWall?.[0],
+      lives: Number(values.fkLives?.[0]),
+      goals: Number(values.fkGoals?.[0]),
+      distanceM: Number(values.fkDistance?.[0]),
+      wallFromGoalM: Number(values.fkWallDistance?.[0]),
+      difficulty: values.fkDifficulty?.[0],
+    });
+    if (typeof parsed === 'string') return capital(parsed);
+    freeKick = parsed;
+  }
   if (matchType === 'casual' || matchType === 'freekick')
     return {
+      ...(freeKick ? { freeKick } : {}),
       title,
       description,
       matchType,

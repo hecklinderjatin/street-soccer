@@ -1,4 +1,8 @@
 import { BALL, FREE_KICK as FK, PITCH } from '../../shared/tuning';
+import {
+  challengeRoundLevel,
+  type FreeKickChallengeConfig,
+} from '../../shared/freeKickChallenge';
 
 // Free Kick rules: the spot, wall and keeper of each kick, reading the
 // swipe, the strike, the flight (gravity, drag, curl, dip) and how the kick
@@ -115,8 +119,17 @@ export type KickSetup = {
 // A kick for this level: a spot outside the box, the wall across the line
 // to the near post (shoulder to shoulder from just outside it inward), and
 // the keeper in the part of the goal the wall leaves open.
-export function makeKick(level: Level, rand: () => number): KickSetup {
-  const distance = lerp(FK.minDistance, level.maxDistance, rand());
+//
+// `place` (a challenge post's round): the spot's distance and the wall's
+// distance from goal, world px, instead of the level's. The wall stays at
+// least FK.challengeWallGapM from the ball.
+export function makeKick(
+  level: Level,
+  rand: () => number,
+  place?: { distance: number; wallFromGoal: number }
+): KickSetup {
+  const rolled = lerp(FK.minDistance, level.maxDistance, rand());
+  const distance = place?.distance ?? rolled;
   const angle = (rand() * 2 - 1) * level.maxAngle;
   const spot = {
     x: GOAL_X - distance * Math.cos(angle),
@@ -131,11 +144,13 @@ export function makeKick(level: Level, rand: () => number): KickSetup {
         ? -1
         : 1;
   const dx = GOAL_X - spot.x;
-  const wallX =
-    spot.x +
-    (clamp(distance * FK.wallShare, FK.wallMinDistance, FK.wallMaxDistance) *
-      dx) /
-      distance;
+  const gap = place
+    ? Math.max(
+        distance - place.wallFromGoal,
+        FK.challengeWallGapM * FK.pxPerMetre
+      )
+    : clamp(distance * FK.wallShare, FK.wallMinDistance, FK.wallMaxDistance);
+  const wallX = spot.x + (gap * dx) / distance;
   // Lateral position at x of the line from the spot to (GOAL_X, y), and back.
   const atWall = (y: number) => spot.y + ((y - spot.y) * (wallX - spot.x)) / dx;
   const atGoal = (y: number) => spot.y + ((y - spot.y) * dx) / (wallX - spot.x);
@@ -858,16 +873,28 @@ export const greatSavePoints = (xgot: number) =>
 
 // ---- The challenge ---------------------------------------------------------
 
-export type ChallengeState = 'open' | 'won' | 'lost';
-
-// Score FK.challengeStreak in a row within FK.challengeKicks kicks: won on
-// the streak, lost as soon as the kicks left cannot complete one.
-export function challengeState(
-  streak: number,
-  kicksLeft: number
-): ChallengeState {
-  if (streak >= FK.challengeStreak) return 'won';
-  return kicksLeft < FK.challengeStreak - streak ? 'lost' : 'open';
+// A challenge post's round `round` (0 = first spot): its difficulty's
+// level for that round, a new angle, the spot within
+// FK.challengeDistanceRangeM of the post's distance (never nearer than
+// FK.challengeNearestM nor beyond FK.maxDistance) and the wall at the
+// post's distance from goal.
+export function challengeKick(
+  config: FreeKickChallengeConfig,
+  round: number,
+  rand: () => number
+): KickSetup {
+  const level = challengeRoundLevel(config.difficulty, round);
+  const metres =
+    config.distanceM + (rand() * 2 - 1) * FK.challengeDistanceRangeM;
+  const distance = clamp(
+    metres * FK.pxPerMetre,
+    FK.challengeNearestM * FK.pxPerMetre,
+    FK.maxDistance
+  );
+  return makeKick(levelFor((level - 1) * FK.goalsPerLevel), rand, {
+    distance,
+    wallFromGoal: config.wallFromGoalM * FK.pxPerMetre,
+  });
 }
 
 // ---- Scoring and the power guide -------------------------------------------

@@ -5,7 +5,8 @@ import {
   showToast,
 } from '@devvit/web/client';
 import type { FreeKickStats } from '../../shared/freeKick';
-import { FREE_KICK as FK } from '../../shared/tuning';
+import type { FreeKickChallengeConfig } from '../../shared/freeKickChallenge';
+import { DIFFICULTY_LABEL } from '../../shared/types';
 import { casualButton, casualScreen } from '../ui/casualScreen';
 import { css } from '../ui/menuCard';
 import { PAL } from '../ui/palette';
@@ -18,14 +19,14 @@ import { freeKickResultsBoard } from './leaderboard';
 // score where the scoreboard goes, a row of stat tiles, the fastest-goal
 // line, the seven-day board with its category tabs, then PLAY AGAIN (full
 // width), POST MY SCORE and EXIT. One column in portrait. A challenge
-// (unranked) shows whether it was won and its points, with no board, save
-// or sharing.
+// (unranked) shows whether it was won, the post's settings and its points,
+// with no board, save or sharing.
 export function freeKickResults(
   stats: FreeKickStats,
   best: number,
   records: FreeKickRecords,
   again: () => void,
-  challenge?: { won: boolean }
+  challenge?: { won: boolean; config: FreeKickChallengeConfig }
 ) {
   const newBest = !challenge && stats.score > best;
   const screen = casualScreen(
@@ -35,7 +36,7 @@ export function freeKickResults(
         : 'CHALLENGE FAILED'
       : 'RUN COMPLETE',
     challenge
-      ? `${FK.challengeStreak} IN A ROW · ${FK.challengeKicks} KICKS`
+      ? `${challenge.config.goals} GOALS · ${challenge.config.lives} ${challenge.config.lives === 1 ? 'LIFE' : 'LIVES'} · ${challenge.config.distanceM} M · ${DIFFICULTY_LABEL[challenge.config.difficulty]}`
       : `RANKED RUN · LEVEL ${stats.level}`,
     false,
     {
@@ -92,7 +93,7 @@ export function freeKickResults(
   const bestLine = document.createElement('span');
   bestLine.className = 'results-formation';
   bestLine.textContent = challenge
-    ? `BEST STREAK ${stats.bestStreak}/${FK.challengeStreak}`
+    ? `GOALS ${stats.goals}/${challenge.config.goals}`
     : newBest
       ? 'NEW DEVICE BEST!'
       : `DEVICE BEST: ${best.toLocaleString()}`;
@@ -117,15 +118,8 @@ export function freeKickResults(
     ['BEST STREAK', String(stats.bestStreak)],
     ['LEVEL', String(stats.level)],
   ]) {
-    // A challenge has no great saves and one fixed level, and its streak
-    // is under the points.
-    if (
-      challenge &&
-      (caption === 'GREAT SAVES' ||
-        caption === 'LEVEL' ||
-        caption === 'BEST STREAK')
-    )
-      continue;
+    // A challenge has no great saves (every miss costs a life).
+    if (challenge && caption === 'GREAT SAVES') continue;
     const item = document.createElement('div');
     const number = document.createElement('strong');
     pixelLabel(number, value ?? '');

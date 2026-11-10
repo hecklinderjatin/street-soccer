@@ -147,8 +147,11 @@ try {
     document.querySelector('#game').style.top = '0';
   });
   await page.waitForFunction(() => window.__freekickPreview.loop.running);
-  await page.locator('.freekick-play').click();
-  assert.equal(await page.evaluate(() => window.__expanded), 'freekick');
+  await page.locator('.freekick-challenge').click();
+  assert.equal(
+    await page.evaluate(() => window.__expanded),
+    'freekick-challenge'
+  );
   await page.locator('.freekick-practice').click();
   assert.equal(
     await page.evaluate(() => window.__expanded),

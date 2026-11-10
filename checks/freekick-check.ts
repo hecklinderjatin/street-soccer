@@ -10,6 +10,14 @@ import { postType, competitiveResultAllowed } from '../src/shared/postType';
 import { challengeFormFor, readChallenge } from '../src/server/core/challengeForm';
 import { parseMatchConfig } from '../src/shared/matchConfig';
 import {
+  FREE_KICK_CHALLENGE_DEFAULT,
+  challengeOutcome,
+  challengeRoundLevel,
+  parseFreeKickChallenge,
+  postFreeKickChallenge,
+} from '../src/shared/freeKickChallenge';
+import { DIFFICULTIES } from '../src/shared/types';
+import {
   freeKickControls,
   freeKickGesture,
 } from '../src/client/freekick/controls';
@@ -22,7 +30,7 @@ import {
   STEP,
   aimAtGoalLine,
   ballContact,
-  challengeState,
+  challengeKick,
   curvedStrike,
   swipeBow,
   crossing,
@@ -123,12 +131,20 @@ check(
 
   }
 );
-check('standalone Free Kick posts omit match settings and reject match leaderboards', () => {
+check('Free Kick posts ask for challenge settings, not match settings, and reject match leaderboards', () => {
   const form = challengeFormFor('freekick');
   assert.ok(!form.fields.some(field => ['dailyMode', 'difficulty', 'durationSec', 'homeJersey'].includes(field.name)));
-  const created = readChallenge({ matchType: ['freekick'], title: 'Free Kick', description: 'Play or practise' }, parseMatchConfig);
+  const names = form.fields.flatMap(field => field.type === 'group' ? field.fields.map(f => f.name) : [field.name]);
+  for (const name of ['fkKicker', 'fkWall', 'fkLives', 'fkGoals', 'fkDistance', 'fkWallDistance', 'fkDifficulty'])
+    assert.ok(names.includes(name), name);
+  const values = { matchType: ['freekick'], title: 'Free Kick', description: 'Beat the wall', fkKicker: ['red'], fkWall: ['white'], fkLives: ['4'], fkGoals: ['6'], fkDistance: ['30'], fkWallDistance: ['18'], fkDifficulty: ['noob'] };
+  const created = readChallenge(values, parseMatchConfig);
   assert.ok(typeof created !== 'string');
+  assert.deepEqual(created.freeKick, { kicker: 'red', wall: 'white', lives: 4, goals: 6, distanceM: 30, wallFromGoalM: 18, difficulty: 'noob' });
   assert.equal(created.matchType, 'freekick');
+  // Too near the ball, the same kit twice, or out of range: rejected.
+  for (const bad of [{ fkWallDistance: ['24'] }, { fkWall: ['red'] }, { fkLives: ['0'] }, { fkGoals: ['99'] }, { fkDistance: ['27'] }])
+    assert.equal(typeof readChallenge({ ...values, ...bad }, parseMatchConfig), 'string', JSON.stringify(bad));
   assert.equal(postType({ matchType: 'freekick' }), 'freekick');
   assert.equal(competitiveResultAllowed({ matchType: 'freekick' }, { mode: 'competitive' }), false);
 });
@@ -523,26 +539,69 @@ check('ranked Free Kick validates complete Play runs and keeps two independent b
   assert.equal(board.me?.value,0);
 });
 
-check('challenge: three in a row within five kicks, lost once out of reach', () => {
+check('challenge: won on the post goals, lost when the lives run out', () => {
+  const config = { ...FREE_KICK_CHALLENGE_DEFAULT, goals: 3, lives: 2 };
   // Plays kicks (true = goal) until the challenge is decided.
   const run = (kicks: boolean[]) => {
-    let streak = 0;
-    let left: number = FK.challengeKicks;
+    let goals = 0;
+    let lives = config.lives;
     for (const goal of kicks) {
-      assert.equal(challengeState(streak, left), 'open', 'already decided');
-      streak = goal ? streak + 1 : 0;
-      left--;
+      assert.equal(challengeOutcome(goals, lives, config), 'open', 'already decided');
+      if (goal) goals++;
+      else lives--;
     }
-    return challengeState(streak, left);
+    return challengeOutcome(goals, lives, config);
   };
   assert.equal(run([true, true, true]), 'won');
-  assert.equal(run([true, true, false]), 'lost', 'two kicks cannot make three');
   assert.equal(run([false, true, true, true]), 'won');
-  assert.equal(run([false, false, true, true, true]), 'won');
-  assert.equal(run([false, false, false]), 'lost');
-  assert.equal(run([true, false]), 'open');
-  assert.equal(run([true, false, true, true]), 'open');
+  assert.equal(run([false, false]), 'lost');
   assert.equal(run([true, false, true, false]), 'lost');
+  assert.equal(run([true, false, true]), 'open');
+});
+
+check('challenge settings: saved on the post, defaults for older posts', () => {
+  const saved = { kicker: 'teal', wall: 'black', lives: 1, goals: 20, distanceM: 35, wallFromGoalM: 26, difficulty: 'pro' };
+  assert.deepEqual(postFreeKickChallenge({ matchType: 'freekick', freeKick: saved }), saved);
+  assert.deepEqual(postFreeKickChallenge({ matchType: 'freekick' }), FREE_KICK_CHALLENGE_DEFAULT);
+  assert.deepEqual(postFreeKickChallenge({ freeKick: { ...saved, wallFromGoalM: 30 } }), FREE_KICK_CHALLENGE_DEFAULT);
+  assert.equal(typeof parseFreeKickChallenge(FREE_KICK_CHALLENGE_DEFAULT), 'object');
+});
+
+check('challenge rounds: one level harder per round, within the difficulty', () => {
+  for (const difficulty of DIFFICULTIES) {
+    const [first, top] = FK.challengeLevels[difficulty];
+    assert.equal(challengeRoundLevel(difficulty, 0), first);
+    for (let round = 1; round < 15; round++) {
+      const level = challengeRoundLevel(difficulty, round);
+      assert.equal(level, Math.min(top, challengeRoundLevel(difficulty, round - 1) + 1), `${difficulty} round ${round}`);
+    }
+    assert.equal(challengeRoundLevel(difficulty, 99), top);
+  }
+});
+
+check('challenge kicks: spots around the post distance from new angles, wall at its distance from goal', () => {
+  const rand = seeded(11);
+  for (const distanceM of FK.challengeDistanceChoicesM)
+    for (const wallFromGoalM of FK.challengeWallChoicesM) {
+      if (distanceM - wallFromGoalM < FK.challengeWallGapM) continue;
+      const config = { ...FREE_KICK_CHALLENGE_DEFAULT, distanceM, wallFromGoalM };
+      const angles = new Set<number>();
+      for (let round = 0; round < 6; round++) {
+        const kick = challengeKick(config, round, rand);
+        const metres = kick.distance / FK.pxPerMetre;
+        assert.ok(metres >= Math.max(FK.challengeNearestM, distanceM - FK.challengeDistanceRangeM) - 1e-9, `${distanceM} m: ${metres}`);
+        assert.ok(metres <= Math.min(FK.maxDistance / FK.pxPerMetre, distanceM + FK.challengeDistanceRangeM) + 1e-9, `${distanceM} m: ${metres}`);
+        assert.equal(kick.level.level, challengeRoundLevel(config.difficulty, round));
+        // The wall: the post's distance from goal along the shot line, or
+        // pulled toward goal to stay challengeWallGapM from the ball.
+        const toGoal = Math.hypot(GOAL_X - kick.spot.x, GOAL_Y - kick.spot.y);
+        const gap = ((kick.wall.x - kick.spot.x) / (GOAL_X - kick.spot.x)) * toGoal;
+        const expected = Math.max(toGoal - wallFromGoalM * FK.pxPerMetre, FK.challengeWallGapM * FK.pxPerMetre);
+        assert.ok(Math.abs(gap - expected) < 1e-6, `wall gap ${gap} vs ${expected}`);
+        angles.add(Math.round(Math.atan2(kick.spot.y - GOAL_Y, GOAL_X - kick.spot.x) * 1000));
+      }
+      assert.ok(angles.size > 1, 'rounds come from different angles');
+    }
 });
 
 check('aim: seen at an angle, the far half of the goal line is shorter on screen', () => {

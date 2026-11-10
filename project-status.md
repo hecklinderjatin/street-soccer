@@ -8,6 +8,13 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Free Kick posts: Challenge settings chosen by the post's creator; only Challenge and Practice (2026-11-11, `main`, uncommitted; user request).**
+- **Post form** (Create Street Soccer match > Free Kick): kicker's and wall's team colours (any two different kits), lives (1-10), goals to win (1-20), shot distance (20 / 25 / 30 / 35 m), wall distance from goal (6-26 m, every 2 m; must be at least `challengeWallGapM` 9 m in front of the shot distance) and difficulty (noob-pro). Saved as postData `freeKick` (`shared/freeKickChallenge.ts`: type, `parseFreeKickChallenge`, `postFreeKickChallenge` with `FREE_KICK_CHALLENGE_DEFAULT` for older posts: pink vs blue, 3 lives, 5 goals, 25 m, wall 14 m, normal). Invalid answers reopen the form with the reason (same kit twice, wall too near the ball).
+- **Lobby:** CHALLENGE and PRACTICE only. The ranked PLAY button and the card's leaderboard are gone (the `freekick` entrypoint, its server routes and boards still exist, unused by new cards). The card shows lives, goals to win, difficulty and distance, and a line with the wall distance.
+- **Challenge rules** (replace "3 in a row from 5 kicks"): score the post's goals before its lives run out (`challengeOutcome`); every miss costs a life (no great-save exemption) and retries the spot. Each goal starts a new round (`challengeKick`): a new angle, the spot within `challengeDistanceRangeM` 5 m of the post's distance (never nearer than `challengeNearestM` 15 m, never beyond `maxDistance` 37.5 m), the wall at the post's distance from goal along the shot line (pulled toward goal if that would leave under 9 m to the ball), and one level harder (`challengeRoundLevel`: from the difficulty's first level to its top: noob 1-3, easy 2-5, normal 3-7, hard 5-9, pro 7-10, `FREE_KICK.challengeLevels`). The level sets wall men, jump, keeper and the widest angle. HUD: `ROUND n LEVEL l  D M`, `GOALS g/t`, lives wrap to a second row past five. Results card: settings line, goals vs target, level reached.
+- **Kits:** `startingConfig()` returns the post's kicker / wall kits as home / away on Free Kick posts, so early downloads, the game, Practice and the feed preview use them.
+- **Checks:** `test:freekick` rewritten for the challenge (form fields and rejections, saved settings and defaults, round levels, spot and wall placement over every distance/wall choice). The browser checks (`freekick-post-browser`, `freekick-live-browser`) were updated for the two buttons but not run. Not playtested.
+
 **Free Kick run-up fixed: facing, sideways travel, new first poses (2026-11-11, `main`, uncommitted; user: the kicker barely moved sideways, which made the shot look weird).**
 - **New poses 1-2** of `player-freekick-authored.png` from the user's updated sheet (side-on set stance, first running stride), same scale (1.7546) and row ground as the rest; new splits for both.
 - **Facing:** every pose in the strike sheet faces screen-left, but the kicker on the ball's right (the default) was drawn mirrored, so he ran in facing away from the ball. He is now unmirrored on the right and mirrored on the left (`flip = side < 0`; the preview, always on the right, is unmirrored). The left-curl flip at the strike is unchanged (relative to the run-up).
@@ -683,6 +690,7 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- **Free Kick Challenge settings live on the post, the wall is measured from goal (2026-11-11, user's choices):** the creator picks distance (each round varies 5 m either way) and the wall's distance from goal; the wall keeps at least 9 m from the ball so it can be cleared. Difficulty sets the first round's level and a cap; each round is one level harder. Ranked Play is no longer offered on the card (the user wants only Challenge and Practice); its code and boards remain.
 - **Free kick strike poses are outfield-only atlas frames (2026-11-11):** keepers never take a free kick, so their atlases skip the 12 poses (like the celebrations); the frames are timed by run-up progress and time since the strike rather than a Phaser animation, because the scene draws the kicker frame by frame.
 - **Free Kick camera is a real angled view, not a square-on one (2026-11-10):** the user found the straight-on view flat ("very perpendicular"). The old camera always looked straight down the pitch, so the goal was a perfect rectangle from any spot. It now orbits the ball and turns toward the goal. The reference shots the user supplied (mobile free-kick games) set the final look: low, close, kicker big on one side, only a small swing (7.5 degrees), because on a portrait screen every degree pushes the ball away from under the goal. The kicker moved to the ball's right so the fixed left controls cover empty pitch, not him.
 - **Flight physics left alone (2026-11-10):** the user asked for smoother, more cinematic ball movement. The flight model feeds xG, xGOT and the points, all calibrated on 2026-11-09, so only how the flight is shown changed (eased slow motion, camera push, spin-frame cap, trail). Changing drag, curl or dip is a separate balance job.
@@ -1062,6 +1070,7 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- **Try a Free Kick post with custom settings on Reddit:** the new form fields, the card text, a noob vs pro challenge, a near wall (e.g. 25 m / 16 m) and 10 lives (two rows of icons). Old Free Kick posts should play the default settings.
 - **Watch the curved run-up:** enough sideways travel? Widen `kickerStartSide` or raise `runupSideLead`; check the view did not shrink too much on a narrow phone.
 - **Watch the new wall animation:** does the jump read, and does a shot under a jumping wall look like it clips the boots (drawn lift 16-24 vs `wallFeetLift` 40)? If so, lift by `wallFeet` instead or lower `wallFeetLift`.
 - **Watch the new free kick strike animation in play:** does the mirror flip at the strike on a left curl look right from both sides (CHANGE SIDE)? Does the set pose facing the camera, the 0.55 s run-up (6 poses) and the 0.1 s follow-through poses read well? Tune `runupSec` / `strikePoseSec` if it feels rushed.
@@ -1428,6 +1437,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-11:** Free Kick posts get creator-set Challenge settings (kits, lives, goals to win, distance, wall distance from goal, difficulty); the card offers only Challenge and Practice; rounds vary the angle and rise one level each.
 
 - **2026-11-11:** Free Kick run-up: new first two strike poses, kicker faces the way he runs (unmirrored on the ball's right), wider start and a curved run (sideways first, `runupSideLead`), follow-through toward goal.
 

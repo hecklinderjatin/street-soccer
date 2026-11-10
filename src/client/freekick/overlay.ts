@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import { context } from '@devvit/web/client';
 import { FREE_KICK as FK } from '../../shared/tuning';
+import type { FreeKickChallengeConfig } from '../../shared/freeKickChallenge';
+import { DIFFICULTY_LABEL } from '../../shared/types';
 import { BODY, CARD, tag, tile } from '../ui/infoCard';
 import { PAL, PX } from '../ui/palette';
 import { pixelText } from '../ui/pixelFont';
@@ -13,7 +15,7 @@ type OverlayOptions = {
   metres: number;
   lives: number;
   practice?: boolean;
-  challenge?: boolean;
+  challenge?: FreeKickChallengeConfig; // a challenge run's post settings
   newSpot?: () => void;
   intro: boolean; // first entry: page 1's primary is START GAME, else RESUME
   resume: () => void; // pause: RESUME
@@ -149,7 +151,7 @@ function detailsPage(
   buttonY: number
 ) {
   const practice = options.practice === true;
-  const challenge = options.challenge === true;
+  const challenge = options.challenge;
   items.push(
     pixelText(
       scene,
@@ -158,7 +160,7 @@ function detailsPage(
       practice
         ? 'UNRANKED PRACTICE'
         : challenge
-          ? 'STREAK CHALLENGE'
+          ? `${DIFFICULTY_LABEL[challenge.difficulty]} CHALLENGE`
           : 'RANKED RUN',
       BODY,
       CARD.muted
@@ -166,13 +168,11 @@ function detailsPage(
   );
   const entries = [
     ['MODE', practice ? 'PRACTICE' : challenge ? 'CHALLENGE' : 'PLAY'],
-    challenge
-      ? ['KICKS LEFT', String(options.lives)]
-      : ['LIVES', practice ? 'UNLIMITED' : String(options.lives)],
+    ['LIVES', practice ? 'UNLIMITED' : String(options.lives)],
     ['LEVEL', `${options.level} / ${FK.maxLevel}`],
     ['DISTANCE', `${options.metres} M`],
     challenge
-      ? ['TARGET', `${FK.challengeStreak} IN A ROW`]
+      ? ['TARGET', `${challenge.goals} GOALS`]
       : ['LEVEL UP', practice ? 'FIXED LEVEL' : `${FK.goalsPerLevel} GOALS`],
     ['RECORDS', practice || challenge ? 'UNRANKED' : '7 DAYS'],
   ];
@@ -195,9 +195,9 @@ function detailsPage(
       ]
     : challenge
       ? [
-          `Score ${FK.challengeStreak} free kicks in a row. You have ${FK.challengeKicks} kicks.`,
-          'Every kick uses one, scored or not. A miss resets the streak.',
-          'It ends as soon as the kicks left cannot complete the streak.',
+          `Score ${challenge.goals} goals before your ${challenge.lives} ${challenge.lives === 1 ? 'life runs' : 'lives run'} out.`,
+          `Spots around ${challenge.distanceM} m, wall ${challenge.wallFromGoalM} m from goal.`,
+          'Every goal brings a new angle, one level harder. A miss costs a life.',
           'Harder spots (low XG) and better finishes (XGOT) score more points.',
         ]
       : [
@@ -252,7 +252,7 @@ function helpPage(
   buttonY: number
 ) {
   const practice = options.practice === true;
-  const challenge = options.challenge === true;
+  const challenge = options.challenge;
   const sections: [string, string][] = [
     [
       '1. SET POWER',
@@ -271,7 +271,7 @@ function helpPage(
       practice
         ? 'Unlimited retries at this level and spot. Pause > New Spot changes the setup.'
         : challenge
-          ? `${FK.challengeKicks} kicks to score ${FK.challengeStreak} in a row. A miss retries the spot and resets the streak.`
+          ? `${challenge.lives} ${challenge.lives === 1 ? 'life' : 'lives'}, ${challenge.goals} goals to win. A miss costs a life. Each goal: new angle, one level harder.`
           : `Start with ${FK.lives} lives. A miss costs one and retries the spot. Every ${FK.goalsPerLevel} goals raises the level.`,
     ],
     [

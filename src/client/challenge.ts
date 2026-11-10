@@ -1,4 +1,5 @@
 import { withoutDailyMode } from '../shared/dailyMode';
+import { postFreeKickChallenge } from '../shared/freeKickChallenge';
 import { postType } from '../shared/postType';
 import { context } from '@devvit/web/client';
 import { DEFAULT_MATCH_CONFIG, parseMatchConfig } from '../shared/matchConfig';
@@ -23,8 +24,24 @@ export function postChallenge(): PostChallenge | null {
   };
 }
 
-// The match to download art for and to play first.
-export const startingConfig = (): MatchConfig =>
-  postChallenge()?.config ?? DEFAULT_MATCH_CONFIG;
+// The match to download art for and to play first. A Free Kick post's
+// kicker and wall kits stand in for home and away, so the same downloads
+// fetch them.
+export const startingConfig = (): MatchConfig => {
+  const data: unknown = context?.postData;
+  if (postType(data) === 'freekick') {
+    const fk = postFreeKickChallenge(data);
+    const d = DEFAULT_MATCH_CONFIG;
+    return {
+      ...d,
+      home: { ...d.home, jersey: fk.kicker },
+      away: { ...d.away, jersey: fk.wall },
+    };
+  }
+  return postChallenge()?.config ?? DEFAULT_MATCH_CONFIG;
+};
+
+// This Free Kick post's Challenge settings (the default on older posts).
+export const freeKickChallenge = () => postFreeKickChallenge(context?.postData);
 
 export const currentPostType = () => postType(context?.postData);

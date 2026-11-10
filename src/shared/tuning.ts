@@ -1083,11 +1083,26 @@ export const FREE_KICK = {
   approachScale: 0.6, // ... at this speed
   timeEaseRate: 14, // the play speed eases toward its target this fast (1/s), never a hard cut
   trailFadeSec: 1.1, // the flight trail fades out this long after the kick is decided
-  // Challenge (user request, 2026-11-10): score challengeStreak goals in a
-  // row within challengeKicks kicks; every kick, scored or not, uses one.
-  challengeKicks: 5,
-  challengeStreak: 3,
-  challengeLevel: 3, // wall, keeper and distance of every challenge kick
+  // Challenge (user request, 2026-11-11): the post's creator sets the kits,
+  // lives, goals to win, shot distance, wall distance from goal and
+  // difficulty (shared/freeKickChallenge.ts). Each round (a new spot after
+  // a goal) comes from a new angle and gets one level harder.
+  challengeMaxLives: 10, // most lives a post can give
+  challengeMaxGoals: 20, // most goals a post can ask for
+  challengeDistanceChoicesM: [20, 25, 30, 35], // the post's shot distance, metres from goal ...
+  challengeDistanceRangeM: 5, // ... each round's spot is within this of it ...
+  challengeNearestM: 15, // ... but never nearer than this (the box is 13.75 m deep)
+  challengeWallChoicesM: [6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26], // the wall's distance from goal, metres ...
+  challengeWallGapM: 9, // ... always at least this far from the ball (nearer spots pull it toward goal)
+  // First round's level and the most it rises to (one level per round), by
+  // the post's difficulty.
+  challengeLevels: {
+    noob: [1, 3],
+    easy: [2, 5],
+    normal: [3, 7],
+    hard: [5, 9],
+    pro: [7, 10],
+  },
   resultSec: 1.9, // result animation before the next kick
   fadeSec: 0.3, // cut to the next spot
 } as const;
