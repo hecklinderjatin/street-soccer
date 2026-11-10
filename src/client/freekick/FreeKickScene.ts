@@ -31,7 +31,7 @@ import { setSoundMuted, soundMuted } from '../ui/soundSetting';
 import { StreamMusic } from '../ui/streamMusic';
 import { TextButton } from '../ui/TextButton';
 import { KickCamera } from './KickCamera';
-import { kickerFrame } from './kickerFrames';
+import { kickerFrame, runupShares } from './kickerFrames';
 import { ResultFx } from './resultFx';
 import { drawRibbon, smoothLine } from './ribbon';
 import { Stage } from './Stage';
@@ -835,11 +835,12 @@ export class FreeKickScene extends Phaser.Scene {
   }
 
   // Waiting behind and left of the ball, the run-up, the follow-through,
-  // and a celebration after a goal. Drawn mirrored on the ball's right; a
-  // left-curl strike (the rules' contact right of centre) flips the sprite
-  // again from the moment of the shot.
+  // and a celebration after a goal. The strike sheet faces screen-left, so
+  // he is drawn mirrored on the ball's left; a left-curl strike (the
+  // rules' contact right of centre) flips the sprite again from the moment
+  // of the shot.
   private kickerPose() {
-    const flip = this.side > 0;
+    const flip = this.side < 0;
     const curlLeft = (this.strike?.contact.x ?? 0) > 0;
     const strike = (run: number | null, play: number | null) => {
       const k = kickerFrame(run, play, curlLeft);
@@ -855,29 +856,27 @@ export class FreeKickScene extends Phaser.Scene {
       x: spot.x - ux * back - uy * side,
       y: spot.y - uy * back + ux * side,
     });
-    const start = place(FK.kickerStartBack, this.side * FK.kickerStartSide);
-    const contact = place(
-      FK.kickerContactBack,
-      this.side * FK.kickerContactSide
-    );
+    const startSide = this.side * FK.kickerStartSide;
+    const contactSide = this.side * FK.kickerContactSide;
+    const start = place(FK.kickerStartBack, startSide);
     if (this.phase === 'runup') {
       const t = Math.min(1, (this.clock - this.phaseAt) / FK.runupSec);
-      const run = t ** FK.runupAccel; // speeding up
+      const run = runupShares(t);
       return {
-        x: start.x + (contact.x - start.x) * run,
-        y: start.y + (contact.y - start.y) * run,
+        ...place(
+          FK.kickerStartBack +
+            (FK.kickerContactBack - FK.kickerStartBack) * run.back,
+          startSide + (contactSide - startSide) * run.side
+        ),
         ...strike(t, null),
       };
     }
     const play = this.play;
     if (!play) return { ...start, ...strike(null, null) };
-    // On after the strike along the diagonal he ran in on, easing to a stop.
-    const run = Math.hypot(contact.x - start.x, contact.y - start.y) || 1;
+    // On after the strike toward the goal (the way the curve ends), easing
+    // to a stop.
     const follow = FK.kickerFollow * (1 - Math.exp(-Math.min(play.t, 0.4) * 9));
-    const pose = {
-      x: contact.x + ((contact.x - start.x) / run) * follow,
-      y: contact.y + ((contact.y - start.y) / run) * follow,
-    };
+    const pose = place(FK.kickerContactBack - follow, contactSide);
     const since = this.clock - this.outcomeAt;
     if (play.outcome === 'goal' && since > 0.3)
       return {

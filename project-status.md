@@ -8,6 +8,12 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Free Kick run-up fixed: facing, sideways travel, new first poses (2026-11-11, `main`, uncommitted; user: the kicker barely moved sideways, which made the shot look weird).**
+- **New poses 1-2** of `player-freekick-authored.png` from the user's updated sheet (side-on set stance, first running stride), same scale (1.7546) and row ground as the rest; new splits for both.
+- **Facing:** every pose in the strike sheet faces screen-left, but the kicker on the ball's right (the default) was drawn mirrored, so he ran in facing away from the ball. He is now unmirrored on the right and mirrored on the left (`flip = side < 0`; the preview, always on the right, is unmirrored). The left-curl flip at the strike is unchanged (relative to the run-up).
+- **Path:** waits wider and less far back (`kickerStartBack` 56 to 44, `kickerStartSide` -40 to -60), and comes round in a curve: the sideways share leads (`runupShares`: side `1 - (1 - t)^runupSideLead` with `runupSideLead` 2, back `t^runupAccel`), so he travels across during the side-on poses and in during the back-view ones. After the strike he carries on `kickerFollow` 34 toward the goal (was: along the straight run line). The camera fits the new waiting spot, so the view may be slightly smaller.
+- Not seen in a live game.
+
 **Free Kick wall men animation (2026-11-11, branch `freekick-strike-animation`, uncommitted; user-supplied 4-pose sheet).** The wall no longer borrows celebration frames. New `public/art/player-wall-authored.png` (4 x 352 x 724 cells like idle): poses stand, crouch (take-off), in the air, crouch (landing); scaled 1.134 so the standing pose is as tall as idle (643 px), head centred, every pose's boots on ground 681 (the source's own small lift dropped). Plain `waist` / `shortsEnd` per pose (398/450/400/427, 505/525/495/515), `outfieldOnly`. `WALL_FRAMES` (`wall1`..`4`); atlases now 114 frames (15 rows, 1792 x 1920, still under 2048). Release art 4.00 MiB (pink 326 KiB).
 - **Stage:** `Figure.draw` takes an optional `z` lift. A wall that jumps shows wall2 from the strike, wall3 in the air, wall4 for the landing (until `wallLandUntil` 1.3 of `wallJumpSec`), switching at `wallAirFrom` 0.15 / 0.85 of the jump; it is lifted by `wallTop(wall, t) - wallHeight` (16-24 px at the top), so the head is where the rules' reach is. A wall that stays down stays in wall1. The feet are drawn lower than the rules' `wallFeetLift` 40, so a shot slipping under may look like it clips the boots; the frame's baked shadow rises with the man. Not seen in a live game.
 
@@ -1056,6 +1062,7 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- **Watch the curved run-up:** enough sideways travel? Widen `kickerStartSide` or raise `runupSideLead`; check the view did not shrink too much on a narrow phone.
 - **Watch the new wall animation:** does the jump read, and does a shot under a jumping wall look like it clips the boots (drawn lift 16-24 vs `wallFeetLift` 40)? If so, lift by `wallFeet` instead or lower `wallFeetLift`.
 - **Watch the new free kick strike animation in play:** does the mirror flip at the strike on a left curl look right from both sides (CHANGE SIDE)? Does the set pose facing the camera, the 0.55 s run-up (6 poses) and the 0.1 s follow-through poses read well? Tune `runupSec` / `strikePoseSec` if it feels rushed.
 - **Phone playtest of the Free Kick changes (branch `freekick-cinematic`):**
@@ -1421,6 +1428,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-11:** Free Kick run-up: new first two strike poses, kicker faces the way he runs (unmirrored on the ball's right), wider start and a curved run (sideways first, `runupSideLead`), follow-through toward goal.
 
 - **2026-11-11:** Free Kick wall men get their own 4-pose animation (`player-wall-authored.png`, `WALL_FRAMES`), lifted by the rules' reach while jumping (`wallAirFrom`, `wallLandUntil`).
 

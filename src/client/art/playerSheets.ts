@@ -414,8 +414,8 @@ export const SOURCE_SHEETS: readonly SourceSheet[] = [
     shortsEnd: [],
     outfieldOnly: true,
     splits: [
-      { waist: [0, 392, 640, 392], shortsEnd: [0, 486, 640, 502] },
-      { waist: [0, 395, 640, 395], shortsEnd: [0, 486, 640, 486] },
+      { waist: [0, 388, 640, 388], shortsEnd: [0, 495, 640, 495] },
+      { waist: [0, 395, 640, 395], shortsEnd: [0, 485, 640, 505] },
       { waist: [0, 412, 640, 392], shortsEnd: [0, 478, 640, 500] },
       { waist: [0, 358, 640, 358], shortsEnd: [0, 495, 640, 495], socksAlso: [380, 520, 480, 420] },
       { waist: [0, 362, 640, 350], shortsEnd: [0, 440, 640, 480] },

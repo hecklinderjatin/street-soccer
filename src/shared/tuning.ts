@@ -1067,12 +1067,13 @@ export const FREE_KICK = {
   // sides are negative: positive is its left), drawn mirrored.
   // He waits wide and well back and runs in on a diagonal, as a free-kick
   // taker does, planting beside the ball and striking across it.
-  kickerStartBack: 56, // waiting for the swipe ...
-  kickerStartSide: -40,
+  kickerStartBack: 44, // waiting for the swipe, wide of the ball ...
+  kickerStartSide: -60,
   kickerContactBack: 4, // ... and where the run-up meets the ball
   kickerContactSide: -17,
-  runupAccel: 1.5, // he speeds up over the run (1 = steady) ...
-  kickerFollow: 34, // ... and carries on this far along the run after the strike
+  runupSideLead: 2, // he covers the sideways part of the run first (side-on poses) ...
+  runupAccel: 1.5, // ... and comes in toward the ball late, speeding up (1 = steady) ...
+  kickerFollow: 34, // ... and carries on this far toward the goal after the strike
   // Timing.
   runupSec: 0.55, // kicker's run-up after the swipe
   strikePoseSec: 0.1, // each pose after contact (strike, follow-through, recover) shows this long
