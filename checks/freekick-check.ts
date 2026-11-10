@@ -22,6 +22,9 @@ import {
   STEP,
   aimAtGoalLine,
   ballContact,
+  challengeState,
+  curvedStrike,
+  swipeBow,
   crossing,
   levelFor,
   makeKick,
@@ -518,6 +521,65 @@ check('ranked Free Kick validates complete Play runs and keeps two independent b
   assert.equal(board.top[0]?.username,'alice');
   assert.equal(board.top[1]?.username,'bob');
   assert.equal(board.me?.value,0);
+});
+
+check('challenge: three in a row within five kicks, lost once out of reach', () => {
+  // Plays kicks (true = goal) until the challenge is decided.
+  const run = (kicks: boolean[]) => {
+    let streak = 0;
+    let left: number = FK.challengeKicks;
+    for (const goal of kicks) {
+      assert.equal(challengeState(streak, left), 'open', 'already decided');
+      streak = goal ? streak + 1 : 0;
+      left--;
+    }
+    return challengeState(streak, left);
+  };
+  assert.equal(run([true, true, true]), 'won');
+  assert.equal(run([true, true, false]), 'lost', 'two kicks cannot make three');
+  assert.equal(run([false, true, true, true]), 'won');
+  assert.equal(run([false, false, true, true, true]), 'won');
+  assert.equal(run([false, false, false]), 'lost');
+  assert.equal(run([true, false]), 'open');
+  assert.equal(run([true, false, true, true]), 'open');
+  assert.equal(run([true, false, true, false]), 'lost');
+});
+
+check('aim: seen at an angle, the far half of the goal line is shorter on screen', () => {
+  // The near post twice as close as the far one: the screen midpoint of the
+  // line is a third of the way from the near post in the world.
+  const a = { sx: 200, sy: 300, y: GOAL_Y - POST_HALF, d: 500 };
+  const b = { sx: 500, sy: 300, y: GOAL_Y + POST_HALF, d: 1000 };
+  const mid = aimAtGoalLine({ x: 350, y: 800 }, 0, -1, a, b);
+  assert.ok(mid !== null);
+  assert.ok(Math.abs(mid - (GOAL_Y - POST_HALF / 3)) < 1e-6, String(mid));
+  // Beyond the far post it still runs out to the wide limit, never back.
+  const wide = aimAtGoalLine({ x: 5000, y: 800 }, 0, -1, a, b);
+  assert.equal(wide, GOAL_Y + 3 * POST_HALF);
+});
+
+check('swipe: a curved path curls the ball along it and still ends where it pointed', () => {
+  // Up the screen, bulging to one side by `bulge` px at the middle.
+  const arc = (bulge: number) =>
+    Array.from({ length: 21 }, (_, i) => ({
+      x: 300 + bulge * Math.sin((Math.PI * i) / 20),
+      y: 900 - i * 15,
+    }));
+  assert.equal(swipeBow(arc(0)), 0);
+  assert.ok(swipeBow(arc(-60)) < 0 && swipeBow(arc(60)) > 0);
+  assert.equal(swipeBow(arc(-60)), -swipeBow(arc(60)), 'both sides read alike');
+  const spot = { x: GOAL_X - 620, y: GOAL_Y + 60 };
+  const base = { power: 0.7, targetY: GOAL_Y - 40, contact: ballContact(0, 0) };
+  assert.equal(curvedStrike(spot, base, 0.01), base, 'a straight swipe is unchanged');
+  for (const bulge of [-60, 60]) {
+    const strike = curvedStrike(spot, base, swipeBow(arc(bulge)));
+    const ball = strikeBall(spot, strike);
+    const end = crossing(ball, GOAL_X);
+    assert.ok(end && Math.abs(end.y - base.targetY) < 3, `ends at the aim (${end?.y})`);
+    // Screen left is world +y: bulging left starts out left and curls right.
+    assert.equal(Math.sign(strike.targetY - base.targetY), -Math.sign(bulge));
+    assert.equal(Math.sign(ball.spin), Math.sign(bulge));
+  }
 });
 
 console.log(`\n${passed} checks passed`);

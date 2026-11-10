@@ -2,13 +2,25 @@ import type { ScreenPoint } from './rules';
 
 export type FreeKickGesture = 'contact' | 'power' | 'swipe';
 
-export function freeKickControls(width: number, height: number) {
+// `side`: 1 puts the power slider and ball control on the left (the kicker
+// stands on the right), -1 mirrors them.
+export function freeKickControls(
+  width: number,
+  height: number,
+  side: 1 | -1 = 1
+) {
   const top = height * 0.43;
   const bottom = top + Math.min(330, height * 0.26);
+  const x = side > 0 ? 76 : width - 76;
   return {
-    power: { x: 76, top, bottom },
-    contact: { x: 76, y: bottom + 126, radius: 40, frame: 50 },
-    shooting: { left: 154, top: 200, right: width, bottom: height },
+    power: { x, top, bottom },
+    contact: { x, y: bottom + 126, radius: 40, frame: 50 },
+    shooting: {
+      left: side > 0 ? 154 : 0,
+      top: 200,
+      right: side > 0 ? width : width - 154,
+      bottom: height,
+    },
   };
 }
 

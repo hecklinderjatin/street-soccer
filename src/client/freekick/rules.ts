@@ -42,7 +42,7 @@ export function levelFor(goals: number): Level {
   const t = (level - 1) / (FK.maxLevel - 1);
   return {
     level,
-    wallMen: FK.wallMen[level - 1] ?? 4,
+    wallMen: FK.wallMen[level - 1] ?? 3,
     reactSec: lerp(FK.keeperReactSec[0], FK.keeperReactSec[1], t),
     readNoise: lerp(FK.keeperReadNoise[0], FK.keeperReadNoise[1], t),
     diveReach: lerp(FK.keeperDiveReach[0], FK.keeperDiveReach[1], t),
@@ -225,8 +225,28 @@ export function readSwipe(
   return { dirX: cx / length, dirY: cy / length };
 }
 
-// Screen point with the world y it shows on the goal line.
-export type GoalLinePoint = { sx: number; sy: number; y: number };
+// How far the swipe bends off the straight line between its ends, as a
+// share of that line's length: below 0 it bulges to the left of the way it
+// travels (a path that curls to the right), above 0 to the right.
+export function swipeBow(points: readonly ScreenPoint[]) {
+  const first = points[0];
+  const last = points[points.length - 1];
+  if (!first || !last) return 0;
+  const cx = last.x - first.x;
+  const cy = last.y - first.y;
+  const length2 = cx * cx + cy * cy;
+  if (length2 < 1) return 0;
+  let bow = 0;
+  for (const p of points) {
+    const off = (cx * (p.y - first.y) - cy * (p.x - first.x)) / length2;
+    if (Math.abs(off) > Math.abs(bow)) bow = off;
+  }
+  return bow;
+}
+
+// Screen point with the world y it shows on the goal line, and its
+// distance from the camera (`d`; leave out for a square-on view).
+export type GoalLinePoint = { sx: number; sy: number; y: number; d?: number };
 
 // Where the swipe direction from the ball's screen position crosses the
 // goal line on screen, as a world y on that line (two goal-line ground
@@ -247,8 +267,13 @@ export function aimAtGoalLine(
   const t = (ax * ey - ay * ex) / den;
   const s = (ax * dirY - ay * dirX) / den;
   if (t <= 0) return null;
+  // Seen at an angle, equal steps along the line shrink on screen with
+  // distance: weigh each end by how near it is.
+  const wa = (1 - s) / (a.d ?? 1);
+  const wb = s / (b.d ?? 1);
+  const u = wa + wb > 1e-9 ? wb / (wa + wb) : s < 0 ? -1e6 : 1e6;
   return clamp(
-    lerp(a.y, b.y, s),
+    lerp(a.y, b.y, u),
     GOAL_Y - 3 * POST_HALF,
     GOAL_Y + 3 * POST_HALF
   );
@@ -359,6 +384,28 @@ export function strikeBall(spot: Spot, strike: Strike): Ball {
     spin: contact.x * FK.curlMax,
     dip: FK.dipMax * p * (1 - loft),
   };
+}
+
+// The strike for a curved swipe: the bend sets the curl (in place of the
+// ball dot's side) and the launch heading is turned so the curling ball
+// still arrives where the swipe pointed, as the drawn path does. A straight
+// swipe leaves the strike as it is.
+export function curvedStrike(spot: Spot, strike: Strike, bow: number): Strike {
+  if (Math.abs(bow) < FK.swipeBowMin) return strike;
+  const contact = ballContact(
+    clamp(bow / FK.swipeBowFull, -1, 1),
+    strike.contact.y
+  );
+  let targetY = strike.targetY;
+  for (let i = 0; i < 4; i++) {
+    const at = crossing(
+      strikeBall(spot, { ...strike, contact, targetY }),
+      GOAL_X
+    );
+    if (!at) break;
+    targetY += strike.targetY - at.y;
+  }
+  return { ...strike, contact, targetY };
 }
 
 // ---- Playing the kick out -------------------------------------------------
@@ -574,7 +621,7 @@ function hitFrame(b: Ball) {
 function holdInNet(play: KickPlay) {
   const b = play.ball;
   const soak = 0.15;
-  const back = GOAL_X + PITCH.goalDepth - R;
+  const back = GOAL_X + FK.goalDepth - R;
   if (b.x > back) {
     if (!play.netHit) play.netHit = { y: b.y, z: b.z, t: play.t };
     b.x = back;
@@ -588,7 +635,7 @@ function holdInNet(play: KickPlay) {
     b.y = GOAL_Y + Math.sign(b.y - GOAL_Y) * (POST_HALF - R);
     b.vy = -b.vy * soak;
   }
-  const roof = lerp(BAR_Z, NET_TOP_BACK, (b.x - GOAL_X) / PITCH.goalDepth) - R;
+  const roof = lerp(BAR_Z, NET_TOP_BACK, (b.x - GOAL_X) / FK.goalDepth) - R;
   if (b.z > roof) {
     b.z = roof;
     b.vz = -Math.abs(b.vz) * soak;
@@ -686,17 +733,6 @@ export function stepPlay(play: KickPlay, dt: number) {
       end(play, play.hitPost ? 'post' : atLine.z >= BAR_Z ? 'over' : 'wide');
   }
   if (play.inNet) holdInNet(play);
-  else if (
-    b.x > GOAL_X - R &&
-    b.x < GOAL_X + R &&
-    Math.abs(b.y - GOAL_Y) > POST_HALF + R &&
-    b.z < PITCH.endWallHeight
-  ) {
-    // The brick end walls either side of the goal.
-    b.x = GOAL_X - R;
-    b.vx = -Math.abs(b.vx) * 0.4;
-    end(play, play.hitPost ? 'post' : 'wide');
-  }
 
   const resting = b.z <= R + 0.5 && Math.hypot(b.vx, b.vy) < 40;
   if (play.t > FK.maxFlightSec || resting || (b.vx < 0 && play.hitPost))
@@ -819,6 +855,20 @@ export const goalPoints = (xg: number, xgot: number, streak: number) =>
 // What a great save scores (it costs no life).
 export const greatSavePoints = (xgot: number) =>
   Math.round(FK.greatSavePoints * clamp(xgot, 0, 1));
+
+// ---- The challenge ---------------------------------------------------------
+
+export type ChallengeState = 'open' | 'won' | 'lost';
+
+// Score FK.challengeStreak in a row within FK.challengeKicks kicks: won on
+// the streak, lost as soon as the kicks left cannot complete one.
+export function challengeState(
+  streak: number,
+  kicksLeft: number
+): ChallengeState {
+  if (streak >= FK.challengeStreak) return 'won';
+  return kicksLeft < FK.challengeStreak - streak ? 'lost' : 'open';
+}
 
 // ---- Scoring and the power guide -------------------------------------------
 

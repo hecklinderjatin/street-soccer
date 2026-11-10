@@ -31,6 +31,8 @@ import { setSoundMuted, soundMuted } from '../ui/soundSetting';
 import { StreamMusic } from '../ui/streamMusic';
 import { TextButton } from '../ui/TextButton';
 import { KickCamera } from './KickCamera';
+import { ResultFx } from './resultFx';
+import { drawRibbon, smoothLine } from './ribbon';
 import { Stage } from './Stage';
 import {
   BAR_Z,
@@ -41,6 +43,8 @@ import {
   SpotXg,
   aimAtGoalLine,
   ballContact,
+  challengeState,
+  curvedStrike,
   goalPoints,
   greatSavePoints,
   levelFor,
@@ -53,6 +57,7 @@ import {
   startPlay,
   stepPlay,
   streakMultiplier,
+  swipeBow,
   type KickPlay,
   type KickSetup,
   type Outcome,
@@ -73,6 +78,7 @@ const SOUND_FILES: readonly [string, string][] = [
   ['goal-miss', 'goal-miss'],
 ];
 const BEST_KEY = 'street-soccer-freekick-best';
+const SIDE_KEY = 'street-soccer-freekick-side';
 const HUD = 10_000_000; // over the whole world
 const R = BALL.radius;
 type Gesture = { id: number; mode: FreeKickGesture };
@@ -122,10 +128,19 @@ function writeBest(score: number) {
   }
 }
 
-const easeOut = (t: number) => 1 - (1 - t) ** 3;
+// Which side the kicker stands on: 1 right (controls on the left), -1 left.
+function readSide(): 1 | -1 {
+  try {
+    return localStorage.getItem(SIDE_KEY) === 'left' ? -1 : 1;
+  } catch {
+    return 1; // storage can be unavailable inside an embedded browser
+  }
+}
+
+const smooth = (t: number) => t * t * (3 - 2 * t);
 const at = newProjected();
 
-// Free Kick mode: set contact and power, then swipe up to aim and shoot.
+// Free Kick mode: set contact and power, then swipe at the goal to aim and shoot.
 // Goals raise the level with more men in the wall, a sharper keeper and
 // longer spots. A miss costs a life and retries the same spot.
 export class FreeKickScene extends Phaser.Scene {
@@ -140,6 +155,9 @@ export class FreeKickScene extends Phaser.Scene {
   private clock = 0; // seconds since the scene started
 
   private practice = false;
+  private challenge = false; // score a streak within a fixed number of kicks
+  private maxLives: number = FK.lives;
+  private side: 1 | -1 = readSide();
   private practiceLevel = 1;
   private records = new FreeKickRecords();
   private shots = 0;
@@ -175,6 +193,7 @@ export class FreeKickScene extends Phaser.Scene {
   private prevBall = { x: 0, y: 0, z: 0 };
   private acc = 0;
   private slowUntil = 0;
+  private timeScale = 1; // play speed, eased (slow motion)
   private outcomeAt = 0;
   private zoomAnchor = { x: 0, y: 0 };
 
@@ -190,8 +209,7 @@ export class FreeKickScene extends Phaser.Scene {
   private kickText!: Phaser.GameObjects.BitmapText;
   private xgText!: Phaser.GameObjects.BitmapText;
   private hintText!: Phaser.GameObjects.BitmapText;
-  private banner!: Phaser.GameObjects.BitmapText;
-  private bannerSub!: Phaser.GameObjects.BitmapText;
+  private resultFx!: ResultFx;
   private contactStyle!: Phaser.GameObjects.BitmapText;
   private powerLabel!: Phaser.GameObjects.BitmapText;
   private powerValue!: Phaser.GameObjects.BitmapText;
@@ -202,6 +220,7 @@ export class FreeKickScene extends Phaser.Scene {
   private soundButton!: TextButton;
   private infoButton!: TextButton;
   private pauseButton!: TextButton;
+  private sideButton!: TextButton;
   private overlay: FreeKickOverlay = null;
   private overlayLayer: Phaser.GameObjects.Container | null = null;
   private lifeIcons: Phaser.GameObjects.Image[] = [];
@@ -217,7 +236,10 @@ export class FreeKickScene extends Phaser.Scene {
     this.practiceLevel = practiceLevel(
       this.registry.get('freekickPracticeLevel')
     );
-    if (this.practice) this.measure = () => {};
+    this.challenge = this.registry.get('freekickChallenge') === true;
+    this.maxLives = this.challenge ? FK.challengeKicks : FK.lives;
+    this.lives = this.maxLives;
+    if (!this.ranked) this.measure = () => {};
     this.overlay = null;
     this.overlayLayer = null;
     createPixelFont(this);
@@ -286,7 +308,7 @@ export class FreeKickScene extends Phaser.Scene {
       kicker: config.home.jersey,
       wall: config.away.jersey,
     });
-    this.lifeIcons = Array.from({ length: FK.lives }, () =>
+    this.lifeIcons = Array.from({ length: this.maxLives }, () =>
       this.add.image(0, 0, BALL_KEY, 'a').setDepth(HUD)
     );
     const loader = document.getElementById('boot-loading');
@@ -308,7 +330,7 @@ export class FreeKickScene extends Phaser.Scene {
     this.drawWorld();
     this.introPending = true;
     this.setOverlay('details');
-    if (!this.practice) playReady('freekick');
+    if (this.ranked) playReady('freekick');
   }
 
   // Effects load in the background; each plays only once it is in.
@@ -339,7 +361,9 @@ export class FreeKickScene extends Phaser.Scene {
         levelFor(
           this.practice
             ? (this.practiceLevel - 1) * FK.goalsPerLevel
-            : this.goals
+            : this.challenge
+              ? (FK.challengeLevel - 1) * FK.goalsPerLevel
+              : this.goals
         ),
         Math.random
       );
@@ -350,14 +374,13 @@ export class FreeKickScene extends Phaser.Scene {
       this.retries = 0;
     } else this.retries++;
     this.retry = retry;
-    this.band = powerBand(this.setup, this.contact);
+    this.band = powerBand(this.setup, this.footContact());
     this.play = null;
     this.strike = null;
     this.acc = 0;
     this.frameCamera();
     this.stage?.setKick(this.cam);
-    this.banner.setVisible(false);
-    this.bannerSub.setVisible(false);
+    this.resultFx.hide();
     // What the player can read before the kick: a man lying behind the
     // wall, a keeper cheating toward it.
     const read = this.setup.wall.lyer
@@ -366,12 +389,16 @@ export class FreeKickScene extends Phaser.Scene {
         ? 'KEEPER CHEATS TO THE WALL SIDE'
         : '';
     this.hintText.setText(
-      this.hint || read || 'SET POWER + SHOT TYPE ON LEFT. SWIPE TO SHOOT'
+      this.hint ||
+        read ||
+        (this.challenge
+          ? `SCORE ${FK.challengeStreak} IN A ROW. ${this.lives} KICKS LEFT`
+          : 'SET POWER + SHOT TYPE, THEN SWIPE TO SHOOT')
     );
     this.hint = '';
     const metres = Math.round(this.setup.distance / FK.pxPerMetre);
     this.kickText.setText(
-      `${this.practice ? `PRACTICE LEVEL ${this.setup.level.level}` : this.retry ? 'RETRY' : `LEVEL ${this.setup.level.level}`}  ${metres} M`
+      `${this.practice ? `PRACTICE LEVEL ${this.setup.level.level}` : this.challenge ? 'CHALLENGE' : this.retry ? 'RETRY' : `LEVEL ${this.setup.level.level}`}  ${metres} M`
     );
     this.updateHud();
     this.updateXgText();
@@ -401,7 +428,18 @@ export class FreeKickScene extends Phaser.Scene {
   private frameCamera() {
     this.cam.frame(this.setup.spot, this.scale.width, this.scale.height);
     this.cam.project(GOAL_X, GOAL_Y, BAR_Z / 2, at);
-    this.zoomAnchor = { x: at.x, y: at.y };
+    // The flight's push-in is about a point beyond the goal, which brings
+    // the goal toward the middle of the view as it grows.
+    const pull = FK.flightCentre / (FK.flightZoom - 1);
+    this.zoomAnchor = {
+      x: at.x - (this.scale.width / 2 - at.x) * pull,
+      y: at.y,
+    };
+  }
+
+  // A Play run (lives, levels, records), not practice or the challenge.
+  private get ranked() {
+    return !this.practice && !this.challenge;
   }
 
   private setPhase(phase: Phase) {
@@ -414,9 +452,9 @@ export class FreeKickScene extends Phaser.Scene {
     const z = BAR_Z * FK.aimHeight;
     const { spot } = this.setup;
     this.cam.project(GOAL_X, GOAL_Y - POST_HALF, z, at);
-    const a = { sx: at.x, sy: at.y, y: GOAL_Y - POST_HALF };
+    const a = { sx: at.x, sy: at.y, y: GOAL_Y - POST_HALF, d: at.depth };
     this.cam.project(GOAL_X, GOAL_Y + POST_HALF, z, at);
-    const b = { sx: at.x, sy: at.y, y: GOAL_Y + POST_HALF };
+    const b = { sx: at.x, sy: at.y, y: GOAL_Y + POST_HALF, d: at.depth };
     this.cam.project(spot.x, spot.y, R, at);
     return aimAtGoalLine(at, swipe.dirX, swipe.dirY, a, b) ?? GOAL_Y;
   }
@@ -424,7 +462,7 @@ export class FreeKickScene extends Phaser.Scene {
   private shoot(strike: Strike) {
     if (this.shots === 0) {
       this.runStartedAt = this.clock;
-      if (!this.practice) this.records.start();
+      if (this.ranked) this.records.start();
     }
     this.shots++;
     this.shotXg = this.currentXg();
@@ -443,14 +481,34 @@ export class FreeKickScene extends Phaser.Scene {
     this.shotKmh = launchSpeedKmh(b.vx, b.vy, b.vz);
     this.prevBall = { x: b.x, y: b.y, z: b.z };
     this.sfx('ball-strike');
+    this.timeScale = 1;
     this.setPhase('flight');
   }
 
-  // Fixed steps, slowed for a goal; the ball is drawn between the last two.
+  // The play speed wanted now: slower for the last moment before the goal
+  // line (the save or the finish) and after a goal.
+  private playSpeed(play: KickPlay) {
+    if (this.reducedMotion.matches) return 1;
+    if (play.outcome === 'goal')
+      return this.clock < this.slowUntil ? FK.slowMoScale : 1;
+    const b = play.ball;
+    const close =
+      play.outcome === null &&
+      b.vx > 1 &&
+      b.x < GOAL_X &&
+      (GOAL_X - b.x) / b.vx < FK.approachSec;
+    return close ? FK.approachScale : 1;
+  }
+
+  // Fixed steps at the eased play speed; the ball is drawn between the
+  // last two.
   private fly(dt: number) {
     const play = this.play;
     if (!play || !this.stage) return;
-    this.acc += dt * (this.clock < this.slowUntil ? FK.slowMoScale : 1);
+    this.timeScale +=
+      (this.playSpeed(play) - this.timeScale) *
+      (1 - Math.exp(-FK.timeEaseRate * dt));
+    this.acc += dt * this.timeScale;
     while (this.acc >= STEP) {
       this.acc -= STEP;
       const b = play.ball;
@@ -480,24 +538,27 @@ export class FreeKickScene extends Phaser.Scene {
       this.bestStreak = Math.max(this.bestStreak, this.streak);
       const { points, tags } = scoreGoal(play, this.streak, this.shotXg, xgot);
       this.score += points;
-      const up = !this.practice && levelFor(this.goals).level > level;
+      if (this.challenge) this.lives--; // every challenge kick uses one
+      const up = this.ranked && levelFor(this.goals).level > level;
       // One line per style tag: all five side by side overflow the view.
       this.showBanner(
         'GOAL!',
         PAL.yellow,
-        [this.practice ? xgotLine : `+${points}  ${xgotLine}`, ...tags].join(
-          '\n'
-        )
+        [
+          this.practice ? xgotLine : `+${points}  ${xgotLine}`,
+          ...(this.challenge ? [this.challengeLine()] : []),
+          ...tags,
+        ].join('\n'),
+        true
       );
       if (up) this.hint = `LEVEL ${level + 1}! THE WALL GETS TOUGHER`;
       this.sfx('goal-celebration');
-      if (!this.reducedMotion.matches) {
-        this.slowUntil = this.clock + FK.slowMoSec;
-        this.cameras.main.shake(220, 0.006);
-      }
+      this.slowUntil = this.clock + FK.slowMoSec;
+      if (!this.reducedMotion.matches) this.cameras.main.shake(220, 0.006);
     } else {
       // A shot good enough to beat most keepers, saved: no life lost.
-      const great = outcome === 'saved' && xgot >= FK.greatSaveXgot;
+      const great =
+        !this.challenge && outcome === 'saved' && xgot >= FK.greatSaveXgot;
       if (great && !this.practice) {
         this.greatSaves++;
         this.score += greatSavePoints(xgot);
@@ -506,18 +567,22 @@ export class FreeKickScene extends Phaser.Scene {
       this.lastPower = this.strike?.power ?? null;
       const livesLine = this.practice
         ? 'UNLIMITED PRACTICE'
-        : great
-          ? `+${greatSavePoints(xgot)}  NO LIFE LOST`
-          : this.lives > 0
-            ? `${this.lives} ${this.lives === 1 ? 'LIFE' : 'LIVES'} LEFT`
-            : '';
+        : this.challenge
+          ? this.challengeLine()
+          : great
+            ? `+${greatSavePoints(xgot)}  NO LIFE LOST`
+            : this.lives > 0
+              ? `${this.lives} ${this.lives === 1 ? 'LIFE' : 'LIVES'} LEFT`
+              : '';
       this.showBanner(
         great ? 'GREAT SAVE!' : BANNER[outcome],
         outcome === 'saved' ? PAL.blue : PAL.orange,
         [outcome === 'saved' ? xgotLine : '', livesLine]
           .filter((line) => line !== '')
-          .join('\n')
+          .join('\n'),
+        false
       );
+      if (!this.reducedMotion.matches) this.cameras.main.shake(140, 0.003);
       this.hint = great ? 'UNLUCKY! SAME SPOT, HIGHER XG' : advice(play);
       this.sfx('goal-miss');
     }
@@ -526,7 +591,11 @@ export class FreeKickScene extends Phaser.Scene {
 
   private endKick() {
     this.setPhase('next');
-    if (!this.practice && this.lives <= 0) {
+    if (
+      this.challenge
+        ? challengeState(this.streak, this.lives) !== 'open'
+        : !this.practice && this.lives <= 0
+    ) {
       this.gameOver();
       return;
     }
@@ -547,7 +616,7 @@ export class FreeKickScene extends Phaser.Scene {
     this.sfx('match-over');
     this.music?.stop();
     this.bestBefore = readBest();
-    if (this.score > this.bestBefore) writeBest(this.score);
+    if (this.ranked && this.score > this.bestBefore) writeBest(this.score);
     this.showCard();
   }
 
@@ -558,12 +627,12 @@ export class FreeKickScene extends Phaser.Scene {
     this.shots = this.shotKmh = this.fastestGoalKmh = 0;
     this.runStartedAt = 0;
     this.measure('rematch_tap');
-    this.measure = this.practice ? () => {} : playAttempt('freekick');
+    this.measure = this.ranked ? playAttempt('freekick') : () => {};
     for (const node of this.card) node.destroy();
     this.card = [];
     this.score = this.goals = this.streak = this.bestStreak = 0;
     this.xgTotal = this.greatSaves = this.shotXg = 0;
-    this.lives = FK.lives;
+    this.lives = this.maxLives;
     this.hint = '';
     this.sfx('match-start');
     this.newKick(false);
@@ -586,12 +655,37 @@ export class FreeKickScene extends Phaser.Scene {
     };
   }
 
+  // The strike the ball dot makes: the side of the ball you pick is the way
+  // the ball curls, from either side of it (the kicker then uses the leg
+  // that reaches that half; there is no sprite for it, so it is the same
+  // run and strike). The rules' contact point is the opposite: striking the
+  // right of the ball bends it left.
+  private footContact() {
+    return ballContact(-this.contact.x, this.contact.y);
+  }
+
+  private controlsLayout() {
+    return freeKickControls(this.scale.width, this.scale.height);
+  }
+
+  // SIDE: only the kicker swaps sides of the ball (kept on the device); the
+  // camera and controls stay put.
+  private switchSide() {
+    if (this.phase !== 'aim' || this.overlay !== null) return;
+    this.side = this.side > 0 ? -1 : 1;
+    try {
+      localStorage.setItem(SIDE_KEY, this.side > 0 ? 'right' : 'left');
+    } catch {
+      // the choice only lasts this session
+    }
+  }
+
   private contactLayout() {
-    return freeKickControls(this.scale.width, this.scale.height).contact;
+    return this.controlsLayout().contact;
   }
 
   private powerLayout() {
-    return freeKickControls(this.scale.width, this.scale.height).power;
+    return this.controlsLayout().power;
   }
 
   private swipeHintLayout() {
@@ -609,10 +703,7 @@ export class FreeKickScene extends Phaser.Scene {
       over.length > 0
     )
       return;
-    const mode = freeKickGesture(
-      pointer,
-      freeKickControls(this.scale.width, this.scale.height)
-    );
+    const mode = freeKickGesture(pointer, this.controlsLayout());
     if (!mode) return;
     this.gesture = { id: pointer.id, mode };
     this.swipeTrailUntil = 0;
@@ -628,7 +719,7 @@ export class FreeKickScene extends Phaser.Scene {
         (pointer.x - ball.x) / ball.radius,
         (pointer.y - ball.y) / ball.radius
       );
-      this.band = powerBand(this.setup, this.contact);
+      this.band = powerBand(this.setup, this.footContact());
       return;
     }
     if (this.gesture.mode === 'power') {
@@ -658,11 +749,17 @@ export class FreeKickScene extends Phaser.Scene {
     this.swipeTrailUntil = this.clock + 0.35;
     const swipe = readSwipe(this.swipe);
     if (swipe)
-      this.shoot({
-        power: this.power,
-        contact: this.contact,
-        targetY: this.aimTarget(swipe),
-      });
+      this.shoot(
+        curvedStrike(
+          this.setup.spot,
+          {
+            power: this.power,
+            contact: this.footContact(),
+            targetY: this.aimTarget(swipe),
+          },
+          swipeBow(this.swipe)
+        )
+      );
   }
 
   private resetGesture() {
@@ -703,7 +800,8 @@ export class FreeKickScene extends Phaser.Scene {
     const { spot } = this.setup;
     const k =
       play && !this.reducedMotion.matches
-        ? 1 + (FK.flightZoom - 1) * easeOut(Math.min(1, play.t / 0.9))
+        ? 1 +
+          (FK.flightZoom - 1) * smooth(Math.min(1, play.t / FK.flightZoomSec))
         : 1;
     this.cam.zoom(k, this.zoomAnchor.x, this.zoomAnchor.y);
 
@@ -721,11 +819,18 @@ export class FreeKickScene extends Phaser.Scene {
     stage.render(this.cam, this.setup, play, {
       ball,
       ballAge: play ? play.t : Infinity,
-      kicker: this.kickerPose(),
+      kicker: { ...this.kickerPose(), flip: this.side > 0 },
       timeSec: this.clock,
       goalFlash:
         goal && Math.floor((this.clock - this.outcomeAt) * 8) % 2 === 0,
     });
+    this.resultFx.update(
+      this.clock - this.outcomeAt,
+      FK.resultSec,
+      this.scale.width,
+      this.scale.height,
+      this.reducedMotion.matches
+    );
   }
 
   // Waiting behind and left of the ball, the run-up, the follow-through,
@@ -741,20 +846,30 @@ export class FreeKickScene extends Phaser.Scene {
       x: spot.x - ux * back - uy * side,
       y: spot.y - uy * back + ux * side,
     });
-    const start = place(FK.kickerStartBack, FK.kickerStartSide);
-    const contact = place(FK.kickerContactBack, FK.kickerContactSide);
+    const start = place(FK.kickerStartBack, this.side * FK.kickerStartSide);
+    const contact = place(
+      FK.kickerContactBack,
+      this.side * FK.kickerContactSide
+    );
     if (this.phase === 'runup') {
       const t = Math.min(1, (this.clock - this.phaseAt) / FK.runupSec);
+      const run = t ** FK.runupAccel; // speeding up
       return {
-        x: start.x + (contact.x - start.x) * t,
-        y: start.y + (contact.y - start.y) * t,
-        frame: `run_up_diagonal${1 + Math.min(3, Math.floor(t * 4))}`,
+        x: start.x + (contact.x - start.x) * run,
+        y: start.y + (contact.y - start.y) * run,
+        // The stride cycles twice over the run.
+        frame: `run_up_diagonal${1 + (Math.floor(t * 8) % 4)}`,
       };
     }
     const play = this.play;
     if (!play) return { ...start, frame: 'run_up4' };
-    const follow = Math.min(play.t, 0.25) * 60;
-    const pose = { x: contact.x + ux * follow, y: contact.y + uy * follow };
+    // On after the strike along the diagonal he ran in on, easing to a stop.
+    const run = Math.hypot(contact.x - start.x, contact.y - start.y) || 1;
+    const follow = FK.kickerFollow * (1 - Math.exp(-Math.min(play.t, 0.4) * 9));
+    const pose = {
+      x: contact.x + ((contact.x - start.x) / run) * follow,
+      y: contact.y + ((contact.y - start.y) / run) * follow,
+    };
     const since = this.clock - this.outcomeAt;
     if (play.outcome === 'goal' && since > 0.3)
       return {
@@ -784,11 +899,19 @@ export class FreeKickScene extends Phaser.Scene {
       [color, 6, 10],
     ];
     for (const [ink, width, head] of layers) {
-      g.lineStyle(width, ink).lineBetween(
-        ball.x + start * dx,
-        ball.y + start * dy,
-        x,
-        y
+      // A shaft that widens toward the head.
+      drawRibbon(
+        [
+          {
+            x: ball.x + start * dx,
+            y: ball.y + start * dy,
+            w: width * 0.2,
+            a: 1,
+          },
+          { x, y, w: width * 0.6, a: 1 },
+        ],
+        [[1, ink, 1]],
+        () => g
       );
       g.fillStyle(ink).fillTriangle(
         x + head * dx,
@@ -815,8 +938,8 @@ export class FreeKickScene extends Phaser.Scene {
         ready
           ? 'RELEASE TO SHOOT'
           : swiping
-            ? 'KEEP SWIPING UP'
-            : 'SWIPE UP TO SHOOT'
+            ? 'KEEP SWIPING'
+            : 'SWIPE AT THE GOAL'
       );
   }
 
@@ -827,24 +950,23 @@ export class FreeKickScene extends Phaser.Scene {
       ? 1
       : Phaser.Math.Clamp((this.swipeTrailUntil - this.clock) / 0.35, 0, 1);
     if (alpha <= 0 || this.swipe.length < 2) return;
-    for (let i = 1; i < this.swipe.length; i++) {
-      const a = this.swipe[i - 1];
-      const b = this.swipe[i];
-      if (!a || !b) continue;
-      const taper = 0.35 + (0.65 * i) / (this.swipe.length - 1);
-      g.lineStyle(9 * taper, PAL.blue, 0.25 * alpha).lineBetween(
-        a.x,
-        a.y,
-        b.x,
-        b.y
-      );
-      g.lineStyle(3 * taper, PAL.white, 0.8 * alpha).lineBetween(
-        a.x,
-        a.y,
-        b.x,
-        b.y
-      );
-    }
+    // A smooth, tapered stroke: thin where the finger started.
+    const line = smoothLine(smoothLine(this.swipe));
+    const last = line.length - 1;
+    drawRibbon(
+      line.map((p, i) => ({
+        x: p.x,
+        y: p.y,
+        w: 7 * (0.25 + (0.75 * i) / last),
+        a: alpha * (0.2 + (0.8 * i) / last),
+      })),
+      [
+        [2.4, PAL.blue, 0.2],
+        [1.2, PAL.blue, 0.55],
+        [0.5, PAL.white, 0.95],
+      ],
+      () => g
+    );
   }
 
   private drawControls() {
@@ -886,8 +1008,9 @@ export class FreeKickScene extends Phaser.Scene {
     const dotY = y + this.contact.y * radius;
     g.fillStyle(PAL.ink).fillCircle(dotX, dotY, 12);
     g.fillStyle(PAL.yellow).fillCircle(dotX, dotY, 8);
-    const curl = this.contact.x > 0 ? 'LEFT' : 'RIGHT';
-    const curls = Math.abs(this.contact.x) >= 0.25;
+    const foot = this.footContact();
+    const curl = foot.x > 0 ? 'LEFT' : 'RIGHT';
+    const curls = Math.abs(foot.x) >= 0.25;
     const style =
       this.contact.y >= 0.25
         ? 'CHIP'
@@ -954,7 +1077,7 @@ export class FreeKickScene extends Phaser.Scene {
     const text = (size: number, color: number = PAL.white) =>
       pixelText(this, 0, 0, '', size, color).setDepth(HUD);
     this.scoreLabel = text(2, PAL.lightGray).setText(
-      this.practice ? 'PRACTICE GOALS' : 'SCORE'
+      this.practice ? 'PRACTICE GOALS' : this.challenge ? 'POINTS' : 'SCORE'
     );
     this.scoreText = text(6);
     this.streakText = text(3, PAL.yellow);
@@ -963,11 +1086,7 @@ export class FreeKickScene extends Phaser.Scene {
     this.hintText = text(2)
       .setOrigin(0.5, 1)
       .setDepth(HUD + 2);
-    this.banner = text(10).setOrigin(0.5).setVisible(false);
-    this.bannerSub = text(3, PAL.white)
-      .setOrigin(0.5, 0)
-      .setCenterAlign()
-      .setVisible(false);
+    this.resultFx = new ResultFx(this, HUD + 5);
     this.aimGuide = this.add.graphics().setDepth(HUD);
     this.controls = this.add.graphics().setDepth(HUD + 2);
     this.swipeTrail = this.add.graphics().setDepth(HUD + 4);
@@ -1007,6 +1126,15 @@ export class FreeKickScene extends Phaser.Scene {
         fill: PAL.darkGray,
         icon: 'pause',
       }
+    ).setDepth(HUD + 2);
+
+    this.sideButton = new TextButton(
+      this,
+      0,
+      0,
+      'CHANGE SIDE',
+      () => this.switchSide(),
+      { width: 220, height: 52, textSize: 2, fill: PAL.darkGray }
     ).setDepth(HUD + 2);
 
     // One master sound switch, as in the match.
@@ -1059,7 +1187,6 @@ export class FreeKickScene extends Phaser.Scene {
   private layout() {
     this.resetGesture();
     const W = this.scale.width;
-    const H = this.scale.height;
     this.scoreLabel.setPosition(24, 24);
     this.scoreText.setPosition(24, 44);
     this.streakText.setPosition(24, 100);
@@ -1068,17 +1195,18 @@ export class FreeKickScene extends Phaser.Scene {
     const pad = this.swipeHintLayout();
     this.swipeLabel.setPosition(W / 2, pad.y + pad.height / 2);
     this.hintText.setPosition(W / 2, pad.y - 14);
-    this.banner.setPosition(W / 2, H * 0.6);
-    this.bannerSub.setPosition(W / 2, H * 0.6 + 56);
     const slider = this.powerLayout();
     this.powerLabel.setPosition(slider.x, slider.top - 39);
     this.powerValue.setPosition(slider.x, slider.bottom + 19);
     // As the match's HUD: pause at the right, i left of it, sound left of i.
     this.pauseButton.setPosition(W - 60, 56);
+    this.sideButton.setPosition(W / 2, pad.y - 70);
     this.infoButton.setPosition(W - 144, 56);
     this.soundButton.setPosition(W - 228, 56);
     this.lifeIcons.forEach((icon, i) =>
-      icon.setPosition(W - 288 - (FK.lives - 1 - i) * 44, 56).setScale(36 / 64)
+      icon
+        .setPosition(W - 288 - (this.maxLives - 1 - i) * 44, 56)
+        .setScale(36 / 64)
     );
     if (this.stage) this.frameCamera();
     if (this.phase === 'over' && !this.resultScreen) this.showCard();
@@ -1131,6 +1259,7 @@ export class FreeKickScene extends Phaser.Scene {
       metres: Math.round(this.setup.distance / FK.pxPerMetre),
       lives: this.lives,
       practice: this.practice,
+      challenge: this.challenge,
       newSpot: () => {
         this.setOverlay(null);
         this.hint = '';
@@ -1182,41 +1311,33 @@ export class FreeKickScene extends Phaser.Scene {
     this.scoreText.setText(String(this.practice ? this.goals : this.score));
     const multiplier = streakMultiplier(this.streak);
     this.streakText.setText(
-      this.streak >= 2 ? `STREAK ${this.streak}  X${multiplier}` : ''
+      this.challenge
+        ? `STREAK ${this.streak}/${FK.challengeStreak}`
+        : this.streak >= 2
+          ? `STREAK ${this.streak}  X${multiplier}`
+          : ''
     );
     this.lifeIcons.forEach((icon, i) =>
       icon.setVisible(!this.practice).setAlpha(i < this.lives ? 1 : 0.2)
     );
   }
 
-  private showBanner(text: string, color: number, sub: string) {
-    const W = this.scale.width;
-    const size = Math.max(
-      4,
-      Math.min(12, Math.floor((W - 48) / (text.length * 7))) // 7 px font cells
-    );
-    this.tweens.killTweensOf(this.banner);
-    this.banner
-      .setText(text)
-      .setFontSize(size * 7)
-      .setTint(color)
-      .setVisible(true)
-      .setScale(this.reducedMotion.matches ? 1 : 0.5);
-    if (!this.reducedMotion.matches)
-      this.tweens.add({
-        targets: this.banner,
-        scale: 1,
-        duration: 260,
-        ease: 'Back.Out',
-      });
-    this.bannerSub.setText(sub).setVisible(sub !== '');
+  // Where the challenge stands after this kick.
+  private challengeLine() {
+    const state = challengeState(this.streak, this.lives);
+    if (state === 'won') return 'CHALLENGE COMPLETE!';
+    if (state === 'lost') return 'CHALLENGE FAILED';
+    return `STREAK ${this.streak}/${FK.challengeStreak}  ${this.lives} ${this.lives === 1 ? 'KICK' : 'KICKS'} LEFT`;
+  }
+
+  private showBanner(text: string, color: number, sub: string, goal: boolean) {
+    this.resultFx.show(goal, text, color, sub);
   }
 
   // Results: score, goals, best streak and the best score on this device.
   private showCard() {
     if (this.practice || this.resultScreen) return;
-    this.banner.setVisible(false);
-    this.bannerSub.setVisible(false);
+    this.resultFx.hide();
     this.hintText.setText('');
     const stats: FreeKickStats = {
       mode: 'play',
@@ -1234,7 +1355,10 @@ export class FreeKickScene extends Phaser.Scene {
       stats,
       this.bestBefore,
       this.records,
-      () => this.restart()
+      () => this.restart(),
+      this.challenge
+        ? { won: challengeState(this.streak, this.lives) === 'won' }
+        : undefined
     );
   }
 }

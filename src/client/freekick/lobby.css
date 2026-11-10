@@ -46,6 +46,13 @@
   color: #c3cedd;
   font-size: 12px;
 }
+/* PLAY across the top, CHALLENGE and PRACTICE side by side below it. */
+.freekick-lobby .preview-actions {
+  grid-template-columns: 1fr 1fr;
+}
+.freekick-lobby .preview-actions .freekick-play {
+  grid-column: 1 / -1;
+}
 .freekick-lobby .preview-actions a {
   box-sizing: border-box;
   display: flex;

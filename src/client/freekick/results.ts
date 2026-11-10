@@ -5,6 +5,7 @@ import {
   showToast,
 } from '@devvit/web/client';
 import type { FreeKickStats } from '../../shared/freeKick';
+import { FREE_KICK as FK } from '../../shared/tuning';
 import { casualButton, casualScreen } from '../ui/casualScreen';
 import { css } from '../ui/menuCard';
 import { PAL } from '../ui/palette';
@@ -16,17 +17,26 @@ import { freeKickResultsBoard } from './leaderboard';
 // (ui/resultsScreen.ts, style.css .results-*): mode tag, hero title, the
 // score where the scoreboard goes, a row of stat tiles, the fastest-goal
 // line, the seven-day board with its category tabs, then PLAY AGAIN (full
-// width), POST MY SCORE and EXIT. One column in portrait.
+// width), POST MY SCORE and EXIT. One column in portrait. A challenge
+// (unranked) shows whether it was won and its points, with no board, save
+// or sharing.
 export function freeKickResults(
   stats: FreeKickStats,
   best: number,
   records: FreeKickRecords,
-  again: () => void
+  again: () => void,
+  challenge?: { won: boolean }
 ) {
-  const newBest = stats.score > best;
+  const newBest = !challenge && stats.score > best;
   const screen = casualScreen(
-    'RUN COMPLETE',
-    `RANKED RUN · LEVEL ${stats.level}`,
+    challenge
+      ? challenge.won
+        ? 'CHALLENGE COMPLETE'
+        : 'CHALLENGE FAILED'
+      : 'RUN COMPLETE',
+    challenge
+      ? `${FK.challengeStreak} IN A ROW · ${FK.challengeKicks} KICKS`
+      : `RANKED RUN · LEVEL ${stats.level}`,
     false,
     {
       compactBelow: 700,
@@ -39,7 +49,15 @@ export function freeKickResults(
   screen.panel.dataset.mode = 'ranked';
   screen.panel.style.setProperty(
     '--outcome',
-    css(newBest ? PAL.green : PAL.yellow)
+    css(
+      challenge
+        ? challenge.won
+          ? PAL.green
+          : PAL.red
+        : newBest
+          ? PAL.green
+          : PAL.yellow
+    )
   );
 
   const header = document.createElement('header');
@@ -48,7 +66,7 @@ export function freeKickResults(
   mode.className = 'results-mode';
   pixelLabel(mode, 'FREE KICK');
   const over = document.createElement('span');
-  over.textContent = 'RUN OVER';
+  over.textContent = challenge ? 'UNRANKED CHALLENGE' : 'RUN OVER';
   header.append(mode, over);
 
   const content = document.createElement('div');
@@ -73,9 +91,11 @@ export function freeKickResults(
   pixelLabel(label, 'POINTS');
   const bestLine = document.createElement('span');
   bestLine.className = 'results-formation';
-  bestLine.textContent = newBest
-    ? 'NEW DEVICE BEST!'
-    : `DEVICE BEST: ${best.toLocaleString()}`;
+  bestLine.textContent = challenge
+    ? `BEST STREAK ${stats.bestStreak}/${FK.challengeStreak}`
+    : newBest
+      ? 'NEW DEVICE BEST!'
+      : `DEVICE BEST: ${best.toLocaleString()}`;
   const points = document.createElement('strong');
   points.className = 'results-goals';
   pixelLabel(points, stats.score.toLocaleString());
@@ -97,6 +117,15 @@ export function freeKickResults(
     ['BEST STREAK', String(stats.bestStreak)],
     ['LEVEL', String(stats.level)],
   ]) {
+    // A challenge has no great saves and one fixed level, and its streak
+    // is under the points.
+    if (
+      challenge &&
+      (caption === 'GREAT SAVES' ||
+        caption === 'LEVEL' ||
+        caption === 'BEST STREAK')
+    )
+      continue;
     const item = document.createElement('div');
     const number = document.createElement('strong');
     pixelLabel(number, value ?? '');
@@ -113,8 +142,8 @@ export function freeKickResults(
     summary.append(highlight);
   }
   content.append(summary);
-  const board = freeKickResultsBoard();
-  content.append(board.root);
+  const board = challenge ? null : freeKickResultsBoard();
+  if (board) content.append(board.root);
 
   const actions = document.createElement('div');
   actions.className = 'results-actions';
@@ -139,7 +168,12 @@ export function freeKickResults(
       exitExpandedMode(event);
     }
   });
-  actions.append(casualButton('PLAY AGAIN', again), post, exit, retry);
+  actions.append(
+    casualButton('PLAY AGAIN', again),
+    ...(challenge ? [] : [post]),
+    exit,
+    retry
+  );
 
   let saved = false,
     posted = false,
@@ -160,7 +194,7 @@ export function freeKickResults(
           error instanceof Error ? error.message : 'Could not save run';
       retry.hidden = false;
     }
-    if (!closed) await board.refresh();
+    if (!closed) await board?.refresh();
   }
   async function share() {
     if (!saved || posted || posting || closed) return;
@@ -208,7 +242,7 @@ export function freeKickResults(
       posting = false;
     }
   }
-  void save();
+  if (!challenge) void save();
   return {
     destroy() {
       closed = true;
