@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Visible tactics controls help (2026-11-11):** replace the two long tactics footer lines with a dedicated three-column highlighted tactics strip on the normal match info controls page, showing each mode and its formation effect. Desktop Controls/key bindings now explicitly list fixed top-row 8 Defend / 9 Normal / 0 Attack and explain that these are not numpad keys. Attempted remapping to those keys explains the reserved shortcuts. Types and lint pass; no application build or browser playtest performed.
+
 **Main merge (2026-11-11):** fast-forwarded `codex/match-tactics` through `4ce0ed5` into `main` at the user’s request. Includes manual Attack/Normal/Defend tactics, top-row shortcuts and feedback/help, plus exact 8%/15% possession speed penalties. Types and lint pass; the tactics change passed 71 logic checks. No application build or deployment performed.
 
 **Dribbling speed penalties (2026-11-11):** normal movement with the ball is 202.4 units/s (8% below 220), sprinting with the ball is 280.5 units/s (15% below 330). Shared player movement applies these values to human and AI carriers. Off-ball speeds remain unchanged.
@@ -696,6 +698,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Show tactics in both info controls and desktop key bindings: the desktop Controls button opens a different panel, so footer-only instructions were insufficient.
+
 - Use exact 8% normal and 15% sprint possession penalties against off-ball speeds, as requested.
 
 - Apply manual match tactics as a formation-target offset separate from automatic match/Daily plans. Keep Normal identical to existing AI and preserve active pressing/interception jobs instead of teleporting players or overriding the human.
@@ -1080,6 +1084,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Verify the highlighted tactics help and fixed desktop shortcut list on the next native Reddit playtest.
+
 - Review the revised possession speed penalties during the next match playtest.
 
 - Playtest the right-side tactics selector, transition spacing and control-help copy on mobile/desktop after the next user-run upload; check defensive depth and Attack counterattack exposure.
@@ -1451,6 +1457,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-11:** make tactics controls prominent in the info page and add the missing fixed tactics shortcuts to desktop Controls. Types/lint pass; no build performed.
 
 - **2026-11-11:** merge manual match tactics and revised possession speeds into main through `4ce0ed5`; prepare the requested GitHub push. No application build or deployment performed.
 

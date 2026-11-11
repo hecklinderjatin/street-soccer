@@ -90,6 +90,34 @@ export class KeyBindingsPanel {
       items.push(button);
     });
     items.push(
+      pixelText(scene, 695, 494, 'TACTICS - TOP NUMBER ROW', 2, PAL.yellow),
+      pixelText(scene, 695, 518, '8  DEFEND: DROP THE TEAM BACK', 2, PAL.white),
+      pixelText(
+        scene,
+        695,
+        542,
+        '9  NORMAL: DEFAULT POSITIONING',
+        2,
+        PAL.white
+      ),
+      pixelText(
+        scene,
+        695,
+        566,
+        '0  ATTACK: BACK LINE TO HALFWAY',
+        2,
+        PAL.white
+      ),
+      pixelText(
+        scene,
+        695,
+        590,
+        'FIXED SHORTCUTS; NOT THE NUMPAD',
+        2,
+        PAL.lightGray
+      )
+    );
+    items.push(
       new TextButton(
         scene,
         cx - 180,
@@ -125,6 +153,10 @@ export class KeyBindingsPanel {
     const action = this.selected;
     if (!this.layer.visible || !action) return false;
     const key = keyCode(code);
+    if (['Digit8', 'Digit9', 'Digit0'].includes(key)) {
+      this.status.setText('TOP ROW 8 / 9 / 0 ARE RESERVED FOR TACTICS');
+      return true;
+    }
     if (!isBindableKey(key)) {
       this.status.setText('CHOOSE A LETTER, NUMBER, ARROW OR GAME KEY');
       return true;

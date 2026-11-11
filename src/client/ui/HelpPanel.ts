@@ -84,26 +84,22 @@ export function buildHelpLayer(
     ).setOrigin(0.5)
   );
 
-  items.push(
-    pixelText(
-      scene,
-      cx,
-      602,
-      'TACTICS: ATTACK PUSHES THE BACK LINE TO HALFWAY; DEFEND DROPS THE TEAM.',
-      2,
-      CARD.soft
-    ).setOrigin(0.5),
-    pixelText(
-      scene,
-      cx,
-      622,
-      options.desktop
-        ? 'TOP ROW 8: DEFEND   9: NORMAL   0: ATTACK. NORMAL RESTORES DEFAULT POSITIONING.'
-        : 'TAP ATTACK / NORMAL / DEFEND ON THE RIGHT. THE ACTIVE OPTION STAYS HIGHLIGHTED.',
-      2,
-      CARD.soft
-    ).setOrigin(0.5)
-  );
+  // A dedicated strip, rather than tactics buried in the footer copy.
+  tile(scene, items, 60, 592, 1160, 44);
+  for (const [i, [name, detail]] of [
+    ['DEFEND', 'DROP THE TEAM BACK'],
+    ['NORMAL', 'DEFAULT POSITIONING'],
+    ['ATTACK', 'BACK LINE TO HALFWAY'],
+  ].entries()) {
+    const x = 80 + i * 380;
+    const control = options.desktop
+      ? `${8 + i > 9 ? 0 : 8 + i}: ${name}`
+      : name;
+    items.push(
+      pixelText(scene, x, 595, `TACTICS / ${control}`, 2, PAL.yellow),
+      pixelText(scene, x, 615, detail ?? '', 2, CARD.soft)
+    );
+  }
 
   // Results-card buttons: the primary in orange, BACK in navy.
   items.push(
