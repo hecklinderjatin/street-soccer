@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Main merge (2026-11-11):** fast-forwarded `codex/inline-results-join` through `f1ac1cc` into main at the user’s request. Removes the automatic join popup/manual member option and adds one secondary Join Community button to existing normal/Free Kick result actions, without an extra screen or section. Preserve consent, diagnostics, thanks and known-join suppression. Existing types/lint and focused community checks pass. No application build or deployment performed.
+
 **Join as a result action button only (2026-11-11):** simplify the previous inline section at the user’s clarification: append one secondary Join Community button directly to the existing result action group in normal and Free Kick. Remove the separate heading, marketing copy, container and visible note; retain permission explanation in the button title and concise status only after a click. Mount after existing actions to preserve primary-button order/styles. Results remain immediately usable, with no added screen/modal/section. Keep native consent, diagnostics, success thanks and known-join suppression. Types/lint and focused community API/browser checks pass, asserting the Join button is the last existing action. No application build/live writes performed.
 
 **Optional inline results Join (2026-11-11):** remove the automatic community popup and its fixed backdrop, modal role, hidden/inert results gating, focus trap and Continue interstitial. Replace communityPrompt with shared communityJoin: small Enjoyed the match copy and a secondary Join Community button below stats/leaderboards and before the primary results actions in normal and Free Kick results. Keep all results/actions immediately usable even during consent/subscription. Preserve permission note, explicit trusted click/native consent, diagnostics, successful-join thanks and account/community/device suppression (including earlier skip preferences). No manual Already Joined or Retry controls. Rename/remove old popup code, CSS and browser fixture; update test:community. Types/lint, community API/inline browser checks and actual Free Kick results UI checks pass; screenshot inspected. No application build or live Reddit writes performed.
@@ -1559,6 +1561,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-11:** merge single results Join button and popup removal into main through `f1ac1cc`; prepare requested GitHub push. No application build/deployment performed.
 
 - **2026-11-11:** reduce results Join UI to one existing-action-group button, removing the extra section and copy. Types/lint and focused checks pass; no build performed.
 
