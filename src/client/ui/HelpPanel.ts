@@ -60,46 +60,43 @@ export function buildHelpLayer(
   items.push(
     pixelText(scene, cx, 62, 'HOW TO PLAY', PX, PAL.yellow).setOrigin(0.5)
   );
-  tile(scene, items, 60, TOP - 8, 560, 504);
-  tile(scene, items, cx + 20, TOP - 8, 560, 504);
+  tile(scene, items, 60, TOP - 8, 560, 544);
+  tile(scene, items, cx + 20, TOP - 8, 560, 544);
 
   // Desktop shows only the keyboard; touch devices only the on-screen
   // controls (user request).
   const caps = options.desktop
     ? keyboardColumns(scene, items, 80, cx + 40)
     : (touchColumns(scene, items, 80, cx + 40), []);
-  // Devvit Rules: players need a way to report problems with the app.
+  // Support links stay in the right column, below goalkeeper controls.
   const where = context?.subredditName
-    ? `MESSAGE THE MODS OF R/${context.subredditName}`
-    : 'MESSAGE THE MODS OF THIS SUBREDDIT';
-  items.push(
-    pixelText(
-      scene,
-      cx,
-      546,
-      'DELETE SAVED SCORES: SUBREDDIT MENU > DELETE MY STREET SOCCER DATA',
-      BODY,
-      CARD.soft
-    ).setOrigin(0.5),
-    pixelText(
-      scene,
-      cx,
-      566,
-      `REPORT A PROBLEM: ${where}`,
-      BODY,
-      CARD.soft
-    ).setOrigin(0.5)
-  );
-
-  // The same controls as the right-side selector, kept clear of navigation.
-  tile(scene, items, 60, 588, 1160, 44);
+    ? `R/${context.subredditName}`
+    : 'THIS SUBREDDIT';
+  for (const [i, line] of [
+    'SAVED SCORES: SUBREDDIT MENU >',
+    'DELETE MY STREET SOCCER DATA',
+    'REPORT A PROBLEM: MESSAGE MODS',
+    `OF ${where}`,
+  ].entries()) {
+    items.push(
+      pixelText(
+        scene,
+        cx + 40,
+        i < 2 ? 542 + i * 20 : 590 + (i - 2) * 20,
+        line,
+        BODY,
+        CARD.soft
+      )
+    );
+  }
+  header(scene, items, 80, 490, 'TACTICS');
   const tacticExamples: { button: TextButton; mode: MatchTactic }[] = [];
   for (const [i, mode] of (['attack', 'normal', 'defend'] as const).entries()) {
-    const x = 80 + i * 380;
+    const x = 80 + i * 180;
     const button = tacticButton(
       scene,
       x + 72,
-      610,
+      548,
       mode,
       options.tactic?.() ?? 'normal',
       () => {}
@@ -109,7 +106,7 @@ export function buildHelpLayer(
     const key = mode === 'attack' ? '0' : mode === 'normal' ? '9' : '8';
     const lines =
       mode === 'attack'
-        ? ['BACK LINE TO', 'HALFWAY']
+        ? ['BACK LINE', 'TO HALFWAY']
         : mode === 'normal'
           ? ['DEFAULT', 'POSITIONING']
           : ['DROP TEAM', 'BACK'];
@@ -117,13 +114,16 @@ export function buildHelpLayer(
       button,
       pixelText(
         scene,
-        x + 162,
-        593,
+        x + 72,
+        580,
         `${options.desktop ? key + ': ' : ''}${lines[0]}`,
         2,
         CARD.soft
-      ),
-      pixelText(scene, x + 162, 613, lines[1] ?? '', 2, CARD.soft)
+      ).setOrigin(0.5, 0),
+      pixelText(scene, x + 72, 600, lines[1] ?? '', 2, CARD.soft).setOrigin(
+        0.5,
+        0
+      )
     );
   }
 
@@ -275,11 +275,11 @@ const RIGHT_KEYS: Entry[] = [
   { note: 'REMAP KEYS: CONTROLS, PAGE 1' },
 ];
 
-const KEY_ROW = 32; // a row with a key cap (at least)
-const NOTE_ROW = 24; // a muted note under a row
+const KEY_ROW = 28; // a row with a key cap (at least)
+const NOTE_ROW = 20; // a muted note under a row
 const CAP_H = 26;
 const COL_W = 520;
-const COL_BOTTOM = 532; // leave room for the report/data lines and tactics examples
+const COL_BOTTOM = 484; // leave room for the report/data lines and tactics examples
 
 type KeyCap = { refresh: (bindings: Readonly<KeyBindings>) => void };
 

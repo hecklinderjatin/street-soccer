@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Tactics below Shoot (2026-11-11):** group the shared tactics examples directly below shooting controls in the left column, under a TACTICS section heading. Arrange Attack / Normal / Defend side by side with two short explanatory lines below; retain desktop top-row numbers and the live active highlight. Expand both column tiles, tighten keyboard rows, and place report/data instructions below goalkeeper controls in the right column. Types/lint and temporary source-only touch/desktop preview checks pass; screenshots inspected. No application build performed.
+
 **Consistent tactics help buttons (2026-11-11):** replace the cramped text-only tactics strip with the same 144x44 pixel buttons as live gameplay via shared TacticButton helpers. Show the current active highlight when info opens, explain each mode alongside its button and retain top-row keyboard numbers on desktop. Help examples are noninteractive while paused. Keep examples clear of Back/Play navigation; move report/data text inside the card and tighten desktop column spacing to reserve room. Types/lint pass. A temporary source-only Vite/Chromium preview verifies touch and desktop button bounds, noninteractive examples and no horizontal/navigation overlap; screenshots inspected. No application build or live Reddit writes performed.
 
 **Main merge (2026-11-11):** fast-forwarded `codex/minor-package-updates` through `ffaeb0e` into `main` at the user’s request. Includes visible tactics controls help, adaptive opponent tactics and compatible patch/minor dependency updates. Existing types/lint, compatibility, gameplay, Free Kick/Daily and source-preview checks pass. No application build or deployment performed.
@@ -706,6 +708,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Group tactics with movement/shooting in the left info column, as requested, rather than a full-width strip competing with navigation.
+
 - Reuse one tactics button factory/active-state painter in the live HUD and info controls examples so their appearance stays consistent. Help previews display the selected tactic without changing it while paused.
 
 - Update only patch/minor releases and keep Devvit packages synchronized. Defer Phaser 4, TypeScript 7 and Node 26 typings to separate compatibility work.
@@ -1098,6 +1102,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Review the below-Shoot tactics grouping on mobile after the next user-run upload.
+
 - Review the shared tactics examples and active-state synchronization on the native mobile info screen after the next user-run upload.
 
 - Native Reddit playtest after the next user-run upload with Devvit 0.15.3; application build/publish was not run during the dependency update.
@@ -1477,6 +1483,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-11:** move tactics help below Shoot, improve button/explanation spacing, and regroup support instructions in the right column. Types/lint and source-only preview checks pass; no application build performed.
 
 - **2026-11-11:** replace tactics help text strip with shared gameplay buttons and concise explanations; fix report/data clipping and reserve desktop layout space. Types/lint and source-only preview checks pass; no application build performed.
 
