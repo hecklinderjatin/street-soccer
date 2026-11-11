@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Patch/minor package updates (2026-11-11):** update Devvit analytics/start/web/CLI together to 0.15.3, Hono 4.13.17, Hono Node server 2.1.6, Vite 8.3.8, typescript-eslint 8.72.2, Playwright 1.65.0, globals 17.14.0 and minimatch override 11.0.7. Regenerate the lockfile and install; retain the glob compatibility patch. Phaser 3.90.0, TypeScript 6.0.3 and Node 24 typings remain on their current major versions. npm outdated now lists only those three major upgrades, npm ls reports a consistent tree. Types, lint, dependency compatibility, 72 gameplay checks, 31 Free Kick checks/panels/API, Daily regressions and source-only WebGL live-preview browser checks pass. Unit runner finds zero tests. No application build or deployment performed.
+
 **Opponent match tactics (2026-11-11):** opponents select Attack when trailing, Defend when leading in the last minute/final 30% (whichever is shorter), and Normal otherwise. Require three seconds of stable intent and at least twelve live seconds between switches. Selection time freezes during stoppages, frozen kickoff and pause; fresh matches reset to Normal. Apply the mirrored manual formation offset plus attacking/defensive passing and pressing plans; Normal restores the last applied baseline Daily/standard plan. Preserve Daily plan reaction timing and Rampage difficulty progression, home manual selection, existing movement and accuracy. Selection reads only score/clock, never player tactics or input. Types/lint, 72 gameplay checks and Daily rules/forms regressions pass. No application build or browser playtest performed.
 
 **Visible tactics controls help (2026-11-11):** replace the two long tactics footer lines with a dedicated three-column highlighted tactics strip on the normal match info controls page, showing each mode and its formation effect. Desktop Controls/key bindings now explicitly list fixed top-row 8 Defend / 9 Normal / 0 Attack and explain that these are not numpad keys. Attempted remapping to those keys explains the reserved shortcuts. Types and lint pass; no application build or browser playtest performed.
@@ -700,6 +702,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Update only patch/minor releases and keep Devvit packages synchronized. Defer Phaser 4, TypeScript 7 and Node 26 typings to separate compatibility work.
+
 - Let opponents adapt to public score/time using the same formation modes, with delayed stable intent and a minimum hold. Keep the last applied Daily plan as Normal so automatic mode rules and difficulty retain their existing timing.
 
 - Show tactics in both info controls and desktop key bindings: the desktop Controls button opens a different panel, so footer-only instructions were insufficient.
@@ -1088,6 +1092,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Native Reddit playtest after the next user-run upload with Devvit 0.15.3; application build/publish was not run during the dependency update.
+
 - Playtest opponent Attack counterattack exposure, late Defend spacing and live-time switching across match durations and Daily modes.
 
 - Verify the highlighted tactics help and fixed desktop shortcut list on the next native Reddit playtest.
@@ -1463,6 +1469,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-11:** update compatible patch/minor dependencies and minimatch override, regenerate lockfile, verify dependency/gameplay/server/source-browser compatibility. No application build or deployment performed.
 
 - **2026-11-11:** add score/time-based opponent tactics with three-second reaction and twelve-second minimum hold. Preserve Daily/Rampage integration and human selection; types/lint, 72 gameplay checks and Daily regressions pass. No application build performed.
 

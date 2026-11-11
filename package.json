@@ -41,27 +41,27 @@
     "node": ">=24.0.0"
   },
   "dependencies": {
-    "@devvit/analytics": "0.15.2",
-    "@devvit/start": "0.15.2",
-    "@devvit/web": "0.15.2",
-    "@hono/node-server": "2.1.5",
-    "hono": "4.13.14",
+    "@devvit/analytics": "0.15.3",
+    "@devvit/start": "0.15.3",
+    "@devvit/web": "0.15.3",
+    "@hono/node-server": "2.1.6",
+    "hono": "4.13.17",
     "phaser": "3.90.0"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@types/node": "^24.19.2",
-    "devvit": "0.15.2",
+    "devvit": "0.15.3",
     "eslint": "10.14.0",
-    "globals": "17.13.0",
-    "playwright": "^1.64.1",
+    "globals": "17.14.0",
+    "playwright": "^1.65.0",
     "prettier": "3.9.10",
     "typescript": "6.0.3",
-    "typescript-eslint": "8.72.1",
-    "vite": "8.3.5"
+    "typescript-eslint": "8.72.2",
+    "vite": "8.3.8"
   },
   "overrides": {
-    "minimatch": "11.0.3",
+    "minimatch": "11.0.7",
     "tmp": "0.2.7"
   }
 }
