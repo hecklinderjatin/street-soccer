@@ -8,7 +8,11 @@ export function freeKickJourneySettings(
   rematch: boolean
 ): JourneySettings {
   return {
-    mode: practice ? 'freekick-practice' : 'freekick-challenge',
+    mode: practice
+      ? 'freekick-practice'
+      : config.mode === 'infinity'
+        ? 'freekick-infinity'
+        : 'freekick-challenge',
     difficulty: config.difficulty,
     durationSec: 0,
     rematch,
@@ -24,11 +28,23 @@ export function freeKickJourneyResult(
   shots: number,
   points: number,
   elapsed: number,
-  quit: boolean
+  quit: boolean,
+  infinity = false
 ): JourneyResult {
   return {
-    mode: practice ? 'freekick-practice' : 'freekick-challenge',
-    outcome: quit || practice ? 'quit' : won ? 'cleared' : 'failed',
+    mode: practice
+      ? 'freekick-practice'
+      : infinity
+        ? 'freekick-infinity'
+        : 'freekick-challenge',
+    outcome:
+      quit || practice
+        ? 'quit'
+        : infinity
+          ? 'completed'
+          : won
+            ? 'cleared'
+            : 'failed',
     goalsFor: goals,
     goalsAgainst: Math.max(0, shots - goals),
     points,

@@ -30,7 +30,8 @@ import { registerPlayerAtlases } from '../art/playerArt';
 import { freeKickChallenge, startingConfig } from '../challenge';
 import {
   challengeOutcome,
-  challengeRoundLevel,
+  freeKickRoundLevel,
+  freeKickSkill,
   challengeRandom,
   type FreeKickChallengeConfig,
 } from '../../shared/freeKickChallenge';
@@ -395,7 +396,7 @@ export class FreeKickScene extends Phaser.Scene {
     this.hint = '';
     const metres = Math.round(this.setup.distance / FK.pxPerMetre);
     this.kickText.setText(
-      `${this.practice ? `PRACTICE LEVEL ${this.setup.level.level}` : this.challenge ? `ROUND ${this.goals + 1}  LEVEL ${this.setup.level.level}` : this.retry ? 'RETRY' : `LEVEL ${this.setup.level.level}`}  ${metres} M`
+      `${this.practice ? `PRACTICE LEVEL ${this.setup.level.level}` : this.challenge?.mode === 'infinity' ? `${freeKickSkill(this.setup.level.level)}  LEVEL ${this.setup.level.level}` : this.challenge ? `ROUND ${this.goals + 1}  LEVEL ${this.setup.level.level}` : this.retry ? 'RETRY' : `LEVEL ${this.setup.level.level}`}  ${metres} M`
     );
     this.updateHud();
     this.updateXgText();
@@ -543,11 +544,8 @@ export class FreeKickScene extends Phaser.Scene {
       this.score += points;
       const up = this.challenge
         ? challengeOutcome(this.goals, this.lives, this.challenge) === 'open' &&
-          challengeRoundLevel(
-            this.challenge.difficulty,
-            this.goals,
-            this.challenge.goals
-          ) > this.setup.level.level
+          freeKickRoundLevel(this.challenge, this.goals) >
+            this.setup.level.level
         : false;
       // One line per style tag: all five side by side overflow the view.
       this.showBanner(
@@ -656,7 +654,8 @@ export class FreeKickScene extends Phaser.Scene {
         this.shots,
         this.score,
         this.clock - this.journeyStartedAt,
-        quit
+        quit,
+        this.challenge?.mode === 'infinity'
       )
     );
   }
@@ -1371,7 +1370,9 @@ export class FreeKickScene extends Phaser.Scene {
     const multiplier = streakMultiplier(this.streak);
     this.streakText.setText(
       this.challenge
-        ? `GOALS ${this.goals}/${this.challenge.goals}`
+        ? this.challenge.mode === 'infinity'
+          ? `INFINITY · ${this.goals} GOALS`
+          : `GOALS ${this.goals}/${this.challenge.goals}`
         : this.streak >= 2
           ? `STREAK ${this.streak}  X${multiplier}`
           : ''
@@ -1385,6 +1386,10 @@ export class FreeKickScene extends Phaser.Scene {
   private challengeLine() {
     const c = this.challenge;
     if (!c) return '';
+    if (c.mode === 'infinity' && this.lives <= 0)
+      return 'INFINITY RUN COMPLETE';
+    if (c.mode === 'infinity')
+      return `${freeKickSkill(this.setup.level.level)} · ${this.goals} GOALS · ${this.lives} LIVES LEFT`;
     const state = challengeOutcome(this.goals, this.lives, c);
     if (state === 'won') return 'CHALLENGE COMPLETE!';
     if (state === 'lost') return 'CHALLENGE FAILED';
@@ -1401,7 +1406,7 @@ export class FreeKickScene extends Phaser.Scene {
     this.resultFx.hide();
     this.hintText.setText('');
     const stats: FreeKickStats = {
-      mode: 'challenge',
+      mode: this.challenge.mode === 'infinity' ? 'infinity' : 'challenge',
       score: this.score,
       goals: this.goals,
       shots: this.shots,

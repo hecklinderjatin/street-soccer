@@ -2,6 +2,7 @@ import { communityJoin } from '../ui/communityJoin';
 import { context, exitExpandedMode } from '@devvit/web/client';
 import type { FreeKickStats } from '../../shared/freeKick';
 import type { FreeKickChallengeConfig } from '../../shared/freeKickChallenge';
+import { freeKickSkill } from '../../shared/freeKickChallenge';
 import { DIFFICULTY_LABEL } from '../../shared/types';
 import { casualButton, casualScreen } from '../ui/casualScreen';
 import { css } from '../ui/menuCard';
@@ -18,9 +19,19 @@ export function freeKickResults(
   again: () => void,
   challenge: { won: boolean; config: FreeKickChallengeConfig }
 ) {
+  const infinity = challenge.config.mode === 'infinity';
+  const goalLine = infinity
+    ? String(stats.goals)
+    : `${stats.goals}/${challenge.config.goals}`;
   const screen = casualScreen(
-    challenge.won ? 'CHALLENGE COMPLETE' : 'CHALLENGE FAILED',
-    `${challenge.config.goals} GOALS · ${challenge.config.lives} ${challenge.config.lives === 1 ? 'LIFE' : 'LIVES'} · ${challenge.config.distanceM} M · ${DIFFICULTY_LABEL[challenge.config.difficulty]}`,
+    infinity
+      ? 'RUN COMPLETE'
+      : challenge.won
+        ? 'CHALLENGE COMPLETE'
+        : 'CHALLENGE FAILED',
+    infinity
+      ? `${stats.goals} GOALS · ${challenge.config.lives} LIVES · REACHED ${freeKickSkill(stats.level)}`
+      : `${challenge.config.goals} GOALS · ${challenge.config.lives} ${challenge.config.lives === 1 ? 'LIFE' : 'LIVES'} · ${challenge.config.distanceM} M · ${DIFFICULTY_LABEL[challenge.config.difficulty]}`,
     false,
     {
       compactBelow: 700,
@@ -33,7 +44,7 @@ export function freeKickResults(
   screen.panel.dataset.mode = 'ranked';
   screen.panel.style.setProperty(
     '--outcome',
-    css(challenge.won ? PAL.green : PAL.red)
+    css(infinity ? PAL.orange : challenge.won ? PAL.green : PAL.red)
   );
 
   const header = document.createElement('header');
@@ -42,7 +53,7 @@ export function freeKickResults(
   mode.className = 'results-mode';
   pixelLabel(mode, 'FREE KICK');
   const over = document.createElement('span');
-  over.textContent = 'CHALLENGE';
+  over.textContent = infinity ? 'INFINITY' : 'CHALLENGE';
   header.append(mode, over);
 
   const content = document.createElement('div');
@@ -67,7 +78,7 @@ export function freeKickResults(
   pixelLabel(label, 'POINTS');
   const bestLine = document.createElement('span');
   bestLine.className = 'results-formation';
-  bestLine.textContent = `GOALS ${stats.goals}/${challenge.config.goals}`;
+  bestLine.textContent = `GOALS ${goalLine}`;
   const points = document.createElement('strong');
   points.className = 'results-goals';
   pixelLabel(points, stats.score.toLocaleString());
@@ -82,7 +93,7 @@ export function freeKickResults(
   const tiles = document.createElement('div');
   tiles.className = 'results-stats';
   for (const [caption, value] of [
-    ['GOALS', `${stats.goals}/${challenge.config.goals}`],
+    ['GOALS', goalLine],
     ['XG', xg.toFixed(1)],
     ['FINISHING', `${finishing >= 0 ? '+' : ''}${finishing.toFixed(1)}`],
     ['GREAT SAVES', String(stats.greatSaves)],
@@ -141,10 +152,9 @@ export function freeKickResults(
       if (closed) return;
       status.textContent = 'Run saved. Leaderboards updated.';
       retry.hidden = true;
-    } catch (error) {
+    } catch {
       if (!closed)
-        status.textContent =
-          error instanceof Error ? error.message : 'Could not save run';
+        status.textContent = 'Couldn’t save right now. Please try again.';
       retry.hidden = false;
     }
     if (!closed) await board?.refresh();

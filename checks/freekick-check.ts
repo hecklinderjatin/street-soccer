@@ -15,6 +15,7 @@ import {
   challengeOutcome,
   challengeRoundLevel,
   challengeRandom,
+  freeKickRoundLevel,
   parseFreeKickChallenge,
   postFreeKickChallenge,
 } from '../src/shared/freeKickChallenge';
@@ -661,10 +662,10 @@ check('challenge records: validate completed wins/losses against the post settin
   assert.equal(readFreeKickStats({...loss,greatSaves:1},config),null);
 });
 
-check('only Challenge and Practice remain registered Free Kick entries', () => {
+check('Challenge, Infinity and Practice are registered Free Kick entries', () => {
   const entries=JSON.parse(readFileSync('devvit.json','utf8')).post.entrypoints;
   assert.equal(entries.freekick,undefined);
-  assert.ok(entries['freekick-challenge']);assert.ok(entries['freekick-practice']);
+  assert.ok(entries['freekick-challenge']);assert.ok(entries['freekick-practice']);assert.ok(entries['freekick-infinity']);
 });
 
 check('practice matches Challenge geometry at a chosen fixed level', () => {
@@ -711,6 +712,28 @@ check('fixed post sequence survives replays, scales geometry and caps the whole 
   const setup=challengeKick(FREE_KICK_CHALLENGE_DEFAULT,2,'t3_shared');
   const shot={power:0.7,targetY:GOAL_Y,contact:ballContact(0,0)};
   assert.deepEqual(startPlay(setup,shot,challengeRandom('t3_shared','defence:2')),startPlay(setup,shot,challengeRandom('t3_shared','defence:2')));
+});
+
+check('Infinity config uses only kits/lives and progresses Easy to Pro without a goal target', () => {
+  const config=parseFreeKickChallenge({mode:'infinity',kicker:'pink',wall:'blue',lives:2});
+  assert.ok(typeof config!=='string');
+  if(typeof config==='string') return;
+  assert.equal(config.goals,0);assert.equal(config.difficulty,'easy');
+  assert.equal(freeKickRoundLevel(config,0),2);assert.equal(freeKickRoundLevel(config,2),3);
+  assert.equal(freeKickRoundLevel(config,100),10);
+  assert.equal(challengeOutcome(100,1,config),'open');assert.equal(challengeOutcome(100,0,config),'lost');
+  for(let goals=0;goals<30;goals++){
+    const kick=challengeKick(config,goals,'t3_inf');
+    assert.equal(kick.level.level,freeKickRoundLevel(config,goals));
+    assert.ok(kick.wall.men.length+Number(kick.wall.lyer)<=4);
+    assert.deepEqual(kick,challengeKick(config,goals,'t3_inf'));
+  }
+  const stats={mode:'infinity',score:500,goals:2,shots:4,bestStreak:2,level:3,fastestGoalKmh:100,elapsedSec:20,greatSaves:0,xg:100};
+  assert.ok(readFreeKickStats(stats,config));
+  assert.equal(readFreeKickStats({...stats,shots:3},config),null);
+  assert.equal(readFreeKickStats({...stats,level:2},config),null);
+  assert.equal(readFreeKickStats({...stats,mode:'challenge'},config),null);
+  assert.equal(readFreeKickStats(stats,FREE_KICK_CHALLENGE_DEFAULT),null);
 });
 
 console.log(`\n${passed} checks passed`);

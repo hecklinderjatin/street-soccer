@@ -317,6 +317,15 @@ assert.equal(
 assert.ok(completedChallenge.body.score.me.value >= 1500);
 assert.ok(completedChallenge.body.speed.me.value >= 100);
 
+state.context.postData.freeKick={mode:'infinity',kicker:'pink',wall:'blue',lives:2};
+const inf=await call('/start',{mode:'infinity',id:'infinity-run-identifier-1234'});
+assert.equal(inf.status,200);age(inf.body);
+const infStats={...valid,mode:'infinity',goals:2,shots:4,level:3,greatSaves:0};
+assert.equal((await call('/result',{...inf.body,mode:'challenge',result:infStats})).status,400);
+assert.equal((await call('/result',{...inf.body,mode:'infinity',result:{...infStats,shots:3}})).status,400);
+assert.equal((await call('/result',{...inf.body,mode:'infinity',result:infStats})).status,200);
+assert.equal((await call('/result',{...inf.body,mode:'infinity',result:infStats})).status,200);
+
 await removePlayerResults(
   eraser,
   [...(state.boards.get('privacy:boards') ?? new Map()).keys()],

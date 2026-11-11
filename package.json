@@ -14,6 +14,7 @@
     "prettier": "prettier --write .",
     "start": "npm run build && node scripts/serve.mjs",
     "serve": "node scripts/serve.mjs",
+    "test:freekick-infinity-browser": "node checks/freekick-infinity-browser.mjs",
     "test:freekick-ui-browser": "node checks/freekick-ui-browser.mjs",
     "test:pause-restart": "node checks/pause-restart.mjs && node checks/pause-restart-browser.mjs",
     "test:community": "node checks/community-server.mjs && node checks/community-join-browser.mjs",

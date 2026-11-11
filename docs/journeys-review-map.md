@@ -17,16 +17,16 @@ start a journey. A fresh ID is requested for every rematch.
 
 For this map, `complete: true` means the **attempt finished and reached results**,
 not that the player won. `game.win` separately records a win/challenge clear;
-`game.score` is the player's final goals in normal matches, or final points in Free Kick Challenge. Explicit quits use `complete: false`
-and omit `game`. The `outcome` value distinguishes win/loss/draw/cleared/failed/quit.
+`game.score` is the player's final goals in normal matches, or final points in Free Kick Challenge/Infinity. Explicit quits use `complete: false`
+and omit `game`. The `outcome` value distinguishes win/loss/draw/cleared/failed/completed/quit.
 There are no progress events or per-input events in this version.
 
 ## Free Kick lifecycle
 
-Challenge and Practice use the same tracker as normal matches. Reading either
+Challenge, Infinity and Practice use the same tracker as normal matches. Reading either
 briefing page or choosing a Practice level does not start an attempt. Releasing
 START GAME or PLAY starts it; the first shot is a guarded fallback. Challenge
-ends once on clear/failure, with points as SDK game score. Practice ends only
+ends once on clear/failure, with points as SDK game score. Infinity ends on exhausted lives as `completed`, with `complete:true`, `game.win:false` and final points. Its start metadata uses `freekick-infinity`, initial Easy/level 2, zero goal target and creator-defined lives. Practice ends only
 on explicit Quit/Restart, as incomplete (`outcome: quit`, no SDK game result).
 Practice retries and New Spot keep the same journey and remain unranked.
 Pause/help do not end or duplicate attempts. Restart ends the current started
@@ -36,13 +36,13 @@ next explicit start. No shot-by-shot progress events are emitted.
 ## Allowed custom fields
 
 - `mode`: classic, daily (legacy), casual, comeback, shield, rampage, chaos,
-  freekick-challenge, freekick-practice.
+  freekick-challenge, freekick-practice, freekick-infinity.
 - `difficulty`: noob, easy, normal, hard, pro, rising (Rampage).
 - `durationSec`: configured integer, 30–300 for normal matches; 0 for untimed Free Kick.
 - Free Kick start fields: `level` 1–10, `goalTarget` 1–20 and `lives` 1–10
-  for Challenge. Practice uses its selected level and zero target/lives (unlimited).
+  for Challenge. Infinity uses target 0 and positive lives. Practice uses its selected level and zero target/lives (unlimited).
 - `rematch`: boolean; true for rematches and Free Kick restarts after the first attempt.
-- `outcome`: win, loss, draw, cleared, failed, quit.
+- `outcome`: win, loss, draw, cleared, failed, completed (Infinity), quit.
 - `goalsFor` / `goalsAgainst`: integers, 0–99 for normal matches. Free Kick uses
   goals/misses respectively, bounded to 100,000; `points` is an integer 0–60,000,000.
   Free Kick results include their fixed `mode` to select the appropriate schema.
@@ -95,7 +95,7 @@ context independently; this is not anonymous analytics.
    rebuild/redeploy both client and server. Disabled builds send no Journeys
    requests; the backend also returns empty responses without invoking the SDK.
 
-Local checks: `npm run test:freekick-journeys-browser` serves actual Free Kick
+Local checks: `npm run test:freekick-infinity-browser` covers the Infinity entry’s start, progression, continued Pro play, terminal save/boards, replay/restart/quit and Journeys using mocked endpoints. `npm run test:freekick-journeys-browser` serves actual Free Kick
 source with mocked endpoints, checking Challenge/Practice start, pause, New Spot,
 restart, results, replay, explicit quit and denied receipts without an app build.
 `npm run test:journeys` covers the Hono/SDK boundary with a mock

@@ -10,6 +10,7 @@ import {
 // the post's postData `freeKick` (server/core/post.ts). Older Free Kick
 // posts have none and play FREE_KICK_CHALLENGE_DEFAULT.
 export type FreeKickChallengeConfig = {
+  mode?: 'challenge' | 'infinity';
   kicker: JerseyColor; // the kicker's kit
   wall: JerseyColor; // the wall's kit
   lives: number; // misses allowed
@@ -52,8 +53,21 @@ export function parseFreeKickChallenge(
   const wall = choice(get('wall'), JERSEY_COLORS);
   if (!kicker || !wall) return 'choose both team colours';
   if (kicker === wall) return 'the kicker and the wall need different colours';
+  const mode: unknown = get('mode');
+  if (mode !== undefined && mode !== 'challenge' && mode !== 'infinity')
+    return 'choose a Free Kick mode';
   const lives = whole(get('lives'), 1, FK.challengeMaxLives);
   if (lives === null) return `lives: 1 to ${FK.challengeMaxLives}`;
+  if (mode === 'infinity')
+    return {
+      ...FREE_KICK_CHALLENGE_DEFAULT,
+      mode,
+      kicker,
+      wall,
+      lives,
+      goals: 0,
+      difficulty: 'easy',
+    };
   const goals = whole(get('goals'), 1, FK.challengeMaxGoals);
   if (goals === null) return `goals to win: 1 to ${FK.challengeMaxGoals}`;
   const distanceM = choice(get('distanceM'), FK.challengeDistanceChoicesM);
@@ -75,6 +89,28 @@ export function postFreeKickChallenge(postData: unknown) {
       : undefined;
   const config = parseFreeKickChallenge(raw);
   return typeof config === 'string' ? FREE_KICK_CHALLENGE_DEFAULT : config;
+}
+
+export function freeKickRoundLevel(
+  config: FreeKickChallengeConfig,
+  goals: number
+) {
+  return config.mode === 'infinity'
+    ? Math.min(
+        FK.maxLevel,
+        FK.infinityStartLevel +
+          Math.floor(Math.max(0, goals) / FK.infinityGoalsPerLevel)
+      )
+    : challengeRoundLevel(config.difficulty, goals, config.goals);
+}
+export function freeKickSkill(level: number) {
+  return level >= FK.challengeLevels.pro[0]
+    ? 'PRO'
+    : level >= FK.challengeLevels.hard[0]
+      ? 'HARD'
+      : level >= FK.challengeLevels.normal[0]
+        ? 'NORMAL'
+        : 'EASY';
 }
 
 // Progress spans this post's full goal target; one-goal posts use the first spot.
@@ -112,6 +148,6 @@ export function challengeOutcome(
   lives: number,
   config: FreeKickChallengeConfig
 ): 'won' | 'lost' | 'open' {
-  if (goals >= config.goals) return 'won';
+  if (config.mode !== 'infinity' && goals >= config.goals) return 'won';
   return lives <= 0 ? 'lost' : 'open';
 }

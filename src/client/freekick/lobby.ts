@@ -15,6 +15,7 @@ export function showFreeKickLobby() {
   stopPreview?.();
   host.classList.add('freekick-post');
   const fk = freeKickChallenge();
+  const infinity = fk.mode === 'infinity';
   const lives = `${fk.lives} ${fk.lives === 1 ? 'LIFE' : 'LIVES'}`;
   const card = document.createElement('section');
   card.className = 'freekick-lobby';
@@ -31,6 +32,10 @@ export function showFreeKickLobby() {
       </div>
       <p class="freekick-mode-notes preview-activity"></p>
     </div>`;
+  if (infinity) {
+    const caption = card.querySelector('.mobile-match-facts small');
+    if (caption) caption.textContent = 'ENDLESS GOALS';
+  }
   const description = card.querySelector('.freekick-description');
   const data: unknown = context?.postData;
   const value =
@@ -39,13 +44,20 @@ export function showFreeKickLobby() {
     description.textContent = typeof value === 'string' ? value : '';
   const notes = card.querySelector('.freekick-mode-notes');
   if (notes)
-    notes.textContent = `Challenge: ${fk.goals} goals, ${lives.toLowerCase()}, spots around ${fk.distanceM} m, wall ${fk.wallFromGoalM} m from goal. Fixed sequence for everyone; harder after each goal. Practice: any level, unlimited retries.`;
+    notes.textContent = infinity
+      ? `Infinity: ${lives.toLowerCase()}. Start at Easy, rise to Pro. Score until lives run out. Practice: unlimited retries.`
+      : `Challenge: ${fk.goals} goals, ${lives.toLowerCase()}, spots around ${fk.distanceM} m, wall ${fk.wallFromGoalM} m from goal. Fixed sequence for everyone; harder after each goal. Practice: any level, unlimited retries.`;
   for (const [selector, text, entry] of [
-    ['.freekick-challenge', 'CHALLENGE', 'freekick-challenge'],
+    [
+      '.freekick-challenge',
+      infinity ? 'INFINITY' : 'CHALLENGE',
+      infinity ? 'freekick-infinity' : 'freekick-challenge',
+    ],
     ['.freekick-practice', 'PRACTICE', 'freekick-practice'],
   ]) {
     const button = card.querySelector<HTMLAnchorElement>(selector ?? '');
     if (!button || !text || !entry) continue;
+    button.href = `${entry}.html`;
     pixelLabel(button, text);
     button.addEventListener('click', (event) => {
       if (!context?.postId) return;
@@ -56,11 +68,13 @@ export function showFreeKickLobby() {
   for (const [selector, text] of [
     ['.freekick-title', 'STREET SOCCER'],
     ['.freekick-lives', lives],
-    ['.freekick-progression', String(fk.goals)],
+    ['.freekick-progression', infinity ? 'ENDLESS' : String(fk.goals)],
     ['.freekick-mode', 'FREE KICK'],
     [
       '.freekick-tagline',
-      `${DIFFICULTY_LABEL[fk.difficulty]}  ${fk.distanceM} M`,
+      infinity
+        ? 'EASY TO PRO'
+        : `${DIFFICULTY_LABEL[fk.difficulty]}  ${fk.distanceM} M`,
     ],
   ]) {
     const label = card.querySelector<HTMLElement>(selector ?? '');

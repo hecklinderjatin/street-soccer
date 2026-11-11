@@ -4,6 +4,7 @@ import { context } from '@devvit/web/client';
 import { FREE_KICK as FK } from '../../shared/tuning';
 import {
   FREE_KICK_CHALLENGE_DEFAULT,
+  freeKickSkill,
   type FreeKickChallengeConfig,
 } from '../../shared/freeKickChallenge';
 import { DIFFICULTY_LABEL } from '../../shared/types';
@@ -168,19 +169,33 @@ function detailsPage(
       practice
         ? 'UNRANKED PRACTICE'
         : challenge
-          ? `${DIFFICULTY_LABEL[challenge.difficulty]} CHALLENGE`
+          ? challenge.mode === 'infinity'
+            ? `${freeKickSkill(options.level)} · INFINITY`
+            : `${DIFFICULTY_LABEL[challenge.difficulty]} CHALLENGE`
           : 'RANKED RUN',
       BODY,
       CARD.muted
     ).setOrigin(0.5)
   );
   const entries = [
-    ['MODE', practice ? 'PRACTICE' : 'CHALLENGE'],
+    [
+      'MODE',
+      practice
+        ? 'PRACTICE'
+        : challenge?.mode === 'infinity'
+          ? 'INFINITY'
+          : 'CHALLENGE',
+    ],
     ['LIVES', practice ? 'UNLIMITED' : String(options.lives)],
     ['LEVEL', `${options.level} / ${FK.maxLevel}`],
     ['DISTANCE', `${options.metres} M`],
     challenge
-      ? ['TARGET', `${challenge.goals} GOALS`]
+      ? [
+          'TARGET',
+          challenge.mode === 'infinity'
+            ? 'INFINITY'
+            : `${challenge.goals} GOALS`,
+        ]
       : ['LEVEL UP', practice ? 'FIXED LEVEL' : `${FK.goalsPerLevel} GOALS`],
     ['RECORDS', practice ? 'UNRANKED' : '7 DAYS'],
   ];
@@ -195,26 +210,35 @@ function detailsPage(
       pixelText(scene, x + 16, y + 50, value ?? '', 3, PAL.white)
     );
   }
+  const infinity = challenge?.mode === 'infinity';
   const notes = practice
     ? [
-        'Train this Challenge setup at your chosen fixed level.',
+        'Train this Free Kick setup at your chosen fixed level.',
         'Unlimited attempts. Pause > New Spot changes the angle.',
         'Practice does not submit scores or speed records.',
       ]
-    : challenge
+    : infinity && challenge
       ? [
-          `Score ${challenge.goals} goals before your ${challenge.lives} ${challenge.lives === 1 ? 'life runs' : 'lives run'} out.`,
-          `Spots around ${challenge.distanceM} m, wall ${challenge.wallFromGoalM} m from goal.`,
-          'Fixed sequence for everyone. Each goal is harder; a miss costs a life.',
-          'Harder spots (low XG) and better finishes (XGOT) score more points.',
-          'Completed runs rank on this post: highest score and fastest goal.',
+          `Score as many goals as possible with ${challenge.lives} lives.`,
+          'Start at Easy. Every two goals raises your level, up to Pro.',
+          'At Pro, keep scoring until your lives run out.',
+          'Every miss costs one life and retries the current spot.',
+          'Your best score and fastest goal rank on this post.',
         ]
-      : [
-          'Low XG spots pay more. A better finish (XGOT) pays up to 3x.',
-          'A miss costs a life. A great save (XGOT 0.5+) does not.',
-          `Every ${FK.goalsPerLevel} goals raises the wall and keeper difficulty.`,
-          'Completed runs rank by highest score over seven UTC days.',
-        ];
+      : challenge
+        ? [
+            `Score ${challenge.goals} goals before your ${challenge.lives} ${challenge.lives === 1 ? 'life runs' : 'lives run'} out.`,
+            `Spots around ${challenge.distanceM} m, wall ${challenge.wallFromGoalM} m from goal.`,
+            'Fixed sequence for everyone. Each goal is harder; a miss costs a life.',
+            'Harder spots (low XG) and better finishes (XGOT) score more points.',
+            'Completed runs rank on this post: highest score and fastest goal.',
+          ]
+        : [
+            'Low XG spots pay more. A better finish (XGOT) pays up to 3x.',
+            'A miss costs a life. A great save (XGOT 0.5+) does not.',
+            `Every ${FK.goalsPerLevel} goals raises the wall and keeper difficulty.`,
+            'Completed runs rank by highest score over seven UTC days.',
+          ];
   const notesTop = card.y + 180 + 3 * 116 + 16;
   notes.forEach((line, i) =>
     items.push(
@@ -282,7 +306,9 @@ function helpPage(
       practice
         ? 'Unlimited retries at this level and spot. Pause > New Spot changes the setup.'
         : challenge
-          ? `${challenge.lives} ${challenge.lives === 1 ? 'life' : 'lives'}, ${challenge.goals} goals to win. A miss costs a life. Each goal advances the fixed sequence.`
+          ? challenge.mode === 'infinity'
+            ? `${challenge.lives} lives. Every miss costs one. Two goals per level: Easy to Pro, then keep scoring until lives run out.`
+            : `${challenge.lives} ${challenge.lives === 1 ? 'life' : 'lives'}, ${challenge.goals} goals to win. A miss costs a life. Each goal advances the fixed sequence.`
           : `Start with ${FK.lives} lives. A miss costs one and retries the spot. Every ${FK.goalsPerLevel} goals raises the level.`,
     ],
     [

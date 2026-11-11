@@ -315,6 +315,46 @@ const practiceEnd = calls.slice(practiceCalls).find((c) => c.event === 'end');
 assert.ok(practiceEnd);
 assert.equal(Reflect.get(practiceEnd.data ?? {}, 'complete'), false);
 assert.equal(Reflect.get(practiceEnd.data ?? {}, 'game'), undefined);
+const infinityConfig: typeof FREE_KICK_CHALLENGE_DEFAULT = {
+  ...FREE_KICK_CHALLENGE_DEFAULT,
+  mode: 'infinity',
+  goals: 0,
+  difficulty: 'easy',
+};
+const infinitySettings = freeKickJourneySettings(
+  infinityConfig,
+  false,
+  2,
+  false
+);
+assert.equal(infinitySettings.mode, 'freekick-infinity');
+assert.deepEqual(readJourneySettings(infinitySettings), infinitySettings);
+const infinityResult = freeKickJourneyResult(
+  false,
+  false,
+  20,
+  22,
+  12000,
+  400,
+  false,
+  true
+);
+assert.equal(infinityResult.outcome, 'completed');
+assert.deepEqual(readJourneyResult(infinityResult), infinityResult);
+assert.equal(readJourneyResult({ ...infinityResult, outcome: 'failed' }), null);
+assert.equal(readJourneySettings({ ...infinitySettings, lives: 0 }), null);
+const infJourney = createMatchJourney(infinitySettings, send);
+const beforeInf = calls.length;
+infJourney.start();
+infJourney.end(infinityResult);
+await flush();
+const infEnd = calls.slice(beforeInf).find((c) => c.event === 'end');
+assert.ok(infEnd);
+assert.equal(Reflect.get(infEnd.data ?? {}, 'complete'), true);
+assert.deepEqual(Reflect.get(infEnd.data ?? {}, 'game'), {
+  win: false,
+  score: 12000,
+});
 console.log(
   'Journeys passed: disabled gate, DTO privacy, Hono/SDK integration, denial/outage, single-end, rematch IDs, delayed starts and explicit quits'
 );

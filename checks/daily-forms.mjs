@@ -128,7 +128,11 @@ assert.equal(
 );
 assert.deepEqual(invalid.showForm.data.startGoalsFor, ['0']);
 for (const type of ['classic', 'casual', 'freekick']) {
-  const response = await post('/match-type', { matchType: [type] });
+  let response = await post('/match-type', { matchType: [type] });
+  if(type === 'freekick') {
+    assert.equal(response.showForm.name,'freeKickModeForm');
+    response=await post('/freekick-mode',{fkMode:['challenge']});
+  }
   assert.equal(response.showForm.name, 'challengeForm');
   assert.equal(
     response.showForm.form.fields.some((f) => f.name === 'dailyMode'),
@@ -156,6 +160,16 @@ for (const type of ['classic', 'casual', 'freekick']) {
 
 const flairForm = (await post('/match-type', { matchType: ['casual'] }))
   .showForm;
+const infinityForm=await post('/freekick-mode',{fkMode:['infinity']});
+const infinityNames=infinityForm.showForm.form.fields.flatMap(f=>f.type==='group'?f.fields.map(x=>x.name):[f.name]);
+for(const name of ['fkKicker','fkWall','fkLives']) assert.ok(infinityNames.includes(name));
+for(const name of ['fkGoals','fkDistance','fkWallDistance','fkDifficulty','durationSec']) assert.ok(!infinityNames.includes(name));
+assert.ok((await post('/challenge-submit',infinityForm.showForm.data)).navigateTo);
+assert.equal(globalThis.formPosts.at(-1).postData.freeKick.mode,'infinity');
+assert.equal(globalThis.formPosts.at(-1).postData.freeKick.goals,0);
+assert.ok((await post('/freekick-mode',{fkMode:['invalid']})).showToast);
+const badInfinity=await post('/challenge-submit',{...infinityForm.showForm.data,fkLives:['0']});
+assert.ok(badInfinity.showToast);assert.ok(!badInfinity.showForm.form.fields.some(f=>f.name==='fkGoals'));
 const retry = await post('/challenge-submit', {
   ...flairForm.data,
   title: '',
@@ -221,6 +235,7 @@ for (const [path, body] of [
   ['/match-type', { matchType: ['daily'] }],
   ['/daily-mode', { dailyMode: ['survival'] }],
   ['/challenge-submit', daily.showForm.data],
+  ['/freekick-mode',{fkMode:['infinity']}],
 ]) {
   const denied = await post(path, body);
   assert.ok(denied.showToast.includes('Only moderators'));

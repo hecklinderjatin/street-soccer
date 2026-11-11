@@ -1,6 +1,6 @@
 import { BALL, FREE_KICK as FK, PITCH } from '../../shared/tuning';
 import {
-  challengeRoundLevel,
+  freeKickRoundLevel,
   challengeProgress,
   challengeRandom,
   type FreeKickChallengeConfig,
@@ -886,12 +886,19 @@ export function challengeKick(
   round: number,
   postId: string
 ): KickSetup {
-  const progress = challengeProgress(round, config.goals);
-  const level = levelFor(
-    (challengeRoundLevel(config.difficulty, round, config.goals) - 1) *
-      FK.goalsPerLevel
+  const progress = challengeProgress(
+    round,
+    config.mode === 'infinity'
+      ? (FK.maxLevel - FK.infinityStartLevel) * FK.infinityGoalsPerLevel + 1
+      : config.goals
   );
-  const rand = challengeRandom(postId, 'layout');
+  const level = levelFor(
+    (freeKickRoundLevel(config, round) - 1) * FK.goalsPerLevel
+  );
+  const rand = challengeRandom(
+    postId,
+    config.mode === 'infinity' && progress === 1 ? `layout:${round}` : 'layout'
+  );
   const side = rand() < 0.5 ? -1 : 1;
   const postAngle = lerp(
     FK.challengePostAngleShare[0],

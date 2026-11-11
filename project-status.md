@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Free Kick Infinity (2026-11-11):** add a distinct ranked Infinity mode under Free Kick creation. A registered mode-choice form leads to Challenge’s existing form or Infinity’s kits/lives-only gameplay settings (standard title/flair/description remain); normalize hidden geometry/difficulty defaults server-side and preserve mode on invalid resubmissions. Infinity starts at Easy level 2, rises one level every two goals through Normal/Hard to Pro, caps at level 10 and continues until creator-defined lives reach zero. No goal target, bonus lives or great-save exemptions. Use repeatable post/round setups, varying Pro setups indefinitely, and the four-total-defender cap. Add the Infinity entry, correct feed routing/fallback href and preview, info/control copy and stage HUD; retain Practice, pause/restart/quit and Join. Results say Run Complete, show untargeted goals and existing score/speed boards. Validate finished Infinity receipts against canonical post mode/lives/level and keep immutable saves/privacy behavior. Add freekick-infinity Journeys with completed (not failed) terminal outcome. Types/lint, 36 Free Kick rules/panels/API checks, Daily/forms regressions, Journeys SDK checks and source-only Infinity/progression/results, feed/Practice, existing UI/restart/Journeys browser checks pass; Infinity results screenshot inspected. No app build, live Reddit writes, telemetry approval submission or deployment performed.
+
 **Fixed Free Kick Challenge sequence (2026-11-11):** replace per-attempt random Challenge spots with a stable post-ID-seeded sequence, shared by every player, retry and replay. Progress from nearer/central to further/wider alternating angles across the post’s entire goal target; spread the configured difficulty’s first/final levels across those rounds (a one-goal post uses its opening level). Seed defensive shot decisions per post/round too, so retries cannot reroll the keeper/wall. Misses retain the current setup; goals advance it. Wall tuning now ranges from one defender at low levels to four at the hardest, including any lying defender who replaces one standing player. Practice keeps random New Spot and its chosen fixed level with the same revised wall cap. Live preview cycles the actual post sequence. Update info/lobby/create-form copy and server result level validation together. Types/lint, 35 Free Kick rules plus panel/API checks and source-only restart/UI/feed/Practice/Journeys browser checks pass. No app build, deployment or live Reddit writes performed.
 
 **Dependency vulnerability fix (2026-11-11):** npm audit reproduced three affected package entries (one high, two moderate), all from Devvit CLI’s pinned isomorphic-git 1.33.1 and its parent chain. Scope an override to @devvit/cli for patched same-major isomorphic-git 1.44.12; retain Devvit 0.15.3 and other direct versions. Regenerate lockfile, removing obsolete path-browserify. Clean npm ci succeeds and explicit npm audit reports zero vulnerabilities. Types/lint, dependency compatibility (including the Git init API actually used by Devvit) and CLI version smoke check pass. Existing upstream deprecation notices are separate from audit findings. No app build, deployment or live Reddit operations performed.
@@ -758,6 +760,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Offer Infinity as a Free Kick post subtype, with only kits/lives as creator gameplay settings. Two goals per level is the initial progression choice; retain Pro endlessly, charge every miss and keep bonuses out so the selected lives remain meaningful. Rank only terminal runs; use neutral Run Complete copy and completed Journeys rather than calling an endless run a failed Challenge. Keep post-scoped score/speed boards and unranked Practice.
+
 - Derive Challenge layout and defence streams from post ID, never player/date/attempt. Keep the entire sequence repeatable for a post; only scored goals advance it. Spread discrete skill levels over the goal target while distance/angle keep rising between level steps. Count lying defenders inside the four-player wall limit; preserve unranked Practice’s selected-level random spots.
 
 - Override only @devvit/cli’s vulnerable isomorphic-git pin with patched 1.44.12; avoid the audit suggestion to change Devvit to a different major. Keep lockfile integrity and check the CLI’s actual Git initialization consumer.
@@ -1190,6 +1194,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Merge/push Infinity when requested. Playtest the two-goals-per-level pacing and Pro endurance on device after deployment. Optional follow-ups discussed: difficulty milestones, streak/goal medals or a shared daily sequence; bonus lives are not implemented. Live Journeys acceptance still depends on Reddit approval/allowlisting.
+
 - Merge/push the fixed Free Kick sequence when requested. Playtest short/long targets and four-defender final rounds on device; existing seven-day scores from older random attempts are retained.
 
 - Merge/push the dependency security fix when requested. Keep the scoped Git override until upstream Devvit pins a safe version, then reassess it; npm audit currently reports zero findings.
@@ -1607,6 +1613,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-11:** add Free Kick Infinity creation/entry, Easy-to-Pro endless progression, lives-only ending, mode-aware feed/help/HUD/results, validated score/speed records and completed Journeys. Preserve Challenge and Practice. Types/lint, 36 Free Kick rules/panels/API, Daily/forms/Journeys and source-only Infinity plus existing feed/UI/restart/Journeys browser checks pass; no app build/deployment.
 
 - **2026-11-11:** make Free Kick Challenge layouts and defensive rolls deterministic per post/round; scale distance/angle and defence levels through the goal target, with one-to-four total wall defenders. Align preview, instructions and server level checks; retain Practice New Spot randomness. Types/lint, 35 rules plus panels/API and source-only restart/UI/feed/Practice/Journeys browser checks pass; no app build/deployment.
 

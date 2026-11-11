@@ -5,6 +5,8 @@ import { context, reddit } from '@devvit/web/server';
 import { parseMatchConfig } from '../../shared/matchConfig';
 import {
   CHALLENGE_FORM,
+  FREE_KICK_MODE_FORM,
+  freeKickModeForm,
   DAILY_MODE_FORM,
   dailyModeForm,
   challengeFormFor,
@@ -81,6 +83,10 @@ forms.post('/match-type', async (c) => {
     const type = parsePostType(values.matchType?.[0]);
     if (!type)
       return c.json<UiResponse>({ showToast: 'Choose a valid match type' });
+    if (type === 'freekick')
+      return c.json<UiResponse>({
+        showForm: { name: FREE_KICK_MODE_FORM, form: freeKickModeForm },
+      });
     if (type === 'daily')
       return c.json<UiResponse>({
         showForm: { name: DAILY_MODE_FORM, form: dailyModeForm },
@@ -99,6 +105,40 @@ forms.post('/match-type', async (c) => {
     console.error('Could not open match form:', error);
     return c.json<UiResponse>(
       { showToast: 'Could not open the match form. Please try again.' },
+      400
+    );
+  }
+});
+
+forms.post('/freekick-mode', async (c) => {
+  try {
+    if (!(await isModerator()))
+      return c.json<UiResponse>({
+        showToast: 'Only moderators can create matches',
+      });
+    const values = await c.req.json<ChallengeValues>();
+    const mode = values.fkMode?.[0];
+    if (mode !== 'challenge' && mode !== 'infinity')
+      return c.json<UiResponse>({ showToast: 'Choose a Free Kick mode' });
+    return c.json<UiResponse>({
+      showForm: {
+        name: CHALLENGE_FORM,
+        form: challengeFormFor(
+          'freekick',
+          undefined,
+          await loadPostFlairs(),
+          mode
+        ),
+        data: challengeFormData({
+          matchType: ['freekick'],
+          fkMode: [mode],
+          title: `Street Soccer Free Kick ${mode}`,
+        }),
+      },
+    });
+  } catch {
+    return c.json<UiResponse>(
+      { showToast: 'Could not open the Free Kick form' },
       400
     );
   }
@@ -157,7 +197,8 @@ forms.post('/challenge-submit', async (c) => {
             form: challengeFormFor(
               parsePostType(values.matchType?.[0]) ?? 'daily',
               parseDailyMode(values.dailyMode?.[0]),
-              flairs
+              flairs,
+              values.fkMode?.[0] === 'infinity' ? 'infinity' : 'challenge'
             ),
             data: challengeFormData({
               ...values,

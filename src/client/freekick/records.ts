@@ -1,3 +1,4 @@
+import { freeKickChallenge } from '../challenge';
 import { context } from '@devvit/web/client';
 import type { FreeKickRun, FreeKickStats } from '../../shared/freeKick';
 
@@ -23,7 +24,7 @@ export class FreeKickRecords {
     if (this.startRequest || !context?.postId) return;
     this.startRequest = request('start', {
       id: this.id,
-      mode: 'challenge',
+      mode: freeKickChallenge().mode === 'infinity' ? 'infinity' : 'challenge',
     }).then((value) => {
       this.run = value;
       return value;
@@ -36,13 +37,17 @@ export class FreeKickRecords {
       throw new Error('Leaderboards and score sharing are available on Reddit');
     if (!this.startRequest) throw new Error('Run was not registered');
     const run = await this.startRequest;
-    await request('result', { ...run, mode: 'challenge', result });
+    await request('result', {
+      ...run,
+      mode: freeKickChallenge().mode === 'infinity' ? 'infinity' : 'challenge',
+      result,
+    });
   }
   async post(comment: string, includeStats: boolean) {
     if (!this.run) throw new Error('Save the run before sharing');
     return request('post-score', {
       ...this.run,
-      mode: 'challenge',
+      mode: freeKickChallenge().mode === 'infinity' ? 'infinity' : 'challenge',
       comment,
       includeStats,
     });

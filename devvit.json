@@ -15,6 +15,7 @@
       "game": {
         "entry": "index.html"
       },
+      "freekick-infinity": { "entry": "freekick-infinity.html" },
       "freekick-practice": {
         "entry": "freekick-practice.html"
       },
@@ -62,6 +63,7 @@
     ]
   },
   "forms": {
+    "freeKickModeForm": "/internal/form/freekick-mode",
     "dailyModeForm": "/internal/form/daily-mode",
     "matchTypeForm": "/internal/form/match-type",
     "challengeForm": "/internal/form/challenge-submit",

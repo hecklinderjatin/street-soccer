@@ -58,6 +58,7 @@ export type ChallengeValues = {
   durationSec?: string[];
   startGoalsAgainst?: string[];
   // Free Kick posts: the Challenge settings.
+  fkMode?: string[];
   fkKicker?: string[];
   fkWall?: string[];
   fkLives?: string[];
@@ -169,11 +170,44 @@ export const dailyModeForm: Form = {
   ],
 };
 
+export const FREE_KICK_MODE_FORM = 'freeKickModeForm';
+export const freeKickModeForm: Form = {
+  title: 'Choose a Free Kick mode',
+  acceptLabel: 'Continue',
+  fields: [
+    {
+      type: 'select',
+      name: 'fkMode',
+      label: 'Free Kick mode',
+      required: true,
+      defaultValue: ['challenge'],
+      options: [
+        { value: 'challenge', label: 'Challenge — fixed goal target' },
+        { value: 'infinity', label: 'Infinity — survive from Easy to Pro' },
+      ],
+    },
+  ],
+};
+
 export function challengeFormFor(
   matchType: PostType,
   dailyMode: DailyMode = 'comeback',
-  flairs: readonly PostFlairChoice[] | null = []
+  flairs: readonly PostFlairChoice[] | null = [],
+  freeKickMode: 'challenge' | 'infinity' = 'challenge'
 ): Form {
+  const freeKickModeField: FormField = {
+    type: 'select',
+    name: 'fkMode',
+    label: 'Free Kick mode',
+    required: true,
+    defaultValue: [freeKickMode],
+    options: [
+      {
+        value: freeKickMode,
+        label: freeKickMode === 'infinity' ? 'Infinity' : 'Challenge',
+      },
+    ],
+  };
   const dailyFields: FormField[] =
     matchType === 'daily'
       ? [
@@ -236,7 +270,9 @@ export function challengeFormFor(
     title: 'Create a Street Soccer match',
     description:
       matchType === 'freekick'
-        ? 'Create a Free Kick post: a Challenge with these settings, plus unlimited Practice.'
+        ? freeKickMode === 'infinity'
+          ? 'Create an Infinity post: choose team colours and lives. Start at Easy, rise to Pro and keep scoring until lives run out.'
+          : 'Create a Free Kick post: a Challenge with these settings, plus unlimited Practice.'
         : matchType === 'casual'
           ? 'Create a Custom post from your Reddit account. Players freely choose their formations, difficulty and match time.'
           : 'Create a post from your Reddit account. Ranked matches use these fixed settings; players can also choose unranked Custom.',
@@ -284,7 +320,17 @@ export function challengeFormFor(
         helpText: `Shown on the post before playing, up to ${CUSTOM_MATCH.descriptionMaxLength} characters`,
       },
       ...dailyFields,
-      ...(matchType === 'freekick' ? freeKickFields : []),
+      ...(matchType === 'freekick'
+        ? [
+            freeKickModeField,
+            ...freeKickFields.filter(
+              (field) =>
+                freeKickMode !== 'infinity' ||
+                field.type === 'group' ||
+                (field.type === 'select' && field.name === 'fkLives')
+            ),
+          ]
+        : []),
       ...(['casual', 'freekick'].includes(matchType)
         ? []
         : matchFields
@@ -410,7 +456,7 @@ const freeKickFields: FormField[] = [
     type: 'select',
     name: 'fkLives',
     label: 'Lives',
-    helpText: 'Each miss costs one; the challenge fails when none are left.',
+    helpText: 'Each miss costs one; the run ends when none are left.',
     options: numbers(range(1, FK.challengeMaxLives)),
     required: true,
   },
@@ -510,6 +556,7 @@ export function readChallenge(
   let freeKick: FreeKickChallengeConfig | undefined;
   if (matchType === 'freekick') {
     const parsed = parseFreeKickChallenge({
+      mode: values.fkMode?.[0],
       kicker: values.fkKicker?.[0],
       wall: values.fkWall?.[0],
       lives: Number(values.fkLives?.[0]),

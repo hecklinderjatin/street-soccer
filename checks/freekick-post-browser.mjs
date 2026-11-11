@@ -123,7 +123,7 @@ try {
       content:
         '{const exports={};' +
         compile('src/client/freekick/lobby.ts') +
-        ';exports.showFreeKickLobby();}',
+        ';window.showFreeKickLobby=exports.showFreeKickLobby;exports.showFreeKickLobby();}',
     });
     for (const selector of ['.freekick-challenge', '.freekick-practice']) {
       const box = await page.locator(selector).boundingBox();
@@ -141,6 +141,16 @@ try {
       'freekick-challenge',
       'freekick-practice',
     ]);
+    await page.evaluate(()=>{
+      const original=window.freeKickChallenge;
+      window.freeKickChallenge=()=>({...original(),mode:'infinity',goals:0,difficulty:'easy'});
+      window.calls=[];window.showFreeKickLobby();
+    });
+    assert.equal(await page.locator('.freekick-challenge').getAttribute('href'),'freekick-infinity.html');
+    assert.match(await page.locator('.freekick-tagline').textContent(),/EASY TO PRO/);
+    assert.match(await page.locator('.freekick-progression').textContent(),/ENDLESS/);
+    await page.locator('.freekick-challenge').click();
+    assert.deepEqual(await page.evaluate(()=>window.calls),['freekick-infinity']);
     console.log(
       `Free Kick card ${width}x${height}: visible actions, safe description, correct expanded routes`
     );

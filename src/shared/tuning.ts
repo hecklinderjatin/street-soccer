@@ -1096,6 +1096,8 @@ export const FREE_KICK = {
   // lives, goals to win, shot distance, wall distance from goal and
   // difficulty (shared/freeKickChallenge.ts). Each round (a new spot after
   // a goal) follows a fixed per-post sequence, progressively harder to its target.
+  infinityStartLevel: 2, // Infinity begins at Easy
+  infinityGoalsPerLevel: 2, // two scored goals raise the level; continue at Pro after level 10
   challengeMaxLives: 10, // most lives a post can give
   challengeMaxGoals: 20, // most goals a post can ask for
   challengeDistanceChoicesM: [20, 25, 30, 35], // the post's shot distance, metres from goal ...

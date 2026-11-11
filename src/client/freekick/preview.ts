@@ -86,7 +86,9 @@ class FreeKickPreviewScene extends Phaser.Scene {
     const config = freeKickChallenge();
     this.setup = challengeKick(
       config,
-      this.attempt++ % config.goals,
+      config.mode === 'infinity'
+        ? this.attempt++
+        : this.attempt++ % config.goals,
       context?.postId ?? 'local'
     );
     const contact = ballContact(((this.attempt % 3) - 1) * 0.5, 0.4);
