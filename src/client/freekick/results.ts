@@ -160,7 +160,9 @@ export function freeKickResults(
       exitExpandedMode(event);
     }
   });
-  actions.append(casualButton('PLAY AGAIN', again));
+  const replay = casualButton('PLAY AGAIN', again);
+  replay.classList.add('results-replay');
+  actions.append(replay);
   for (const { label, entry } of [
     { label: 'PRACTICE', entry: 'freekick-practice' },
     { label: 'PLAYGROUND', entry: 'freekick-playground' },

@@ -1014,6 +1014,12 @@ body {
   border-color: #467996;
   border-bottom-color: #11263b;
 }
+.results-actions > .results-replay {
+  color: #081019;
+  background: #00e436;
+  border-color: #54f279;
+  border-bottom-color: #008751;
+}
 .results-actions > button:disabled {
   opacity: 0.6;
   cursor: default;

@@ -110,6 +110,7 @@ var Phaser = {
     FloatBetween: require('phaser/src/math/FloatBetween'),
     RadToDeg: require('phaser/src/math/RadToDeg'),
     Vector2: require('phaser/src/math/Vector2'),
+    Wrap: require('phaser/src/math/Wrap'),
   },
   Plugins: require('phaser/src/plugins'),
   Renderer: require('phaser/src/renderer'),
