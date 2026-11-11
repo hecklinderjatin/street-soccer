@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Join diagnostics and required Free Kick Restart (2026-11-11):** join failures now return safe reason/code and short reference. Log community_join_failed with the matching reference, deployed app version, SDK error code and bounded message (no request headers/account identifiers). Distinguish permission and rate-limit errors; client displays server details/reference with HTTP fallback and requires joined:true before thanking/storing success. Add a trusted-click Retry Join button on results. Verify live failures by reproducing while running `npx devvit logs street_soccer_dev street-soccer --since 15m`, then matching the screenshot reference to its SDK message. Existing catch swallowed the error, so no exact production cause is claimed. Free Kick Restart was already present in main; make its overlay callback required and always render its control. Actual source-only browser checks verify/click Restart in Play, Challenge and Practice and confirm settings/reset/record isolation; Challenge pause screenshot inspected. Types/lint and community API/browser and pause-restart checks pass. No application build, live Reddit joins or production log access performed.
+
 **Main merge (2026-11-11):** fast-forwarded `codex/pause-restart` through `e4a24ed` into main at the user’s request. Includes the community consent explanation, immediate result transition/confirmed thanks, and Restart across every pause menu. Existing types/lint and focused community/Free Kick/restart checks pass. No application build or Reddit deployment performed.
 
 **Pause Restart in every game mode (2026-11-11):** add orange Restart between Resume and Quit on touch normal-match pause, and below Key Bindings on desktop. Release input, record abandonment, stop the paused match and start a fresh match with the same config (Classic, Custom/Casual and Daily); reset the HUD duplicate-click guard on each init. Free Kick Play, Challenge and Practice use their existing fresh-run reset from Pause, preserving challenge settings/chosen practice level, resetting progress/lives and renewing record IDs. Practice retains New Spot. Re-space pause controls and position the trusted DOM Quit below Restart via shared pauseLayout. Types/lint and 32 Free Kick rules/panel/API checks pass. Actual callback checks cover every normal mode and desktop/touch layout; source-only WebGL checks click Restart in all three Free Kick entries and verify resets, preserved settings, renewed IDs, no partial saves and pause UI cleanup. No application build or live Reddit writes performed.
@@ -724,6 +726,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Correlate a safe on-screen join reference with SDK failure details in server logs instead of exposing raw platform errors to players or guessing the production cause. Require Free Kick Restart in the overlay contract.
+
 - Restart abandons the current attempt and starts with identical settings; it never submits a partial leaderboard result. Reuse the existing Free Kick reset and normal Match initialization rather than manually recreating their state.
 
 - Reveal results immediately on Join, but thank the player only after confirmed subscription. Keep native Reddit permission consent intact and explain it before the button.
@@ -1128,6 +1132,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Upload the diagnostics version, reproduce a join failure and match its reference to `community_join_failed` in Devvit logs. Verify the visible Free Kick Restart against the deployed version; source/browser checks already show it in every Free Kick entry.
+
 - Native Reddit review of Pause Restart across normal/Daily modes and Free Kick Challenge/Practice after the next user-run upload.
 
 - Native Reddit review of the consent explanation, immediate results transition and success thank-you in both layouts.
@@ -1519,6 +1525,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-11:** add join error classification/reference logging, actual error display and Retry Join; require and verify Free Kick Restart in all entries. Types/lint and focused API/browser/restart checks pass. No application build/deployment performed.
 
 - **2026-11-11:** merge community note/thanks and all-mode pause Restart into main through `e4a24ed`; prepare requested GitHub push. No application build/deployment performed.
 

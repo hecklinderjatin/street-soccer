@@ -66,9 +66,19 @@ export function communityPrompt(results: HTMLElement, portrait = false) {
     void subscribe(event);
   });
   const next = casualButton('CONTINUE TO RESULTS', () => close(), true);
+  const retry = casualButton(
+    'RETRY JOIN',
+    (event) => {
+      void subscribe(event);
+    },
+    true
+  );
+  retry.classList.add('community-retry');
+  retry.hidden = true;
   let resultNote: HTMLParagraphElement | null = null;
   function notifyResults(message: string, success = false) {
     if (disposed) return;
+    retry.hidden = true;
     resultNote ??= document.createElement('p');
     resultNote.className = `community-result-note${success ? ' is-success' : ''}`;
     resultNote.setAttribute('role', 'status');
@@ -99,8 +109,30 @@ export function communityPrompt(results: HTMLElement, portrait = false) {
         method: 'POST',
         signal: AbortSignal.timeout(8000),
       });
-      if (!response.ok)
-        throw new Error('Could not join. Please retry or continue to results.');
+      const payload: unknown = await response.json().catch(() => null);
+      if (!response.ok) {
+        const detail =
+          payload && typeof payload === 'object'
+            ? Reflect.get(payload, 'error')
+            : null;
+        const reference =
+          payload && typeof payload === 'object'
+            ? Reflect.get(payload, 'reference')
+            : null;
+        const fallback =
+          response.status === 404
+            ? 'Join is unavailable in this game version. Reopen the updated post.'
+            : `Could not join (HTTP ${response.status}). Please retry.`;
+        throw new Error(
+          `${typeof detail === 'string' ? detail.slice(0, 240) : fallback}${typeof reference === 'string' ? ' Ref: ' + reference.slice(0, 36) : ''}`
+        );
+      }
+      if (
+        !payload ||
+        typeof payload !== 'object' ||
+        Reflect.get(payload, 'joined') !== true
+      )
+        throw new Error('Join confirmation was not received. Please retry.');
       try {
         if (key) localStorage.setItem(key, 'yes');
       } catch {
@@ -114,6 +146,10 @@ export function communityPrompt(results: HTMLElement, portrait = false) {
           ? error.message
           : 'Could not join. You can still continue playing.'
       );
+      if (!disposed && resultNote) {
+        resultNote.after(retry);
+        retry.hidden = false;
+      }
     } finally {
       pending = false;
       if (!closed) {
@@ -146,6 +182,7 @@ export function communityPrompt(results: HTMLElement, portrait = false) {
     destroy() {
       disposed = true;
       resultNote?.remove();
+      retry.remove();
       close(false);
     },
   };

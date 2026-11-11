@@ -4,6 +4,8 @@ const state = {
   context: { userId: 't2_u', postId: 't3_p', subredditId: 't5_s' },
   calls: 0,
   fail: false,
+  message: 'Denied',
+  sdkCode: undefined,
 };
 globalThis.communityServer = state;
 await build({
@@ -18,7 +20,7 @@ await build({
       },
       load(id) {
         if (id === '\0mock-sdk')
-          return `const s=globalThis.communityServer;export const context=s.context;export const redis={};export const reddit={subscribeToCurrentSubreddit:async()=>{s.calls++;if(s.fail)throw Error('Denied');}};`;
+          return `const s=globalThis.communityServer;export const context=s.context;export const redis={};export const reddit={subscribeToCurrentSubreddit:async()=>{s.calls++;if(s.fail){const e=Error(s.message);e.code=s.sdkCode;throw e;}}};`;
       },
     },
   ],
@@ -42,9 +44,22 @@ state.fail = true;
 response = await api.request('/community/join', { method: 'POST' });
 assert.equal(response.status, 503);
 assert.equal(state.calls, 2);
+const failure = await response.json();
+assert.equal(failure.code, 'REDDIT_JOIN_FAILED');
+assert.match(failure.reference, /^[a-f0-9-]{8}$/);
+state.sdkCode = 7;
+state.message = 'Subscription permission denied';
+response = await api.request('/community/join', { method: 'POST' });
+assert.equal(response.status, 403);
+assert.equal((await response.json()).code, 'PERMISSION_REQUIRED');
+state.sdkCode = 8;
+state.message = 'Too many requests';
+response = await api.request('/community/join', { method: 'POST' });
+assert.equal(response.status, 429);
+assert.equal((await response.json()).code, 'RATE_LIMITED');
 response = await api.request('/community/join');
 assert.equal(response.status, 404);
-assert.equal(state.calls, 2);
+assert.equal(state.calls, 4);
 console.log(
   'Community API passed: explicit POST, login/community guards, subscribe success and failure; no live Reddit writes.'
 );

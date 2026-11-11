@@ -154,6 +154,7 @@ try {
       };
     });
     assert.ok(position.quitTop > position.restartBottom);
+    await page.screenshot({path:'/tmp/pause-' + entry.replace('.html','') + '.png'});
     await page.mouse.click(position.x, position.y, { delay: 70 });
     await page.waitForTimeout(100);
     const after = await page.evaluate(() => {

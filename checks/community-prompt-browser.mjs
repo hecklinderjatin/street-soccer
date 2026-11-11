@@ -62,7 +62,18 @@ try {
     };
     window.fetch = async () => {
       window.writes++;
-      return { ok: window.ok };
+      return {
+        ok: window.ok,
+        status: window.ok ? 200 : 503,
+        json: async () =>
+          window.ok
+            ? { joined: true }
+            : {
+                error: 'Could not join. Please retry.',
+                code: 'REDDIT_JOIN_FAILED',
+                reference: 'test-ref',
+              },
+      };
     };
   });
   for (const [file, name] of [
@@ -167,14 +178,21 @@ try {
     await page.locator('.community-result-note.is-success').count(),
     0
   );
-  await open(true);
+  assert.match(
+    await page.locator('.community-result-note').textContent(),
+    /test-ref/
+  );
+  assert.equal(
+    await page
+      .getByRole('button', { name: 'RETRY JOIN', exact: true })
+      .isVisible(),
+    true
+  );
   await page.evaluate(() => {
     window.ok = true;
     window.deferConsent = true;
   });
-  await page
-    .getByRole('button', { name: 'JOIN COMMUNITY', exact: true })
-    .click();
+  await page.getByRole('button', { name: 'RETRY JOIN', exact: true }).click();
   await page.waitForFunction(
     () => !document.querySelector('.community-prompt')
   );

@@ -19,7 +19,7 @@ type OverlayOptions = {
   challenge?: FreeKickChallengeConfig; // a challenge run's post settings
   newSpot?: () => void;
   intro: boolean; // first entry: page 1's primary is START GAME, else RESUME
-  restart?: () => void; // pause: start a fresh run with the same settings
+  restart: () => void; // pause: start a fresh run with the same settings
   resume: () => void; // pause: RESUME
   start: () => void; // page 1: START GAME / RESUME (skips page 2)
   next: () => void; // page 1: NEXT -> how to play
@@ -445,15 +445,14 @@ function pauseMenu(
       fill: PAL.green,
     })
   );
-  if (options.restart)
-    items.push(
-      new TextButton(scene, cx, layout.restartY, 'RESTART', options.restart, {
-        width: 360,
-        height: 80,
-        textSize: 3,
-        fill: PAL.orange,
-      })
-    );
+  items.push(
+    new TextButton(scene, cx, layout.restartY, 'RESTART', options.restart, {
+      width: 360,
+      height: 80,
+      textSize: 3,
+      fill: PAL.orange,
+    })
+  );
   if (layout.newSpotY !== null && options.newSpot)
     items.push(
       new TextButton(scene, cx, layout.newSpotY, 'NEW SPOT', options.newSpot, {

@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { survivalReceiptMinimum } from '../../shared/dailyMode';
 import {
   beginGame,
@@ -23,17 +24,73 @@ type SimpleErrorResponse = {
 
 export const api = new Hono();
 
-// Explicit user click only; membership is never changed at match completion.
+// Return a reference players can match to the subscription failure in logs.
 api.post('/community/join', async (c) => {
   c.header('Cache-Control', 'no-store');
-  if (!context.userId) return c.json({ error: 'Log in to join' }, 401);
+  const reference = randomUUID().slice(0, 8);
+  if (!context.userId)
+    return c.json(
+      {
+        error: 'Log in to Reddit before joining.',
+        code: 'LOGIN_REQUIRED',
+        reference,
+      },
+      401
+    );
   if (!context.postId || !context.subredditId)
-    return c.json({ error: 'Community post required' }, 400);
+    return c.json(
+      {
+        error: 'Open the game from a community post and retry.',
+        code: 'POST_REQUIRED',
+        reference,
+      },
+      400
+    );
   try {
     await reddit.subscribeToCurrentSubreddit();
     return c.json({ joined: true });
-  } catch {
-    return c.json({ error: 'Could not join community' }, 503);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    const rawCode =
+      error && typeof error === 'object'
+        ? Reflect.get(error, 'code')
+        : undefined;
+    const denied =
+      rawCode === 7 ||
+      rawCode === 16 ||
+      /permission|unauthori[sz]ed|forbidden|scope|consent/i.test(message);
+    const limited =
+      rawCode === 8 ||
+      rawCode === 429 ||
+      /rate.?limit|too many requests/i.test(message);
+    const code = denied
+      ? 'PERMISSION_REQUIRED'
+      : limited
+        ? 'RATE_LIMITED'
+        : 'REDDIT_JOIN_FAILED';
+    // Log the SDK message, not request headers, tokens, or account identifiers.
+    console.error('community_join_failed', {
+      reference,
+      code,
+      appVersion: context.appVersion,
+      sdkCode:
+        typeof rawCode === 'number' || typeof rawCode === 'string'
+          ? rawCode
+          : undefined,
+      message: message.slice(0, 1000),
+    });
+    return c.json(
+      {
+        error: denied
+          ? 'Reddit did not grant permission to join. Retry and approve the subscription request.'
+          : limited
+            ? 'Reddit is limiting join requests. Wait a moment and retry.'
+            : 'Reddit could not complete the join. Retry or join from the subreddit page.',
+        code,
+        reference,
+      },
+      denied ? 403 : limited ? 429 : 503
+    );
   }
 });
 
