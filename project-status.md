@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Main merge (2026-11-11):** fast-forwarded `codex/minor-package-updates` through `ffaeb0e` into `main` at the user’s request. Includes visible tactics controls help, adaptive opponent tactics and compatible patch/minor dependency updates. Existing types/lint, compatibility, gameplay, Free Kick/Daily and source-preview checks pass. No application build or deployment performed.
+
 **Patch/minor package updates (2026-11-11):** update Devvit analytics/start/web/CLI together to 0.15.3, Hono 4.13.17, Hono Node server 2.1.6, Vite 8.3.8, typescript-eslint 8.72.2, Playwright 1.65.0, globals 17.14.0 and minimatch override 11.0.7. Regenerate the lockfile and install; retain the glob compatibility patch. Phaser 3.90.0, TypeScript 6.0.3 and Node 24 typings remain on their current major versions. npm outdated now lists only those three major upgrades, npm ls reports a consistent tree. Types, lint, dependency compatibility, 72 gameplay checks, 31 Free Kick checks/panels/API, Daily regressions and source-only WebGL live-preview browser checks pass. Unit runner finds zero tests. No application build or deployment performed.
 
 **Opponent match tactics (2026-11-11):** opponents select Attack when trailing, Defend when leading in the last minute/final 30% (whichever is shorter), and Normal otherwise. Require three seconds of stable intent and at least twelve live seconds between switches. Selection time freezes during stoppages, frozen kickoff and pause; fresh matches reset to Normal. Apply the mirrored manual formation offset plus attacking/defensive passing and pressing plans; Normal restores the last applied baseline Daily/standard plan. Preserve Daily plan reaction timing and Rampage difficulty progression, home manual selection, existing movement and accuracy. Selection reads only score/clock, never player tactics or input. Types/lint, 72 gameplay checks and Daily rules/forms regressions pass. No application build or browser playtest performed.
@@ -1469,6 +1471,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-11:** merge controls-help fix, opponent tactics and patch/minor package updates into main through `ffaeb0e`; prepare requested GitHub push. No application build/deployment performed.
 
 - **2026-11-11:** update compatible patch/minor dependencies and minimatch override, regenerate lockfile, verify dependency/gameplay/server/source-browser compatibility. No application build or deployment performed.
 
