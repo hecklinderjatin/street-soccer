@@ -14,7 +14,7 @@ export type FreeKickChallengeConfig = {
   wall: JerseyColor; // the wall's kit
   lives: number; // misses allowed
   goals: number; // goals to win
-  distanceM: number; // shot distance from goal; each round varies around it
+  distanceM: number; // base distance; the fixed sequence progresses around it
   wallFromGoalM: number; // the wall's distance from goal
   difficulty: Difficulty; // where the rounds start and how hard they get
 };
@@ -77,11 +77,33 @@ export function postFreeKickChallenge(postData: unknown) {
   return typeof config === 'string' ? FREE_KICK_CHALLENGE_DEFAULT : config;
 }
 
-// Round `round` (0 = the first spot)'s level: one harder per round, from
-// the difficulty's first level up to its top.
-export function challengeRoundLevel(difficulty: Difficulty, round: number) {
+// Progress spans this post's full goal target; one-goal posts use the first spot.
+export function challengeProgress(round: number, goals: number) {
+  return goals <= 1 ? 0 : Math.min(1, Math.max(0, round) / (goals - 1));
+}
+
+// Spread the difficulty range across the whole challenge, not just early goals.
+export function challengeRoundLevel(
+  difficulty: Difficulty,
+  round: number,
+  goals: number
+) {
   const [first, top] = FK.challengeLevels[difficulty];
-  return Math.min(top, first + Math.max(0, Math.floor(round)));
+  return Math.floor(first + (top - first) * challengeProgress(round, goals));
+}
+
+// Stable per-post streams: never use user identity, date or attempt counters.
+// Separate layout/defence streams prevent shot retries from rerolling a setup.
+export function challengeRandom(postId: string, stream: string) {
+  let seed = 2166136261;
+  for (const char of `freekick-v1:${postId}:${stream}`)
+    seed = Math.imul(seed ^ char.charCodeAt(0), 16777619);
+  return () => {
+    seed = (seed + 0x6d2b79f5) | 0;
+    let value = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    value ^= value + Math.imul(value ^ (value >>> 7), 61 | value);
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+  };
 }
 
 // Where the challenge stands: won on the goals, lost when out of lives.

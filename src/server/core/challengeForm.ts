@@ -425,7 +425,7 @@ const freeKickFields: FormField[] = [
     type: 'select',
     name: 'fkDistance',
     label: 'Shot distance from goal',
-    helpText: `Each round's spot varies up to ${FK.challengeDistanceRangeM} m either way, from a new angle.`,
+    helpText: `Everyone plays the same sequence, from up to ${FK.challengeDistanceRangeM} m nearer to further away, with harder angles after goals.`,
     options: numbers(FK.challengeDistanceChoicesM, ' m'),
     required: true,
   },

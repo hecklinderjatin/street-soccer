@@ -32,7 +32,10 @@ if (host) {
   const button = setup.querySelector('button');
   for (let level = 1; level <= FK.maxLevel; level++)
     select?.add(new Option(`LEVEL ${level}`, String(level)));
-  if (select) select.value = String(challengeRoundLevel(config.difficulty, 0));
+  if (select)
+    select.value = String(
+      challengeRoundLevel(config.difficulty, 0, config.goals)
+    );
   setup.addEventListener('submit', (event) => {
     event.preventDefault();
     if (!button || button.disabled) return;

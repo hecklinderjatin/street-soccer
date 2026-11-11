@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Fixed Free Kick Challenge sequence (2026-11-11):** replace per-attempt random Challenge spots with a stable post-ID-seeded sequence, shared by every player, retry and replay. Progress from nearer/central to further/wider alternating angles across the post’s entire goal target; spread the configured difficulty’s first/final levels across those rounds (a one-goal post uses its opening level). Seed defensive shot decisions per post/round too, so retries cannot reroll the keeper/wall. Misses retain the current setup; goals advance it. Wall tuning now ranges from one defender at low levels to four at the hardest, including any lying defender who replaces one standing player. Practice keeps random New Spot and its chosen fixed level with the same revised wall cap. Live preview cycles the actual post sequence. Update info/lobby/create-form copy and server result level validation together. Types/lint, 35 Free Kick rules plus panel/API checks and source-only restart/UI/feed/Practice/Journeys browser checks pass. No app build, deployment or live Reddit writes performed.
+
 **Dependency vulnerability fix (2026-11-11):** npm audit reproduced three affected package entries (one high, two moderate), all from Devvit CLI’s pinned isomorphic-git 1.33.1 and its parent chain. Scope an override to @devvit/cli for patched same-major isomorphic-git 1.44.12; retain Devvit 0.15.3 and other direct versions. Regenerate lockfile, removing obsolete path-browserify. Clean npm ci succeeds and explicit npm audit reports zero vulnerabilities. Types/lint, dependency compatibility (including the Git init API actually used by Devvit) and CLI version smoke check pass. Existing upstream deprecation notices are separate from audit findings. No app build, deployment or live Reddit operations performed.
 
 **Generic Join failure message (2026-11-11):** the shared normal/Free Kick results Join action now displays “Couldn’t join right now. You can join from the community page.” for consent/API/network/confirmation failures. Never render thrown exception text, server error details, HTTP codes or diagnostic references to players. Preserve server diagnostics and success/login messages. Types/lint and focused community API/browser checks pass, including mocked internal error/reference suppression. No app build, live join or deployment performed.
@@ -756,6 +758,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Derive Challenge layout and defence streams from post ID, never player/date/attempt. Keep the entire sequence repeatable for a post; only scored goals advance it. Spread discrete skill levels over the goal target while distance/angle keep rising between level steps. Count lying defenders inside the four-player wall limit; preserve unranked Practice’s selected-level random spots.
+
 - Override only @devvit/cli’s vulnerable isomorphic-git pin with patched 1.44.12; avoid the audit suggestion to change Devvit to a different major. Keep lockfile integrity and check the CLI’s actual Git initialization consumer.
 
 - Use fixed, generic player-facing Join failure copy; retain detailed server logging for diagnosis without exposing technical reasons/references in the results UI.
@@ -1186,6 +1190,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Merge/push the fixed Free Kick sequence when requested. Playtest short/long targets and four-defender final rounds on device; existing seven-day scores from older random attempts are retained.
+
 - Merge/push the dependency security fix when requested. Keep the scoped Git override until upstream Devvit pins a safe version, then reassess it; npm audit currently reports zero findings.
 
 - Merge the generic Join message change when requested; verify the simple failure copy in normal and Free Kick results after deployment.
@@ -1601,6 +1607,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-11:** make Free Kick Challenge layouts and defensive rolls deterministic per post/round; scale distance/angle and defence levels through the goal target, with one-to-four total wall defenders. Align preview, instructions and server level checks; retain Practice New Spot randomness. Types/lint, 35 rules plus panels/API and source-only restart/UI/feed/Practice/Journeys browser checks pass; no app build/deployment.
 
 - **2026-11-11:** fix all three npm audit entries via scoped Devvit CLI isomorphic-git override 1.33.1 → 1.44.12 and regenerated lockfile. Clean npm ci, zero-vulnerability audit, types/lint, dependency compatibility/Git init and CLI version checks pass. No app build/deployment.
 

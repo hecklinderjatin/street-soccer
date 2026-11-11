@@ -1,6 +1,8 @@
 import { BALL, FREE_KICK as FK, PITCH } from '../../shared/tuning';
 import {
   challengeRoundLevel,
+  challengeProgress,
+  challengeRandom,
   type FreeKickChallengeConfig,
 } from '../../shared/freeKickChallenge';
 
@@ -26,7 +28,7 @@ export type Spot = { x: number; y: number };
 
 export type Level = {
   level: number; // 1..FK.maxLevel
-  wallMen: number;
+  wallMen: number; // total defenders, including any lying behind the wall
   reactSec: number; // keeper reaction
   readNoise: number; // keeper misjudges the crossing point by up to this
   diveReach: number; // keeper hands' farthest reach from its spot
@@ -126,11 +128,12 @@ export type KickSetup = {
 export function makeKick(
   level: Level,
   rand: () => number,
-  place?: { distance: number; wallFromGoal: number }
+  place?: { distance: number; wallFromGoal: number; angle?: number }
 ): KickSetup {
   const rolled = lerp(FK.minDistance, level.maxDistance, rand());
   const distance = place?.distance ?? rolled;
-  const angle = (rand() * 2 - 1) * level.maxAngle;
+  const rolledAngle = (rand() * 2 - 1) * level.maxAngle;
+  const angle = place?.angle ?? rolledAngle;
   const spot = {
     x: GOAL_X - distance * Math.cos(angle),
     y: GOAL_Y + distance * Math.sin(angle),
@@ -155,18 +158,18 @@ export function makeKick(
   const atWall = (y: number) => spot.y + ((y - spot.y) * (wallX - spot.x)) / dx;
   const atGoal = (y: number) => spot.y + ((y - spot.y) * dx) / (wallX - spot.x);
   const edge = atWall(GOAL_Y + nearSide * (POST_HALF + FK.wallCover));
+  // A lying defender replaces one standing player, keeping the total capped.
+  const lyer = rand() < level.wallLyerChance && level.wallMen >= 3;
+  const standing = level.wallMen - (lyer ? 1 : 0);
   const men = Array.from(
-    { length: level.wallMen },
+    { length: standing },
     (_, i) => edge - nearSide * (FK.wallHalfWidth + i * FK.wallSpacing)
   );
   const inner =
-    edge -
-    nearSide * (2 * FK.wallHalfWidth + (level.wallMen - 1) * FK.wallSpacing);
+    edge - nearSide * (2 * FK.wallHalfWidth + (standing - 1) * FK.wallSpacing);
   const shadow = clamp(atGoal(inner), GOAL_Y - POST_HALF, GOAL_Y + POST_HALF);
   const open = (GOAL_Y - nearSide * POST_HALF + shadow) / 2;
-  // Visible variety, rolled last so earlier rolls (the spot) are unchanged:
-  // a man lying behind the wall, a keeper cheating toward the wall.
-  const lyer = rand() < level.wallLyerChance;
+  // Visible keeper variety, rolled after the spot and wall.
   const keeperStyle: KeeperStyle =
     rand() < level.keeperCheatChance ? 'cheat' : 'line';
   const shade = Math.min(
@@ -874,20 +877,46 @@ export const greatSavePoints = (xgot: number) =>
 // ---- The challenge ---------------------------------------------------------
 
 // A challenge post's round `round` (0 = first spot): its difficulty's
-// level for that round, a new angle, the spot within
+// level for that round, a fixed per-post angle, the spot within
 // FK.challengeDistanceRangeM of the post's distance (never nearer than
 // FK.challengeNearestM nor beyond FK.maxDistance) and the wall at the
 // post's distance from goal.
 export function challengeKick(
   config: FreeKickChallengeConfig,
   round: number,
-  rand: () => number
+  postId: string
 ): KickSetup {
-  return configuredKick(
-    config,
-    challengeRoundLevel(config.difficulty, round),
-    rand
+  const progress = challengeProgress(round, config.goals);
+  const level = levelFor(
+    (challengeRoundLevel(config.difficulty, round, config.goals) - 1) *
+      FK.goalsPerLevel
   );
+  const rand = challengeRandom(postId, 'layout');
+  const side = rand() < 0.5 ? -1 : 1;
+  const postAngle = lerp(
+    FK.challengePostAngleShare[0],
+    FK.challengePostAngleShare[1],
+    rand()
+  );
+  const angle =
+    side *
+    (round % 2 ? -1 : 1) *
+    level.maxAngle *
+    postAngle *
+    lerp(FK.challengeAngleShare[0], FK.challengeAngleShare[1], progress);
+  const nearest = Math.max(
+    FK.challengeNearestM,
+    config.distanceM - FK.challengeDistanceRangeM
+  );
+  const furthest = Math.min(
+    FK.maxDistance / FK.pxPerMetre,
+    config.distanceM + FK.challengeDistanceRangeM
+  );
+  return makeKick(level, rand, {
+    distance: lerp(nearest, furthest, progress) * FK.pxPerMetre,
+    wallFromGoal: config.wallFromGoalM * FK.pxPerMetre,
+    angle,
+  });
 }
 
 // Practice uses the same post geometry as Challenge, at a fixed chosen level.

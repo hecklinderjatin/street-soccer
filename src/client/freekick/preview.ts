@@ -1,10 +1,11 @@
 import Phaser from 'phaser';
+import { context } from '@devvit/web/client';
 import { BALL, FREE_KICK as FK } from '../../shared/tuning';
 import { createBallTexture } from '../art/ballArt';
 import { matchAssets, queueAssets } from '../art/gameAssets';
 import { createCourtTextures } from '../art/pitchArt';
 import { registerPlayerAtlases } from '../art/playerArt';
-import { startingConfig } from '../challenge';
+import { startingConfig, freeKickChallenge } from '../challenge';
 import { releaseEarlyDownloads, withEarlyDownloads } from '../earlyAssets';
 import { PAL } from '../ui/palette';
 import { KickCamera } from './KickCamera';
@@ -16,6 +17,7 @@ import {
   POST_HALF,
   STEP,
   ballContact,
+  challengeKick,
   levelFor,
   makeKick,
   powerBand,
@@ -81,9 +83,11 @@ class FreeKickPreviewScene extends Phaser.Scene {
   }
 
   private nextKick() {
-    this.setup = makeKick(
-      levelFor((this.attempt++ % 3) * FK.goalsPerLevel),
-      Math.random
+    const config = freeKickChallenge();
+    this.setup = challengeKick(
+      config,
+      this.attempt++ % config.goals,
+      context?.postId ?? 'local'
     );
     const contact = ballContact(((this.attempt % 3) - 1) * 0.5, 0.4);
     const band = powerBand(this.setup, contact);

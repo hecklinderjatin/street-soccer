@@ -282,7 +282,7 @@ const challengeStats = {
   shots: 4,
   score: 1500,
   bestStreak: 3,
-  level: 5,
+  level: 7,
 };
 assert.equal(
   (

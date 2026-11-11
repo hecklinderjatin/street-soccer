@@ -205,7 +205,7 @@ function detailsPage(
       ? [
           `Score ${challenge.goals} goals before your ${challenge.lives} ${challenge.lives === 1 ? 'life runs' : 'lives run'} out.`,
           `Spots around ${challenge.distanceM} m, wall ${challenge.wallFromGoalM} m from goal.`,
-          'Every goal brings a new angle, one level harder. A miss costs a life.',
+          'Fixed sequence for everyone. Each goal is harder; a miss costs a life.',
           'Harder spots (low XG) and better finishes (XGOT) score more points.',
           'Completed runs rank on this post: highest score and fastest goal.',
         ]
@@ -282,7 +282,7 @@ function helpPage(
       practice
         ? 'Unlimited retries at this level and spot. Pause > New Spot changes the setup.'
         : challenge
-          ? `${challenge.lives} ${challenge.lives === 1 ? 'life' : 'lives'}, ${challenge.goals} goals to win. A miss costs a life. Each goal: new angle, one level harder.`
+          ? `${challenge.lives} ${challenge.lives === 1 ? 'life' : 'lives'}, ${challenge.goals} goals to win. A miss costs a life. Each goal advances the fixed sequence.`
           : `Start with ${FK.lives} lives. A miss costs one and retries the spot. Every ${FK.goalsPerLevel} goals raises the level.`,
     ],
     [

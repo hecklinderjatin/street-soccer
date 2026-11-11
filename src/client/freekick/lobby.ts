@@ -39,7 +39,7 @@ export function showFreeKickLobby() {
     description.textContent = typeof value === 'string' ? value : '';
   const notes = card.querySelector('.freekick-mode-notes');
   if (notes)
-    notes.textContent = `Challenge: ${fk.goals} goals, ${lives.toLowerCase()}, spots around ${fk.distanceM} m, wall ${fk.wallFromGoalM} m from goal. Every goal: a new angle, one level harder. Practice: any level, unlimited retries.`;
+    notes.textContent = `Challenge: ${fk.goals} goals, ${lives.toLowerCase()}, spots around ${fk.distanceM} m, wall ${fk.wallFromGoalM} m from goal. Fixed sequence for everyone; harder after each goal. Practice: any level, unlimited retries.`;
   for (const [selector, text, entry] of [
     ['.freekick-challenge', 'CHALLENGE', 'freekick-challenge'],
     ['.freekick-practice', 'PRACTICE', 'freekick-practice'],
@@ -58,7 +58,10 @@ export function showFreeKickLobby() {
     ['.freekick-lives', lives],
     ['.freekick-progression', String(fk.goals)],
     ['.freekick-mode', 'FREE KICK'],
-    ['.freekick-tagline', `${DIFFICULTY_LABEL[fk.difficulty]}  ${fk.distanceM} M`],
+    [
+      '.freekick-tagline',
+      `${DIFFICULTY_LABEL[fk.difficulty]}  ${fk.distanceM} M`,
+    ],
   ]) {
     const label = card.querySelector<HTMLElement>(selector ?? '');
     if (label && text) pixelLabel(label, text);

@@ -105,7 +105,8 @@ export function readFreeKickStats(
       level !==
         challengeRoundLevel(
           challenge.difficulty,
-          Math.max(0, goals - (won ? 1 : 0))
+          Math.max(0, goals - (won ? 1 : 0)),
+          challenge.goals
         )
     )
       return null;

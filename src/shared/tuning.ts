@@ -955,7 +955,7 @@ export const FREE_KICK = {
   anglePerLevelDeg: 3, // ... wider every level ...
   maxAngleDeg: 28, // ... up to this either side
   // The wall: shoulder to shoulder across the line to the near post.
-  wallMen: [2, 2, 2, 3, 3, 3, 3, 3, 3, 3], // players by level
+  wallMen: [1, 1, 2, 2, 2, 3, 3, 3, 4, 4], // total wall defenders by level, including any lying player
   wallSpacing: 30, // centre to centre (no gap a ball fits through)
   wallHalfWidth: 14, // half a player's blocking width
   wallShare: 0.48, // the wall stands this share of the way to goal ...
@@ -1095,15 +1095,17 @@ export const FREE_KICK = {
   // Challenge (user request, 2026-11-11): the post's creator sets the kits,
   // lives, goals to win, shot distance, wall distance from goal and
   // difficulty (shared/freeKickChallenge.ts). Each round (a new spot after
-  // a goal) comes from a new angle and gets one level harder.
+  // a goal) follows a fixed per-post sequence, progressively harder to its target.
   challengeMaxLives: 10, // most lives a post can give
   challengeMaxGoals: 20, // most goals a post can ask for
   challengeDistanceChoicesM: [20, 25, 30, 35], // the post's shot distance, metres from goal ...
-  challengeDistanceRangeM: 5, // ... each round's spot is within this of it ...
+  challengeDistanceRangeM: 5, // ... sequence progresses from this much nearer to this much further ...
+  challengeAngleShare: [0.15, 1], // opening/final angle as a share of the level limit
+  challengePostAngleShare: [0.75, 1], // stable per-post variation in the angle limit
   challengeNearestM: 15, // ... but never nearer than this (the box is 13.75 m deep)
   challengeWallChoicesM: [6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26], // the wall's distance from goal, metres ...
   challengeWallGapM: 9, // ... always at least this far from the ball (nearer spots pull it toward goal)
-  // First round's level and the most it rises to (one level per round), by
+  // First and final round levels, spread across the goal target, by
   // the post's difficulty.
   challengeLevels: {
     noob: [1, 3],

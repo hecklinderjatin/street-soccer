@@ -31,6 +31,7 @@ import { freeKickChallenge, startingConfig } from '../challenge';
 import {
   challengeOutcome,
   challengeRoundLevel,
+  challengeRandom,
   type FreeKickChallengeConfig,
 } from '../../shared/freeKickChallenge';
 import { releaseEarlyDownloads, withEarlyDownloads } from '../earlyAssets';
@@ -359,9 +360,9 @@ export class FreeKickScene extends Phaser.Scene {
   private newKick(retry: boolean) {
     this.resetGesture();
     if (!retry) {
-      // A challenge round per goal: a new angle, one level harder.
+      // Fixed post sequence: goals advance; misses keep the same setup.
       this.setup = this.challenge
-        ? challengeKick(this.challenge, this.goals, Math.random)
+        ? challengeKick(this.challenge, this.goals, context?.postId ?? 'local')
         : practiceKick(freeKickChallenge(), this.practiceLevel, Math.random);
       this.lastPower = null;
       this.contact = ballContact(0, 0);
@@ -473,7 +474,13 @@ export class FreeKickScene extends Phaser.Scene {
   private strikeBall() {
     if (!this.strike) return;
     this.measure('first_shot');
-    this.play = startPlay(this.setup, this.strike, Math.random);
+    this.play = startPlay(
+      this.setup,
+      this.strike,
+      this.challenge
+        ? challengeRandom(context?.postId ?? 'local', `defence:${this.goals}`)
+        : Math.random
+    );
     const b = this.play.ball;
     this.shotKmh = launchSpeedKmh(b.vx, b.vy, b.vz);
     this.prevBall = { x: b.x, y: b.y, z: b.z };
@@ -536,8 +543,11 @@ export class FreeKickScene extends Phaser.Scene {
       this.score += points;
       const up = this.challenge
         ? challengeOutcome(this.goals, this.lives, this.challenge) === 'open' &&
-          challengeRoundLevel(this.challenge.difficulty, this.goals) >
-            this.setup.level.level
+          challengeRoundLevel(
+            this.challenge.difficulty,
+            this.goals,
+            this.challenge.goals
+          ) > this.setup.level.level
         : false;
       // One line per style tag: all five side by side overflow the view.
       this.showBanner(
