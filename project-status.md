@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Main merge (2026-11-11):** fast-forwarded `codex/join-diagnostics` through `bb1009b` into main at the user’s request. Includes actionable join errors/references, correlated SDK logs, Retry Join and required Free Kick Restart. Existing types/lint and focused community/restart browser/API checks pass. Production join cause still requires a reproduced reference and server logs. No application build or deployment performed.
+
 **Join diagnostics and required Free Kick Restart (2026-11-11):** join failures now return safe reason/code and short reference. Log community_join_failed with the matching reference, deployed app version, SDK error code and bounded message (no request headers/account identifiers). Distinguish permission and rate-limit errors; client displays server details/reference with HTTP fallback and requires joined:true before thanking/storing success. Add a trusted-click Retry Join button on results. Verify live failures by reproducing while running `npx devvit logs street_soccer_dev street-soccer --since 15m`, then matching the screenshot reference to its SDK message. Existing catch swallowed the error, so no exact production cause is claimed. Free Kick Restart was already present in main; make its overlay callback required and always render its control. Actual source-only browser checks verify/click Restart in Play, Challenge and Practice and confirm settings/reset/record isolation; Challenge pause screenshot inspected. Types/lint and community API/browser and pause-restart checks pass. No application build, live Reddit joins or production log access performed.
 
 **Main merge (2026-11-11):** fast-forwarded `codex/pause-restart` through `e4a24ed` into main at the user’s request. Includes the community consent explanation, immediate result transition/confirmed thanks, and Restart across every pause menu. Existing types/lint and focused community/Free Kick/restart checks pass. No application build or Reddit deployment performed.
@@ -1525,6 +1527,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-11:** merge join diagnostics, Retry Join and required Free Kick Restart into main through `bb1009b`; prepare requested GitHub push. No application build/deployment performed.
 
 - **2026-11-11:** add join error classification/reference logging, actual error display and Retry Join; require and verify Free Kick Restart in all entries. Types/lint and focused API/browser/restart checks pass. No application build/deployment performed.
 
