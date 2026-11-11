@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Remove manual member option (2026-11-11):** user clarified that existing members must skip the popup, not see an Already Joined option. Remove that control and its styles, restore two-button focus handling. Preserve suppression for confirmed in-game joins and previously stored self-confirmed preferences so those users skip the screen without further interaction. True first-visit automatic membership detection remains blocked by SDK access; do not claim this change solves externally created memberships. Types/lint and focused community checks pass; no application build/live writes performed.
+
 **Main merge (2026-11-11):** fast-forwarded `codex/already-joined` through `af2af47` into main at the user’s request. Includes Retry Join removal, clearer permission failure wording and manual Already Joined suppression per account/community/device. Existing types/lint and focused community API/browser checks pass. Automatic player membership detection remains unavailable through current SDK access. No application build or deployment performed.
 
 **Already Joined preference (2026-11-11):** verified SDK docs: subscribeToCurrentSubreddit is a no-op for members; getSubscribedSubredditsForCurrentUser executes as the app account and requires Reddit approval for user access, so it cannot safely establish player membership. Add an explicit Already Joined option to the shared prompt; it skips consent/subscription, opens results and stores a separate self-confirmed preference per account/community/device. Suppress later prompts using that preference or a confirmed in-game join. Never label the preference as a verified membership check or thank users for a subscription that did not occur. Keep no Retry button. Types/lint and focused API/browser checks pass, including no subscription from Already Joined, future suppression and community/account isolation. Exact production permission failure still requires reference 6e20b303 logs. No application build or live Reddit writes performed.
@@ -734,6 +736,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Remove the rejected manual membership button while honoring existing stored skip preferences. Do not substitute the app account membership list or a subscription write for an unavailable player membership check.
+
 - Do not query the app account subscription list as if it were the player’s. Provide a separate manual Already Joined preference until a supported player membership API is available.
 
 - Keep diagnostic references while removing the unwanted retry action. A permission-classified SDK failure is not proof that a user declined native consent; avoid blaming the player.
@@ -1144,6 +1148,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Automatic suppression for members who joined outside the game still requires Reddit-supported player membership access. This requirement remains incomplete; the manual option has been removed.
+
 - Native review of Already Joined suppression; true automatic cross-device membership detection remains blocked by the SDK access limitation.
 
 - Retrieve the community_join_failed log matching reference 6e20b303 to identify the actual production permission failure.
@@ -1541,6 +1547,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-11:** remove Already Joined UI, retain known-member skip preferences and document the remaining automatic membership-detection blocker. No application build/live writes performed.
 
 - **2026-11-11:** merge Retry Join removal and Already Joined preference into main through `af2af47`; prepare requested GitHub push. No application build/deployment performed.
 

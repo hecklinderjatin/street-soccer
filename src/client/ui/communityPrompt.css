@@ -148,16 +148,3 @@
   border-color: #00e436;
   color: #b7efca;
 }
-
-.community-prompt .community-existing {
-  display: block;
-  width: 100%;
-  min-height: 40px;
-  margin-top: 10px;
-  padding: 8px;
-  border: 0;
-  background: transparent;
-  color: #a8b9cd;
-  font-size: 11px;
-  box-shadow: none;
-}

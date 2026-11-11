@@ -234,23 +234,23 @@ try {
   await page.evaluate(() => {
     window.context.userId = 't2_existing';
     window.deferConsent = false;
+    localStorage.setItem(
+      'street-soccer:joined:t2_existing:t5_s:self-confirmed',
+      'yes'
+    );
   });
-  await open(true);
   const beforeExisting = await page.evaluate(() => window.writes);
-  await page
-    .getByRole('button', { name: 'ALREADY JOINED', exact: true })
-    .click();
+  await open(true);
   assert.equal(await page.locator('.community-prompt').count(), 0);
   assert.equal(await page.evaluate(() => window.writes), beforeExisting);
-  assert.equal(
-    await page.locator('.community-result-note.is-success').count(),
-    0
-  );
-  await open(true);
-  assert.equal(await page.locator('.community-prompt').count(), 0);
   await page.evaluate(() => (window.context.subredditId = 't5_other'));
   await open(true);
-  assert.equal(await page.locator('.community-prompt').count(), 1);
+  assert.equal(
+    await page
+      .getByRole('button', { name: 'ALREADY JOINED', exact: true })
+      .count(),
+    0
+  );
   await page
     .getByRole('button', { name: 'CONTINUE TO RESULTS', exact: true })
     .click();
