@@ -12,6 +12,7 @@ import {
   END_WALL_KEY,
   FREE_KICK_BASKETBALL,
   FREE_KICK_GROUND_KEY,
+  FREE_KICK_GROUND_EXTENT,
   CAP_KEY,
   FENCE_KEY,
   GROUND_EXTENT,
@@ -26,10 +27,14 @@ import {
   type Kit,
   type Look,
 } from '../art/playerArt';
-import { createHoopTexture, HOOP_KEY } from '../art/sceneryArt';
+import {
+  createFreeKickHoopTexture,
+  FREE_KICK_HOOP_KEY,
+} from '../art/sceneryArt';
 import { ProjectedPlane, type PlaneCorners } from '../render/ProjectedPlane';
 import { newProjected } from '../render/Projector';
 import { PAL, PX } from '../ui/palette';
+import { Daylight } from './Daylight';
 import type { KickCamera } from './KickCamera';
 import { drawRibbon, type RibbonLayer, type RibbonPoint } from './ribbon';
 import {
@@ -50,12 +55,7 @@ const DEPTH_GROUND = -10_000_000;
 const DEPTH_LINES = DEPTH_GROUND + 1;
 const DEPTH_FAR = -1_000_000;
 const DEPTH_SKY = DEPTH_GROUND - 1;
-const SKY_TOP = 0x478fc9;
-const SKY_LOW = 0xc5e9fa;
-const DISTANT_GROUND = 0x9cab8d;
 const WALL_HEIGHT = BAR_Z / 3;
-const WALL_LENGTH = 160;
-const WALL_GAP = 12;
 const NET_BACK_X = GOAL_X + FK.goalDepth;
 const R = BALL.radius;
 const NET_SHADE = 0x1d2b53; // the net's inside is shaded dark
@@ -130,7 +130,8 @@ export type StagePose = {
 // keeper, the ball and its trail.
 export class Stage {
   private planes: ProjectedPlane[] = [];
-  private readonly sky: Phaser.GameObjects.Graphics;
+  private readonly daylight: Daylight;
+  private readonly hoopShadows: Phaser.GameObjects.Graphics;
   private readonly hoops: Phaser.GameObjects.Image[];
   private readonly lines: Phaser.GameObjects.Graphics;
   private readonly net: Phaser.GameObjects.Graphics;
@@ -156,14 +157,15 @@ export class Stage {
     kits: { kicker: Kit; wall: Kit }
   ) {
     createFreeKickCourtTextures(scene);
-    createHoopTexture(scene);
+    createFreeKickHoopTexture(scene);
     this.hoops = [0, 1].map(() =>
       scene.add
-        .image(0, 0, HOOP_KEY)
-        .setOrigin(0.5, 1)
-        .setDepth(DEPTH_FAR - 1)
+        .image(0, 0, FREE_KICK_HOOP_KEY)
+        .setOrigin(26 / 30, 1)
+        .setDepth(-(FREE_KICK_BASKETBALL.x0 + FREE_KICK_BASKETBALL.x1) / 2)
     );
-    this.sky = scene.add.graphics().setDepth(DEPTH_SKY);
+    this.daylight = new Daylight(scene, DEPTH_SKY);
+    this.hoopShadows = scene.add.graphics().setDepth(DEPTH_LINES);
     this.lines = scene.add.graphics().setDepth(DEPTH_LINES);
     this.net = scene.add.graphics().setDepth(-NET_BACK_X);
     this.frame = scene.add.graphics().setDepth(-GOAL_X);
@@ -221,21 +223,18 @@ export class Stage {
     play: KickPlay | null,
     pose: StagePose
   ) {
-    const { width, height } = this.scene.scale;
-    // Project a distant ground point to keep the horizon fixed in the world.
-    cam.project(GOAL_X + 1_000_000, GOAL_Y, 0, at);
-    const horizon = Phaser.Math.Clamp(at.y, 0, height);
-    this.sky
-      .clear()
-      .fillStyle(DISTANT_GROUND)
-      .fillRect(0, horizon, width, height - horizon)
-      .fillGradientStyle(SKY_TOP, SKY_TOP, SKY_LOW, SKY_LOW)
-      .fillRect(0, 0, width, horizon);
+    this.daylight.render(cam, pose.timeSec);
     const court = FREE_KICK_BASKETBALL;
     const hoopX = (court.x0 + court.x1) / 2;
+    const shadows = this.hoopShadows.clear();
     this.hoops.forEach((hoop, index) => {
-      cam.project(hoopX, index === 0 ? court.y0 - 20 : court.y1 + 20, 0, at);
-      hoop.setPosition(at.x, at.y).setScale(PX * at.scale);
+      const y = index === 0 ? court.y0 - 22 : court.y1 + 22;
+      cam.project(hoopX, y, 0, at);
+      cam.project(hoopX - 100, y + 65, 0, at2);
+      shadows
+        .lineStyle(Math.max(1, at.scale * 12), 0x263d3d, 0.42)
+        .lineBetween(at.x, at.y, at2.x, at2.y);
+      hoop.setPosition(at.x, at.y).setScale(1.13 * PX * at.scale);
     });
     for (const plane of this.planes) plane.update(cam);
     this.drawLines(cam, setup);
@@ -266,7 +265,7 @@ export class Stage {
 
   // Street surface, fences and low masonry around the goal.
   private buildCourt(near: number) {
-    const { x0, x1, y1 } = GROUND_EXTENT;
+    const { x0, x1, y1 } = FREE_KICK_GROUND_EXTENT;
     const H = PITCH.height;
     const T = PITCH.wallThickness;
     const wh = PITCH.wallHeight;
@@ -288,14 +287,15 @@ export class Stage {
       );
     }
 
-    const along = { u0: u(near), u1: 1 };
+    const sideEnd = GROUND_EXTENT.x1;
+    const along = { u0: (near - x0) / (sideEnd - x0), u1: 1 };
     this.quad(
       CAP_KEY,
       {
         tl: v(near, -T, wh),
-        tr: v(x1, -T, wh),
+        tr: v(sideEnd, -T, wh),
         bl: v(near, 0, wh),
-        br: v(x1, 0, wh),
+        br: v(sideEnd, 0, wh),
       },
       24,
       1,
@@ -306,9 +306,9 @@ export class Stage {
       END_WALL_KEY,
       {
         tl: v(near, 0, wh),
-        tr: v(x1, 0, wh),
+        tr: v(sideEnd, 0, wh),
         bl: v(near, 0, 0),
-        br: v(x1, 0, 0),
+        br: v(sideEnd, 0, 0),
       },
       24,
       2,
@@ -319,9 +319,9 @@ export class Stage {
       FENCE_KEY,
       {
         tl: v(near, H, PITCH.fenceHeight),
-        tr: v(x1, H, PITCH.fenceHeight),
+        tr: v(sideEnd, H, PITCH.fenceHeight),
         bl: v(near, H, 0),
-        br: v(x1, H, 0),
+        br: v(sideEnd, H, 0),
       },
       24,
       2,
@@ -330,21 +330,22 @@ export class Stage {
       0.6
     );
 
-    // Leave the goal mouth open between two short brick walls.
-    const front = GOAL_X + 8;
+    // Leave the goal mouth open between two low brick walls extending to the sidelines.
+    const front = GOAL_X;
     const back = front + T;
     const wallDepth = -front;
     const faceUv = {
       u0: 0,
       v0: 0,
-      u1: WALL_LENGTH / H,
+      u1: 1,
       v1: WALL_HEIGHT / PITCH.endWallHeight,
     };
     for (const side of [-1, 1]) {
-      const inner = GOAL_Y + side * (POST_HALF + WALL_GAP);
-      const outer = inner + side * WALL_LENGTH;
+      const inner = GOAL_Y + side * POST_HALF;
+      const outer = side < 0 ? 0 : H;
       const left = Math.min(inner, outer);
       const right = Math.max(inner, outer);
+      const span = right - left;
       for (const y of [left, right]) {
         this.quad(
           END_WALL_KEY,
@@ -370,9 +371,9 @@ export class Stage {
           bl: v(front, left, 0),
           br: v(front, right, 0),
         },
-        4,
+        12,
         1,
-        faceUv,
+        { ...faceUv, u0: left / H, u1: right / H },
         wallDepth
       );
       this.quad(
@@ -383,9 +384,9 @@ export class Stage {
           bl: v(front, left, WALL_HEIGHT),
           br: v(front, right, WALL_HEIGHT),
         },
-        4,
+        12,
         1,
-        { u0: 0, v0: 0, u1: WALL_LENGTH / (x1 - x0), v1: 1 },
+        { u0: 0, v0: 0, u1: span / (sideEnd - x0), v1: 1 },
         wallDepth
       );
     }

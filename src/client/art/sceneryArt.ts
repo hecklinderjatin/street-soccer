@@ -6,6 +6,7 @@ import { fill, makeTexture, paintRows } from './pixelArt';
 // (see render/Billboard.ts). Sizes are in art pixels.
 
 export const HOOP_KEY = 'prop-hoop';
+export const FREE_KICK_HOOP_KEY = 'freekick-hoop';
 export const HOOP_W = 18;
 export const HOOP_H = 40;
 
@@ -68,11 +69,34 @@ export function createHoopTexture(scene: Phaser.Scene) {
   makeTexture(scene, HOOP_KEY, HOOP_W, HOOP_H, paintHoop);
 }
 
+export function createFreeKickHoopTexture(scene: Phaser.Scene) {
+  makeTexture(scene, FREE_KICK_HOOP_KEY, 30, 48, (ctx) => {
+    // Offset support keeps the hanging net visible against the sky.
+    fill(ctx, 17, 10, 12, 3, 0x41545a);
+    fill(ctx, 24, 10, 5, 38, 0x33474e);
+    fill(ctx, 24, 12, 2, 35, 0x889a97);
+    fill(ctx, 21, 45, 9, 3, 0x657975);
+    fill(ctx, 2, 0, 22, 13, 0x33474e);
+    fill(ctx, 3, 1, 20, 11, 0xe2ede7);
+    fill(ctx, 9, 5, 9, 6, 0xaa5a35);
+    fill(ctx, 10, 6, 7, 4, 0xf8f2d9);
+    for (let y = 15; y < 22; y++) {
+      const inset = Math.floor((y - 15) / 2);
+      for (let x = 5 + inset; x <= 19 - inset; x++) {
+        if ((x + y) % 4 === 0 || (x - y) % 4 === 0)
+          fill(ctx, x, y, 1, 1, 0xf5f0df);
+      }
+    }
+    fill(ctx, 5, 12, 15, 1, 0x9b4e2c);
+    fill(ctx, 3, 13, 2, 2, 0xf39139);
+    fill(ctx, 20, 13, 2, 2, 0xf39139);
+    fill(ctx, 5, 15, 15, 2, 0xdc682c);
+  });
+}
+
 export function createSceneryTextures(scene: Phaser.Scene) {
   createHoopTexture(scene);
-  CAR_COLORS.forEach((color, i) => {
-    makeTexture(scene, carKey(i), CAR_W, CAR_H, (ctx) => paintCar(ctx, color));
-  });
+  CAR_COLORS.forEach((_, i) => createCarTexture(scene, i));
 
   // Varied spectators: shirt, hair, skin and trousers picked per variant.
   const shirts = [
@@ -128,6 +152,11 @@ function paintHoop(ctx: CanvasRenderingContext2D) {
     for (let x = 4 + inset; x < 14 - inset; x += 2)
       fill(ctx, x + (y % 2), y, 1, 1, PAL.white);
   }
+}
+
+export function createCarTexture(scene: Phaser.Scene, index: number) {
+  const color = CAR_COLORS[index % CAR_COLORS.length] ?? PAL.red;
+  makeTexture(scene, carKey(index), CAR_W, CAR_H, (ctx) => paintCar(ctx, color));
 }
 
 // Side view of a small hatchback, facing right (flip for left).

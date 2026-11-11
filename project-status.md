@@ -10,7 +10,7 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 **Results actions (2026-11-11):** Join Community sits in the shared results action grid across Free Kick, Classic, Daily, Chaos and Custom. Free Kick results link to Practice and the Playground builder. Results cards fit within the visible webview without an internal scrollbar.
 
-**Free Kick daytime court (2026-11-11):** The shared stage and feed preview now show a clear blue sky and a basketball court with two hoops behind the goal. Short brick walls flank the goal at one-third of crossbar height.
+**Free Kick daytime court (2026-11-11):** The shared stage and feed preview show a sun, drifting clouds, birds, irregular stands of trees and a two-lane road with moving traffic behind an enlarged basketball court with pole-mounted baskets. Low brick end walls run from both posts to the sidelines at one-third of crossbar height.
 
 **Practice fixes (2026-11-11):** (1) On-screen NEW SPOT button (top left under the goals count) in Practice; it reads NEXT ROUND / NEXT GOAL when a Challenge round or Infinity kick is picked (Pause > New Spot does the same). (2) SETUP button opens a slide-up sheet with the same picker as the setup page (random spots or a picked kick, plus level for random spots), applied the moment it changes; DONE or Escape closes it, and shooting is off while it is open. Picks come from the shared `freekick/practicePicks.ts`. (3) After each Practice shot (and Playground test shots), its path stays as a faint ghost (`FK.ghostAlpha`) on the retaken spot until the next strike. (4) Practice's HUD shows only the spot's XG (no goal point range) and every shot's banner shows its XGOT; the Playground keeps its point range.
 
@@ -790,6 +790,10 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Birds and traffic share the Free Kick ambient clock and respect reduced motion. Traffic runs behind the basketball court.
+
+- Free Kick scenery uses projected landscaping and pole shadows for depth. Cloud drift follows the system reduced-motion preference.
+
 - Free Kick results pair Practice and Playground in portrait and place all actions in one row in landscape.
 
 - Results cards use balanced rows in portrait and one action row on wide landscape. A viewport fit step scales the compact card when leaderboards and status updates would make it taller than the view.
@@ -1234,6 +1238,10 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Check traffic visibility at different kick angles in the live Reddit webview.
+
+- Check the expanded basketball court and both hoops across different kick angles in the live Reddit view.
+
 - Verify the Playground shortcut from Free Kick results in the live Reddit webview.
 
 - Verify results action spacing and Practice navigation in the live Reddit mobile and desktop views.
@@ -1661,6 +1669,10 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- 2026-11-11: Varied Free Kick trees and added a flock of birds and a road with two-way traffic.
+
+- 2026-11-11: Extended the low Free Kick walls to the sidelines, expanded the basketball court, and added a sun, drifting clouds and layered landscaping.
 
 - 2026-11-11: Added Playground to Free Kick results and fitted the expanded action grid without internal scrolling.
 
