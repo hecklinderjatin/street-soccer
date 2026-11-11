@@ -1,3 +1,4 @@
+import { communityPrompt } from '../ui/communityPrompt';
 import Phaser from 'phaser';
 import {
   context,
@@ -51,6 +52,8 @@ export class ResultScene extends Phaser.Scene {
       this.scene.start('Match', { ...r.config, rematch: true });
     };
     const screen = resultsScreen(r, currentPostType());
+    const prompt = communityPrompt(screen.element);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => prompt.destroy());
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => screen.destroy());
     if (r.config.mode === 'casual') {
       screen.actions.append(

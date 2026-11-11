@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Post-match community prompt (2026-11-11):** add an optional themed Join Community / Continue to Results dialog before normal match results (Classic, Custom/Casual and Daily) and Free Kick ranked/challenge results. Wide layout with side-by-side actions for normal matches; portrait card with stacked actions for Free Kick. Practice has no completed-match screen. Results save in the background and remain hidden/inert until dismissal. Explicit trusted Join click requests native user consent then POSTs the current-community subscription API; deny/error leaves Continue available. Add SUBSCRIBE_TO_SUBREDDIT permission. Remember confirmed joins in device storage scoped to user/community; SDK cannot detect memberships created earlier/outside the game, so those users may still see the prompt. Continue never claims membership. Support Escape, focus containment, cleanup, reduced motion and short-height scrolling. Types/lint and focused mocked Hono/Chromium checks pass (portrait/landscape fit, consent, failure/retry, join suppression and account isolation). Existing full Free Kick flow harness stops at its stale START label (current controls say PLAY), before results; this is not claimed as a passing check. No application build or live Reddit joins performed.
+
 **Main merge (2026-11-11):** fast-forwarded `codex/tactics-help-buttons` through `99bfe78` into main at the user’s request. Includes shared live/info tactics buttons, active-state synchronization and the revised below-Shoot layout. Types/lint and source-only touch/desktop preview checks passed. Join-community popup is not implemented: existing membership detection remains unresolved in the current SDK. No application build or deployment performed.
 
 **Tactics below Shoot (2026-11-11):** group the shared tactics examples directly below shooting controls in the left column, under a TACTICS section heading. Arrange Attack / Normal / Defend side by side with two short explanatory lines below; retain desktop top-row numbers and the live active highlight. Expand both column tiles, tighten keyboard rows, and place report/data instructions below goalkeeper controls in the right column. Types/lint and temporary source-only touch/desktop preview checks pass; screenshots inspected. No application build performed.
@@ -710,6 +712,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Subscription happens only after an explicit Join action and native permission consent. Use only confirmed local join receipts for suppression; do not represent unavailable SDK membership information as a real membership check.
+
 - Group tactics with movement/shooting in the left info column, as requested, rather than a full-width strip competing with navigation.
 
 - Reuse one tactics button factory/active-state painter in the live HUD and info controls examples so their appearance stays consistent. Help previews display the selected tactic without changing it while paused.
@@ -1104,6 +1108,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Native Reddit playtest subscription permission approval/denial and both end-screen layouts. Existing members who joined outside the game cannot currently be detected; revisit when a supported membership API is available. Update the older Free Kick flow harness labels to the current controls separately.
+
 - Review the below-Shoot tactics grouping on mobile after the next user-run upload.
 
 - Review the shared tactics examples and active-state synchronization on the native mobile info screen after the next user-run upload.
@@ -1485,6 +1491,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-11:** add themed optional post-match community popup to normal and Free Kick results, with wide/portrait layouts, native consent, explicit subscription endpoint and local successful-join suppression. Focused types/lint/Hono/Chromium checks pass; no application build or live Reddit joins performed.
 
 - **2026-11-11:** merge shared tactics buttons and below-Shoot info layout into main through `99bfe78`; prepare requested GitHub push. Join popup remains unimplemented. No build/deployment performed.
 

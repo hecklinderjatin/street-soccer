@@ -1,3 +1,4 @@
+import { communityPrompt } from '../ui/communityPrompt';
 import {
   context,
   exitExpandedMode,
@@ -236,10 +237,12 @@ export function freeKickResults(
       posting = false;
     }
   }
+  const prompt = communityPrompt(screen.element, true);
   if (!challenge) void save();
   return {
     destroy() {
       closed = true;
+      prompt.destroy();
       screen.destroy();
     },
   };

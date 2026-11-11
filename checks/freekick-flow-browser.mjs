@@ -10,6 +10,7 @@ const sdk = join(scratch, 'client.ts');
 await writeFile(
   sdk,
   `export const context={postId:'t3_fk',username:'tester',postData:{matchType:'freekick'}};
+export const canRunAsUser=async()=>true;
 export const requestExpandedMode=()=>{};
 export const exitExpandedMode=event=>{if(!event.isTrusted||event.type!=='click')throw Error('Quit requires native click');window.__exited=true;};
 export const showForm=async form=>{(window.__forms??=[]).push(form);return {action:window.__cancel?'CANCELED':'SUBMITTED',values:{comment:'Great run',includeStats:true}};};

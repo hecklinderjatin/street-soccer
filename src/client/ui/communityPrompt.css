@@ -1,0 +1,126 @@
+.community-prompt {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  color: #fff1e8;
+  background: radial-gradient(ellipse at top, #14243dee, #020711f5 80%);
+  font:
+    15px/1.6 ui-monospace,
+    monospace;
+  touch-action: pan-y;
+}
+.community-prompt-panel {
+  box-sizing: border-box;
+  width: min(100%, 760px);
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: linear-gradient(145deg, #16263d, #0b1728 75%);
+  border: 1px solid #3b506b;
+  border-top: 4px solid #ffa300;
+  box-shadow: 8px 10px #0006;
+  padding: 28px 32px;
+  text-align: center;
+  animation: community-enter 180ms ease-out;
+}
+.community-prompt small {
+  color: #ffec27;
+  font-size: 12px;
+}
+.community-prompt h1 {
+  margin: 18px 0 10px;
+  font-size: clamp(20px, 4vw, 30px);
+  line-height: 1.3;
+}
+.community-prompt p {
+  color: #a8b9cd;
+  margin: 12px 0 20px;
+}
+.community-prompt .community-prompt-name {
+  color: #29adff;
+  margin: 0 0 16px;
+  overflow-wrap: anywhere;
+}
+.community-prompt-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.community-prompt .casual-button {
+  min-width: 0;
+  min-height: 52px;
+  font-size: 14px;
+}
+.community-prompt .community-prompt-note {
+  font-size: 11px;
+  margin: 18px 0 0;
+}
+.community-prompt .community-prompt-status {
+  font-size: 12px;
+  color: #ffcc66;
+  margin: 12px 0 0;
+}
+.community-prompt-status:empty {
+  display: none;
+}
+.community-prompt .lobby-readable {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+.community-prompt .lobby-pixel {
+  display: inline-block;
+  height: 1em;
+  max-width: 100%;
+  vertical-align: middle;
+}
+.community-prompt button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+.community-prompt.is-portrait .community-prompt-panel {
+  max-width: 420px;
+  padding: 30px 24px;
+}
+.community-prompt.is-portrait .community-prompt-actions {
+  grid-template-columns: 1fr;
+}
+.community-prompt.is-portrait h1 {
+  font-size: clamp(20px, 6vw, 28px);
+}
+@media (max-height: 420px) {
+  .community-prompt {
+    padding: 12px;
+  }
+  .community-prompt-panel {
+    padding: 16px 24px;
+  }
+  .community-prompt h1 {
+    margin: 10px 0 8px;
+  }
+  .community-prompt p {
+    margin: 8px 0 12px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .community-prompt-panel {
+    animation: none;
+  }
+}
+@keyframes community-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

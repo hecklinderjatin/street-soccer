@@ -23,6 +23,20 @@ type SimpleErrorResponse = {
 
 export const api = new Hono();
 
+// Explicit user click only; membership is never changed at match completion.
+api.post('/community/join', async (c) => {
+  c.header('Cache-Control', 'no-store');
+  if (!context.userId) return c.json({ error: 'Log in to join' }, 401);
+  if (!context.postId || !context.subredditId)
+    return c.json({ error: 'Community post required' }, 400);
+  try {
+    await reddit.subscribeToCurrentSubreddit();
+    return c.json({ joined: true });
+  } catch {
+    return c.json({ error: 'Could not join community' }, 503);
+  }
+});
+
 api.get('/games', async (c) => {
   if (!context.postId) return c.json({ error: 'Missing postId' }, 400);
   c.header('Cache-Control', 'no-store');
