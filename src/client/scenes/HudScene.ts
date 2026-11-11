@@ -58,6 +58,7 @@ export type HudData = {
 // Screen-space UI drawn over the Match scene with its own camera, so it is
 // unaffected by the world rendering.
 export class HudScene extends Phaser.Scene {
+  private restartPending = false;
   private tactic: MatchTactic = 'normal';
   private tacticButtons: { mode: MatchTactic; button: TextButton }[] = [];
   private tacticNotice!: Phaser.GameObjects.BitmapText;
@@ -92,6 +93,7 @@ export class HudScene extends Phaser.Scene {
 
   init(data: HudData) {
     this.hud = data;
+    this.restartPending = false;
     this.tactic = 'normal';
     this.tacticButtons = [];
     this.showDebug = false;
@@ -561,7 +563,7 @@ export class HudScene extends Phaser.Scene {
     const title = pixelText(
       this,
       cx,
-      220,
+      this.desktop ? 180 : 220,
       'PAUSED',
       2 * PX,
       PAL.yellow
@@ -569,7 +571,7 @@ export class HudScene extends Phaser.Scene {
     const resume = new TextButton(
       this,
       cx,
-      this.desktop ? 330 : 360,
+      this.desktop ? 290 : 330,
       'RESUME',
       () => this.setOverlay(null),
       {
@@ -580,7 +582,7 @@ export class HudScene extends Phaser.Scene {
     const quit = new TextButton(
       this,
       cx,
-      this.desktop ? 530 : 470,
+      this.desktop ? 560 : 530,
       'QUIT',
       () => {
         this.hud.onMatchQuit();
@@ -591,13 +593,28 @@ export class HudScene extends Phaser.Scene {
       },
       { width: 320, fill: PAL.red }
     );
-    const items = [dim, title, resume, quit];
+    const restart = new TextButton(
+      this,
+      cx,
+      this.desktop ? 470 : 430,
+      'RESTART',
+      () => {
+        if (this.restartPending) return;
+        this.restartPending = true;
+        this.releaseInputs();
+        this.hud.onMatchQuit();
+        this.scene.stop('Match');
+        this.scene.start('Match', { ...this.hud.config, rematch: true });
+      },
+      { width: 320, fill: PAL.orange }
+    );
+    const items = [dim, title, resume, restart, quit];
     if (this.desktop)
       items.push(
         new TextButton(
           this,
           cx,
-          430,
+          380,
           'KEY BINDINGS',
           () => this.openKeyBindings('pause'),
           { width: 320, fill: PAL.blue, textSize: PX * 0.75 }

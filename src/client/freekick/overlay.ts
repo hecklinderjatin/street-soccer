@@ -19,6 +19,7 @@ type OverlayOptions = {
   challenge?: FreeKickChallengeConfig; // a challenge run's post settings
   newSpot?: () => void;
   intro: boolean; // first entry: page 1's primary is START GAME, else RESUME
+  restart?: () => void; // pause: start a fresh run with the same settings
   resume: () => void; // pause: RESUME
   start: () => void; // page 1: START GAME / RESUME (skips page 2)
   next: () => void; // page 1: NEXT -> how to play
@@ -31,9 +32,10 @@ type Item = Phaser.GameObjects.GameObject;
 // Where the pause menu's buttons sit (the DOM QUIT link is placed by the
 // scene at quitY, below the canvas buttons).
 export function pauseLayout(height: number, practice: boolean) {
-  const resumeY = height / 2 - 60;
+  const resumeY = height / 2 - (practice ? 150 : 95);
   const newSpotY = practice ? resumeY + 110 : null;
-  return { resumeY, newSpotY, quitY: resumeY + (practice ? 220 : 110) };
+  const restartY = resumeY + (practice ? 220 : 110);
+  return { resumeY, newSpotY, restartY, quitY: restartY + 110 };
 }
 
 // The i button's two info pages and the pause menu, in portrait: the same
@@ -443,6 +445,15 @@ function pauseMenu(
       fill: PAL.green,
     })
   );
+  if (options.restart)
+    items.push(
+      new TextButton(scene, cx, layout.restartY, 'RESTART', options.restart, {
+        width: 360,
+        height: 80,
+        textSize: 3,
+        fill: PAL.orange,
+      })
+    );
   if (layout.newSpotY !== null && options.newSpot)
     items.push(
       new TextButton(scene, cx, layout.newSpotY, 'NEW SPOT', options.newSpot, {

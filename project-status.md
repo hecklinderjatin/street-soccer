@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Pause Restart in every game mode (2026-11-11):** add orange Restart between Resume and Quit on touch normal-match pause, and below Key Bindings on desktop. Release input, record abandonment, stop the paused match and start a fresh match with the same config (Classic, Custom/Casual and Daily); reset the HUD duplicate-click guard on each init. Free Kick Play, Challenge and Practice use their existing fresh-run reset from Pause, preserving challenge settings/chosen practice level, resetting progress/lives and renewing record IDs. Practice retains New Spot. Re-space pause controls and position the trusted DOM Quit below Restart via shared pauseLayout. Types/lint and 32 Free Kick rules/panel/API checks pass. Actual callback checks cover every normal mode and desktop/touch layout; source-only WebGL checks click Restart in all three Free Kick entries and verify resets, preserved settings, renewed IDs, no partial saves and pause UI cleanup. No application build or live Reddit writes performed.
+
 **Community consent note and result thanks (2026-11-11):** add the requested explanation before the Join button: Reddit asks for permission, joining posts nothing, and denial still allows play. Join immediately reveals the last match details while native permission runs; show waiting/joining status there, then a themed Thanks for joining message only after subscription succeeds. Denied consent and errors show accurate messages on results without a false thank-you. Applies through the shared popup to normal and Free Kick; preserve landscape/portrait layouts and local successful-join suppression. Disposal prevents pending consent from initiating a join or updating another scene after results exit. Types/lint and focused Hono/Chromium checks pass (note, immediate transition, pending consent, denial/error/success, suppression, account isolation and cleanup). No application build or live Reddit writes performed.
 
 **Main merge (2026-11-11):** fast-forwarded `codex/freekick-challenge-boards` through `465d60e` into main at the user’s request. Includes optional community popup, Free Kick illustrated help/raised feedback/result alignment, and Challenge score/speed leaderboards. Existing types/lint and focused rules/API/source-browser checks pass; no application build or Reddit deployment performed. Membership detection limitation and stale older Free Kick flow harness remain documented below.
@@ -720,6 +722,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Restart abandons the current attempt and starts with identical settings; it never submits a partial leaderboard result. Reuse the existing Free Kick reset and normal Match initialization rather than manually recreating their state.
+
 - Reveal results immediately on Join, but thank the player only after confirmed subscription. Keep native Reddit permission consent intact and explain it before the button.
 
 - Enable Challenge record submission together with its result leaderboards so newly created Free Kick posts can populate both boards. Validate wins and terminal losses using the post settings rather than legacy unlimited-run limits.
@@ -1122,6 +1126,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Native Reddit review of Pause Restart across normal/Daily modes and Free Kick Challenge/Practice after the next user-run upload.
+
 - Native Reddit review of the consent explanation, immediate results transition and success thank-you in both layouts.
 
 - Native Reddit verification of Free Kick Challenge completion saves and both seven-day result boards after the next user-run upload.
@@ -1511,6 +1517,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-11:** add Restart to every game pause menu with preserved settings, fresh progress/record IDs and re-spaced controls. Types/lint, Free Kick checks and focused callback/WebGL restart checks pass; no application build performed.
 
 - **2026-11-11:** explain native Join consent, transition directly to results on Join, and show confirmed-success thanks on match details. Types/lint and focused API/browser checks pass; no build or live joins performed.
 

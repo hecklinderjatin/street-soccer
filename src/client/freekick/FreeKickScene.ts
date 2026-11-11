@@ -1294,6 +1294,7 @@ export class FreeKickScene extends Phaser.Scene {
         this.newKick(false);
       },
       intro: this.introPending,
+      restart: () => this.restart(),
       resume: () => this.setOverlay(null),
       start: () => this.setOverlay(null, true),
       next: () => this.setOverlay('help'),
