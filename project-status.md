@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Main merge (2026-11-11):** fast-forwarded `codex/freekick-challenge-boards` through `465d60e` into main at the user’s request. Includes optional community popup, Free Kick illustrated help/raised feedback/result alignment, and Challenge score/speed leaderboards. Existing types/lint and focused rules/API/source-browser checks pass; no application build or Reddit deployment performed. Membership detection limitation and stale older Free Kick flow harness remain documented below.
+
 **Free Kick Challenge result boards (2026-11-11):** show both Highest Score and Fastest Goals tabs below the stats on every completed Free Kick run, including Challenge wins/losses. Challenge now registers on its first shot and saves its completed snapshot using a distinct challenge mode. Validate terminal goals/lives, no great-save exemptions and the actual final-round level against server-owned post settings; reuse timing/immutable receipts, best-only seven-day post boards and existing privacy/deletion handling. Score uses completed-run points; speed still counts scored-shot launches only. Practice and quit runs remain unranked; challenge score-sharing remains disabled. Update info Records to seven days. Types/lint, 32 Free Kick rules/panel/API checks and source-only UI checks pass, including challenge save dispatch, both leaderboard tabs and responsive aligned results. No application build or live Reddit writes performed.
 
 **Free Kick UI cleanup (2026-11-11):** how-to-play now pairs concise descriptions with HUD-like power meter, actual ball/contact and life art, swipe/aim guide, wall and xG examples. Space the six rows to prevent text collisions. Move result feedback from 64% to 28% down the view, reduce title size and remove its full-width bordered plate and subtitle box so the kicker stays visible. Align the portrait results to one content column and full-width actions; challenge stats use a complete six-tile grid (Shots replaces inapplicable Great Saves), and Goals shows the challenge target. Types/lint and 31 Free Kick rules/panel/API checks pass. New source-only WebGL UI check verifies illustrated help, text fit, raised unboxed feedback and results alignment at 320x480, 390x600 and 844x390; screenshots inspected. No application build or live Reddit writes performed.
@@ -1503,6 +1505,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-11:** merge community popup, Free Kick UI polish and Challenge result leaderboards into main through `465d60e`; prepare requested GitHub push. No application build/deployment performed.
 
 - **2026-11-11:** add both result leaderboards to Free Kick Challenge and validate/save completed Challenge records against post settings. Preserve Practice isolation and seven-day privacy handling. Types/lint, rule/API/UI checks pass; no application build performed.
 
