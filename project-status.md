@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Optional inline results Join (2026-11-11):** remove the automatic community popup and its fixed backdrop, modal role, hidden/inert results gating, focus trap and Continue interstitial. Replace communityPrompt with shared communityJoin: small Enjoyed the match copy and a secondary Join Community button below stats/leaderboards and before the primary results actions in normal and Free Kick results. Keep all results/actions immediately usable even during consent/subscription. Preserve permission note, explicit trusted click/native consent, diagnostics, successful-join thanks and account/community/device suppression (including earlier skip preferences). No manual Already Joined or Retry controls. Rename/remove old popup code, CSS and browser fixture; update test:community. Types/lint, community API/inline browser checks and actual Free Kick results UI checks pass; screenshot inspected. No application build or live Reddit writes performed.
+
 **Remove manual member option (2026-11-11):** user clarified that existing members must skip the popup, not see an Already Joined option. Remove that control and its styles, restore two-button focus handling. Preserve suppression for confirmed in-game joins and previously stored self-confirmed preferences so those users skip the screen without further interaction. True first-visit automatic membership detection remains blocked by SDK access; do not claim this change solves externally created memberships. Types/lint and focused community checks pass; no application build/live writes performed.
 
 **Main merge (2026-11-11):** fast-forwarded `codex/already-joined` through `af2af47` into main at the user’s request. Includes Retry Join removal, clearer permission failure wording and manual Already Joined suppression per account/community/device. Existing types/lint and focused community API/browser checks pass. Automatic player membership detection remains unavailable through current SDK access. No application build or deployment performed.
@@ -736,6 +738,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Make joining an optional secondary result action instead of a blocking screen. This avoids obstructing existing members without pretending the SDK can verify their membership.
+
 - Remove the rejected manual membership button while honoring existing stored skip preferences. Do not substitute the app account membership list or a subscription write for an unavailable player membership check.
 
 - Do not query the app account subscription list as if it were the player’s. Provide a separate manual Already Joined preference until a supported player membership API is available.
@@ -1148,6 +1152,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Native review of inline Join Community on normal and Free Kick results after the next user-run upload. Subscription permission issues remain diagnosable by their server log reference; they no longer interrupt results.
+
 - Automatic suppression for members who joined outside the game still requires Reddit-supported player membership access. This requirement remains incomplete; the manual option has been removed.
 
 - Native review of Already Joined suppression; true automatic cross-device membership detection remains blocked by the SDK access limitation.
@@ -1547,6 +1553,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-11:** remove blocking join popup, add optional inline Join Community below result leaderboards, and preserve consent/diagnostics/success suppression. Types/lint and focused API/DOM/Free Kick browser checks pass; no application build performed.
 
 - **2026-11-11:** remove Already Joined UI, retain known-member skip preferences and document the remaining automatic membership-detection blocker. No application build/live writes performed.
 

@@ -1,4 +1,4 @@
-import { communityPrompt } from '../ui/communityPrompt';
+import { communityJoin } from '../ui/communityJoin';
 import {
   context,
   exitExpandedMode,
@@ -242,12 +242,12 @@ export function freeKickResults(
       posting = false;
     }
   }
-  const prompt = communityPrompt(screen.element, true);
+  const community = communityJoin(screen.element, true);
   void save();
   return {
     destroy() {
       closed = true;
-      prompt.destroy();
+      community.destroy();
       screen.destroy();
     },
   };
