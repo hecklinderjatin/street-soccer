@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Dribbling speed penalties (2026-11-11):** normal movement with the ball is 202.4 units/s (8% below 220), sprinting with the ball is 280.5 units/s (15% below 330). Shared player movement applies these values to human and AI carriers. Off-ball speeds remain unchanged.
+
 **Manual match tactics (2026-11-11):** right-side Attack / Normal / Defend selector, Normal selected by default, active green state and marker, plus brief rising/fading mode feedback. Top-row Digit8 / Digit9 / Digit0 select Defend / Normal / Attack; reserve those keys from action remapping. Tactics are blocked/hidden in pause and info overlays. Home outfield formation targets shift forward so the back line reaches halfway in Attack, or back 16% of pitch length in Defend; normal targeting is preserved, positions remain clamped, players move naturally and the human/keeper remain under their existing control. Selection survives kickoff and automatic Daily style changes, resets on a new match, and never changes opponent AI. Controls page explains positioning and shortcuts. Types, lint and 71 logic checks pass, including every formation across attack/defend/loose phases. No application build or browser playtest run.
 
 **Free Kick posts: Challenge settings chosen by the post's creator; only Challenge and Practice (2026-11-11, `main`, uncommitted; user request).**
@@ -692,6 +694,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Use exact 8% normal and 15% sprint possession penalties against off-ball speeds, as requested.
+
 - Apply manual match tactics as a formation-target offset separate from automatic match/Daily plans. Keep Normal identical to existing AI and preserve active pressing/interception jobs instead of teleporting players or overriding the human.
 
 - **Free Kick Challenge settings live on the post, the wall is measured from goal (2026-11-11, user's choices):** the creator picks distance (each round varies 5 m either way) and the wall's distance from goal; the wall keeps at least 9 m from the ball so it can be cleared. Difficulty sets the first round's level and a cap; each round is one level harder. Ranked Play is no longer offered on the card (the user wants only Challenge and Practice); its code and boards remain.
@@ -1074,6 +1078,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Review the revised possession speed penalties during the next match playtest.
+
 - Playtest the right-side tactics selector, transition spacing and control-help copy on mobile/desktop after the next user-run upload; check defensive depth and Attack counterattack exposure.
 
 - **Try a Free Kick post with custom settings on Reddit:** the new form fields, the card text, a noob vs pro challenge, a near wall (e.g. 25 m / 16 m) and 10 lives (two rows of icons). Old Free Kick posts should play the default settings.
@@ -1443,6 +1449,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-11:** lower dribble speed to 202.4 and dribble sprint to 280.5 units/s for exact 8%/15% possession penalties. No application build performed.
 
 - **2026-11-11:** add right-side match tactics selector, top-row 8/9/0 shortcuts, animated selection feedback and controls help. Add formation-shift regression checks; types, lint and 71 logic checks pass. No application build performed.
 

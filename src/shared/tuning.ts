@@ -839,8 +839,8 @@ export const PLAYER = {
   bodyRadius: 16, // players closer than twice this push each other apart
   walkSpeed: 220, // px/s at full walk (stick just under the sprint ring)
   sprintSpeed: 330, // px/s while sprinting
-  walkWithBallSpeed: 205, // px/s while dribbling
-  sprintWithBallSpeed: 290, // px/s while dribbling at a sprint
+  walkWithBallSpeed: 202.4, // px/s while dribbling: 8% slower than walkSpeed
+  sprintWithBallSpeed: 280.5, // px/s sprinting with the ball: 15% slower than sprintSpeed
   minWalkFraction: 0.25, // walk speed just outside the dead zone, as a fraction of walkSpeed
   // Momentum (FIFA-like): speed ramps up and down, turns curve at speed.
   accel: 1500, // px/s^2 speeding up (0 -> jog in ~0.15 s)
