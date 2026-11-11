@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Main merge (2026-11-11):** fast-forwarded `codex/already-joined` through `af2af47` into main at the user’s request. Includes Retry Join removal, clearer permission failure wording and manual Already Joined suppression per account/community/device. Existing types/lint and focused community API/browser checks pass. Automatic player membership detection remains unavailable through current SDK access. No application build or deployment performed.
+
 **Already Joined preference (2026-11-11):** verified SDK docs: subscribeToCurrentSubreddit is a no-op for members; getSubscribedSubredditsForCurrentUser executes as the app account and requires Reddit approval for user access, so it cannot safely establish player membership. Add an explicit Already Joined option to the shared prompt; it skips consent/subscription, opens results and stores a separate self-confirmed preference per account/community/device. Suppress later prompts using that preference or a confirmed in-game join. Never label the preference as a verified membership check or thank users for a subscription that did not occur. Keep no Retry button. Types/lint and focused API/browser checks pass, including no subscription from Already Joined, future suppression and community/account isolation. Exact production permission failure still requires reference 6e20b303 logs. No application build or live Reddit writes performed.
 
 **Remove Join Retry (2026-11-11):** remove the Retry Join results button and its styles, as requested. Keep safe join diagnostics/references and confirmed-success thanks. Remove retry instructions from join errors; suggest joining from the subreddit page. Wording now identifies a permission issue without claiming the player denied consent. User screenshot reference 6e20b303 came from the permission-classified server failure path; its exact SDK cause remains available only in the corresponding community_join_failed log. Types/lint and community API/browser checks pass, including no Retry button on failure. No application build, live joins or production log access performed.
@@ -1539,6 +1541,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-11:** merge Retry Join removal and Already Joined preference into main through `af2af47`; prepare requested GitHub push. No application build/deployment performed.
 
 - **2026-11-11:** add manual Already Joined suppression without permission requests or subscription writes; verify API membership limitations and preference isolation. Types/lint and focused checks pass; no build/live writes performed.
 
