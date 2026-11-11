@@ -2,11 +2,16 @@ import Phaser from 'phaser';
 import { FREE_KICK as FK } from '../../shared/tuning';
 import { PAL } from '../ui/palette';
 import { FreeKickScene } from './FreeKickScene';
+import type { PlaygroundLink } from './playgroundLink';
 
 // The Free Kick game: its own portrait canvas (the match is landscape).
 // EXPAND keeps the whole 720x1280 view visible and shows more around it on
 // taller or wider screens, so the HUD hugs the real edges.
-export function createFreeKickGame(practice = false, level = 1) {
+export function createFreeKickGame(
+  practice = false,
+  level = 1,
+  playground: PlaygroundLink | null = null
+) {
   const box = document.getElementById('freekick');
   if (!box) throw new Error('#freekick container missing');
   const game = new Phaser.Game({
@@ -29,6 +34,7 @@ export function createFreeKickGame(practice = false, level = 1) {
       preBoot: (instance) => {
         instance.registry.set('freekickPractice', practice);
         instance.registry.set('freekickPracticeLevel', level);
+        instance.registry.set('freekickPlayground', playground);
       },
     },
     scene: [FreeKickScene],

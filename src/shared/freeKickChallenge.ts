@@ -5,12 +5,18 @@ import {
   type Difficulty,
   type JerseyColor,
 } from './types';
+import {
+  customLevel,
+  parseCustomKick,
+  type CustomKick,
+} from './freeKickCustom';
 
 // A Free Kick post's Challenge settings, chosen by its creator and saved as
 // the post's postData `freeKick` (server/core/post.ts). Older Free Kick
 // posts have none and play FREE_KICK_CHALLENGE_DEFAULT.
 export type FreeKickChallengeConfig = {
-  mode?: 'challenge' | 'infinity';
+  mode?: 'challenge' | 'infinity' | 'custom';
+  custom?: CustomKick; // a Playground post's one fixed kick (mode 'custom')
   kicker: JerseyColor; // the kicker's kit
   wall: JerseyColor; // the wall's kit
   lives: number; // misses allowed
@@ -54,8 +60,29 @@ export function parseFreeKickChallenge(
   if (!kicker || !wall) return 'choose both team colours';
   if (kicker === wall) return 'the kicker and the wall need different colours';
   const mode: unknown = get('mode');
-  if (mode !== undefined && mode !== 'challenge' && mode !== 'infinity')
+  if (
+    mode !== undefined &&
+    mode !== 'challenge' &&
+    mode !== 'infinity' &&
+    mode !== 'custom'
+  )
     return 'choose a Free Kick mode';
+  // A Playground post: its one kick, one life, until the first miss.
+  if (mode === 'custom') {
+    const custom = parseCustomKick(get('custom'));
+    if (typeof custom === 'string') return custom;
+    return {
+      mode,
+      custom,
+      kicker,
+      wall,
+      lives: 1,
+      goals: 0,
+      distanceM: custom.distanceM,
+      wallFromGoalM: custom.distanceM - custom.wallGapM,
+      difficulty: custom.difficulty,
+    };
+  }
   const lives = whole(get('lives'), 1, FK.challengeMaxLives);
   if (lives === null) return `lives: 1 to ${FK.challengeMaxLives}`;
   if (mode === 'infinity')
@@ -91,10 +118,22 @@ export function postFreeKickChallenge(postData: unknown) {
   return typeof config === 'string' ? FREE_KICK_CHALLENGE_DEFAULT : config;
 }
 
+// Infinity and Playground runs have no goal target: they end on lives.
+export const endlessFreeKick = (config: FreeKickChallengeConfig) =>
+  config.mode === 'infinity' || config.mode === 'custom';
+
+// The ranked mode a post's runs are saved under.
+export const freeKickRankedMode = (config: FreeKickChallengeConfig) =>
+  config.mode === 'infinity' || config.mode === 'custom'
+    ? config.mode
+    : 'challenge';
+
 export function freeKickRoundLevel(
   config: FreeKickChallengeConfig,
   goals: number
 ) {
+  if (config.mode === 'custom' && config.custom)
+    return customLevel(config.custom);
   return config.mode === 'infinity'
     ? Math.min(
         FK.maxLevel,
@@ -148,6 +187,6 @@ export function challengeOutcome(
   lives: number,
   config: FreeKickChallengeConfig
 ): 'won' | 'lost' | 'open' {
-  if (config.mode !== 'infinity' && goals >= config.goals) return 'won';
+  if (!endlessFreeKick(config) && goals >= config.goals) return 'won';
   return lives <= 0 ? 'lost' : 'open';
 }

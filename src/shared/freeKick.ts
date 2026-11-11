@@ -1,12 +1,13 @@
 import {
   challengeRoundLevel,
+  freeKickRankedMode,
   freeKickRoundLevel,
   type FreeKickChallengeConfig,
 } from './freeKickChallenge';
 import { FREE_KICK as FK, GOAL_FEEDBACK } from './tuning';
 
 export type FreeKickStats = {
-  mode: 'play' | 'challenge' | 'infinity'; // play is accepted only when reading historical receipts; API rejects it
+  mode: 'play' | 'challenge' | 'infinity' | 'custom'; // play is accepted only when reading historical receipts; API rejects it
   score: number;
   goals: number;
   shots: number;
@@ -51,11 +52,16 @@ export function readFreeKickStats(
 ): FreeKickStats | null {
   if (!body || typeof body !== 'object') return null;
   const mode: unknown = Reflect.get(body, 'mode');
-  if (mode !== 'play' && mode !== 'challenge' && mode !== 'infinity')
+  if (
+    mode !== 'play' &&
+    mode !== 'challenge' &&
+    mode !== 'infinity' &&
+    mode !== 'custom'
+  )
     return null;
-  if ((mode === 'challenge' || mode === 'infinity') && !challenge) return null;
-  if (mode === 'infinity' && challenge?.mode !== 'infinity') return null;
-  if (mode === 'challenge' && challenge?.mode === 'infinity') return null;
+  if (mode !== 'play' && !challenge) return null;
+  if (mode !== 'play' && challenge && freeKickRankedMode(challenge) !== mode)
+    return null;
   const integer = (key: string, max: number) => {
     const v: unknown = Reflect.get(body, key);
     return typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= max
@@ -98,7 +104,7 @@ export function readFreeKickStats(
     (goals > 0 && bestStreak < 1)
   )
     return null;
-  if (mode === 'infinity' && challenge) {
+  if ((mode === 'infinity' || mode === 'custom') && challenge) {
     if (
       greatSaves !== 0 ||
       shots !== goals + challenge.lives ||

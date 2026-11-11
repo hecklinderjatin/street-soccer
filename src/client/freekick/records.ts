@@ -1,4 +1,5 @@
 import { freeKickChallenge } from '../challenge';
+import { freeKickRankedMode } from '../../shared/freeKickChallenge';
 import { context } from '@devvit/web/client';
 import type { FreeKickRun, FreeKickStats } from '../../shared/freeKick';
 
@@ -24,7 +25,7 @@ export class FreeKickRecords {
     if (this.startRequest || !context?.postId) return;
     this.startRequest = request('start', {
       id: this.id,
-      mode: freeKickChallenge().mode === 'infinity' ? 'infinity' : 'challenge',
+      mode: freeKickRankedMode(freeKickChallenge()),
     }).then((value) => {
       this.run = value;
       return value;
@@ -39,7 +40,7 @@ export class FreeKickRecords {
     const run = await this.startRequest;
     await request('result', {
       ...run,
-      mode: freeKickChallenge().mode === 'infinity' ? 'infinity' : 'challenge',
+      mode: freeKickRankedMode(freeKickChallenge()),
       result,
     });
   }
@@ -47,7 +48,7 @@ export class FreeKickRecords {
     if (!this.run) throw new Error('Save the run before sharing');
     return request('post-score', {
       ...this.run,
-      mode: freeKickChallenge().mode === 'infinity' ? 'infinity' : 'challenge',
+      mode: freeKickRankedMode(freeKickChallenge()),
       comment,
       includeStats,
     });

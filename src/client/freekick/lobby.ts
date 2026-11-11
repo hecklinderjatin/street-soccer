@@ -16,6 +16,7 @@ export function showFreeKickLobby() {
   host.classList.add('freekick-post');
   const fk = freeKickChallenge();
   const infinity = fk.mode === 'infinity';
+  const custom = fk.mode === 'custom' && fk.custom ? fk.custom : null;
   const lives = `${fk.lives} ${fk.lives === 1 ? 'LIFE' : 'LIVES'}`;
   const card = document.createElement('section');
   card.className = 'freekick-lobby';
@@ -29,12 +30,13 @@ export function showFreeKickLobby() {
       <div class="preview-actions">
         <a class="freekick-challenge mobile-play" href="freekick-challenge.html">CHALLENGE</a>
         <a class="freekick-practice mobile-casual" href="freekick-practice.html">PRACTICE</a>
+        <a class="freekick-playground mobile-casual" href="freekick-playground.html">PLAYGROUND</a>
       </div>
       <p class="freekick-mode-notes preview-activity"></p>
     </div>`;
-  if (infinity) {
+  if (infinity || custom) {
     const caption = card.querySelector('.mobile-match-facts small');
-    if (caption) caption.textContent = 'ENDLESS GOALS';
+    if (caption) caption.textContent = custom ? 'GOALS IN A ROW' : 'ENDLESS GOALS';
   }
   const description = card.querySelector('.freekick-description');
   const data: unknown = context?.postData;
@@ -44,16 +46,19 @@ export function showFreeKickLobby() {
     description.textContent = typeof value === 'string' ? value : '';
   const notes = card.querySelector('.freekick-mode-notes');
   if (notes)
-    notes.textContent = infinity
+    notes.textContent = custom
+      ? `Custom kick: ${custom.distanceM} m, ${custom.wallMen}-man wall, ${DIFFICULTY_LABEL[custom.difficulty].toLowerCase()} keeper. One life: score in a row until you miss. Playground: build and share your own.`
+      : infinity
       ? `Infinity: ${lives.toLowerCase()}. Start at Easy, rise to Pro. Score until lives run out. Practice: unlimited retries.`
       : `Challenge: ${fk.goals} goals, ${lives.toLowerCase()}, spots around ${fk.distanceM} m, wall ${fk.wallFromGoalM} m from goal. Fixed sequence for everyone; harder after each goal. Practice: any level, unlimited retries.`;
   for (const [selector, text, entry] of [
     [
       '.freekick-challenge',
-      infinity ? 'INFINITY' : 'CHALLENGE',
+      custom ? 'PLAY' : infinity ? 'INFINITY' : 'CHALLENGE',
       infinity ? 'freekick-infinity' : 'freekick-challenge',
     ],
     ['.freekick-practice', 'PRACTICE', 'freekick-practice'],
+    ['.freekick-playground', 'PLAYGROUND', 'freekick-playground'],
   ]) {
     const button = card.querySelector<HTMLAnchorElement>(selector ?? '');
     if (!button || !text || !entry) continue;
@@ -68,11 +73,16 @@ export function showFreeKickLobby() {
   for (const [selector, text] of [
     ['.freekick-title', 'STREET SOCCER'],
     ['.freekick-lives', lives],
-    ['.freekick-progression', infinity ? 'ENDLESS' : String(fk.goals)],
-    ['.freekick-mode', 'FREE KICK'],
+    [
+      '.freekick-progression',
+      custom || infinity ? 'ENDLESS' : String(fk.goals),
+    ],
+    ['.freekick-mode', custom ? 'CUSTOM KICK' : 'FREE KICK'],
     [
       '.freekick-tagline',
-      infinity
+      custom
+        ? `${DIFFICULTY_LABEL[custom.difficulty]}  ${custom.distanceM} M`
+        : infinity
         ? 'EASY TO PRO'
         : `${DIFFICULTY_LABEL[fk.difficulty]}  ${fk.distanceM} M`,
     ],

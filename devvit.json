@@ -21,6 +21,9 @@
       },
       "freekick-challenge": {
         "entry": "freekick-challenge.html"
+      },
+      "freekick-playground": {
+        "entry": "freekick-playground.html"
       }
     }
   },

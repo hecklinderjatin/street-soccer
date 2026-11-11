@@ -5,6 +5,7 @@ import {
   challengeRandom,
   type FreeKickChallengeConfig,
 } from '../../shared/freeKickChallenge';
+import { customLevel, type CustomKick } from '../../shared/freeKickCustom';
 
 // Free Kick rules: the spot, wall and keeper of each kick, reading the
 // swipe, the strike, the flight (gravity, drag, curl, dip) and how the kick
@@ -124,11 +125,19 @@ export type KickSetup = {
 //
 // `place` (a challenge post's round): the spot's distance and the wall's
 // distance from goal, world px, instead of the level's. The wall stays at
-// least FK.challengeWallGapM from the ball.
+// least FK.challengeWallGapM from the ball. A Playground kick also fixes
+// whether a man lies behind the wall (`lyer`) and slides the wall
+// sideways by `shift` world px (`level.wallMen` is its size).
 export function makeKick(
   level: Level,
   rand: () => number,
-  place?: { distance: number; wallFromGoal: number; angle?: number }
+  place?: {
+    distance: number;
+    wallFromGoal: number;
+    angle?: number;
+    lyer?: boolean;
+    shift?: number;
+  }
 ): KickSetup {
   const rolled = lerp(FK.minDistance, level.maxDistance, rand());
   const distance = place?.distance ?? rolled;
@@ -157,9 +166,13 @@ export function makeKick(
   // Lateral position at x of the line from the spot to (GOAL_X, y), and back.
   const atWall = (y: number) => spot.y + ((y - spot.y) * (wallX - spot.x)) / dx;
   const atGoal = (y: number) => spot.y + ((y - spot.y) * dx) / (wallX - spot.x);
-  const edge = atWall(GOAL_Y + nearSide * (POST_HALF + FK.wallCover));
+  const edge =
+    atWall(GOAL_Y + nearSide * (POST_HALF + FK.wallCover)) +
+    (place?.shift ?? 0);
   // A lying defender replaces one standing player, keeping the total capped.
-  const lyer = rand() < level.wallLyerChance && level.wallMen >= 3;
+  // (Always rolled, so a fixed choice leaves the seeded rolls after it alone.)
+  const rolledLyer = rand() < level.wallLyerChance && level.wallMen >= 3;
+  const lyer = place?.lyer ?? rolledLyer;
   const standing = level.wallMen - (lyer ? 1 : 0);
   const men = Array.from(
     { length: standing },
@@ -466,7 +479,10 @@ export function startPlay(
   const noise = (rand() * 2 - 1) * setup.level.readNoise;
   // Unseen until the strike: whether the wall jumps (it always does with a
   // man lying behind it) and whether the keeper guesses a corner.
-  const jumps = setup.wall.lyer || rand() < setup.level.wallJumpChance;
+  // (A Playground wall set not to jump has no jump chance, lyer or not.)
+  const jumps =
+    (setup.wall.lyer && setup.level.wallJumpChance > 0) ||
+    rand() < setup.level.wallJumpChance;
   const guesses = rand() < setup.level.keeperGuessChance;
   const guessSide = rand() < 0.5 ? -1 : 1;
   const guessY = guesses ? GOAL_Y + guessSide * (POST_HALF - 40) : null;
@@ -934,6 +950,36 @@ export function practiceKick(
 ): KickSetup {
   return configuredKick(config, clamp(Math.round(level), 1, FK.maxLevel), rand);
 }
+// A Playground kick: exactly as built. Seeded by the kick itself, so the
+// builder's preview, its test shots and the shared post all set up the
+// same (the keeper's stance included).
+export function customKick(kick: CustomKick): KickSetup {
+  const level = {
+    ...levelFor((customLevel(kick) - 1) * FK.goalsPerLevel),
+    wallMen: kick.wallMen,
+    wallJumpChance: kick.jump ? 1 : 0,
+  };
+  return makeKick(level, challengeRandom('playground', JSON.stringify(kick)), {
+    distance: kick.distanceM * FK.pxPerMetre,
+    wallFromGoal: (kick.distanceM - kick.wallGapM) * FK.pxPerMetre,
+    angle: (kick.angleDeg * Math.PI) / 180,
+    lyer: kick.lyer,
+    shift: -kick.wallShift * FK.customShiftPx, // the kicker's right is world -y
+  });
+}
+
+// A ranked run's kick for this round: a Playground post's one kick, or
+// the next of a Challenge or Infinity post's fixed sequence.
+export function postKick(
+  config: FreeKickChallengeConfig,
+  round: number,
+  postId: string
+): KickSetup {
+  return config.mode === 'custom' && config.custom
+    ? customKick(config.custom)
+    : challengeKick(config, round, postId);
+}
+
 function configuredKick(
   config: FreeKickChallengeConfig,
   level: number,

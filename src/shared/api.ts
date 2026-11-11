@@ -1,4 +1,5 @@
 import type { Difficulty, DailyMode } from './types';
+import type { CustomSetup } from './freeKickCustom';
 
 // --- Match results: today's leaderboard per post, and posting a score ---
 
@@ -52,3 +53,17 @@ export type PostScoreResponse = {
 
 // Aggregate completed matches for this post, independent of rankings.
 export type GamesPlayedResponse = { gamesPlayed: number };
+
+// --- Free Kick Playground: a player's saved kicks and sharing one ---
+
+// GET /api/playground/saves, and the reply to save and delete.
+export type PlaygroundSave = {
+  slot: number; // 0 .. FREE_KICK.customSaveSlots - 1
+  setup: CustomSetup;
+  savedAt: number; // ms since epoch
+};
+export type PlaygroundSavesResponse = { saves: PlaygroundSave[] };
+// POST /api/playground/save (body: { setup, slot?: number }).
+export type PlaygroundSaveResponse = PlaygroundSavesResponse & { slot: number };
+// POST /api/playground/share (body: { setup: CustomSetup }).
+export type PlaygroundShareResponse = { url: string };

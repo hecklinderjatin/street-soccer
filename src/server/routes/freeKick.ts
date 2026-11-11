@@ -1,4 +1,7 @@
-import { postFreeKickChallenge } from '../../shared/freeKickChallenge';
+import {
+  freeKickRankedMode,
+  postFreeKickChallenge,
+} from '../../shared/freeKickChallenge';
 import { Hono } from 'hono';
 import { context, reddit, redis } from '@devvit/web/server';
 import { postType } from '../../shared/postType';
@@ -47,9 +50,7 @@ for (const action of ['start', 'result', 'post-score'] as const)
         !body ||
         typeof body !== 'object' ||
         Reflect.get(body, 'mode') !==
-          (postFreeKickChallenge(context.postData).mode === 'infinity'
-            ? 'infinity'
-            : 'challenge')
+          freeKickRankedMode(postFreeKickChallenge(context.postData))
       )
         return c.json({ error: 'Completed Free Kick run required' }, 400);
       const id = freeKickRunId(Reflect.get(body, 'id'));

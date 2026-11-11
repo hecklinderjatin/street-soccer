@@ -1,4 +1,5 @@
 import { freeKickApi } from './routes/freeKick';
+import { playgroundApi } from './routes/playground';
 import { telemetry } from '@devvit/analytics/server/reddit';
 import { journeysEnabled } from '../shared/journeys';
 import { createJourneyRoutes } from './core/journeys';
@@ -28,6 +29,7 @@ app.route(
   createJourneyRoutes(telemetry, journeysEnabled, () => Boolean(context.postId))
 );
 app.route('/api/freekick', freeKickApi);
+app.route('/api/playground', playgroundApi);
 app.route('/api', api);
 app.route('/api/play-metrics', playMetrics);
 app.route('/internal', internal);

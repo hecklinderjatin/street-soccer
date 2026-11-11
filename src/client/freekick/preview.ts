@@ -7,6 +7,7 @@ import { createCourtTextures } from '../art/pitchArt';
 import { registerPlayerAtlases } from '../art/playerArt';
 import { startingConfig, freeKickChallenge } from '../challenge';
 import { releaseEarlyDownloads, withEarlyDownloads } from '../earlyAssets';
+import { endlessFreeKick } from '../../shared/freeKickChallenge';
 import { PAL } from '../ui/palette';
 import { KickCamera } from './KickCamera';
 import { kickerFrame, runupShares } from './kickerFrames';
@@ -17,8 +18,8 @@ import {
   POST_HALF,
   STEP,
   ballContact,
-  challengeKick,
   levelFor,
+  postKick,
   makeKick,
   powerBand,
   startPlay,
@@ -84,9 +85,9 @@ class FreeKickPreviewScene extends Phaser.Scene {
 
   private nextKick() {
     const config = freeKickChallenge();
-    this.setup = challengeKick(
+    this.setup = postKick(
       config,
-      config.mode === 'infinity'
+      endlessFreeKick(config)
         ? this.attempt++
         : this.attempt++ % config.goals,
       context?.postId ?? 'local'

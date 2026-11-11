@@ -1116,6 +1116,21 @@ export const FREE_KICK = {
     hard: [5, 9],
     pro: [7, 10],
   },
+  // Playground (user request, 2026-11-11): a player builds one fixed kick
+  // and shares it as a post played with one life (shared/freeKickCustom.ts).
+  customDistanceM: [15, 35], // shot distance from the goal centre, metres
+  customMaxAngleDeg: 30, // angle off the centre line, either side ...
+  customBoxClearance: 12, // ... narrowed so the spot stays this far (world px) outside the box
+  customWallGapM: [9, 20], // the wall's distance from the ball ...
+  customWallFromGoalM: 6, // ... leaving it at least this far from goal
+  customWallMen: [1, 4], // wall players, including one lying behind it
+  customShiftSteps: 4, // the wall slides up to this many steps either way ...
+  customShiftPx: 15, // ... of this many world px (half a player)
+  customLevels: { noob: 1, easy: 3, normal: 5, hard: 7, pro: 10 }, // keeper sharpness and wall jump height by difficulty
+  customTitleMax: 60, // characters in a shared setup's title
+  customSaveSlots: 5, // saved setups per player
+  customSaveDays: 30, // saved setups are deleted this long after the last save
+  customShareCooldownSec: 300, // one shared post per player per this long
   resultSec: 1.9, // result animation before the next kick
   fadeSec: 0.3, // cut to the next spot
 } as const;

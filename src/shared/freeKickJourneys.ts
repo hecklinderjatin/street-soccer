@@ -1,4 +1,7 @@
-import type { FreeKickChallengeConfig } from './freeKickChallenge';
+import {
+  endlessFreeKick,
+  type FreeKickChallengeConfig,
+} from './freeKickChallenge';
 import type { JourneySettings, JourneyResult } from './journeys';
 
 export function freeKickJourneySettings(
@@ -10,7 +13,7 @@ export function freeKickJourneySettings(
   return {
     mode: practice
       ? 'freekick-practice'
-      : config.mode === 'infinity'
+      : endlessFreeKick(config) // (Playground posts report as Infinity runs)
         ? 'freekick-infinity'
         : 'freekick-challenge',
     difficulty: config.difficulty,

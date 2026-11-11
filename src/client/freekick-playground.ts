@@ -1,0 +1,648 @@
+import { context, exitExpandedMode, navigateTo } from '@devvit/web/client';
+import { startEarlyDownloads } from './earlyAssets';
+import { freeKickChallenge } from './challenge';
+import { pixelLabel } from './ui/pixelLabel';
+import { JERSEY_SWATCH } from './ui/palette';
+import { FREE_KICK as FK } from '../shared/tuning';
+import {
+  DIFFICULTIES,
+  DIFFICULTY_LABEL,
+  JERSEY_COLORS,
+  type JerseyColor,
+} from '../shared/types';
+import {
+  CUSTOM_KICK_DEFAULT,
+  customMaxAngle,
+  customMaxWallGap,
+  parseCustomSetup,
+  parseCustomTitle,
+  type CustomKick,
+  type CustomSetup,
+} from '../shared/freeKickCustom';
+import type { PlaygroundSave } from '../shared/api';
+import { PlaygroundLink } from './freekick/playgroundLink';
+
+// The Free Kick Playground (user request, 2026-11-11): build one kick on
+// the live game view, test it, then name it, pick kits and save it or
+// share it to the community as its own post (one life, ranked as usual).
+// The settings sheet slides up over the bottom of the view; each group
+// opens from its tile, ranges step with arrows, switches are checkboxes.
+
+startEarlyDownloads();
+
+const post = freeKickChallenge();
+let kick: CustomKick =
+  post.mode === 'custom' && post.custom
+    ? { ...post.custom }
+    : { ...CUSTOM_KICK_DEFAULT };
+let kicker: JerseyColor = post.kicker;
+let wallKit: JerseyColor = post.wall;
+let title = '';
+let slot: number | null = null; // the save slot this kick came from or went to
+let scored = false; // the current kick has been scored at least once
+let sheetUp = true;
+let openTile: string | null = 'shot';
+const link = new PlaygroundLink(kick);
+
+const host = document.getElementById('freekick');
+const el = <K extends keyof HTMLElementTagNameMap>(
+  tag: K,
+  className = '',
+  text = ''
+) => {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text) pixelLabel(node, text);
+  return node;
+};
+const hex = (color: JerseyColor) =>
+  `#${JERSEY_SWATCH[color].toString(16).padStart(6, '0')}`;
+const clamp = (v: number, lo: number, hi: number) =>
+  Math.max(lo, Math.min(hi, v));
+
+// Keeps a kick inside the limits for its own distance and wall size.
+function fit(next: CustomKick): CustomKick {
+  const [nearest, furthest] = FK.customDistanceM;
+  const distanceM = clamp(next.distanceM, nearest, furthest);
+  const maxAngle = customMaxAngle(distanceM);
+  const [fewest, most] = FK.customWallMen;
+  const wallMen = clamp(next.wallMen, fewest, most);
+  return {
+    ...next,
+    distanceM,
+    angleDeg: clamp(next.angleDeg, -maxAngle, maxAngle),
+    wallGapM: clamp(
+      next.wallGapM,
+      FK.customWallGapM[0],
+      customMaxWallGap(distanceM)
+    ),
+    wallShift: clamp(next.wallShift, -FK.customShiftSteps, FK.customShiftSteps),
+    wallMen,
+    lyer: next.lyer && wallMen >= 3,
+  };
+}
+
+const side = (n: number, left: string, right: string, zero: string) =>
+  n === 0 ? zero : `${Math.abs(n)} ${n > 0 ? left : right}`;
+const angleText = (k: CustomKick) =>
+  k.angleDeg === 0
+    ? 'CENTRE'
+    : `${Math.abs(k.angleDeg)}° ${k.angleDeg > 0 ? 'LEFT' : 'RIGHT'}`;
+const summary = (k: CustomKick) =>
+  `${k.distanceM} M · ${angleText(k)} · ${k.wallMen}-MAN WALL · ${DIFFICULTY_LABEL[k.difficulty]}`;
+
+// ---- Building blocks --------------------------------------------------------
+
+const renders: (() => void)[] = [];
+function render() {
+  for (const update of renders) update();
+}
+
+function setKick(next: CustomKick) {
+  const fitted = fit(next);
+  if (JSON.stringify(fitted) === JSON.stringify(kick)) return;
+  kick = fitted;
+  scored = false; // a changed kick has to be scored again before sharing
+  link.update({ kick });
+  render();
+}
+
+// Hold an arrow to keep stepping.
+function holdToRepeat(button: HTMLButtonElement, act: () => void) {
+  let timer: number | undefined;
+  const stop = () => {
+    window.clearTimeout(timer);
+    timer = undefined;
+  };
+  button.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0) return;
+    act();
+    const again = (delay: number) => {
+      timer = window.setTimeout(() => {
+        act();
+        again(90);
+      }, delay);
+    };
+    again(400);
+  });
+  for (const type of ['pointerup', 'pointerleave', 'pointercancel'])
+    button.addEventListener(type, stop);
+  // Keyboard: Enter / Space step once.
+  button.addEventListener('click', (event) => {
+    if (event.detail === 0) act();
+  });
+}
+
+function arrow(dir: 'left' | 'right', label: string, act: () => void) {
+  const button = el('button', `pg-arrow pg-arrow-${dir}`);
+  button.type = 'button';
+  button.setAttribute('aria-label', label);
+  holdToRepeat(button, act);
+  return button;
+}
+
+// LABEL  <  VALUE  >
+function stepper(
+  label: string,
+  value: () => string,
+  step: (dir: -1 | 1) => void,
+  swatch?: () => string
+) {
+  const row = el('div', 'pg-row');
+  const name = el('span', 'pg-row-label', label);
+  const out = el('output', 'pg-value');
+  const chip = swatch ? el('span', 'pg-swatch') : null;
+  row.append(
+    name,
+    arrow('left', `${label}: previous`, () => step(-1)),
+    out,
+    arrow('right', `${label}: next`, () => step(1))
+  );
+  if (chip) out.before(chip);
+  renders.push(() => {
+    pixelLabel(out, value());
+    if (chip && swatch) chip.style.background = swatch();
+  });
+  return row;
+}
+
+function checkbox(
+  label: string,
+  checked: () => boolean,
+  set: (on: boolean) => void,
+  note?: () => string
+) {
+  const row = el('label', 'pg-check');
+  const input = el('input');
+  input.type = 'checkbox';
+  const box = el('span', 'pg-box');
+  box.setAttribute('aria-hidden', 'true');
+  const text = el('span', 'pg-check-label', label);
+  const hint = el('small', 'pg-check-note');
+  row.append(input, box, text, hint);
+  input.addEventListener('change', () => set(input.checked));
+  renders.push(() => {
+    input.checked = checked();
+    hint.textContent = note?.() ?? '';
+  });
+  return row;
+}
+
+function tile(id: string, name: string, sum: () => string, rows: Node[]) {
+  const wrap = el('div', 'pg-tile');
+  const head = el('button', 'pg-tile-head');
+  head.type = 'button';
+  const label = el('span', 'pg-tile-name', name);
+  const value = el('span', 'pg-tile-sum');
+  const chevron = el('span', 'pg-chevron');
+  head.append(label, value, chevron);
+  const body = el('div', 'pg-tile-body');
+  body.id = `pg-${id}`;
+  head.setAttribute('aria-controls', body.id);
+  body.append(...rows);
+  wrap.append(head, body);
+  head.addEventListener('click', () => {
+    openTile = openTile === id ? null : id;
+    render();
+  });
+  renders.push(() => {
+    const open = openTile === id;
+    wrap.classList.toggle('is-open', open);
+    head.setAttribute('aria-expanded', String(open));
+    body.hidden = !open;
+    pixelLabel(value, sum());
+  });
+  return wrap;
+}
+
+function button(
+  text: string,
+  className: string,
+  act: (event: MouseEvent) => void
+) {
+  const node = el('button', `casual-button ${className}`, text);
+  node.type = 'button';
+  node.addEventListener('click', act);
+  return node;
+}
+
+// ---- Setup sheet ------------------------------------------------------------
+
+function buildSheet(root: HTMLElement) {
+  const sheet = el('section', 'pg-sheet');
+  sheet.setAttribute('aria-label', 'Free kick setup');
+  const head = el('header', 'pg-head');
+  const grip = el('button', 'pg-grip');
+  grip.type = 'button';
+  grip.setAttribute('aria-label', 'Hide or show the setup');
+  const gripTitle = el('span', 'pg-grip-title', 'PLAYGROUND  1/2 SETUP');
+  grip.append(el('span', 'pg-grip-bar'), gripTitle);
+  grip.addEventListener('click', () => slide(!sheetUp));
+  head.append(
+    grip,
+    button('SAVED', 'secondary pg-mini', () => void showSaves()),
+    button('EXIT', 'secondary pg-mini', leave)
+  );
+
+  const body = el('div', 'pg-body');
+  body.append(
+    tile('shot', 'SHOT POSITION', () => `${kick.distanceM} M · ${angleText(kick)}`, [
+      stepper(
+        'DISTANCE',
+        () => `${kick.distanceM} M`,
+        (d) => setKick({ ...kick, distanceM: kick.distanceM + d })
+      ),
+      stepper(
+        'ANGLE',
+        () => angleText(kick),
+        // The left arrow moves the spot left.
+        (d) => setKick({ ...kick, angleDeg: kick.angleDeg - d })
+      ),
+    ]),
+    tile(
+      'wall',
+      'WALL SETTING',
+      () => `${kick.wallMen} MEN · ${kick.wallGapM} M`,
+      [
+        stepper(
+          'FROM BALL',
+          () => `${kick.wallGapM} M`,
+          (d) => setKick({ ...kick, wallGapM: kick.wallGapM + d })
+        ),
+        stepper(
+          'SIDEWAYS',
+          () => side(kick.wallShift, 'RIGHT', 'LEFT', 'NEAR POST'),
+          (d) => setKick({ ...kick, wallShift: kick.wallShift + d })
+        ),
+        stepper(
+          'PLAYERS',
+          () => String(kick.wallMen),
+          (d) => setKick({ ...kick, wallMen: kick.wallMen + d })
+        ),
+        checkbox(
+          'WALL JUMPS',
+          () => kick.jump,
+          (on) => setKick({ ...kick, jump: on })
+        ),
+        checkbox(
+          'ONE LYING BEHIND',
+          () => kick.lyer,
+          (on) => {
+            if (on && kick.wallMen < 3) {
+              setStatus('A lying player needs 3 or more in the wall.');
+              render();
+              return;
+            }
+            setKick({ ...kick, lyer: on });
+          },
+          () => (kick.wallMen < 3 ? 'needs 3+ men' : '')
+        ),
+      ]
+    ),
+    tile('difficulty', 'DIFFICULTY', () => DIFFICULTY_LABEL[kick.difficulty], [
+      stepper(
+        'KEEPER',
+        () => DIFFICULTY_LABEL[kick.difficulty],
+        (d) => {
+          const i = DIFFICULTIES.indexOf(kick.difficulty) + d;
+          const next = DIFFICULTIES[clamp(i, 0, DIFFICULTIES.length - 1)];
+          if (next) setKick({ ...kick, difficulty: next });
+        }
+      ),
+    ])
+  );
+
+  const status = el('p', 'pg-status');
+  status.setAttribute('role', 'status');
+  const foot = el('footer', 'pg-foot');
+  foot.append(
+    button('TEST SHOT', 'secondary pg-test', () => slide(false)),
+    button('NEXT', 'pg-next', showKits)
+  );
+  sheet.append(head, body, status, foot);
+
+  // Shown while testing (sheet down): back to the setup, or on to share.
+  const float = el('div', 'pg-float');
+  const tested = el('span', 'pg-tested');
+  float.append(
+    button('EDIT', 'secondary', () => slide(true)),
+    button('NEXT', 'pg-next', showKits),
+    tested
+  );
+  renders.push(() => {
+    sheet.classList.toggle('is-down', !sheetUp);
+    float.hidden = sheetUp;
+    grip.setAttribute('aria-expanded', String(sheetUp));
+    pixelLabel(tested, scored ? 'SCORED: READY TO SHARE' : 'SCORE ONCE TO SHARE');
+    tested.classList.toggle('is-scored', scored);
+  });
+  root.append(sheet, float);
+
+  let statusTimer: number | undefined;
+  setStatus = (text: string) => {
+    status.textContent = text;
+    window.clearTimeout(statusTimer);
+    statusTimer = window.setTimeout(() => (status.textContent = ''), 3500);
+  };
+
+  // The camera frames the kick into the part of the view above the sheet.
+  const reframe = () => {
+    const height = root.clientHeight || 1;
+    link.update({
+      editing: sheetUp,
+      viewRatio: sheetUp ? 1 - sheet.offsetHeight / height : 1,
+    });
+  };
+  slide = (up: boolean) => {
+    sheetUp = up;
+    render();
+    reframe();
+  };
+  window.addEventListener('resize', reframe);
+  reframe();
+}
+let setStatus: (text: string) => void = () => {};
+let slide: (up: boolean) => void = () => {};
+
+function leave(event: MouseEvent) {
+  if (context?.postId) exitExpandedMode(event);
+  else navigateTo('splash.html');
+}
+
+// ---- Kits and title -----------------------------------------------------------
+
+function showKits() {
+  if (!host) return;
+  const screen = el('div', 'pg-screen');
+  screen.setAttribute('role', 'dialog');
+  screen.setAttribute('aria-modal', 'true');
+  const panel = el('div', 'practice-panel pg-panel');
+  const figures = el('div', 'pg-figures');
+  const kickerFig = el('span', 'pg-figure');
+  const wallFigs = Array.from({ length: kick.wallMen }, () =>
+    el('span', 'pg-figure is-wall')
+  );
+  const wallRow = el('span', 'pg-wall-row');
+  wallRow.append(...wallFigs);
+  figures.append(kickerFig, wallRow);
+  const rows: (() => void)[] = [];
+  const cycle = (color: JerseyColor, other: JerseyColor, d: -1 | 1) => {
+    const n = JERSEY_COLORS.length;
+    let i = JERSEY_COLORS.indexOf(color);
+    do i = (i + d + n) % n;
+    while (JERSEY_COLORS[i] === other);
+    return JERSEY_COLORS[i] ?? color;
+  };
+  const kitRow = (
+    label: string,
+    get: () => JerseyColor,
+    set: (c: JerseyColor) => void,
+    other: () => JerseyColor
+  ) => {
+    const before = renders.length;
+    const row = stepper(
+      label,
+      () => get().toUpperCase(),
+      (d) => {
+        set(cycle(get(), other(), d));
+        paint();
+      },
+      () => hex(get())
+    );
+    // Kit rows belong to this screen only.
+    rows.push(...renders.splice(before));
+    return row;
+  };
+  const titleLabel = el('label', 'pg-title-field');
+  const titleText = el('span', 'pg-row-label', 'TITLE');
+  const input = el('input');
+  input.maxLength = FK.customTitleMax;
+  input.placeholder = 'Curl it round the wall';
+  input.value = title;
+  input.addEventListener('input', () => (title = input.value));
+  titleLabel.append(titleText, input);
+  const facts = el('p', 'pg-facts');
+  facts.textContent = summary(kick);
+  const status = el('p', 'pg-status');
+  status.setAttribute('role', 'status');
+  const say = (text: string) => (status.textContent = text);
+  const actions = el('div', 'pg-actions');
+  const share = button('SHARE TO SUB', 'pg-share', () => void doShare());
+  actions.append(
+    button('BACK', 'secondary', close),
+    button('SAVE', 'secondary', () => void doSave()),
+    share
+  );
+  panel.append(
+    el('span', 'practice-mode', 'PLAYGROUND 2/2'),
+    el('h1', '', 'KITS AND TITLE'),
+    figures,
+    kitRow(
+      'KICKER KIT',
+      () => kicker,
+      (c) => (kicker = c),
+      () => wallKit
+    ),
+    kitRow(
+      'WALL KIT',
+      () => wallKit,
+      (c) => (wallKit = c),
+      () => kicker
+    ),
+    titleLabel,
+    facts,
+    status,
+    actions
+  );
+  screen.append(panel);
+  host.append(screen);
+  function paint() {
+    for (const update of rows) update();
+    kickerFig.style.setProperty('--kit', hex(kicker));
+    for (const fig of wallFigs) fig.style.setProperty('--kit', hex(wallKit));
+  }
+  paint();
+  input.focus({ preventScroll: true });
+  const onKey = (event: KeyboardEvent) => {
+    if (event.key === 'Escape') close();
+  };
+  document.addEventListener('keydown', onKey);
+  function close() {
+    document.removeEventListener('keydown', onKey);
+    screen.remove();
+  }
+  const setup = (): CustomSetup => ({ kick, kicker, wall: wallKit, title });
+  async function doSave() {
+    say('Saving...');
+    try {
+      const saved = await api('/api/playground/save', { setup: setup(), slot });
+      const at: unknown =
+        saved && typeof saved === 'object' ? Reflect.get(saved, 'slot') : null;
+      if (typeof at === 'number') slot = at;
+      say('Saved. Open SAVED on the setup screen to load it again.');
+    } catch (error) {
+      say(message(error));
+    }
+  }
+  async function doShare() {
+    if (!scored) {
+      say('Score your kick at least once first: BACK, then TEST SHOT.');
+      return;
+    }
+    if (parseCustomTitle(title) === null) {
+      say(`Give it a title (3 to ${FK.customTitleMax} characters).`);
+      input.focus();
+      return;
+    }
+    share.disabled = true;
+    say('Posting your kick...');
+    try {
+      const response = await api('/api/playground/share', { setup: setup() });
+      const url: unknown =
+        response && typeof response === 'object'
+          ? Reflect.get(response, 'url')
+          : undefined;
+      if (typeof url !== 'string') throw new Error('Could not share. Please retry.');
+      say('Shared! Opening your post...');
+      navigateTo(url);
+    } catch (error) {
+      say(message(error));
+    } finally {
+      share.disabled = false;
+    }
+  }
+}
+
+// ---- Saved kicks --------------------------------------------------------------
+
+async function showSaves() {
+  if (!host) return;
+  const screen = el('div', 'pg-screen');
+  screen.setAttribute('role', 'dialog');
+  screen.setAttribute('aria-modal', 'true');
+  const panel = el('div', 'practice-panel pg-panel');
+  const list = el('div', 'pg-saves');
+  const status = el('p', 'pg-status');
+  status.setAttribute('role', 'status');
+  status.textContent = 'Loading your saved kicks...';
+  const close = () => screen.remove();
+  panel.append(
+    el('span', 'practice-mode', 'PLAYGROUND'),
+    el('h1', '', 'SAVED KICKS'),
+    list,
+    status,
+    button('CLOSE', 'secondary', close)
+  );
+  screen.append(panel);
+  host.append(screen);
+  const show = (saves: PlaygroundSave[]) => {
+    list.replaceChildren();
+    status.textContent = saves.length
+      ? ''
+      : 'Nothing saved yet. Build a kick, then NEXT > SAVE.';
+    for (const save of saves) {
+      const row = el('div', 'pg-save');
+      const name = el('strong');
+      name.textContent = save.setup.title || 'Untitled kick';
+      const facts = el('small');
+      facts.textContent = summary(save.setup.kick);
+      const text = el('div');
+      text.append(name, facts);
+      row.append(
+        text,
+        button('LOAD', '', () => {
+          slot = save.slot;
+          kicker = save.setup.kicker;
+          wallKit = save.setup.wall;
+          title = save.setup.title;
+          setKick(save.setup.kick);
+          close();
+          slide(true);
+        }),
+        button('DELETE', 'secondary', () => {
+          status.textContent = 'Deleting...';
+          void request('delete', { slot: save.slot })
+            .then((next) => {
+              if (slot === save.slot) slot = null;
+              show(next);
+            })
+            .catch((error: unknown) => (status.textContent = message(error)));
+        })
+      );
+      list.append(row);
+    }
+  };
+  try {
+    show(await request('saves'));
+  } catch (error) {
+    status.textContent = message(error);
+  }
+}
+
+// ---- Server -------------------------------------------------------------------
+
+const message = (error: unknown) =>
+  error instanceof Error ? error.message : 'Something went wrong. Please retry.';
+
+async function api(path: string, body?: object): Promise<unknown> {
+  const response = await fetch(path, {
+    method: body ? 'POST' : 'GET',
+    headers: body ? { 'Content-Type': 'application/json' } : {},
+    ...(body ? { body: JSON.stringify(body) } : {}),
+  });
+  const data: unknown = await response.json().catch(() => null);
+  if (!response.ok) {
+    const error: unknown =
+      data && typeof data === 'object' ? Reflect.get(data, 'error') : null;
+    throw new Error(
+      typeof error === 'string' ? error : 'Playground unavailable. Please retry.'
+    );
+  }
+  return data;
+}
+
+// The player's saved kicks, after a list, save or delete.
+async function request(
+  action: 'saves' | 'save' | 'delete',
+  body?: object
+): Promise<PlaygroundSave[]> {
+  const data = await api(`/api/playground/${action}`, body);
+  const raw: unknown =
+    data && typeof data === 'object' ? Reflect.get(data, 'saves') : null;
+  if (!Array.isArray(raw)) return [];
+  const saves: PlaygroundSave[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const setup = parseCustomSetup(Reflect.get(item, 'setup'), true);
+    const at: unknown = Reflect.get(item, 'slot');
+    const savedAt: unknown = Reflect.get(item, 'savedAt');
+    if (
+      typeof setup !== 'string' &&
+      typeof at === 'number' &&
+      typeof savedAt === 'number'
+    )
+      saves.push({ slot: at, setup, savedAt });
+  }
+  return saves;
+}
+
+// ---- Start --------------------------------------------------------------------
+
+if (host) {
+  const loader = document.getElementById('boot-loading');
+  link.onGoal = () => {
+    if (scored) return;
+    scored = true;
+    render();
+  };
+  link.onReady = () => {
+    buildSheet(host);
+    render();
+  };
+  void import('./freekick/game')
+    .then(({ createFreeKickGame }) => createFreeKickGame(true, 1, link))
+    .catch(() => {
+      if (loader)
+        loader.textContent = 'Couldn’t load the Playground. Please reopen the post.';
+    });
+}

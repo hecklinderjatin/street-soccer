@@ -1,0 +1,436 @@
+/* Free Kick Playground: the setup sheet over the live game view, the
+   floating test-mode buttons and the kits / saved kicks screens. Same
+   navy panels, orange accents and pixel lettering as the Practice card. */
+
+.pg-sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  height: 54%;
+  display: flex;
+  flex-direction: column;
+  background: #0c192a;
+  border-top: 3px solid #ffa300;
+  box-shadow: 0 -6px #0006;
+  color: #fff1e8;
+  font:
+    13px/1.4 ui-monospace,
+    monospace;
+  transition: transform 220ms ease-out;
+  touch-action: pan-y;
+}
+.pg-sheet.is-down {
+  transform: translateY(calc(100% + 8px));
+}
+@media (prefers-reduced-motion: reduce) {
+  .pg-sheet {
+    transition: none;
+  }
+}
+
+.pg-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: #112037;
+  border-bottom: 1px solid #293e58;
+}
+.pg-grip {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 4px 0;
+  background: none;
+  border: 0;
+  color: #ffec27;
+  font-size: 11px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.pg-grip-bar {
+  align-self: center;
+  width: 44px;
+  height: 4px;
+  background: #58718c;
+}
+.pg-grip .lobby-pixel,
+.pg-tile-name .lobby-pixel {
+  max-width: 100%;
+}
+.pg-mini.casual-button {
+  min-height: 36px;
+  padding: 6px 10px;
+  font-size: 11px;
+  border-bottom-width: 3px;
+}
+
+.pg-body {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 8px 10px;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.pg-tile {
+  background: #112037;
+  border: 1px solid #293e58;
+}
+.pg-tile.is-open {
+  border-color: #58718c;
+}
+.pg-tile-head {
+  width: 100%;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: none;
+  border: 0;
+  color: #fff1e8;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.pg-tile-name {
+  flex: 1;
+  min-width: 0;
+  color: #ffec27;
+}
+.pg-tile-sum {
+  color: #a8b9cd;
+  font-size: 10px;
+}
+/* A pixel chevron: down when closed, up when open. */
+.pg-chevron {
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 7px solid #ffa300;
+}
+.pg-tile.is-open .pg-chevron {
+  border-top: 0;
+  border-bottom: 7px solid #ffa300;
+}
+.pg-tile-body {
+  display: grid;
+  gap: 6px;
+  padding: 0 12px 12px;
+}
+.pg-tile-body[hidden] {
+  display: none;
+}
+
+.pg-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 44px minmax(96px, auto) 44px;
+  align-items: center;
+  gap: 6px;
+}
+.pg-row-label {
+  color: #a8b9cd;
+  font-size: 10px;
+}
+.pg-value {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 8px;
+  background: #22354c;
+  border: 1px solid #58718c;
+  color: #fff1e8;
+  font-size: 11px;
+}
+.pg-arrow {
+  width: 44px;
+  height: 40px;
+  position: relative;
+  background: #ffa300;
+  border: 1px solid #ffcc66;
+  border-bottom: 4px solid #b96719;
+  border-radius: 0;
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+}
+.pg-arrow::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  margin: -7px 0 0 -4px;
+  border-top: 7px solid transparent;
+  border-bottom: 7px solid transparent;
+}
+.pg-arrow-left::after {
+  border-right: 9px solid #1d2b53;
+  margin-left: -5px;
+}
+.pg-arrow-right::after {
+  border-left: 9px solid #1d2b53;
+}
+.pg-arrow:active {
+  transform: translateY(2px);
+}
+.pg-arrow:focus-visible,
+.pg-tile-head:focus-visible,
+.pg-grip:focus-visible,
+.pg-check input:focus-visible + .pg-box {
+  outline: 3px solid #ffec27;
+  outline-offset: 2px;
+}
+.pg-swatch {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #000;
+  flex: none;
+}
+
+.pg-check {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 11px;
+}
+.pg-check input {
+  position: absolute;
+  opacity: 0;
+  width: 1px;
+  height: 1px;
+}
+.pg-box {
+  width: 24px;
+  height: 24px;
+  flex: none;
+  background: #22354c;
+  border: 2px solid #58718c;
+  box-shadow: inset 0 -3px #142437;
+  position: relative;
+}
+.pg-check input:checked + .pg-box {
+  background: #00e436;
+  border-color: #fff1e8;
+  box-shadow: inset 0 -3px #008751;
+}
+/* A pixel tick. */
+.pg-check input:checked + .pg-box::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 2px;
+  width: 6px;
+  height: 11px;
+  border: solid #1d2b53;
+  border-width: 0 4px 4px 0;
+  transform: rotate(45deg);
+}
+.pg-check-note {
+  color: #ff77a8;
+  font-size: 10px;
+}
+
+.pg-status {
+  margin: 0;
+  padding: 0 12px;
+  min-height: 16px;
+  color: #ffec27;
+  font-size: 11px;
+}
+.pg-status:empty {
+  display: none;
+}
+.pg-foot {
+  display: flex;
+  gap: 8px;
+  padding: 8px 10px max(10px, env(safe-area-inset-bottom));
+}
+.pg-foot .casual-button {
+  flex: 1;
+}
+.pg-test.casual-button {
+  background: #29adff;
+  border-color: #9ed8ff;
+  border-bottom-color: #1d5f8c;
+  color: #1d2b53;
+}
+.pg-next.casual-button,
+.pg-share.casual-button {
+  background: #00e436;
+  border-color: #8cf5a4;
+  border-bottom-color: #008751;
+  color: #1d2b53;
+}
+
+/* Testing (sheet down): EDIT and NEXT where the pause and info buttons
+   sit in a run, with whether the kick has been scored yet. */
+.pg-float {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 6px;
+  justify-items: end;
+}
+.pg-float[hidden] {
+  display: none;
+}
+.pg-float .casual-button {
+  min-height: 40px;
+  padding: 6px 14px;
+  font-size: 12px;
+}
+.pg-tested {
+  grid-column: 1 / -1;
+  padding: 4px 8px;
+  background: #0c192ae6;
+  color: #ffa300;
+  font-size: 10px;
+}
+.pg-tested.is-scored {
+  color: #00e436;
+}
+
+/* Kits and title, and saved kicks: a card over the dimmed game. */
+.pg-screen {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  align-items: safe center;
+  justify-content: center;
+  background: #080f1bd9;
+  color: #fff1e8;
+  font:
+    13px/1.5 ui-monospace,
+    monospace;
+  touch-action: pan-y;
+}
+.pg-panel {
+  gap: 12px;
+}
+.pg-panel h1 .lobby-pixel {
+  max-width: 100%;
+}
+.pg-figures {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 32px;
+  padding: 14px;
+  background: #5f574f;
+  border: 1px solid #293e58;
+}
+.pg-wall-row {
+  display: flex;
+  gap: 4px;
+}
+/* A blocky footballer: kit shirt, skin head, dark shorts. */
+.pg-figure {
+  --kit: #ef94aa;
+  width: 22px;
+  height: 52px;
+  border: 2px solid #000;
+  background: linear-gradient(
+    #e5b386 0 26%,
+    #000 26% 30%,
+    var(--kit) 30% 68%,
+    #292a30 68% 100%
+  );
+}
+.pg-figure:not(.is-wall) {
+  width: 28px;
+  height: 60px;
+}
+.pg-title-field {
+  display: grid;
+  gap: 6px;
+}
+.pg-title-field input {
+  font: inherit;
+  font-size: 16px;
+  min-height: 44px;
+  padding: 8px 12px;
+  background: #22354c;
+  border: 1px solid #58718c;
+  border-radius: 0;
+  color: #fff1e8;
+  user-select: text;
+  -webkit-user-select: text;
+}
+.pg-title-field input:focus-visible {
+  outline: 3px solid #ffec27;
+  outline-offset: 2px;
+}
+.pg-facts {
+  margin: 0;
+  color: #a8b9cd;
+  font-size: 11px;
+}
+.pg-panel .pg-status {
+  padding: 0;
+}
+.pg-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.pg-actions .pg-share {
+  grid-column: 1 / -1;
+}
+
+.pg-saves {
+  display: grid;
+  gap: 8px;
+}
+.pg-save {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  background: #112037;
+  border: 1px solid #293e58;
+}
+.pg-save strong,
+.pg-save small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.pg-save small {
+  color: #a8b9cd;
+  font-size: 10px;
+}
+.pg-save .casual-button {
+  min-height: 40px;
+  padding: 6px 10px;
+  font-size: 11px;
+}
+
+@media (max-width: 359px) {
+  .pg-row {
+    grid-template-columns: minmax(0, 1fr) 40px minmax(80px, auto) 40px;
+  }
+  .pg-arrow {
+    width: 40px;
+  }
+}

@@ -171,7 +171,9 @@ function detailsPage(
         : challenge
           ? challenge.mode === 'infinity'
             ? `${freeKickSkill(options.level)} · INFINITY`
-            : `${DIFFICULTY_LABEL[challenge.difficulty]} CHALLENGE`
+            : challenge.mode === 'custom'
+              ? `${DIFFICULTY_LABEL[challenge.difficulty]} CUSTOM KICK`
+              : `${DIFFICULTY_LABEL[challenge.difficulty]} CHALLENGE`
           : 'RANKED RUN',
       BODY,
       CARD.muted
@@ -184,7 +186,9 @@ function detailsPage(
         ? 'PRACTICE'
         : challenge?.mode === 'infinity'
           ? 'INFINITY'
-          : 'CHALLENGE',
+          : challenge?.mode === 'custom'
+            ? 'CUSTOM'
+            : 'CHALLENGE',
     ],
     ['LIVES', practice ? 'UNLIMITED' : String(options.lives)],
     ['LEVEL', `${options.level} / ${FK.maxLevel}`],
@@ -194,7 +198,9 @@ function detailsPage(
           'TARGET',
           challenge.mode === 'infinity'
             ? 'INFINITY'
-            : `${challenge.goals} GOALS`,
+            : challenge.mode === 'custom'
+              ? 'ENDLESS'
+              : `${challenge.goals} GOALS`,
         ]
       : ['LEVEL UP', practice ? 'FIXED LEVEL' : `${FK.goalsPerLevel} GOALS`],
     ['RECORDS', practice ? 'UNRANKED' : '7 DAYS'],
@@ -217,7 +223,15 @@ function detailsPage(
         'Unlimited attempts. Pause > New Spot changes the angle.',
         'Practice does not submit scores or speed records.',
       ]
-    : infinity && challenge
+    : challenge?.mode === 'custom'
+      ? [
+          'A kick built by a player in the Playground.',
+          'The same spot, wall and keeper every time.',
+          'Score as many goals in a row as you can.',
+          'One life: your first miss ends the run.',
+          'Your best score and fastest goal rank on this post.',
+        ]
+      : infinity && challenge
       ? [
           `Score as many goals as possible with ${challenge.lives} lives.`,
           'Start at Easy. Every two goals raises your level, up to Pro.',
@@ -306,7 +320,9 @@ function helpPage(
       practice
         ? 'Unlimited retries at this level and spot. Pause > New Spot changes the setup.'
         : challenge
-          ? challenge.mode === 'infinity'
+          ? challenge.mode === 'custom'
+            ? 'One life. The same custom kick every time: keep scoring until your first miss.'
+            : challenge.mode === 'infinity'
             ? `${challenge.lives} lives. Every miss costs one. Two goals per level: Easy to Pro, then keep scoring until lives run out.`
             : `${challenge.lives} ${challenge.lives === 1 ? 'life' : 'lives'}, ${challenge.goals} goals to win. A miss costs a life. Each goal advances the fixed sequence.`
           : `Start with ${FK.lives} lives. A miss costs one and retries the spot. Every ${FK.goalsPerLevel} goals raises the level.`,

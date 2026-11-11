@@ -2,7 +2,10 @@ import { communityJoin } from '../ui/communityJoin';
 import { context, exitExpandedMode } from '@devvit/web/client';
 import type { FreeKickStats } from '../../shared/freeKick';
 import type { FreeKickChallengeConfig } from '../../shared/freeKickChallenge';
-import { freeKickSkill } from '../../shared/freeKickChallenge';
+import {
+  endlessFreeKick,
+  freeKickSkill,
+} from '../../shared/freeKickChallenge';
 import { DIFFICULTY_LABEL } from '../../shared/types';
 import { casualButton, casualScreen } from '../ui/casualScreen';
 import { css } from '../ui/menuCard';
@@ -19,7 +22,8 @@ export function freeKickResults(
   again: () => void,
   challenge: { won: boolean; config: FreeKickChallengeConfig }
 ) {
-  const infinity = challenge.config.mode === 'infinity';
+  const custom = challenge.config.mode === 'custom';
+  const infinity = endlessFreeKick(challenge.config);
   const goalLine = infinity
     ? String(stats.goals)
     : `${stats.goals}/${challenge.config.goals}`;
@@ -29,7 +33,9 @@ export function freeKickResults(
       : challenge.won
         ? 'CHALLENGE COMPLETE'
         : 'CHALLENGE FAILED',
-    infinity
+    custom
+      ? `${stats.goals} GOALS IN A ROW · ${challenge.config.distanceM} M · ${DIFFICULTY_LABEL[challenge.config.difficulty]}`
+      : infinity
       ? `${stats.goals} GOALS · ${challenge.config.lives} LIVES · REACHED ${freeKickSkill(stats.level)}`
       : `${challenge.config.goals} GOALS · ${challenge.config.lives} ${challenge.config.lives === 1 ? 'LIFE' : 'LIVES'} · ${challenge.config.distanceM} M · ${DIFFICULTY_LABEL[challenge.config.difficulty]}`,
     false,
@@ -53,7 +59,11 @@ export function freeKickResults(
   mode.className = 'results-mode';
   pixelLabel(mode, 'FREE KICK');
   const over = document.createElement('span');
-  over.textContent = infinity ? 'INFINITY' : 'CHALLENGE';
+  over.textContent = custom
+    ? 'CUSTOM KICK'
+    : infinity
+      ? 'INFINITY'
+      : 'CHALLENGE';
   header.append(mode, over);
 
   const content = document.createElement('div');

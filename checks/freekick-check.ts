@@ -21,6 +21,13 @@ import {
 } from '../src/shared/freeKickChallenge';
 import { DIFFICULTIES } from '../src/shared/types';
 import {
+  CUSTOM_KICK_DEFAULT,
+  customMaxAngle,
+  customMaxWallGap,
+  parseCustomKick,
+  parseCustomSetup,
+} from '../src/shared/freeKickCustom';
+import {
   freeKickControls,
   freeKickGesture,
 } from '../src/client/freekick/controls';
@@ -34,6 +41,8 @@ import {
   aimAtGoalLine,
   ballContact,
   challengeKick,
+  customKick,
+  postKick,
   practiceKick,
   curvedStrike,
   swipeBow,
@@ -734,6 +743,71 @@ check('Infinity config uses only kits/lives and progresses Easy to Pro without a
   assert.equal(readFreeKickStats({...stats,level:2},config),null);
   assert.equal(readFreeKickStats({...stats,mode:'challenge'},config),null);
   assert.equal(readFreeKickStats(stats,FREE_KICK_CHALLENGE_DEFAULT),null);
+});
+
+
+check('playground kicks: limits, fixed setup, one-life ranked runs', () => {
+  const base = {...CUSTOM_KICK_DEFAULT};
+  assert.deepEqual(parseCustomKick(base), base);
+  assert.equal(typeof parseCustomKick({...base, distanceM: 14}), 'string');
+  assert.equal(typeof parseCustomKick({...base, distanceM: 36}), 'string');
+  assert.equal(typeof parseCustomKick({...base, wallMen: 5}), 'string');
+  assert.equal(typeof parseCustomKick({...base, wallMen: 2, lyer: true}), 'string');
+  assert.equal(typeof parseCustomKick({...base, wallGapM: 8}), 'string');
+  assert.equal(typeof parseCustomKick({...base, distanceM: 15, wallGapM: 10}), 'string');
+  assert.equal(typeof parseCustomKick({...base, angleDeg: 1.5}), 'string');
+  // Every allowed spot is outside the box and every wall stands between ball and goal.
+  for (let d = FK.customDistanceM[0]; d <= FK.customDistanceM[1]; d++) {
+    const a = customMaxAngle(d);
+    assert.ok(a >= 0 && a <= FK.customMaxAngleDeg);
+    for (const angleDeg of [-a, 0, a]) {
+      for (const wallMen of [1, 4]) {
+        const kick = {...base, distanceM: d, angleDeg, wallMen, wallGapM: customMaxWallGap(d), wallShift: FK.customShiftSteps};
+        assert.deepEqual(parseCustomKick(kick), kick);
+        const setup = customKick(kick);
+        assert.ok(GOAL_X - setup.spot.x >= PITCH.boxDepth || Math.abs(setup.spot.y - GOAL_Y) > PITCH.boxHeight / 2);
+        assert.ok(setup.wall.x > setup.spot.x && setup.wall.x < GOAL_X);
+        assert.equal(setup.wall.men.length + Number(setup.wall.lyer), wallMen);
+        assert.deepEqual(setup, customKick(kick));
+      }
+    }
+  }
+  const lyer = customKick({...base, wallMen: 4, lyer: true});
+  assert.ok(lyer.wall.lyer);
+  assert.equal(lyer.wall.men.length, 3);
+  // Sliding the wall moves every man by the same steps; right is world -y.
+  const plain = customKick(base);
+  const right = customKick({...base, wallShift: 2});
+  right.wall.men.forEach((y, i) => assert.equal(y, (plain.wall.men[i] ?? 0) - 2 * FK.customShiftPx));
+  // The wall jump switch is honoured at the strike.
+  const strike = {power: 0.6, contact: ballContact(0, 0), targetY: GOAL_Y};
+  for (const jump of [true, false]) {
+    const play = startPlay(customKick({...base, jump}), strike, challengeRandom('t3_c', 'defence:0'));
+    assert.equal(play.wall.jumpAt === Infinity, !jump);
+  }
+  const config = parseFreeKickChallenge({mode: 'custom', kicker: 'pink', wall: 'blue', custom: base});
+  assert.notEqual(typeof config, 'string');
+  if (typeof config === 'string') return;
+  assert.equal(config.lives, 1);
+  assert.equal(freeKickRoundLevel(config, 0), FK.customLevels.normal);
+  assert.equal(freeKickRoundLevel(config, 50), FK.customLevels.normal);
+  assert.equal(challengeOutcome(0, 1, config), 'open');
+  assert.equal(challengeOutcome(9, 0, config), 'lost');
+  assert.deepEqual(postKick(config, 7, 't3_c'), customKick(base));
+  assert.deepEqual(postFreeKickChallenge({matchType: 'freekick', freeKick: config}), config);
+  assert.equal(typeof parseFreeKickChallenge({mode: 'custom', kicker: 'pink', wall: 'blue', custom: {...base, wallMen: 9}}), 'string');
+  const stats = {mode: 'custom', score: 500, goals: 2, shots: 3, bestStreak: 2, level: FK.customLevels.normal, fastestGoalKmh: 100, elapsedSec: 20, greatSaves: 0, xg: 100};
+  assert.ok(readFreeKickStats(stats, config));
+  assert.equal(readFreeKickStats({...stats, shots: 4}, config), null);
+  assert.equal(readFreeKickStats({...stats, level: 3}, config), null);
+  assert.equal(readFreeKickStats({...stats, mode: 'infinity'}, config), null);
+  assert.equal(readFreeKickStats(stats, FREE_KICK_CHALLENGE_DEFAULT), null);
+  // Shared setups need a title and two different kits; drafts may be untitled.
+  const setup = {kick: base, kicker: 'pink', wall: 'blue', title: '  Curl   it  '};
+  assert.deepEqual(parseCustomSetup(setup), {...setup, title: 'Curl it'});
+  assert.equal(typeof parseCustomSetup({...setup, title: ''}), 'string');
+  assert.equal(typeof parseCustomSetup({...setup, title: ''}, true), 'object');
+  assert.equal(typeof parseCustomSetup({...setup, wall: 'pink'}), 'string');
 });
 
 console.log(`\n${passed} checks passed`);
