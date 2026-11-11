@@ -71,15 +71,23 @@ export const MARKER_ARROW = 'marker-arrow';
 // Names the frames of the loaded atlases and creates the animations and
 // marker textures. Once per game; later calls do nothing. Atlases not
 // loaded yet are skipped (and so are their kits' animations).
-export function registerPlayerAtlases(scene: Phaser.Scene) {
+// The Free Kick feed preview passes its small atlases' frames and no
+// animations (it sets every frame itself).
+export function registerPlayerAtlases(
+  scene: Phaser.Scene,
+  frames = atlasFrames(),
+  animations = true
+) {
   for (const key of PLAYER_ATLAS_KEYS) {
     if (!scene.textures.exists(key)) continue;
     const texture = scene.textures.get(key);
     if (texture.has(IDLE_FRAME)) continue;
-    for (const f of atlasFrames()) texture.add(f.name, 0, f.x, f.y, f.w, f.h);
+    for (const f of frames) texture.add(f.name, 0, f.x, f.y, f.w, f.h);
   }
-  for (const kit of KIT_NAMES)
-    if (scene.textures.exists(playerTexture(kit))) createAnimations(scene, kit);
+  if (animations)
+    for (const kit of KIT_NAMES)
+      if (scene.textures.exists(playerTexture(kit)))
+        createAnimations(scene, kit);
 
   // Pass target: the teammate a pass would go to right now. Controlled
   // player: an arrow overhead (the ring with a pointer on the ground is

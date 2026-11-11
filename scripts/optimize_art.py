@@ -25,9 +25,11 @@ KIT_COLOURS = 256
 MAX_MEAN_CHANNEL_ERROR = 5.0
 
 baked = sorted(BAKED.glob("player-*.png"))
-# 11 outfield kits + 2 keeper kits + the skin and hair layers.
-if len(baked) != 15:
-    raise SystemExit("Run `npm run art:bake` first (expected 15 atlases in art-baked/)")
+# 11 outfield kits + 2 keeper kits + the skin and hair layers, and the
+# Free Kick feed preview's small copy of each but the home keeper (14).
+EXPECTED_ATLASES = 15 + 14
+if len(baked) != EXPECTED_ATLASES:
+    raise SystemExit(f"Run `npm run art:bake` first (expected {EXPECTED_ATLASES} atlases in art-baked/)")
 inputs = sorted(SOURCE.glob("ball-*.png")) + baked
 
 written = set()
@@ -36,7 +38,9 @@ for source in inputs:
     output = TARGET / f"{source.stem}.webp"
     # Balls and the grey look layers stay lossless (they are small and the
     # look layers are tinted, so every grey step shows).
-    lossless = source.stem.startswith("ball-") or source.stem in (
+    lossless = source.stem.startswith("ball-") or source.stem.removesuffix(
+        "-preview"
+    ) in (
         "player-skin",
         "player-hair",
     )

@@ -1,5 +1,5 @@
 import { watchVisiblePreview } from '../ui/visiblePreview';
-import { startFreeKickDownloads } from '../earlyAssets';
+import { startFreeKickPreviewDownloads } from '../earlyAssets';
 import { context, requestExpandedMode } from '@devvit/web/client';
 import { pixelLabel } from '../ui/pixelLabel';
 import { freeKickChallenge } from '../challenge';
@@ -117,7 +117,7 @@ export function showFreeKickLobby() {
   const preview = card.querySelector<HTMLElement>('.freekick-preview');
   if (preview) {
     const lifecycle = watchVisiblePreview(preview, async () => {
-      startFreeKickDownloads();
+      startFreeKickPreviewDownloads();
       const { createFreeKickPreview } = await import('./preview');
       return () => createFreeKickPreview(preview);
     });

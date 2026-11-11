@@ -3,8 +3,9 @@ import { context } from '@devvit/web/client';
 import { BALL, FREE_KICK as FK } from '../../shared/tuning';
 import { createBallTexture } from '../art/ballArt';
 import { queueAssets } from '../art/gameAssets';
-import { freeKickAssets } from '../art/assetList';
+import { freeKickPreviewAssets } from '../art/assetList';
 import { registerPlayerAtlases } from '../art/playerArt';
+import { previewAtlasFrames } from '../art/playerSheets';
 import { startingConfig, freeKickChallenge } from '../challenge';
 import { releaseEarlyDownloads, withEarlyDownloads } from '../earlyAssets';
 import { endlessFreeKick } from '../../shared/freeKickChallenge';
@@ -53,12 +54,12 @@ class FreeKickPreviewScene extends Phaser.Scene {
       this.scale.off(Phaser.Scale.Events.RESIZE, this.frame, this);
       this.game.events.off('preview-layout', this.frame, this);
     });
-    const assets = freeKickAssets(startingConfig());
+    const assets = freeKickPreviewAssets(startingConfig());
     void withEarlyDownloads(assets).then((ready) => {
       if (!this.sys.isActive()) return;
       const finish = () => {
         void releaseEarlyDownloads(assets);
-        registerPlayerAtlases(this);
+        registerPlayerAtlases(this, previewAtlasFrames(), false);
         createBallTexture(this);
         const config = startingConfig();
         this.stage = new Stage(this, {
@@ -66,6 +67,11 @@ class FreeKickPreviewScene extends Phaser.Scene {
           wall: config.away.jersey,
         });
         this.nextKick();
+        // The court is drawn from this frame on: show the canvas over the
+        // card's CSS poster (lobby.css).
+        this.events.once(Phaser.Scenes.Events.POST_UPDATE, () =>
+          this.game.events.emit('preview-ready')
+        );
       };
       if (queueAssets(this, ready)) {
         this.load.once(Phaser.Loader.Events.COMPLETE, finish);
@@ -197,6 +203,10 @@ export function createFreeKickPreview(parent: HTMLElement) {
     scale: { mode: Phaser.Scale.EXPAND, autoCenter: Phaser.Scale.CENTER_BOTH },
     scene: [new FreeKickPreviewScene(visibleRatio)],
   });
+  game.events.once('preview-ready', () => parent.classList.add('is-live'));
+  game.events.once(Phaser.Core.Events.DESTROY, () =>
+    parent.classList.remove('is-live')
+  );
   const details = parent.parentElement?.querySelector(
     '.freekick-lobby-details'
   );

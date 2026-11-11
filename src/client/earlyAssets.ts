@@ -1,4 +1,9 @@
-import { freeKickAssets, matchAssets, type Asset } from './art/assetList';
+import {
+  freeKickAssets,
+  freeKickPreviewAssets,
+  matchAssets,
+  type Asset,
+} from './art/assetList';
 import { startingConfig } from './challenge';
 
 // Starts downloading the match art at once, in parallel with the game code
@@ -46,4 +51,9 @@ export async function releaseEarlyDownloads(assets: readonly Asset[]) {
     if (url) URL.revokeObjectURL(url);
     early.delete(asset.url);
   }
+}
+
+// The Free Kick feed preview's small atlases (art/assetList.ts).
+export function startFreeKickPreviewDownloads() {
+  startEarlyDownloads(freeKickPreviewAssets(startingConfig()));
 }

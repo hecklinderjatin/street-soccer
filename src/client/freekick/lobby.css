@@ -14,8 +14,38 @@
     13px/1.4 ui-monospace,
     monospace;
 }
+/* The instant poster (user request, 2026-11-12): the daytime court painted
+   in CSS (sky, a band of trees, the court) shows the moment the card
+   renders; the live preview's canvas fades in over it when it is ready. */
 .freekick-preview {
   pointer-events: none;
+  background:
+    radial-gradient(circle at 78% 14%, #fff3cb 0 3%, #ffedb529 3% 9%, transparent 9%),
+    linear-gradient(
+      #4a98d3 0%,
+      #5ba9dd 18%,
+      #cfeafa 38%,
+      #e7f0e2 42%,
+      #67784a 42%,
+      #536e47 47%,
+      #a9b896 47%,
+      #a9b896 50%,
+      #6f7778 50%,
+      #5c6466 100%
+    );
+}
+/* The canvas stays hidden (it starts navy) until the court is drawn. */
+.freekick-preview canvas {
+  opacity: 0;
+  transition: opacity 300ms ease-out;
+}
+.freekick-preview.is-live canvas {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .freekick-preview canvas {
+    transition: none;
+  }
 }
 .freekick-preview canvas {
   display: block;

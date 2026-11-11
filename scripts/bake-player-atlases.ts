@@ -7,7 +7,9 @@ import {
   SOURCE_SHEETS,
   bakeLookLayers,
   bakePlayerAtlas,
+  packPreviewAtlas,
   playerTexture,
+  previewAtlasKey,
   type Pixels,
 } from '../src/client/art/playerSheets';
 import { readPng, writePng } from './png';
@@ -36,16 +38,26 @@ const save = (key: string, pixels: Pixels) => {
   writePng(path, pixels);
   console.log(`${key}.png ${(statSync(path).size / 1024).toFixed(0)} KiB`);
 };
+// Each atlas and, for the Free Kick feed preview, its small copy holding
+// only the poses the preview draws (the home keeper never appears there).
+let count = 0;
+const both = (key: string, pixels: Pixels, preview = true) => {
+  save(key, pixels);
+  count++;
+  if (!preview) return;
+  save(previewAtlasKey(key), packPreviewAtlas(pixels));
+  count++;
+};
 for (const kit of KIT_NAMES) {
   const atlas = bakePlayerAtlas(kit, sheets);
-  save(playerTexture(kit), atlas);
+  both(playerTexture(kit), atlas, kit !== 'homeKeeper');
   if (kit === 'pink') {
     // The looks cover every pose, keepers' included.
     const { skin, hair } = bakeLookLayers(bakePlayerAtlas(kit, sheets, true));
-    save(PLAYER_SKIN_TEXTURE, skin);
-    save(PLAYER_HAIR_TEXTURE, hair);
+    both(PLAYER_SKIN_TEXTURE, skin);
+    both(PLAYER_HAIR_TEXTURE, hair);
   }
 }
 console.log(
-  `baked ${KIT_NAMES.length + 2} atlases in ${((Date.now() - started) / 1000).toFixed(1)} s`
+  `baked ${count} atlases in ${((Date.now() - started) / 1000).toFixed(1)} s`
 );

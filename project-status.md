@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Faster live preview (2026-11-12):** (1) `ui/visiblePreview.ts` starts downloading the preview code and art as soon as the card is visible; only creating the Phaser game waits, now 400 ms (was 1 s, and downloads only began after it). Applies to match and Free Kick cards. (2) The Free Kick feed preview loads small preview atlases (`public-release/art/player-<kit>-preview.webp`, plus skin, hair and awayKeeper) holding only the 32 poses its stage draws (`PREVIEW_FRAMES` in `art/playerSheets.ts`): about 270 KB of player art per card instead of about 1.1 MB. They load under the normal texture keys; `registerPlayerAtlases(scene, previewAtlasFrames(), false)` names their frames and skips animations. `npm run art:bake` writes them (29 atlases now) and `scripts/optimize_art.py` expects 29; Pillow is not installed system-wide in WSL (a venv was used). The full atlases did not change. (3) Instant poster: `.freekick-preview` paints the daytime court in CSS (sky, sun, trees, court); the canvas stays hidden until the preview court has drawn (`preview-ready` event, `.is-live`), then fades in. Not done: trimming the preview's Phaser code (about 180 KB gzipped). Not checked on a device.
+
 **Reddit action and feed compliance (2026-11-11):** Playground confirms the exact title, subreddit, and Reddit account before requesting consent and posting. Both inline leaderboard sheets paginate to fit the viewport without scrolling, and the feed allows native zoom.
 
 **Deferred music (2026-11-11):** Match and Free Kick background music starts downloading on the first game interaction when sound is enabled. Muted startup does not fetch the track.

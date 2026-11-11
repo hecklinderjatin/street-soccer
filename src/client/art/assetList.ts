@@ -3,6 +3,7 @@ import {
   PLAYER_HAIR_TEXTURE,
   PLAYER_SKIN_TEXTURE,
   playerTexture,
+  previewAtlasKey,
 } from './playerSheets';
 
 // The files a match downloads (no Phaser here, so the tiny early-download
@@ -37,6 +38,15 @@ export const matchAssets = (config: MatchConfig): Asset[] => [
   ...firstAssets(config),
   ...REST_ASSETS,
 ];
+
+// The Free Kick feed preview: the same texture keys, from the small
+// preview atlases (only the poses the preview draws; playerSheets.ts).
+export const freeKickPreviewAssets = (config: MatchConfig): Asset[] =>
+  freeKickAssets(config).map((asset) =>
+    asset.url.startsWith('/art/player-')
+      ? { key: asset.key, url: `/art/${previewAtlasKey(asset.key)}.webp` }
+      : asset
+  );
 
 export const freeKickAssets = (config: MatchConfig): Asset[] => [
   ...firstAssets(config),

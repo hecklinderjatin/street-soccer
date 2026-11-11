@@ -114,14 +114,58 @@ const FRAMES = [
 export const ATLAS_W = PLAYER_W * ATLAS_COLUMNS;
 export const ATLAS_H = PLAYER_H * Math.ceil(FRAMES.length / ATLAS_COLUMNS);
 
-export function atlasFrames() {
-  return FRAMES.map((name, i) => ({
+const framesAt = (names: readonly string[]) =>
+  names.map((name, i) => ({
     name,
     x: (i % ATLAS_COLUMNS) * PLAYER_W,
     y: Math.floor(i / ATLAS_COLUMNS) * PLAYER_H,
     w: PLAYER_W,
     h: PLAYER_H,
   }));
+
+export function atlasFrames() {
+  return framesAt(FRAMES);
+}
+
+// The Free Kick feed preview's own small atlases (user request,
+// 2026-11-12): only the poses its stage draws (the taker's run-up and
+// strike, the wall and the man lying behind it, the keeper's stance, dive,
+// jump and block), about a quarter of a full atlas, so the card's live
+// preview downloads far less. Baked from the full atlases by
+// scripts/bake-player-atlases.ts as `<key>-preview`.
+const PREVIEW_FRAMES = [
+  'idle1',
+  ...FREEKICK_FRAMES,
+  ...WALL_FRAMES,
+  'hurt4',
+  ...KEEPER_IDLE_FRAMES,
+  ...DIVE_FRAMES,
+  ...JUMP_FRAMES,
+  'block1',
+];
+export const PREVIEW_ATLAS_W = ATLAS_W;
+export const PREVIEW_ATLAS_H =
+  PLAYER_H * Math.ceil(PREVIEW_FRAMES.length / ATLAS_COLUMNS);
+export const previewAtlasKey = (key: string) => `${key}-preview`;
+
+export function previewAtlasFrames() {
+  return framesAt(PREVIEW_FRAMES);
+}
+
+// A preview atlas: the preview's frames copied out of a full atlas.
+export function packPreviewAtlas(full: Pixels): Pixels {
+  const out = newPixels(PREVIEW_ATLAS_W, PREVIEW_ATLAS_H);
+  const from = new Map(atlasFrames().map((f) => [f.name, f]));
+  for (const to of previewAtlasFrames()) {
+    const src = from.get(to.name);
+    if (!src) throw new Error(`No ${to.name} in the full atlas`);
+    for (let y = 0; y < PLAYER_H; y++) {
+      const a = ((src.y + y) * full.width + src.x) * 4;
+      const b = ((to.y + y) * out.width + to.x) * 4;
+      out.data.set(full.data.subarray(a, a + PLAYER_W * 4), b);
+    }
+  }
+  return out;
 }
 
 // Outfield kits by shirt colour (a custom match picks one per team; pink
