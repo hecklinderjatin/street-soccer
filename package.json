@@ -50,7 +50,7 @@
     "@devvit/web": "0.15.3",
     "@hono/node-server": "2.1.6",
     "hono": "4.13.17",
-    "phaser": "3.90.0"
+    "phaser": "4.2.1"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
