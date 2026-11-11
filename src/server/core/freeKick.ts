@@ -1,4 +1,5 @@
-import { redis } from '@devvit/web/server';
+import { postFreeKickChallenge } from '../../shared/freeKickChallenge';
+import { context, redis } from '@devvit/web/server';
 import { FREE_KICK as FK } from '../../shared/tuning';
 import {
   rankFreeKicks,
@@ -37,7 +38,10 @@ function receipts(raw: string | undefined): Receipt[] {
         {
           id,
           started,
-          result: readFreeKickStats(Reflect.get(body, 'result')),
+          result: readFreeKickStats(
+            Reflect.get(body, 'result'),
+            postFreeKickChallenge(context.postData)
+          ),
           completedDay: freeKickDay(Reflect.get(body, 'completedDay')),
         },
       ];

@@ -1,7 +1,11 @@
+import {
+  challengeRoundLevel,
+  type FreeKickChallengeConfig,
+} from './freeKickChallenge';
 import { FREE_KICK as FK, GOAL_FEEDBACK } from './tuning';
 
 export type FreeKickStats = {
-  mode: 'play';
+  mode: 'play' | 'challenge';
   score: number;
   goals: number;
   shots: number;
@@ -40,9 +44,14 @@ export const freeKickDay = (value: unknown) =>
     ? value
     : null;
 
-export function readFreeKickStats(body: unknown): FreeKickStats | null {
-  if (!body || typeof body !== 'object' || Reflect.get(body, 'mode') !== 'play')
-    return null;
+export function readFreeKickStats(
+  body: unknown,
+  challenge?: FreeKickChallengeConfig
+): FreeKickStats | null {
+  if (!body || typeof body !== 'object') return null;
+  const mode: unknown = Reflect.get(body, 'mode');
+  if (mode !== 'play' && mode !== 'challenge') return null;
+  if (mode === 'challenge' && !challenge) return null;
   const integer = (key: string, max: number) => {
     const v: unknown = Reflect.get(body, key);
     return typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= max
@@ -80,12 +89,29 @@ export function readFreeKickStats(body: unknown): FreeKickStats | null {
   )
     return null;
   if (
-    shots !== goals + FK.lives + greatSaves ||
+    (mode === 'play' && shots !== goals + FK.lives + greatSaves) ||
     bestStreak > goals ||
     (goals > 0 && bestStreak < 1)
   )
     return null;
-  if (level !== Math.min(FK.maxLevel, 1 + Math.floor(goals / FK.goalsPerLevel)))
+  if (mode === 'challenge' && challenge) {
+    const misses = shots - goals;
+    const won = goals === challenge.goals;
+    if (
+      goals > challenge.goals ||
+      greatSaves !== 0 ||
+      misses < 0 ||
+      (won ? misses >= challenge.lives : misses !== challenge.lives) ||
+      level !==
+        challengeRoundLevel(
+          challenge.difficulty,
+          Math.max(0, goals - (won ? 1 : 0))
+        )
+    )
+      return null;
+  } else if (
+    level !== Math.min(FK.maxLevel, 1 + Math.floor(goals / FK.goalsPerLevel))
+  )
     return null;
   // Every shot's xG lies in [xgMin, max(xgMax, xgRetryMax)] (0: not sent).
   if (
@@ -101,7 +127,7 @@ export function readFreeKickStats(body: unknown): FreeKickStats | null {
   )
     return null;
   return {
-    mode: 'play',
+    mode,
     score,
     goals,
     shots,

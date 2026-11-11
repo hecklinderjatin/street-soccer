@@ -175,7 +175,7 @@ function detailsPage(
     challenge
       ? ['TARGET', `${challenge.goals} GOALS`]
       : ['LEVEL UP', practice ? 'FIXED LEVEL' : `${FK.goalsPerLevel} GOALS`],
-    ['RECORDS', practice || challenge ? 'UNRANKED' : '7 DAYS'],
+    ['RECORDS', practice ? 'UNRANKED' : '7 DAYS'],
   ];
   const gap = 16;
   const tileW = (inner - gap) / 2;
@@ -200,6 +200,7 @@ function detailsPage(
           `Spots around ${challenge.distanceM} m, wall ${challenge.wallFromGoalM} m from goal.`,
           'Every goal brings a new angle, one level harder. A miss costs a life.',
           'Harder spots (low XG) and better finishes (XGOT) score more points.',
+          'Completed runs rank on this post: highest score and fastest goal.',
         ]
       : [
           'Low XG spots pay more. A better finish (XGOT) pays up to 3x.',

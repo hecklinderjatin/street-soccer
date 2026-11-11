@@ -20,8 +20,8 @@ import { freeKickResultsBoard } from './leaderboard';
 // score where the scoreboard goes, a row of stat tiles, the fastest-goal
 // line, the seven-day board with its category tabs, then PLAY AGAIN (full
 // width), POST MY SCORE and EXIT. One column in portrait. A challenge
-// (unranked) shows whether it was won, the post's settings and its points,
-// with no board, save or sharing.
+// shows whether it was won, the post settings and its points. Both run
+// types save records and show boards; challenge sharing stays disabled.
 export function freeKickResults(
   stats: FreeKickStats,
   best: number,
@@ -68,7 +68,7 @@ export function freeKickResults(
   mode.className = 'results-mode';
   pixelLabel(mode, 'FREE KICK');
   const over = document.createElement('span');
-  over.textContent = challenge ? 'UNRANKED CHALLENGE' : 'RUN OVER';
+  over.textContent = challenge ? 'CHALLENGE' : 'RUN OVER';
   header.append(mode, over);
 
   const content = document.createElement('div');
@@ -140,7 +140,7 @@ export function freeKickResults(
     summary.append(highlight);
   }
   content.append(summary);
-  const board = challenge ? null : freeKickResultsBoard();
+  const board = freeKickResultsBoard();
   if (board) content.append(board.root);
 
   const actions = document.createElement('div');
@@ -184,7 +184,9 @@ export function freeKickResults(
       if (closed) return;
       saved = true;
       post.disabled = false;
-      status.textContent = 'Run saved. Sharing is optional.';
+      status.textContent = challenge
+        ? 'Run saved. Leaderboards updated.'
+        : 'Run saved. Sharing is optional.';
       retry.hidden = true;
     } catch (error) {
       if (!closed)
@@ -241,7 +243,7 @@ export function freeKickResults(
     }
   }
   const prompt = communityPrompt(screen.element, true);
-  if (!challenge) void save();
+  void save();
   return {
     destroy() {
       closed = true;

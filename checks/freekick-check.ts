@@ -641,4 +641,17 @@ check('swipe: a curved path curls the ball along it and still ends where it poin
   }
 });
 
+check('challenge records: validate completed wins/losses against the post settings', () => {
+  const config = {...FREE_KICK_CHALLENGE_DEFAULT, goals:3, lives:2};
+  const win = {mode:'challenge',score:1200,goals:3,shots:4,bestStreak:2,level:challengeRoundLevel(config.difficulty,2),fastestGoalKmh:100,elapsedSec:30,greatSaves:0,xg:100};
+  assert.ok(readFreeKickStats(win,config));
+  assert.equal(readFreeKickStats(win),null);
+  assert.equal(readFreeKickStats({...win,shots:5},config),null);
+  assert.equal(readFreeKickStats({...win,level:10},config),null);
+  const loss={...win,goals:1,shots:3,bestStreak:1,score:400,level:challengeRoundLevel(config.difficulty,1)};
+  assert.ok(readFreeKickStats(loss,config));
+  assert.equal(readFreeKickStats({...loss,shots:2},config),null);
+  assert.equal(readFreeKickStats({...loss,greatSaves:1},config),null);
+});
+
 console.log(`\n${passed} checks passed`);

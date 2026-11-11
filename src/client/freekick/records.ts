@@ -16,12 +16,13 @@ async function request(path: string, body: unknown) {
   return value;
 }
 export class FreeKickRecords {
+  constructor(private readonly mode: 'play' | 'challenge' = 'play') {}
   private readonly id = crypto.randomUUID();
   private startRequest: Promise<FreeKickRun> | null = null;
   private run: FreeKickRun | null = null;
   start() {
     if (this.startRequest || !context?.postId) return;
-    this.startRequest = request('start', { id: this.id, mode: 'play' }).then(
+    this.startRequest = request('start', { id: this.id, mode: this.mode }).then(
       (value) => {
         this.run = value;
         return value;
@@ -35,13 +36,13 @@ export class FreeKickRecords {
       throw new Error('Leaderboards and score sharing are available on Reddit');
     if (!this.startRequest) throw new Error('Run was not registered');
     const run = await this.startRequest;
-    await request('result', { ...run, mode: 'play', result });
+    await request('result', { ...run, mode: this.mode, result });
   }
   async post(comment: string, includeStats: boolean) {
     if (!this.run) throw new Error('Save the run before sharing');
     return request('post-score', {
       ...this.run,
-      mode: 'play',
+      mode: this.mode,
       comment,
       includeStats,
     });

@@ -1,3 +1,4 @@
+import { postFreeKickChallenge } from '../../shared/freeKickChallenge';
 import { Hono } from 'hono';
 import { context, reddit, redis } from '@devvit/web/server';
 import { postType } from '../../shared/postType';
@@ -45,7 +46,7 @@ for (const action of ['start', 'result', 'post-score'] as const)
       if (
         !body ||
         typeof body !== 'object' ||
-        Reflect.get(body, 'mode') !== 'play'
+        !['play', 'challenge'].includes(String(Reflect.get(body, 'mode')))
       )
         return c.json({ error: 'Ranked Play run required' }, 400);
       const id = freeKickRunId(Reflect.get(body, 'id'));
@@ -56,8 +57,11 @@ for (const action of ['start', 'result', 'post-score'] as const)
       if (!day) return c.json({ error: 'Invalid run date' }, 400);
       const run = { id, day };
       if (action === 'result') {
-        const stats = readFreeKickStats(Reflect.get(body, 'result'));
-        if (!stats)
+        const stats = readFreeKickStats(
+          Reflect.get(body, 'result'),
+          postFreeKickChallenge(context.postData)
+        );
+        if (!stats || stats.mode !== Reflect.get(body, 'mode'))
           return c.json({ error: 'Invalid completed Free Kick run' }, 400);
         await saveFreeKick(context.postId!, username, run, stats);
         return c.json(await freeKickLeaders(context.postId!, username));

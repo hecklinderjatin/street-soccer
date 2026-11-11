@@ -249,6 +249,64 @@ const eraser = {
     for (const k of keys) state.values.delete(k);
   },
 };
+// Challenge completions use the post's own target/lives/difficulty.
+state.context.postData.freeKick = {
+  kicker: 'pink',
+  wall: 'blue',
+  lives: 2,
+  goals: 3,
+  distanceM: 25,
+  wallFromGoalM: 14,
+  difficulty: 'normal',
+};
+const challengeRun = await call('/start', {
+  mode: 'challenge',
+  id: 'challenge-run-identifier-1234',
+});
+assert.equal(challengeRun.status, 200);
+age(challengeRun.body);
+const challengeStats = {
+  ...valid,
+  mode: 'challenge',
+  goals: 3,
+  shots: 4,
+  score: 1500,
+  bestStreak: 3,
+  level: 5,
+};
+assert.equal(
+  (
+    await call('/result', {
+      ...challengeRun.body,
+      mode: 'challenge',
+      result: { ...challengeStats, shots: 5 },
+    })
+  ).status,
+  400
+);
+assert.equal(
+  (
+    await call('/result', {
+      ...challengeRun.body,
+      mode: 'challenge',
+      result: challengeStats,
+    })
+  ).status,
+  200
+);
+const completedChallenge = await call('/result', {
+  ...challengeRun.body,
+  mode: 'challenge',
+  result: challengeStats,
+});
+assert.equal(
+  completedChallenge.status,
+  200,
+  'challenge receipt survives immutable retry'
+);
+assert.ok(completedChallenge.body.score.me.value >= 1500);
+assert.ok(completedChallenge.body.speed.me.value >= 100);
+
 await removePlayerResults(
   eraser,
   [...(state.boards.get('privacy:boards') ?? new Map()).keys()],

@@ -248,6 +248,7 @@ export class FreeKickScene extends Phaser.Scene {
       this.registry.get('freekickChallenge') === true
         ? freeKickChallenge()
         : null;
+    this.records = new FreeKickRecords(this.challenge ? 'challenge' : 'play');
     this.maxLives = this.challenge?.lives ?? FK.lives;
     this.lives = this.maxLives;
     if (!this.ranked) this.measure = () => {};
@@ -474,7 +475,7 @@ export class FreeKickScene extends Phaser.Scene {
   private shoot(strike: Strike) {
     if (this.shots === 0) {
       this.runStartedAt = this.clock;
-      if (this.ranked) this.records.start();
+      if (!this.practice) this.records.start();
     }
     this.shots++;
     this.shotXg = this.currentXg();
@@ -551,8 +552,7 @@ export class FreeKickScene extends Phaser.Scene {
       const { points, tags } = scoreGoal(play, this.streak, this.shotXg, xgot);
       this.score += points;
       const up = this.challenge
-        ? challengeOutcome(this.goals, this.lives, this.challenge) ===
-            'open' &&
+        ? challengeOutcome(this.goals, this.lives, this.challenge) === 'open' &&
           challengeRoundLevel(this.challenge.difficulty, this.goals) >
             this.setup.level.level
         : this.ranked && levelFor(this.goals).level > level;
@@ -642,7 +642,7 @@ export class FreeKickScene extends Phaser.Scene {
   private restart() {
     this.resultScreen?.destroy();
     this.resultScreen = null;
-    this.records = new FreeKickRecords();
+    this.records = new FreeKickRecords(this.challenge ? 'challenge' : 'play');
     this.shots = this.shotKmh = this.fastestGoalKmh = 0;
     this.runStartedAt = 0;
     this.measure('rematch_tap');
@@ -1370,12 +1370,14 @@ export class FreeKickScene extends Phaser.Scene {
     this.resultFx.hide();
     this.hintText.setText('');
     const stats: FreeKickStats = {
-      mode: 'play',
+      mode: this.challenge ? 'challenge' : 'play',
       score: this.score,
       goals: this.goals,
       shots: this.shots,
       bestStreak: this.bestStreak,
-      level: this.challenge ? this.setup.level.level : levelFor(this.goals).level,
+      level: this.challenge
+        ? this.setup.level.level
+        : levelFor(this.goals).level,
       fastestGoalKmh: this.fastestGoalKmh,
       elapsedSec: Math.floor(this.clock - this.runStartedAt),
       greatSaves: this.greatSaves,

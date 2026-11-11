@@ -156,12 +156,31 @@ try {
   await page.screenshot({ path: '/tmp/freekick-wide-polished.png' });
   await page.evaluate(() => {
     const s = window.__game.scene.getScene('FreeKick');
+    s.records.start();
     s.lives = 0;
-    s.shots = 2;
+    s.shots = 3;
     s.gameOver();
   });
   await page.locator('.fk-results-screen').waitFor();
   assert.equal(await page.locator('.results-stats > div').count(), 6);
+  await page
+    .getByRole('button', { name: 'HIGHEST SCORE', exact: true })
+    .click();
+  await page.waitForFunction(() =>
+    document.querySelector('.results-board ol')?.textContent.includes('alice')
+  );
+  await page
+    .getByRole('button', { name: 'FASTEST GOALS', exact: true })
+    .click();
+  await page.waitForFunction(() =>
+    document
+      .querySelector('.results-board ol')
+      ?.textContent.includes('125 km/h')
+  );
+  assert.equal(saves.length, 1);
+  assert.equal(saves[0].mode, 'challenge');
+  assert.equal(saves[0].result.mode, 'challenge');
+
   for (const [width, height] of [
     [320, 480],
     [390, 600],

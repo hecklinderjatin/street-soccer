@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Free Kick Challenge result boards (2026-11-11):** show both Highest Score and Fastest Goals tabs below the stats on every completed Free Kick run, including Challenge wins/losses. Challenge now registers on its first shot and saves its completed snapshot using a distinct challenge mode. Validate terminal goals/lives, no great-save exemptions and the actual final-round level against server-owned post settings; reuse timing/immutable receipts, best-only seven-day post boards and existing privacy/deletion handling. Score uses completed-run points; speed still counts scored-shot launches only. Practice and quit runs remain unranked; challenge score-sharing remains disabled. Update info Records to seven days. Types/lint, 32 Free Kick rules/panel/API checks and source-only UI checks pass, including challenge save dispatch, both leaderboard tabs and responsive aligned results. No application build or live Reddit writes performed.
+
 **Free Kick UI cleanup (2026-11-11):** how-to-play now pairs concise descriptions with HUD-like power meter, actual ball/contact and life art, swipe/aim guide, wall and xG examples. Space the six rows to prevent text collisions. Move result feedback from 64% to 28% down the view, reduce title size and remove its full-width bordered plate and subtitle box so the kicker stays visible. Align the portrait results to one content column and full-width actions; challenge stats use a complete six-tile grid (Shots replaces inapplicable Great Saves), and Goals shows the challenge target. Types/lint and 31 Free Kick rules/panel/API checks pass. New source-only WebGL UI check verifies illustrated help, text fit, raised unboxed feedback and results alignment at 320x480, 390x600 and 844x390; screenshots inspected. No application build or live Reddit writes performed.
 
 **Post-match community prompt (2026-11-11):** add an optional themed Join Community / Continue to Results dialog before normal match results (Classic, Custom/Casual and Daily) and Free Kick ranked/challenge results. Wide layout with side-by-side actions for normal matches; portrait card with stacked actions for Free Kick. Practice has no completed-match screen. Results save in the background and remain hidden/inert until dismissal. Explicit trusted Join click requests native user consent then POSTs the current-community subscription API; deny/error leaves Continue available. Add SUBSCRIBE_TO_SUBREDDIT permission. Remember confirmed joins in device storage scoped to user/community; SDK cannot detect memberships created earlier/outside the game, so those users may still see the prompt. Continue never claims membership. Support Escape, focus containment, cleanup, reduced motion and short-height scrolling. Types/lint and focused mocked Hono/Chromium checks pass (portrait/landscape fit, consent, failure/retry, join suppression and account isolation). Existing full Free Kick flow harness stops at its stale START label (current controls say PLAY), before results; this is not claimed as a passing check. No application build or live Reddit joins performed.
@@ -714,6 +716,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Enable Challenge record submission together with its result leaderboards so newly created Free Kick posts can populate both boards. Validate wins and terminal losses using the post settings rather than legacy unlimited-run limits.
+
 - Keep Free Kick feedback above the scene with no background plate; pair instructions with HUD examples and use a complete challenge stat grid instead of an uneven final row. Scope result alignment changes to Free Kick.
 
 - Subscription happens only after an explicit Join action and native permission consent. Use only confirmed local join receipts for suppression; do not represent unavailable SDK membership information as a real membership check.
@@ -1112,6 +1116,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Native Reddit verification of Free Kick Challenge completion saves and both seven-day result boards after the next user-run upload.
+
 - Native mobile review of Free Kick help, unboxed Goal/Wide feedback and final-card alignment after the next user-run upload.
 
 - Native Reddit playtest subscription permission approval/denial and both end-screen layouts. Existing members who joined outside the game cannot currently be detected; revisit when a supported membership API is available. Update the older Free Kick flow harness labels to the current controls separately.
@@ -1497,6 +1503,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-11:** add both result leaderboards to Free Kick Challenge and validate/save completed Challenge records against post settings. Preserve Practice isolation and seven-day privacy handling. Types/lint, rule/API/UI checks pass; no application build performed.
 
 - **2026-11-11:** illustrate Free Kick controls help, raise/unbox shot feedback and align final stats/actions. Types/lint, Free Kick checks and source-only WebGL UI checks pass; no application build performed.
 
