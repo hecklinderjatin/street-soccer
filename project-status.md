@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Main merge (2026-11-11):** fast-forwarded `codex/pause-restart` through `e4a24ed` into main at the user’s request. Includes the community consent explanation, immediate result transition/confirmed thanks, and Restart across every pause menu. Existing types/lint and focused community/Free Kick/restart checks pass. No application build or Reddit deployment performed.
+
 **Pause Restart in every game mode (2026-11-11):** add orange Restart between Resume and Quit on touch normal-match pause, and below Key Bindings on desktop. Release input, record abandonment, stop the paused match and start a fresh match with the same config (Classic, Custom/Casual and Daily); reset the HUD duplicate-click guard on each init. Free Kick Play, Challenge and Practice use their existing fresh-run reset from Pause, preserving challenge settings/chosen practice level, resetting progress/lives and renewing record IDs. Practice retains New Spot. Re-space pause controls and position the trusted DOM Quit below Restart via shared pauseLayout. Types/lint and 32 Free Kick rules/panel/API checks pass. Actual callback checks cover every normal mode and desktop/touch layout; source-only WebGL checks click Restart in all three Free Kick entries and verify resets, preserved settings, renewed IDs, no partial saves and pause UI cleanup. No application build or live Reddit writes performed.
 
 **Community consent note and result thanks (2026-11-11):** add the requested explanation before the Join button: Reddit asks for permission, joining posts nothing, and denial still allows play. Join immediately reveals the last match details while native permission runs; show waiting/joining status there, then a themed Thanks for joining message only after subscription succeeds. Denied consent and errors show accurate messages on results without a false thank-you. Applies through the shared popup to normal and Free Kick; preserve landscape/portrait layouts and local successful-join suppression. Disposal prevents pending consent from initiating a join or updating another scene after results exit. Types/lint and focused Hono/Chromium checks pass (note, immediate transition, pending consent, denial/error/success, suppression, account isolation and cleanup). No application build or live Reddit writes performed.
@@ -1517,6 +1519,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-11:** merge community note/thanks and all-mode pause Restart into main through `e4a24ed`; prepare requested GitHub push. No application build/deployment performed.
 
 - **2026-11-11:** add Restart to every game pause menu with preserved settings, fresh progress/record IDs and re-spaced controls. Types/lint, Free Kick checks and focused callback/WebGL restart checks pass; no application build performed.
 
