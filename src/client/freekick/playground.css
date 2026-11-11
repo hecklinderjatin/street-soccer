@@ -529,7 +529,7 @@
 
 /* Desktop (wide landscape): the settings dock on the right, full height,
    every group open at once; the game column centres in the space left. */
-@media (min-width: 760px) and (min-aspect-ratio: 1/1) {
+@media (min-width: 600px) and (min-height: 480px) and (min-aspect-ratio: 1/1) {
   html.is-playground #freekick {
     right: clamp(320px, 34vw, 400px);
   }

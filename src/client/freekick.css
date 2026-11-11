@@ -30,7 +30,7 @@ body {
 /* Desktop (landscape): the game fills the whole view, no navy side bars.
    Phaser's EXPAND keeps the full portrait framing and shows more of the
    street either side; the HUD and controls follow the view's edges. */
-@media (min-width: 760px) and (min-aspect-ratio: 1/1) {
+@media (min-aspect-ratio: 1/1) {
   #freekick {
     max-width: none;
   }

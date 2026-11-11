@@ -46,7 +46,7 @@ const link = new PlaygroundLink(kick);
 // Desktop (wide landscape): the settings dock on the right of the game,
 // all open at once (playground.css moves the game column left for them).
 const dockQuery = window.matchMedia(
-  '(min-width: 760px) and (min-aspect-ratio: 1/1)'
+  '(min-width: 600px) and (min-height: 480px) and (min-aspect-ratio: 1/1)'
 );
 let docked = dockQuery.matches;
 document.documentElement.classList.add('is-playground');
@@ -94,9 +94,9 @@ const side = (n: number, left: string, right: string, zero: string) =>
 const angleText = (k: CustomKick) =>
   k.angleDeg === 0
     ? 'CENTRE'
-    : `${Math.abs(k.angleDeg)}° ${k.angleDeg > 0 ? 'LEFT' : 'RIGHT'}`;
+    : `${Math.abs(k.angleDeg)} DEG ${k.angleDeg > 0 ? 'LEFT' : 'RIGHT'}`;
 const summary = (k: CustomKick) =>
-  `${k.distanceM} M · ${angleText(k)} · ${k.wallMen}-MAN WALL · ${DIFFICULTY_LABEL[k.difficulty]}`;
+  `${k.distanceM} M / ${angleText(k)} / ${k.wallMen}-MAN WALL / ${DIFFICULTY_LABEL[k.difficulty]}`;
 
 // ---- Building blocks --------------------------------------------------------
 
@@ -306,7 +306,7 @@ function buildSheet(root: HTMLElement) {
     )
   );
   const groups: [string, string, () => string, Node[]][] = [
-    ['shot', 'SHOT POSITION', () => `${kick.distanceM} M · ${angleText(kick)}`, [
+    ['shot', 'SHOT POSITION', () => `${kick.distanceM} M / ${angleText(kick)}`, [
       stepper(
         'DISTANCE',
         () => `${kick.distanceM} M`,
@@ -322,7 +322,7 @@ function buildSheet(root: HTMLElement) {
     [
       'wall',
       'WALL SETTING',
-      () => `${kick.wallMen} MEN · ${kick.wallGapM} M`,
+      () => `${kick.wallMen} MEN / ${kick.wallGapM} M`,
       [
         stepper(
           'FROM BALL',

@@ -1447,9 +1447,9 @@ export class FreeKickScene extends Phaser.Scene {
     this.streakText.setText(
       this.challenge
         ? this.challenge.mode === 'infinity'
-          ? `INFINITY · ${this.goals} GOALS`
+          ? `INFINITY - ${this.goals} GOALS`
           : this.challenge.mode === 'custom'
-            ? 'PLAYGROUND · ONE SHOT'
+            ? 'PLAYGROUND - ONE SHOT'
             : `GOALS ${this.goals}/${this.challenge.goals}`
         : this.streak >= 2
           ? `STREAK ${this.streak}  X${multiplier}`
@@ -1473,7 +1473,7 @@ export class FreeKickScene extends Phaser.Scene {
     if (c.mode === 'infinity' && this.lives <= 0)
       return 'INFINITY RUN COMPLETE';
     if (c.mode === 'infinity')
-      return `${freeKickSkill(this.setup.level.level)} · ${this.goals} GOALS · ${this.lives} LIVES LEFT`;
+      return `${freeKickSkill(this.setup.level.level)} - ${this.goals} GOALS - ${this.lives} LIVES LEFT`;
     const state = challengeOutcome(this.goals, this.lives, c);
     if (state === 'won') return 'CHALLENGE COMPLETE!';
     if (state === 'lost') return 'CHALLENGE FAILED';

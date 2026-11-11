@@ -172,7 +172,7 @@ function detailsPage(
         ? 'UNRANKED PRACTICE'
         : challenge
           ? challenge.mode === 'infinity'
-            ? `${freeKickSkill(options.level)} · INFINITY`
+            ? `${freeKickSkill(options.level)} - INFINITY`
             : challenge.mode === 'custom'
               ? `${DIFFICULTY_LABEL[challenge.difficulty]} PLAYGROUND`
               : `${DIFFICULTY_LABEL[challenge.difficulty]} CHALLENGE`
