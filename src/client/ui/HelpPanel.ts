@@ -69,17 +69,38 @@ export function buildHelpLayer(
     pixelText(
       scene,
       cx,
-      604,
+      700,
       'DELETE SAVED SCORES: SUBREDDIT MENU > DELETE MY STREET SOCCER DATA',
-      BODY,
+      1,
       CARD.soft
     ).setOrigin(0.5),
     pixelText(
       scene,
       cx,
-      624,
+      710,
       `REPORT A PROBLEM: ${where}`,
       BODY,
+      CARD.soft
+    ).setOrigin(0.5)
+  );
+
+  items.push(
+    pixelText(
+      scene,
+      cx,
+      602,
+      'TACTICS: ATTACK PUSHES THE BACK LINE TO HALFWAY; DEFEND DROPS THE TEAM.',
+      2,
+      CARD.soft
+    ).setOrigin(0.5),
+    pixelText(
+      scene,
+      cx,
+      622,
+      options.desktop
+        ? 'TOP ROW 8: DEFEND   9: NORMAL   0: ATTACK. NORMAL RESTORES DEFAULT POSITIONING.'
+        : 'TAP ATTACK / NORMAL / DEFEND ON THE RIGHT. THE ACTIVE OPTION STAYS HIGHLIGHTED.',
+      2,
       CARD.soft
     ).setOrigin(0.5)
   );
@@ -196,9 +217,7 @@ function touchColumns(
 
 // --- Desktop: key caps (current bindings) with what each key does ---
 type Entry =
-  | { head: string }
-  | { keys: KeyAction[]; text: string }
-  | { note: string };
+  { head: string } | { keys: KeyAction[]; text: string } | { note: string };
 
 const LEFT_KEYS: Entry[] = [
   { head: 'MOVE' },
@@ -269,7 +288,9 @@ function keyColumn(
     COL_BOTTOM - TOP - heads * HEAD_ROW - rows * KEY_ROW - notes * NOTE_ROW
   );
   const headGap = heads > 1 ? Math.min(30, (spare * 0.6) / (heads - 1)) : 0;
-  const rowPad = rows ? Math.min(10, (spare - headGap * (heads - 1)) / rows) : 0;
+  const rowPad = rows
+    ? Math.min(10, (spare - headGap * (heads - 1)) / rows)
+    : 0;
 
   const caps: {
     keys: KeyAction[];

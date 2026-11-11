@@ -591,6 +591,9 @@ export const AI = {
 // otherwise, defenders and the midfielder come forward too"); the CPU plays
 // the balanced plan (as before). Pushes and drops are per formation line
 // (FORMATIONS: defenders, midfielders, forwards).
+// Manual Defend shifts the outfield shape back by this share of pitch length.
+export const TACTIC_DROP = 0.16;
+
 export const TACTICS = {
   attacking: {
     pushAttack: { def: 330, mid: 420, fwd: 480 }, // with the ball, each slot's spot goes this far upfield (defenders to about halfway, the forward high) ...

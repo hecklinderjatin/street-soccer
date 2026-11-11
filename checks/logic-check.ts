@@ -882,6 +882,41 @@ check(
       assert.equal(brain.takeAction(t, b), null);
   }
 );
+check(
+  'manual tactics: every formation pushes its back line to halfway, drops back and restores Normal',
+  () => {
+    for (const formation of Object.values(FORMATIONS)) {
+      const brain = new TeamBrain('home', LEVELS.normal, undefined, formation);
+      const mates = team(
+        'home',
+        formation.map((slot) => slot.x)
+      );
+      const b = ball({ x: PITCH.width / 2, y: PITCH.height / 2 });
+      const v = view(mates, team('away', [1900, 1900, 1600, 1400]), b);
+      for (const phase of ['attack', 'defend', 'loose']) {
+        const spot = (p: (typeof mates)[number]) =>
+          Reflect.get(brain, 'spot').call(brain, v, p, phase);
+        brain.tactic = 'normal';
+        const normal = mates.map((p) => spot(p).x);
+        brain.tactic = 'attack';
+        const attack = mates.map((p) => spot(p).x);
+        assert.ok(attack.every((x) => x >= PITCH.width / 2));
+        assert.ok(attack[attack.length - 1] > attack[0]);
+        brain.tactic = 'defend';
+        mates.forEach((p, i) => assert.ok(spot(p).x < normal[i]));
+        brain.tactic = 'normal';
+        assert.deepEqual(
+          mates.map((p) => spot(p).x),
+          normal
+        );
+        assert.deepEqual(
+          mates.map((p) => p.x),
+          formation.map((slot) => slot.x)
+        );
+      }
+    }
+  }
+);
 check('brain: no chaser while the ball is out behind a goal', () => {
   const brain = new TeamBrain('home', LEVELS.normal);
   const mates = team('home', [500, 500, 800, 1100]);

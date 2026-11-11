@@ -1,3 +1,4 @@
+import type { MatchTactic } from '../systems/ai';
 import { RampageFeedback, type RampageHudState } from '../ui/RampageFeedback';
 import { chaosRules } from '../../shared/chaos';
 import { buildMatchDetailsLayer } from '../ui/MatchDetailsPanel';
@@ -42,6 +43,7 @@ export type MatchHudState = {
 };
 
 export type HudData = {
+  onTactic: (tactic: MatchTactic) => void;
   onMatchStart: () => void;
   onInputCancel: () => void;
   onMatchQuit: () => void;
@@ -55,6 +57,9 @@ export type HudData = {
 // Screen-space UI drawn over the Match scene with its own camera, so it is
 // unaffected by the world rendering.
 export class HudScene extends Phaser.Scene {
+  private tactic: MatchTactic = 'normal';
+  private tacticButtons: { mode: MatchTactic; button: TextButton }[] = [];
+  private tacticNotice!: Phaser.GameObjects.BitmapText;
   private hud!: HudData;
   private joystick!: Joystick;
   private actionButtons!: ActionButtons;
@@ -86,6 +91,8 @@ export class HudScene extends Phaser.Scene {
 
   init(data: HudData) {
     this.hud = data;
+    this.tactic = 'normal';
+    this.tacticButtons = [];
     this.showDebug = false;
     this.introPending = false;
     this.keyPanel = null;
@@ -108,6 +115,27 @@ export class HudScene extends Phaser.Scene {
     });
 
     this.buildScoreboard();
+    this.tacticNotice = pixelText(this, VIEW.width / 2, 154, '', 3, PAL.yellow)
+      .setOrigin(0.5)
+      .setAlpha(0);
+    for (const [i, mode] of (
+      ['attack', 'normal', 'defend'] as const
+    ).entries()) {
+      const button = new TextButton(
+        this,
+        VIEW.width - 82,
+        178 + i * 52,
+        `${mode === 'normal' ? '> ' : ''}${mode.toUpperCase()}`,
+        () => this.selectTactic(mode),
+        {
+          width: 144,
+          height: 44,
+          textSize: 2,
+          fill: mode === 'normal' ? PAL.darkGreen : PAL.navy,
+        }
+      );
+      this.tacticButtons.push({ mode, button });
+    }
     this.minimap = new Minimap(this, chaosRules(this.hud.config).pitch);
     this.rampageFeedback = new RampageFeedback(this);
     this.livesText = pixelText(
@@ -378,6 +406,30 @@ export class HudScene extends Phaser.Scene {
     this.hud.onInputCancel();
   }
 
+  private selectTactic(mode: MatchTactic) {
+    if (this.overlayOpen() || mode === this.tactic) return;
+    this.tactic = mode;
+    this.hud.onTactic(mode);
+    for (const entry of this.tacticButtons) {
+      entry.button.setFill(entry.mode === mode ? PAL.darkGreen : PAL.navy);
+      entry.button.setLabel(
+        `${entry.mode === mode ? '> ' : ''}${entry.mode.toUpperCase()}`
+      );
+    }
+    this.tweens.killTweensOf(this.tacticNotice);
+    this.tacticNotice
+      .setText(`${mode.toUpperCase()} TACTICS`)
+      .setPosition(VIEW.width / 2, 166)
+      .setAlpha(1);
+    this.tweens.add({
+      targets: this.tacticNotice,
+      y: 148,
+      alpha: 0,
+      duration: 1200,
+      hold: 250,
+    });
+  }
+
   private listenForKeys(toggleSound: () => void) {
     const { controls } = this.hud;
     // The HUD stays active when the match is paused. Use physical key
@@ -387,6 +439,19 @@ export class HudScene extends Phaser.Scene {
         return;
       if (!event.repeat && this.keyPanel?.capture(event.code)) {
         event.preventDefault();
+        return;
+      }
+      const tactic =
+        event.code === 'Digit8'
+          ? 'defend'
+          : event.code === 'Digit9'
+            ? 'normal'
+            : event.code === 'Digit0'
+              ? 'attack'
+              : null;
+      if (tactic && !this.overlayOpen()) {
+        event.preventDefault();
+        if (!event.repeat) this.selectTactic(tactic);
         return;
       }
       const action = actionForKey(controls.keyBindings, event.code);
@@ -480,6 +545,9 @@ export class HudScene extends Phaser.Scene {
     if (which === 'help') this.refreshHelpKeys(this.hud.controls.keyBindings);
     this.keyPanel?.setVisible(which === 'keys');
     const paused = which !== null;
+    for (const { button } of this.tacticButtons)
+      button.setVisible(!paused).setEnabled(!paused);
+    this.tacticNotice.setVisible(!paused);
     this.joystick.enabled = !paused;
     this.actionButtons.enabled = !paused;
     if (paused) {

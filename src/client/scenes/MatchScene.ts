@@ -560,6 +560,10 @@ export class MatchScene extends Phaser.Scene {
       if (this.registry.get('helpAtStart') !== true) this.journey.start();
     }
     const hud: HudData = {
+      onTactic: (tactic) => {
+        this.homeBrain.tactic = tactic;
+        this.homeBrain.reset();
+      },
       onMatchStart: () => this.journey?.start(),
       onInputCancel: () => {
         this.chargeSince = null;

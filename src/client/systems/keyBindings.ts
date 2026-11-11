@@ -56,6 +56,7 @@ export const keyLabel = (code: string) => {
 export function isBindableKey(code: unknown): code is string {
   return (
     typeof code === 'string' &&
+    !['Digit8', 'Digit9', 'Digit0'].includes(code) &&
     /^(Key[A-Z]|(?:Digit|Numpad)[0-9]|Arrow(?:Up|Down|Left|Right)|Shift|Space|Tab|Escape|Enter|Backspace)$/.test(
       code
     )

@@ -1,5 +1,6 @@
 import { rulesOf } from '../../shared/chaos';
 import {
+  TACTIC_DROP,
   AI,
   BALL,
   DRIBBLE,
@@ -171,7 +172,10 @@ export type Steer = { move: StickInput; sprint: boolean };
 const STAND: Steer = { move: { x: 0, y: 0, r: 0 }, sprint: false };
 const PREDICT_STEP = 0.05; // s, ball prediction step for intercepts
 
+export type MatchTactic = 'defend' | 'normal' | 'attack';
+
 export class TeamBrain {
+  tactic: MatchTactic = 'normal';
   readonly orders = new Map<Player, AiOrder>();
   readonly tackles: { p: Player; dir: number; kind: TackleKind }[] = []; // tackles to start (drained by MatchScene)
   private action: { p: Player; act: CarryAction; at: number } | null = null; // pass / shot due
@@ -543,15 +547,26 @@ export class TeamBrain {
         : phase === 'defend'
           ? -this.style.dropDefend[base.line]
           : 0;
+    const normalX =
+      bx + (view.ball.x - PITCH.width / 2) * AI.shiftX + push * this.dir;
+    const lastLine = Math.min(...this.formation.map((slot) => slot.x));
+    const progress = this.team === 'home' ? normalX : PITCH.width - normalX;
+    const attackProgress = Math.max(
+      progress,
+      PITCH.width / 2 + base.x - lastLine
+    );
+    const x =
+      this.tactic === 'attack'
+        ? this.team === 'home'
+          ? attackProgress
+          : PITCH.width - attackProgress
+        : normalX -
+          (this.tactic === 'defend' ? PITCH.width * TACTIC_DROP * this.dir : 0);
     const gy = PITCH.height / 2;
     const width = phase === 'attack' ? AI.attackWidth : 1;
     const ball = view.ball;
     return {
-      x: clamp(
-        bx + (ball.x - PITCH.width / 2) * AI.shiftX + push * this.dir,
-        AI.edgeMargin,
-        PITCH.width - AI.edgeMargin
-      ),
+      x: clamp(x, AI.edgeMargin, PITCH.width - AI.edgeMargin),
       y: clamp(
         gy + (base.y - gy) * width + (ball.y - gy) * AI.shiftY,
         AI.edgeMargin,
