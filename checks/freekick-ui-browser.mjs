@@ -28,7 +28,17 @@ const postData =
           },
         },
       }
-    : { matchType: 'freekick' };
+    : mode === 'infinity'
+      ? {
+          matchType: 'freekick',
+          freeKick: {
+            mode: 'infinity',
+            kicker: 'pink',
+            wall: 'blue',
+            lives: 3,
+          },
+        }
+      : { matchType: 'freekick' };
 await writeFile(
   sdk,
   `export const context={postId:'t3_fk',username:'tester',userId:'t2_tester',subredditId:'t5_test',subredditName:'street_soccer_dev',postData:${JSON.stringify(postData)}};
@@ -77,6 +87,10 @@ try {
   page.on('pageerror', (e) => errors.push(e.message));
   let failPost = false;
   const boards = {
+    goals: {
+      top: [{ rank: 1, username: 'bob', value: 7 }],
+      me: { rank: 2, username: 'tester', value: 3 },
+    },
     day: '2026-11-08',
     score: {
       top: [{ rank: 1, username: 'alice', value: 1000 }],
@@ -224,12 +238,13 @@ try {
     document.querySelector('.results-board ol')?.textContent.includes('alice')
   );
   await page
-    .getByRole('button', { name: 'FASTEST GOALS', exact: true })
+    .getByRole('button', {
+      name: mode === 'infinity' ? 'MOST GOALS' : 'FASTEST GOALS',
+      exact: true,
+    })
     .click();
   await page.waitForFunction(() =>
-    document
-      .querySelector('.results-board ol')
-      ?.textContent.includes('125 km/h')
+    document.querySelector('.results-board ol')?.textContent.includes('bob')
   );
   assert.equal(saves.length, 1);
   assert.equal(saves[0].mode, mode);
@@ -259,7 +274,7 @@ try {
       .evaluateAll((nodes) =>
         nodes.map((n) => n.getBoundingClientRect().toJSON())
       );
-    assert.equal(buttons.length, 6);
+    assert.equal(buttons.length, 5);
     assert.ok(
       buttons.every(
         (b) =>
@@ -286,17 +301,16 @@ try {
         false,
         selector + ' has no nested scroll'
       );
-    assert.equal(buttons[0].top, buttons[1].top);
-    assert.equal(buttons[2].top, buttons[3].top);
-    assert.equal(buttons[4].top, buttons[5].top);
-    if (width < height) {
-      assert.ok(Math.abs(buttons[0].width - buttons[1].width) < 1);
-      assert.ok(
-        buttons[0].top < buttons[2].top && buttons[2].top < buttons[4].top
-      );
-    } else {
-      assert.ok(buttons.every((button) => button.top === buttons[0].top));
-    }
+    assert.equal(buttons[1].top, buttons[2].top);
+    assert.equal(buttons[3].top, buttons[4].top);
+    assert.ok(buttons[0].width > buttons[1].width * 1.9);
+    assert.ok(
+      buttons[0].top < buttons[1].top && buttons[1].top < buttons[3].top
+    );
+    assert.equal(
+      await page.getByRole('link', { name: 'EXIT', exact: true }).count(),
+      0
+    );
     assert.equal(
       await page
         .locator('.results-panel')

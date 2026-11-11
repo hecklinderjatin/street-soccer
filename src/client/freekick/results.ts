@@ -3,7 +3,6 @@ import {
   canRunAsUser,
   context,
   showForm,
-  exitExpandedMode,
   requestExpandedMode,
 } from '@devvit/web/client';
 import type { FreeKickStats } from '../../shared/freeKick';
@@ -143,18 +142,6 @@ export function freeKickResults(
   const retry = casualButton('RETRY SAVE', () => void save(), true);
   retry.classList.add('results-retry');
   retry.hidden = true;
-  // EXIT leaves the expanded view with the trusted click on Reddit; off
-  // Reddit it goes back to the feed card page.
-  const exit = document.createElement('a');
-  exit.className = 'casual-button secondary';
-  exit.href = 'splash.html';
-  pixelLabel(exit, 'EXIT');
-  exit.addEventListener('click', (event) => {
-    if (context?.postId) {
-      event.preventDefault();
-      exitExpandedMode(event);
-    }
-  });
   const post = casualButton(
     'POST MY SCORE',
     (event) => void postScore(event),
@@ -181,8 +168,7 @@ export function freeKickResults(
     });
     actions.append(link);
   }
-  exit.classList.add('fk-results-exit');
-  actions.append(exit, retry);
+  actions.append(retry);
   let closed = false;
   let saved = false;
   let sharing = false;

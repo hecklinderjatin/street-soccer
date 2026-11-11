@@ -87,27 +87,9 @@
 .fk-results-screen .results-header > :last-child {
   text-align: right;
 }
-.fk-results-screen
-  .results-actions:not(:has(.community-join-button:not([hidden])))
-  > .fk-results-exit {
-  grid-column: 1 / -1;
-}
-
 /* Desktop (wide landscape): the summary beside the leaderboards and the
-   actions in one row, so the results fit without scrolling. */
+   actions below, so the results fit without scrolling. */
 @media (min-width: 600px) and (min-aspect-ratio: 1/1) {
-  .fk-results-screen .results-actions {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-  }
-  .fk-results-screen
-    .results-actions:has(.community-join-button:not([hidden])) {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-  }
-  .fk-results-screen
-    .results-actions:not(:has(.community-join-button:not([hidden])))
-    > .fk-results-exit {
-    grid-column: auto;
-  }
   .fk-results-screen .results-panel {
     max-width: 1000px;
   }
@@ -118,7 +100,7 @@
   }
 }
 
-/* Pair the primary replay and share action; remaining actions form even rows.
+/* Full-width replay, then two columns for every other action.
    Keep the entire card in the viewport rather than creating a nested scroller. */
 .fk-results-screen .results-panel {
   min-width: 0;
@@ -126,6 +108,12 @@
   overflow: visible;
 }
 .fk-results-screen .results-actions > :first-child {
+  grid-column: 1 / -1;
+}
+.fk-results-screen .results-panel .results-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.fk-results-screen .results-actions > .results-retry {
   grid-column: auto;
 }
 .fk-results-screen .results-content,
