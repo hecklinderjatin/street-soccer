@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Main merge (2026-11-11):** fast-forwarded the tested pending changes through 4997601 into main at the user’s request: generic Join failure copy, zero-audit dependency fix, fixed progressive Challenge sequences/four-defender cap and the new Infinity post mode. Existing types/lint, clean npm ci/zero-vulnerability audit, dependency compatibility, Free Kick/Daily/forms/Journeys checks and source-only browser checks pass. No app build or deployment performed. Live Journeys ingestion still requires Reddit approval/allowlisting.
+
 **Free Kick Infinity (2026-11-11):** add a distinct ranked Infinity mode under Free Kick creation. A registered mode-choice form leads to Challenge’s existing form or Infinity’s kits/lives-only gameplay settings (standard title/flair/description remain); normalize hidden geometry/difficulty defaults server-side and preserve mode on invalid resubmissions. Infinity starts at Easy level 2, rises one level every two goals through Normal/Hard to Pro, caps at level 10 and continues until creator-defined lives reach zero. No goal target, bonus lives or great-save exemptions. Use repeatable post/round setups, varying Pro setups indefinitely, and the four-total-defender cap. Add the Infinity entry, correct feed routing/fallback href and preview, info/control copy and stage HUD; retain Practice, pause/restart/quit and Join. Results say Run Complete, show untargeted goals and existing score/speed boards. Validate finished Infinity receipts against canonical post mode/lives/level and keep immutable saves/privacy behavior. Add freekick-infinity Journeys with completed (not failed) terminal outcome. Types/lint, 36 Free Kick rules/panels/API checks, Daily/forms regressions, Journeys SDK checks and source-only Infinity/progression/results, feed/Practice, existing UI/restart/Journeys browser checks pass; Infinity results screenshot inspected. No app build, live Reddit writes, telemetry approval submission or deployment performed.
 
 **Fixed Free Kick Challenge sequence (2026-11-11):** replace per-attempt random Challenge spots with a stable post-ID-seeded sequence, shared by every player, retry and replay. Progress from nearer/central to further/wider alternating angles across the post’s entire goal target; spread the configured difficulty’s first/final levels across those rounds (a one-goal post uses its opening level). Seed defensive shot decisions per post/round too, so retries cannot reroll the keeper/wall. Misses retain the current setup; goals advance it. Wall tuning now ranges from one defender at low levels to four at the hardest, including any lying defender who replaces one standing player. Practice keeps random New Spot and its chosen fixed level with the same revised wall cap. Live preview cycles the actual post sequence. Update info/lobby/create-form copy and server result level validation together. Types/lint, 35 Free Kick rules plus panel/API checks and source-only restart/UI/feed/Practice/Journeys browser checks pass. No app build, deployment or live Reddit writes performed.
@@ -760,6 +762,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Merge and push the tested Infinity branch and its pending parent fixes into main at the user’s request; do not deploy or publish the app as part of this Git operation.
+
 - Offer Infinity as a Free Kick post subtype, with only kits/lives as creator gameplay settings. Two goals per level is the initial progression choice; retain Pro endlessly, charge every miss and keep bonuses out so the selected lives remain meaningful. Rank only terminal runs; use neutral Run Complete copy and completed Journeys rather than calling an endless run a failed Challenge. Keep post-scoped score/speed boards and unranked Practice.
 
 - Derive Challenge layout and defence streams from post ID, never player/date/attempt. Keep the entire sequence repeatable for a post; only scored goals advance it. Spread discrete skill levels over the goal target while distance/angle keep rising between level steps. Count lying defenders inside the four-player wall limit; preserve unranked Practice’s selected-level random spots.
@@ -1194,13 +1198,13 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
-- Merge/push Infinity when requested. Playtest the two-goals-per-level pacing and Pro endurance on device after deployment. Optional follow-ups discussed: difficulty milestones, streak/goal medals or a shared daily sequence; bonus lives are not implemented. Live Journeys acceptance still depends on Reddit approval/allowlisting.
+- Infinity is merged into main. Playtest the two-goals-per-level pacing and Pro endurance on device after deployment. Optional follow-ups discussed: difficulty milestones, streak/goal medals or a shared daily sequence; bonus lives are not implemented. Live Journeys acceptance still depends on Reddit approval/allowlisting.
 
-- Merge/push the fixed Free Kick sequence when requested. Playtest short/long targets and four-defender final rounds on device; existing seven-day scores from older random attempts are retained.
+- The fixed Free Kick sequence is merged into main. Playtest short/long targets and four-defender final rounds on device; existing seven-day scores from older random attempts are retained.
 
-- Merge/push the dependency security fix when requested. Keep the scoped Git override until upstream Devvit pins a safe version, then reassess it; npm audit currently reports zero findings.
+- The dependency security fix is merged into main. Keep the scoped Git override until upstream Devvit pins a safe version, then reassess it; npm audit currently reports zero findings.
 
-- Merge the generic Join message change when requested; verify the simple failure copy in normal and Free Kick results after deployment.
+- The generic Join message change is merged into main; verify the simple failure copy in normal and Free Kick results after deployment.
 
 - Validate accepted Free Kick receipts on the approved/allowlisted Reddit app after deployment; local mocks establish lifecycle behavior only. Free Kick cleanup, Practice parity and Journeys are now merged into main.
 
@@ -1613,6 +1617,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-11:** fast-forward main through 4997601 at the user’s request, bringing in Infinity, fixed Challenge sequences, the dependency vulnerability fix and generic Join errors. Record the merge and prepare the requested push; existing checks pass, no app build/deployment.
 
 - **2026-11-11:** add Free Kick Infinity creation/entry, Easy-to-Pro endless progression, lives-only ending, mode-aware feed/help/HUD/results, validated score/speed records and completed Journeys. Preserve Challenge and Practice. Types/lint, 36 Free Kick rules/panels/API, Daily/forms/Journeys and source-only Infinity plus existing feed/UI/restart/Journeys browser checks pass; no app build/deployment.
 
