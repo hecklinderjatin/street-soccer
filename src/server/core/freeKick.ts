@@ -9,7 +9,7 @@ import {
   type FreeKickStats,
 } from '../../shared/freeKick';
 import { boardExpiry, registerBoard, WINDOW_DAYS } from './privacy';
-import { gamesDeletedKey } from './gamesPlayed';
+import { gamesDeletedKey, gamesKey } from './gamesPlayed';
 import { saveSpeed } from './speedBoard';
 
 export const freeKickKey = (
@@ -123,7 +123,11 @@ export async function freeKickReceipt(
       const ttl = Math.ceil((boardExpiry(run.day) - Date.now()) / 1000);
       await tx.expire(board, ttl);
       await tx.expire(hash, ttl);
-      if ((await tx.exec()).length === 4) return next;
+      // A run's first completion counts once toward the post's games
+      // played (the same counter as matches; shown on Playground cards).
+      const firstCompletion = Boolean(result) && !previous?.result;
+      if (firstCompletion) await tx.incrBy(gamesKey(post), 1);
+      if ((await tx.exec()).length === (firstCompletion ? 5 : 4)) return next;
     } catch (error) {
       if (!queued) await tx.multi().catch(() => {});
       await tx.discard().catch(() => {});

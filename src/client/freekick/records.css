@@ -114,7 +114,7 @@
 }
 /* Desktop (wide landscape): the summary beside the leaderboards and the
    actions in one row, so the results fit without scrolling. */
-@media (min-width: 900px) and (orientation: landscape) {
+@media (min-width: 760px) and (min-aspect-ratio: 1/1) {
   .fk-results-screen .results-panel {
     max-width: 1000px;
   }

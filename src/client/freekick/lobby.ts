@@ -3,8 +3,11 @@ import { context, requestExpandedMode } from '@devvit/web/client';
 import { pixelLabel } from '../ui/pixelLabel';
 import { freeKickChallenge } from '../challenge';
 import { DIFFICULTY_LABEL } from '../../shared/types';
+import { readGamesPlayed } from '../gameCount';
+import { freeKickFeedBoard } from './leaderboard';
 
 let stopPreview: (() => void) | undefined;
+let stopBoard: (() => void) | undefined;
 
 // A Free Kick post's card: the live preview with the post's mode tag
 // (CHALLENGE, INFINITY or PLAYGROUND) at its top right, the post's
@@ -15,6 +18,8 @@ export function showFreeKickLobby() {
   const host = document.getElementById('game');
   if (!host) return;
   stopPreview?.();
+  stopBoard?.();
+  stopBoard = undefined;
   host.classList.add('freekick-post');
   const fk = freeKickChallenge();
   const infinity = fk.mode === 'infinity';
@@ -97,7 +102,39 @@ export function showFreeKickLobby() {
     const label = card.querySelector<HTMLElement>(selector ?? '');
     if (label && text) pixelLabel(label, text);
   }
+  if (custom) addActivity(card);
   host.replaceChildren(card);
   const preview = card.querySelector<HTMLElement>('.freekick-preview');
   if (preview) stopPreview = watchFreeKickPreview(preview);
+}
+
+// A Playground post's card, as a match card: games played (completed
+// shots on this post) and the seven-day top 3 with ALL > for both boards.
+function addActivity(card: HTMLElement) {
+  const details = card.querySelector('.freekick-lobby-details');
+  const notes = card.querySelector('.freekick-mode-notes');
+  if (!details) return;
+  const activity = document.createElement('div');
+  activity.className = 'preview-activity freekick-activity';
+  activity.innerHTML =
+    '<span><i class="activity-icon"></i> GAMES PLAYED</span><strong class="preview-games" aria-label="Games played">—</strong>';
+  if (notes) notes.replaceWith(activity);
+  else details.append(activity);
+  const games = activity.querySelector<HTMLElement>('.preview-games');
+  void readGamesPlayed()
+    .then((count) => {
+      if (!games) return;
+      games.textContent = count === null ? '—' : count.toLocaleString();
+      games.title =
+        count === null
+          ? 'Game count unavailable'
+          : `${count} completed shots on this post`;
+    })
+    .catch(() => {
+      if (games) games.title = 'Game count unavailable';
+    });
+  const board = freeKickFeedBoard();
+  details.append(board.ranking);
+  card.append(board.modal);
+  stopBoard = () => board.destroy();
 }

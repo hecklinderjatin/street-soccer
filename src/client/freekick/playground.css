@@ -529,9 +529,9 @@
 
 /* Desktop (wide landscape): the settings dock on the right, full height,
    every group open at once; the game column centres in the space left. */
-@media (min-width: 900px) and (orientation: landscape) {
+@media (min-width: 760px) and (min-aspect-ratio: 1/1) {
   html.is-playground #freekick {
-    right: 400px;
+    right: clamp(320px, 34vw, 400px);
   }
   .pg-sheet.is-docked {
     position: fixed;
@@ -539,7 +539,7 @@
     bottom: 0;
     left: auto;
     right: 0;
-    width: 400px;
+    width: clamp(320px, 34vw, 400px);
     max-height: none;
     border-top: 0;
     border-left: 3px solid #ffa300;
@@ -553,6 +553,21 @@
     align-content: start;
     gap: 10px;
     padding: 12px;
+  }
+  .pg-sheet.is-docked .pg-window-bar {
+    padding: 8px 12px;
+  }
+  .pg-sheet.is-docked .pg-window-body {
+    padding: 8px 12px 10px;
+    gap: 4px;
+  }
+  .pg-sheet.is-docked .pg-arrow,
+  .pg-sheet.is-docked .pg-value {
+    height: 34px;
+    min-height: 34px;
+  }
+  .pg-sheet.is-docked .pg-check {
+    min-height: 36px;
   }
   .pg-sheet.is-docked .pg-grip {
     cursor: default;

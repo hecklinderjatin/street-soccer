@@ -27,13 +27,12 @@ body {
   max-width: 75vh;
 }
 
-/* Desktop (wide landscape): the portrait game stands as a framed column
-   on the navy page instead of floating edgeless. */
-@media (min-width: 900px) and (orientation: landscape) {
+/* Desktop (landscape): the game fills the whole view, no navy side bars.
+   Phaser's EXPAND keeps the full portrait framing and shows more of the
+   street either side; the HUD and controls follow the view's edges. */
+@media (min-width: 760px) and (min-aspect-ratio: 1/1) {
   #freekick {
-    box-shadow:
-      0 0 0 2px #29adff33,
-      0 0 48px #0009;
+    max-width: none;
   }
 }
 

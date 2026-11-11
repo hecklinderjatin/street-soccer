@@ -46,7 +46,7 @@ const link = new PlaygroundLink(kick);
 // Desktop (wide landscape): the settings dock on the right of the game,
 // all open at once (playground.css moves the game column left for them).
 const dockQuery = window.matchMedia(
-  '(min-width: 900px) and (orientation: landscape)'
+  '(min-width: 760px) and (min-aspect-ratio: 1/1)'
 );
 let docked = dockQuery.matches;
 document.documentElement.classList.add('is-playground');

@@ -58,10 +58,12 @@ export function buildFreeKickOverlay(
     return scene.add.container(0, 0, items);
   }
   const details = options.mode === 'details';
+  // A portrait card, centred on wide (desktop) views rather than stretched.
+  const cardWidth = Math.min(width - 48, 840);
   const card = {
-    x: 24,
+    x: (width - cardWidth) / 2,
     y: 32,
-    width: width - 48,
+    width: cardWidth,
     height: Math.min(1180, height - 64),
   };
   const cx = width / 2;

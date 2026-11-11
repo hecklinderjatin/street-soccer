@@ -8,6 +8,10 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Free Kick fills desktop views (2026-11-11):** Reddit's desktop expanded view (about 900x745) showed the portrait game as a narrow strip between navy bars. On any landscape view at least 760px wide, `#freekick` now drops its 75vh max-width and fills the view; Phaser's EXPAND keeps the full portrait framing and shows more street either side, with the HUD and controls on the view's edges. The info/help card stays portrait (max 840 logical px, centred). The same breakpoint (min-width 760px, min-aspect-ratio 1/1) now drives two-column results and the Playground's docked settings panel (width clamp 320–400px, compact rows so all groups fit at about 745px tall); it replaces the earlier 900px breakpoint, which Reddit's desktop view never reached. Phones unchanged. Not yet seen on desktop: check scenery at the far left/right edges of the wider view.
+
+**Playground post cards: leaderboard and games played (2026-11-11):** Playground post cards now show GAMES PLAYED (in place of the mode notes) and the 7-DAY TOP 3 with ALL > (both score and fastest-goal boards), reusing `freeKickFeedBoard` and `readGamesPlayed`. The server now adds one to the post's games counter (`games:<post>`, the matches' counter) on each Free Kick run's first completed save, in the same transaction as the receipt, so retries never double-count; this counts on every Free Kick post, though only Playground cards display it. Challenge/Infinity cards are otherwise unchanged (their feed board was removed earlier on purpose).
+
 **Free Kick desktop layout (2026-11-11):** on wide landscape views (min-width 900px, landscape) every Free Kick mode keeps its portrait game column, now framed on the page; Free Kick results show the summary beside the leaderboards with the actions in one row (they were forced into one tall scrolling column). The Playground docks its settings in a 400px full-height panel on the right with every group open at once (no menu, DONE, TEST SHOT or floating EDIT/NEXT); the game column centres in the space left, the whole view frames the kick, and it can be shot at any time, with a "score once to share" line in the panel. Kits/title, saved kicks and alerts now cover the whole page (fixed, on the body) on every device. Phones are unchanged. Types and lint pass; not committed or checked in a desktop browser.
 
 **Playground kits screen and save limit (2026-11-11):** removed the blocky kit figures; the kits/title and saved-kicks cards no longer scroll (overflow hidden, compact rows, BACK/SAVE/SHARE TO SUB in one row, tighter layout under 560 px tall). Saves stay capped at 5 per player (server-enforced); the client now checks first and shows a SAVES FULL alert with OPEN SAVED when a new kick has no free slot, re-saving a loaded kick overwrites its own slot, and save/SAVED messages show n/5. Types and lint pass; not committed or checked on a device.
@@ -1629,6 +1633,10 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-11:** Free Kick fills landscape/desktop views (no side bars); info card centred; desktop breakpoint lowered to 760px landscape so Reddit's desktop view gets two-column results and the docked Playground panel. Server check mock gains `incrBy` and asserts games played counts a completed run once.
+
+- **2026-11-11:** Playground post cards show games played and the 7-day leaderboard; completed Free Kick runs count toward the post's games played.
 
 - **2026-11-11:** desktop layout for Free Kick: framed game column, two-column results, Playground settings docked on the right with all groups open; Playground overlays cover the whole page. Types/lint pass.
 

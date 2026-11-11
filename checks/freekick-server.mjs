@@ -39,6 +39,7 @@ export const context=s.context;
 export const redis={
  get:async k=>s.values.get(k),
  set:async(k,v)=>{s.values.set(k,v);bump(k);},
+ incrBy:async(k,n)=>{s.values.set(k,String(Number(s.values.get(k)??0)+n));bump(k);},
  del:async(...ks)=>{for(const k of ks){s.values.delete(k);s.boards.delete(k);s.hashes.delete(k);bump(k);}},
  expire:async(k,ttl)=>s.expires.set(k,ttl),
  hGet:async(k,u)=>s.hashes.get(k)?.get(u),
@@ -51,7 +52,7 @@ export const redis={
  watch:async(...keys)=>{
   const snapshot=keys.map(k=>s.versions.get(k)??0);const ops=[];
   const tx={multi:async()=>{},discard:async()=>{ops.length=0;},exec:async()=>{if(keys.some((k,i)=>(s.versions.get(k)??0)!==snapshot[i]))return [];const result=[];for(const op of ops){op();result.push(1);}return result;}};
-  for(const name of ['zAdd','hSet','expire','set','del'])tx[name]=async(...args)=>ops.push(()=>redis[name](...args));return tx;
+  for(const name of ['zAdd','hSet','expire','set','del','incrBy'])tx[name]=async(...args)=>ops.push(()=>redis[name](...args));return tx;
  }
 };
 export const reddit={getCurrentUsername:async()=>s.name,getCommentById:async()=>({id:'t1_scores',postId:'t3_fk',stickied:true,removed:false,body:'Scores'}),submitComment:async input=>{s.comments.push(input);return {id:'t1_shared'};}};
@@ -161,6 +162,11 @@ assert.equal(
   (await call('/result', { ...run, mode: 'challenge', result: valid })).status,
   200,
   'same result retry is idempotent'
+);
+assert.equal(
+  state.values.get('games:t3_fk'),
+  '1',
+  'a completed run counts once toward games played, retries included'
 );
 assert.equal(
   (
