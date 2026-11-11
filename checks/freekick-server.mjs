@@ -80,18 +80,18 @@ const call = async (path, body) => {
   return { status: res.status, body: await res.json() };
 };
 const valid = {
-  mode: 'play',
+  mode: 'challenge',
   score: 500,
   goals: 2,
   shots: 5,
   bestStreak: 2,
-  level: 2,
+  level: 5,
   fastestGoalKmh: 100,
   elapsedSec: 20,
 };
 const start = async (suffix) => {
   const r = await call('/start', {
-    mode: 'play',
+    mode: 'challenge',
     id: `run-test-identifier-${suffix}`,
   });
   assert.equal(r.status, 200);
@@ -105,7 +105,7 @@ const age = (run) => {
 };
 state.name = undefined;
 assert.equal(
-  (await call('/start', { mode: 'play', id: 'run-test-identifier-guest' }))
+  (await call('/start', { mode: 'challenge', id: 'run-test-identifier-guest' }))
     .status,
   401
 );
@@ -120,9 +120,14 @@ assert.equal(
   ).status,
   400
 );
+assert.equal(
+  (await call('/start', { mode: 'play', id: 'old-play-run-identifier' }))
+    .status,
+  400
+);
 const run = await start('one');
 assert.equal(
-  (await call('/result', { ...run, mode: 'play', result: valid })).status,
+  (await call('/result', { ...run, mode: 'challenge', result: valid })).status,
   400,
   'instant completion rejected'
 );
@@ -131,13 +136,17 @@ assert.equal(
   (
     await call('/result', {
       ...run,
-      mode: 'play',
+      mode: 'challenge',
       result: { ...valid, shots: 4 },
     })
   ).status,
   400
 );
-const saved = await call('/result', { ...run, mode: 'play', result: valid });
+const saved = await call('/result', {
+  ...run,
+  mode: 'challenge',
+  result: valid,
+});
 assert.equal(saved.status, 200);
 assert.equal(saved.body.score.me.value, 500);
 assert.equal(saved.body.speed.me.value, 100);
@@ -149,7 +158,7 @@ assert.equal(
   'record day is fixed at first completion'
 );
 assert.equal(
-  (await call('/result', { ...run, mode: 'play', result: valid })).status,
+  (await call('/result', { ...run, mode: 'challenge', result: valid })).status,
   200,
   'same result retry is idempotent'
 );
@@ -157,7 +166,7 @@ assert.equal(
   (
     await call('/result', {
       ...run,
-      mode: 'play',
+      mode: 'challenge',
       result: { ...valid, score: 600 },
     })
   ).status,
@@ -168,7 +177,7 @@ const next = await start('two');
 age(next);
 await call('/result', {
   ...next,
-  mode: 'play',
+  mode: 'challenge',
   result: { ...valid, score: 400, fastestGoalKmh: 110 },
 });
 const boards = (await call('/leaders')).body;
@@ -177,7 +186,7 @@ assert.equal(boards.speed.me.value, 110, 'independent speed record');
 state.values.set('scorethread:t3_fk', 't1_scores');
 const shared = await call('/post-score', {
   ...next,
-  mode: 'play',
+  mode: 'challenge',
   comment: '',
   includeStats: true,
 });
@@ -189,7 +198,7 @@ assert.equal(
   (
     await call('/post-score', {
       ...next,
-      mode: 'play',
+      mode: 'challenge',
       comment: 'Nice run',
       includeStats: true,
     })
@@ -199,7 +208,7 @@ assert.equal(
 state.values.delete('cooldown:comment:t3_fk:alice');
 await call('/post-score', {
   ...next,
-  mode: 'play',
+  mode: 'challenge',
   comment: 'Nice run',
   includeStats: true,
 });
@@ -208,7 +217,7 @@ const race = await start('concurrent');
 age(race);
 const outcomes = await Promise.all(
   [600, 700].map((score) =>
-    call('/result', { ...race, mode: 'play', result: { ...valid, score } })
+    call('/result', { ...race, mode: 'challenge', result: { ...valid, score } })
   )
 );
 assert.deepEqual(
@@ -221,19 +230,20 @@ const tabA = await start('tab-a'),
 age(tabA);
 age(tabB);
 assert.equal(
-  (await call('/result', { ...tabA, mode: 'play', result: valid })).status,
+  (await call('/result', { ...tabA, mode: 'challenge', result: valid })).status,
   200,
   'another open run must not erase a completed run'
 );
 assert.equal(
-  (await call('/result', { ...tabB, mode: 'play', result: valid })).status,
+  (await call('/result', { ...tabB, mode: 'challenge', result: valid })).status,
   200
 );
 const blocked = await start('erase');
 age(blocked);
 state.values.set('privacy:deleting:alice', '1');
 assert.equal(
-  (await call('/result', { ...blocked, mode: 'play', result: valid })).status,
+  (await call('/result', { ...blocked, mode: 'challenge', result: valid }))
+    .status,
   400
 );
 state.values.delete('privacy:deleting:alice');

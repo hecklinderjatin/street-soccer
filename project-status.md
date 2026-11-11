@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Remove legacy Free Kick Play (2026-11-11):** remove the freekick expanded entry, freekick.html/bootstrap and the old unlimited-run browser fixture/command. All non-Practice Free Kick games now initialize the post-configured Challenge without a legacy mode flag or fallback goal-based progression. Keep only Challenge and selected-level Practice, including Restart. Remove legacy device-best writes and legacy results/share UI; Challenge retains its record save, leaderboard results and Join button. Records client sends Challenge only; API rejects Play mode for start/result/share. Historical Play receipt parsing remains solely for existing stored data/retention compatibility; it is not an enabled game entry or accepted submission. Refresh README and fixtures. Types/lint, 33 Free Kick rules/panel/API checks, normal/Challenge/Practice restart checks, actual Challenge UI and responsive feed/practice browser checks pass. No application build or live Reddit writes performed.
+
 **Free Kick result Join visibility (2026-11-11):** stop using the legacy self-confirmed popup-dismissal preference to suppress the new optional result button. Only a confirmed successful in-game join hides it. Position Join Community before the trusted Exit anchor on Free Kick Challenge/Play result actions (normal match action order unchanged). Source-only actual Challenge results test supplies full Reddit context and a preexisting popup preference, verifies visible Join between Play Again and Exit, and checks alignment at three sizes; screenshot inspected. Types/lint, community API/DOM and actual Free Kick UI checks pass. No application build or live joins performed.
 
 **Main merge (2026-11-11):** fast-forwarded `codex/inline-results-join` through `f1ac1cc` into main at the user’s request. Removes the automatic join popup/manual member option and adds one secondary Join Community button to existing normal/Free Kick result actions, without an extra screen or section. Preserve consent, diagnostics, thanks and known-join suppression. Existing types/lint and focused community checks pass. No application build or deployment performed.
@@ -744,6 +746,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Expose only Challenge and Practice, reject new legacy Play API requests, and retain read compatibility for existing records rather than deleting historical player data.
+
 - A preference to skip a removed popup must not hide a newly requested optional result button. Preserve suppression only for successfully confirmed subscriptions.
 
 - Use only a button in the existing results actions, as clarified by the user; do not add a community card or promotional section.
@@ -1162,6 +1166,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Native Reddit review of the two remaining Free Kick entries after the next user-run upload; old Play entry links should no longer be offered.
+
 - Native verification of Join Community between Play Again and Exit on Free Kick Challenge results after the next user-run upload.
 
 - Native review of the single secondary Join Community action in the existing normal/Free Kick result button group.
@@ -1567,6 +1573,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-11:** remove legacy Free Kick Play entry, bootstrap, device bests and result/share path; only Challenge and Practice remain and new Play submissions are rejected. Types/lint and focused rule/API/browser checks pass; no application build performed.
 
 - **2026-11-11:** fix Free Kick result Join visibility with legacy popup preferences and position it above Exit. Types/lint and focused community/actual UI checks pass; no application build performed.
 

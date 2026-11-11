@@ -1,10 +1,10 @@
 import { startEarlyDownloads } from './earlyAssets';
 
-// Free Kick challenge (its own expanded entrypoint): score a streak within
-// a fixed number of kicks. Unranked, so nothing is measured or saved.
+// The ranked Free Kick challenge uses the post creator's settings.
+// Practice is the only other Free Kick mode.
 startEarlyDownloads();
 void import('./freekick/game')
-  .then(({ createFreeKickGame }) => createFreeKickGame(false, 1, true))
+  .then(({ createFreeKickGame }) => createFreeKickGame())
   .catch((error: unknown) => {
     console.error('Could not load the Free Kick challenge', error);
   });

@@ -222,11 +222,11 @@ assert.equal(
 );
 scene.practice = false;
 scene.onOutcome({ outcome: 'wide' });
-assert.equal(scene.lives, 2, 'normal play still spends lives');
+assert.equal(scene.lives, 2, 'a non-practice miss still spends a life');
 scene.gameOver();
-assert.equal(savedBests, 1, 'normal play still saves its best score');
+assert.equal(savedBests, 0, 'Challenge does not write legacy Play device bests');
 console.log(
-  'Practice passed: unlimited attempts, same-spot retry, no level-up announcement, isolated best score and normal-run regression'
+  'Practice passed: unlimited attempts, same-spot retry, no level-up announcement, no legacy device-best writes'
 );
 
 // Intro cannot start play until the two info pages have been shown.

@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import {
   readFreeKickStats,
   rankFreeKicks,
@@ -522,7 +523,7 @@ check('keeper: higher levels allow for part of the curl', () => {
 });
 
 
-check('ranked Free Kick validates complete Play runs and keeps two independent bests', () => {
+check('historical Play receipts remain readable and boards keep two independent bests', () => {
   const result={mode:'play',score:500,goals:2,shots:5,bestStreak:2,level:2,fastestGoalKmh:100,elapsedSec:20};
   assert.ok(readFreeKickStats(result));
   for(const change of [{mode:'practice'},{shots:4},{score:100000},{goals:0},{level:10},{fastestGoalKmh:freeKickMaxKmh+1},{elapsedSec:0},{bestStreak:3}]) assert.equal(readFreeKickStats({...result,...change}),null);
@@ -652,6 +653,12 @@ check('challenge records: validate completed wins/losses against the post settin
   assert.ok(readFreeKickStats(loss,config));
   assert.equal(readFreeKickStats({...loss,shots:2},config),null);
   assert.equal(readFreeKickStats({...loss,greatSaves:1},config),null);
+});
+
+check('only Challenge and Practice remain registered Free Kick entries', () => {
+  const entries=JSON.parse(readFileSync('devvit.json','utf8')).post.entrypoints;
+  assert.equal(entries.freekick,undefined);
+  assert.ok(entries['freekick-challenge']);assert.ok(entries['freekick-practice']);
 });
 
 console.log(`\n${passed} checks passed`);

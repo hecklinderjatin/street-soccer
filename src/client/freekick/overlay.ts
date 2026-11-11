@@ -2,7 +2,10 @@ import { BALL_KEY } from '../art/ballArt';
 import Phaser from 'phaser';
 import { context } from '@devvit/web/client';
 import { FREE_KICK as FK } from '../../shared/tuning';
-import type { FreeKickChallengeConfig } from '../../shared/freeKickChallenge';
+import {
+  FREE_KICK_CHALLENGE_DEFAULT,
+  type FreeKickChallengeConfig,
+} from '../../shared/freeKickChallenge';
 import { DIFFICULTY_LABEL } from '../../shared/types';
 import { BODY, CARD, tag, tile } from '../ui/infoCard';
 import { PAL, PX } from '../ui/palette';
@@ -154,7 +157,9 @@ function detailsPage(
   buttonY: number
 ) {
   const practice = options.practice === true;
-  const challenge = options.challenge;
+  const challenge = practice
+    ? undefined
+    : (options.challenge ?? FREE_KICK_CHALLENGE_DEFAULT);
   items.push(
     pixelText(
       scene,
@@ -170,7 +175,7 @@ function detailsPage(
     ).setOrigin(0.5)
   );
   const entries = [
-    ['MODE', practice ? 'PRACTICE' : challenge ? 'CHALLENGE' : 'PLAY'],
+    ['MODE', practice ? 'PRACTICE' : 'CHALLENGE'],
     ['LIVES', practice ? 'UNLIMITED' : String(options.lives)],
     ['LEVEL', `${options.level} / ${FK.maxLevel}`],
     ['DISTANCE', `${options.metres} M`],
@@ -256,7 +261,9 @@ function helpPage(
   buttonY: number
 ) {
   const practice = options.practice === true;
-  const challenge = options.challenge;
+  const challenge = practice
+    ? undefined
+    : (options.challenge ?? FREE_KICK_CHALLENGE_DEFAULT);
   const sections: [string, string][] = [
     [
       '1. SET POWER',

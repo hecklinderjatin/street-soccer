@@ -83,7 +83,6 @@ const SOUND_FILES: readonly [string, string][] = [
   ['match-over', 'stop'],
   ['goal-miss', 'goal-miss'],
 ];
-const BEST_KEY = 'street-soccer-freekick-best';
 const SIDE_KEY = 'street-soccer-freekick-side';
 const HUD = 10_000_000; // over the whole world
 const R = BALL.radius;
@@ -116,22 +115,6 @@ function advice(play: KickPlay) {
   if (outcome === 'wide') return 'AIM INSIDE THE POSTS';
   if (outcome === 'post') return 'SO CLOSE! A LITTLE INSIDE';
   return '';
-}
-
-function readBest() {
-  try {
-    return Number(localStorage.getItem(BEST_KEY)) || 0;
-  } catch {
-    return 0; // storage can be unavailable inside an embedded browser
-  }
-}
-
-function writeBest(score: number) {
-  try {
-    localStorage.setItem(BEST_KEY, String(score));
-  } catch {
-    // the best only lasts this session
-  }
 }
 
 // Which side the kicker stands on: 1 right (controls on the left), -1 left.
@@ -233,7 +216,6 @@ export class FreeKickScene extends Phaser.Scene {
   private overlayLayer: Phaser.GameObjects.Container | null = null;
   private lifeIcons: Phaser.GameObjects.Image[] = [];
   private card: Phaser.GameObjects.GameObject[] = [];
-  private bestBefore = 0; // the device's best when this run ended
 
   constructor() {
     super('FreeKick');
@@ -244,11 +226,8 @@ export class FreeKickScene extends Phaser.Scene {
     this.practiceLevel = practiceLevel(
       this.registry.get('freekickPracticeLevel')
     );
-    this.challenge =
-      this.registry.get('freekickChallenge') === true
-        ? freeKickChallenge()
-        : null;
-    this.records = new FreeKickRecords(this.challenge ? 'challenge' : 'play');
+    this.challenge = this.practice ? null : freeKickChallenge();
+    this.records = new FreeKickRecords();
     this.maxLives = this.challenge?.lives ?? FK.lives;
     this.lives = this.maxLives;
     if (!this.ranked) this.measure = () => {};
@@ -373,11 +352,7 @@ export class FreeKickScene extends Phaser.Scene {
       this.setup = this.challenge
         ? challengeKick(this.challenge, this.goals, Math.random)
         : makeKick(
-            levelFor(
-              this.practice
-                ? (this.practiceLevel - 1) * FK.goalsPerLevel
-                : this.goals
-            ),
+            levelFor((this.practiceLevel - 1) * FK.goalsPerLevel),
             Math.random
           );
       this.lastPower = null;
@@ -450,9 +425,9 @@ export class FreeKickScene extends Phaser.Scene {
     };
   }
 
-  // A Play run (lives, levels, records), not practice or the challenge.
+  // Only Challenge submits records; Practice never does.
   private get ranked() {
-    return !this.practice && !this.challenge;
+    return !this.practice;
   }
 
   private setPhase(phase: Phase) {
@@ -545,7 +520,6 @@ export class FreeKickScene extends Phaser.Scene {
     if (outcome === 'goal') {
       this.fastestGoalKmh = Math.max(this.fastestGoalKmh, this.shotKmh);
       this.measure('first_goal');
-      const level = levelFor(this.goals).level;
       this.goals++;
       this.streak++;
       this.bestStreak = Math.max(this.bestStreak, this.streak);
@@ -555,7 +529,7 @@ export class FreeKickScene extends Phaser.Scene {
         ? challengeOutcome(this.goals, this.lives, this.challenge) === 'open' &&
           challengeRoundLevel(this.challenge.difficulty, this.goals) >
             this.setup.level.level
-        : this.ranked && levelFor(this.goals).level > level;
+        : false;
       // One line per style tag: all five side by side overflow the view.
       this.showBanner(
         'GOAL!',
@@ -567,10 +541,7 @@ export class FreeKickScene extends Phaser.Scene {
         ].join('\n'),
         true
       );
-      if (up)
-        this.hint = this.challenge
-          ? `ROUND ${this.goals + 1}: NEW ANGLE, TOUGHER DEFENCE`
-          : `LEVEL ${level + 1}! THE WALL GETS TOUGHER`;
+      if (up) this.hint = `ROUND ${this.goals + 1}: NEW ANGLE, TOUGHER DEFENCE`;
       this.sfx('goal-celebration');
       this.slowUntil = this.clock + FK.slowMoSec;
       if (!this.reducedMotion.matches) this.cameras.main.shake(220, 0.006);
@@ -634,15 +605,13 @@ export class FreeKickScene extends Phaser.Scene {
     this.setPhase('over');
     this.sfx('match-over');
     this.music?.stop();
-    this.bestBefore = readBest();
-    if (this.ranked && this.score > this.bestBefore) writeBest(this.score);
     this.showCard();
   }
 
   private restart() {
     this.resultScreen?.destroy();
     this.resultScreen = null;
-    this.records = new FreeKickRecords(this.challenge ? 'challenge' : 'play');
+    this.records = new FreeKickRecords();
     this.shots = this.shotKmh = this.fastestGoalKmh = 0;
     this.runStartedAt = 0;
     this.measure('rematch_tap');
@@ -1367,11 +1336,11 @@ export class FreeKickScene extends Phaser.Scene {
 
   // Results: score, goals, best streak and the best score on this device.
   private showCard() {
-    if (this.practice || this.resultScreen) return;
+    if (this.practice || this.resultScreen || !this.challenge) return;
     this.resultFx.hide();
     this.hintText.setText('');
     const stats: FreeKickStats = {
-      mode: this.challenge ? 'challenge' : 'play',
+      mode: 'challenge',
       score: this.score,
       goals: this.goals,
       shots: this.shots,
@@ -1386,17 +1355,12 @@ export class FreeKickScene extends Phaser.Scene {
     };
     this.resultScreen = freeKickResults(
       stats,
-      this.bestBefore,
       this.records,
       () => this.restart(),
-      this.challenge
-        ? {
-            won:
-              challengeOutcome(this.goals, this.lives, this.challenge) ===
-              'won',
-            config: this.challenge,
-          }
-        : undefined
+      {
+        won: challengeOutcome(this.goals, this.lives, this.challenge) === 'won',
+        config: this.challenge,
+      }
     );
   }
 }

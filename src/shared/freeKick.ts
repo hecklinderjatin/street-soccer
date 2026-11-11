@@ -5,7 +5,7 @@ import {
 import { FREE_KICK as FK, GOAL_FEEDBACK } from './tuning';
 
 export type FreeKickStats = {
-  mode: 'play' | 'challenge';
+  mode: 'play' | 'challenge'; // play is accepted only when reading historical receipts; API rejects it
   score: number;
   goals: number;
   shots: number;

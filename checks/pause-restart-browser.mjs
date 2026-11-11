@@ -109,11 +109,7 @@ try {
     await page.waitForTimeout(80);
   };
 
-  for (const entry of [
-    'freekick.html',
-    'freekick-challenge.html',
-    'freekick-practice.html',
-  ]) {
+  for (const entry of ['freekick-challenge.html', 'freekick-practice.html']) {
     await page.goto(base + '/' + entry + '?debug');
     if (entry.includes('practice')) {
       await page.locator('#practice-level').selectOption('3');
@@ -154,7 +150,9 @@ try {
       };
     });
     assert.ok(position.quitTop > position.restartBottom);
-    await page.screenshot({path:'/tmp/pause-' + entry.replace('.html','') + '.png'});
+    await page.screenshot({
+      path: '/tmp/pause-' + entry.replace('.html', '') + '.png',
+    });
     await page.mouse.click(position.x, position.y, { delay: 70 });
     await page.waitForTimeout(100);
     const after = await page.evaluate(() => {
@@ -191,7 +189,7 @@ try {
   assert.equal(posts.length, 0);
   assert.deepEqual(errors, []);
   console.log(
-    'Free Kick pause restart passed: Play, Challenge and chosen-level Practice reset progress, preserve settings, renew run IDs, clear pause UI and never save partial runs.'
+    'Free Kick pause restart passed: Challenge and chosen-level Practice reset progress, preserve settings, renew run IDs, clear pause UI and never save partial runs.'
   );
 } finally {
   await browser?.close();

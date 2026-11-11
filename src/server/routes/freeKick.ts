@@ -46,9 +46,9 @@ for (const action of ['start', 'result', 'post-score'] as const)
       if (
         !body ||
         typeof body !== 'object' ||
-        !['play', 'challenge'].includes(String(Reflect.get(body, 'mode')))
+        Reflect.get(body, 'mode') !== 'challenge'
       )
-        return c.json({ error: 'Ranked Play run required' }, 400);
+        return c.json({ error: 'Completed Challenge run required' }, 400);
       const id = freeKickRunId(Reflect.get(body, 'id'));
       if (!id) return c.json({ error: 'Invalid run' }, 400);
       if (action === 'start')
@@ -69,7 +69,7 @@ for (const action of ['start', 'result', 'post-score'] as const)
       const stats = await finishedFreeKick(context.postId!, username, run);
       if (!stats)
         return c.json(
-          { error: 'Save a completed Play run before sharing' },
+          { error: 'Save a completed Challenge run before sharing' },
           400
         );
       const raw: unknown = Reflect.get(body, 'comment');

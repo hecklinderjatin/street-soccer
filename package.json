@@ -17,7 +17,6 @@
     "test:freekick-ui-browser": "node checks/freekick-ui-browser.mjs",
     "test:pause-restart": "node checks/pause-restart.mjs && node checks/pause-restart-browser.mjs",
     "test:community": "node checks/community-server.mjs && node checks/community-join-browser.mjs",
-    "test:freekick-flow-browser": "node checks/freekick-flow-browser.mjs",
     "test:freekick-live-browser": "node checks/freekick-live-browser.mjs",
     "test:freekick-post-browser": "node checks/freekick-post-browser.mjs",
     "test:chaos-browser": "node checks/chaos-browser.mjs",
