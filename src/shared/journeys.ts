@@ -15,6 +15,8 @@ export const JOURNEY_MODES = [
   'shield',
   'rampage',
   'chaos',
+  'freekick-challenge',
+  'freekick-practice',
 ] as const;
 export const JOURNEY_OUTCOMES = [
   'win',
@@ -29,8 +31,13 @@ export type JourneySettings = {
   difficulty: MatchConfig['difficulty'] | 'rising';
   durationSec: number;
   rematch: boolean;
+  level?: number;
+  goalTarget?: number;
+  lives?: number;
 };
 export type JourneyResult = {
+  mode?: 'freekick-challenge' | 'freekick-practice';
+  points?: number;
   outcome: (typeof JOURNEY_OUTCOMES)[number];
   goalsFor: number;
   goalsAgainst: number;
@@ -113,14 +120,39 @@ export function readJourneySettings(body: unknown): JourneySettings | null {
     !difficulty ||
     !integer(durationSec, 300) ||
     typeof durationSec !== 'number' ||
-    durationSec < 30 ||
+    (!mode.startsWith('freekick-') && durationSec < 30) ||
     typeof rematch !== 'boolean'
   )
     return null;
+  if (mode === 'freekick-challenge' || mode === 'freekick-practice') {
+    const level: unknown = Reflect.get(body, 'level'),
+      goalTarget: unknown = Reflect.get(body, 'goalTarget'),
+      lives: unknown = Reflect.get(body, 'lives');
+    if (
+      difficulty === 'rising' ||
+      durationSec !== 0 ||
+      typeof level !== 'number' ||
+      !integer(level, 10) ||
+      level < 1 ||
+      typeof goalTarget !== 'number' ||
+      !integer(goalTarget, 20) ||
+      typeof lives !== 'number' ||
+      !integer(lives, 10) ||
+      (mode === 'freekick-challenge'
+        ? goalTarget < 1 || lives < 1
+        : goalTarget !== 0 || lives !== 0)
+    )
+      return null;
+    return { mode, difficulty, durationSec, rematch, level, goalTarget, lives };
+  }
   return { mode, difficulty, durationSec, rematch };
 }
 export function readJourneyResult(body: unknown): JourneyResult | null {
   if (!body || typeof body !== 'object') return null;
+  const mode: unknown = Reflect.get(body, 'mode');
+  const freeKick =
+    mode === 'freekick-challenge' || mode === 'freekick-practice';
+  if (mode !== undefined && !freeKick) return null;
   const outcome = JOURNEY_OUTCOMES.find(
     (v) => v === Reflect.get(body, 'outcome')
   );
@@ -132,11 +164,23 @@ export function readJourneyResult(body: unknown): JourneyResult | null {
     typeof goalsFor !== 'number' ||
     typeof goalsAgainst !== 'number' ||
     typeof elapsedSec !== 'number' ||
-    !integer(goalsFor, 99) ||
-    !integer(goalsAgainst, 99) ||
-    !integer(elapsedSec, 330)
+    !integer(goalsFor, freeKick ? 100_000 : 99) ||
+    !integer(goalsAgainst, freeKick ? 100_000 : 99) ||
+    !integer(elapsedSec, freeKick ? 86_400 : 330)
   )
     return null;
+  if (mode === 'freekick-challenge' || mode === 'freekick-practice') {
+    const points: unknown = Reflect.get(body, 'points');
+    if (
+      typeof points !== 'number' ||
+      !integer(points, 60_000_000) ||
+      (mode === 'freekick-practice'
+        ? outcome !== 'quit'
+        : !['cleared', 'failed', 'quit'].includes(outcome))
+    )
+      return null;
+    return { mode, points, outcome, goalsFor, goalsAgainst, elapsedSec };
+  }
   return { outcome, goalsFor, goalsAgainst, elapsedSec };
 }
 export const readJourneyId = (value: unknown) =>

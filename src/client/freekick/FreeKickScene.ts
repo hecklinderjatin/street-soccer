@@ -1,3 +1,9 @@
+import { createMatchJourney } from '../matchJourney';
+import { journeyAppReady, sendJourney } from '../journeys';
+import {
+  freeKickJourneySettings,
+  freeKickJourneyResult,
+} from '../../shared/freeKickJourneys';
 import { context, exitExpandedMode } from '@devvit/web/client';
 import { launchSpeedKmh } from '../../shared/goalSpeed';
 import type { FreeKickStats } from '../../shared/freeKick';
@@ -144,6 +150,8 @@ export class FreeKickScene extends Phaser.Scene {
   private phaseAt = 0; // clock time the phase began
   private clock = 0; // seconds since the scene started
 
+  private journey: ReturnType<typeof createMatchJourney> | null = null;
+  private journeyStartedAt: number | null = null;
   private practice = false;
   // A challenge run: this post's settings (goals to win with its lives,
   // its distance, wall and difficulty); null in Practice.
@@ -318,6 +326,8 @@ export class FreeKickScene extends Phaser.Scene {
     this.music.setMuted(soundMuted());
     this.music.play(); // or on the first touch, if the browser refuses
     this.newKick(false);
+    this.prepareJourney(false);
+    journeyAppReady();
     this.layout();
     this.drawWorld();
     this.introPending = true;
@@ -446,6 +456,7 @@ export class FreeKickScene extends Phaser.Scene {
   }
 
   private shoot(strike: Strike) {
+    this.beginJourney();
     if (this.shots === 0) {
       this.runStartedAt = this.clock;
       if (!this.practice) this.records.start();
@@ -600,13 +611,48 @@ export class FreeKickScene extends Phaser.Scene {
   private gameOver() {
     if (this.practice) return;
     this.measure('completed');
+    this.finishJourney(false);
     this.setPhase('over');
     this.sfx('match-over');
     this.music?.stop();
     this.showCard();
   }
 
+  private prepareJourney(rematch: boolean) {
+    this.journeyStartedAt = null;
+    this.journey = createMatchJourney(
+      freeKickJourneySettings(
+        freeKickChallenge(),
+        this.practice,
+        this.setup.level.level,
+        rematch
+      ),
+      sendJourney
+    );
+  }
+  private beginJourney() {
+    if (!this.journey || this.journeyStartedAt !== null) return;
+    this.journeyStartedAt = this.clock;
+    this.journey.start();
+  }
+  private finishJourney(quit: boolean) {
+    if (!this.journey || this.journeyStartedAt === null) return;
+    this.journey.end(
+      freeKickJourneyResult(
+        this.practice,
+        !!this.challenge &&
+          challengeOutcome(this.goals, this.lives, this.challenge) === 'won',
+        this.goals,
+        this.shots,
+        this.score,
+        this.clock - this.journeyStartedAt,
+        quit
+      )
+    );
+  }
+
   private restart() {
+    this.finishJourney(true);
     this.resultScreen?.destroy();
     this.resultScreen = null;
     this.records = new FreeKickRecords();
@@ -622,6 +668,7 @@ export class FreeKickScene extends Phaser.Scene {
     this.hint = '';
     this.sfx('match-start');
     this.newKick(false);
+    this.prepareJourney(true);
     this.music?.play();
     this.introPending = true;
     this.setOverlay('details');
@@ -1221,7 +1268,10 @@ export class FreeKickScene extends Phaser.Scene {
       !skipIntro
     )
       which = 'help';
-    else if (which === null) this.introPending = false;
+    else if (which === null) {
+      if (this.introPending) this.beginJourney();
+      this.introPending = false;
+    }
     this.overlay = which;
     // Releasing a held control while opening/closing a panel cannot shoot.
     this.resetGesture();
@@ -1293,7 +1343,10 @@ export class FreeKickScene extends Phaser.Scene {
     quit.addEventListener('click', (event) => {
       this.resetGesture();
       this.music?.stop();
-      if (this.phase !== 'over') this.measure('quit');
+      if (this.phase !== 'over') {
+        this.measure('quit');
+        this.finishJourney(true);
+      }
       if (context?.postId) {
         event.preventDefault();
         exitExpandedMode(event);

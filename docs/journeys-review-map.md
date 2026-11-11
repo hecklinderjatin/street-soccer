@@ -17,20 +17,38 @@ start a journey. A fresh ID is requested for every rematch.
 
 For this map, `complete: true` means the **attempt finished and reached results**,
 not that the player won. `game.win` separately records a win/challenge clear;
-`game.score` is the player's final goals. Explicit quits use `complete: false`
+`game.score` is the player's final goals in normal matches, or final points in Free Kick Challenge. Explicit quits use `complete: false`
 and omit `game`. The `outcome` value distinguishes win/loss/draw/cleared/failed/quit.
 There are no progress events or per-input events in this version.
 
+## Free Kick lifecycle
+
+Challenge and Practice use the same tracker as normal matches. Reading either
+briefing page or choosing a Practice level does not start an attempt. Releasing
+START GAME or PLAY starts it; the first shot is a guarded fallback. Challenge
+ends once on clear/failure, with points as SDK game score. Practice ends only
+on explicit Quit/Restart, as incomplete (`outcome: quit`, no SDK game result).
+Practice retries and New Spot keep the same journey and remain unranked.
+Pause/help do not end or duplicate attempts. Restart ends the current started
+attempt as quit; Restart/Play Again prepare a fresh tracker and wait for the
+next explicit start. No shot-by-shot progress events are emitted.
+
 ## Allowed custom fields
 
-- `mode`: classic, daily (legacy), casual, comeback, shield, rampage, chaos.
+- `mode`: classic, daily (legacy), casual, comeback, shield, rampage, chaos,
+  freekick-challenge, freekick-practice.
 - `difficulty`: noob, easy, normal, hard, pro, rising (Rampage).
-- `durationSec`: configured integer, 30–300.
-- `rematch`: boolean, true only for the result screen's rematch action.
+- `durationSec`: configured integer, 30–300 for normal matches; 0 for untimed Free Kick.
+- Free Kick start fields: `level` 1–10, `goalTarget` 1–20 and `lives` 1–10
+  for Challenge. Practice uses its selected level and zero target/lives (unlimited).
+- `rematch`: boolean; true for rematches and Free Kick restarts after the first attempt.
 - `outcome`: win, loss, draw, cleared, failed, quit.
-- `goalsFor` / `goalsAgainst`: integers, 0–99.
+- `goalsFor` / `goalsAgainst`: integers, 0–99 for normal matches. Free Kick uses
+  goals/misses respectively, bounded to 100,000; `points` is an integer 0–60,000,000.
+  Free Kick results include their fixed `mode` to select the appropriate schema.
 - `elapsedSec`: live match-clock seconds, integer 0–330 including Classic/Casual
-  golden goal; excludes pauses and goal celebrations.
+  golden goal; excludes pauses and goal celebrations. Free Kick uses active game
+  seconds (including between-shot play), bounded to 86,400; paused panels stop its clock.
 
 The backend rebuilds these fields from an allowlist. It does not forward raw
 request JSON. Action names are fixed in server code and details contain only
@@ -77,7 +95,10 @@ context independently; this is not anonymous analytics.
    rebuild/redeploy both client and server. Disabled builds send no Journeys
    requests; the backend also returns empty responses without invoking the SDK.
 
-Local checks: `npm run test:journeys` covers the Hono/SDK boundary with a mock
+Local checks: `npm run test:freekick-journeys-browser` serves actual Free Kick
+source with mocked endpoints, checking Challenge/Practice start, pause, New Spot,
+restart, results, replay, explicit quit and denied receipts without an app build.
+`npm run test:journeys` covers the Hono/SDK boundary with a mock
 transport. `npm run test:journeys-browser` tests a running normal (enabled) build,
 including rejection, offline and timeout handling. It intercepts all telemetry
 routes, so no analytics reaches Reddit. To verify the kill switch, build with
@@ -87,4 +108,4 @@ after testing.
 
 Sources: [Devvit Journeys](https://developers.reddit.com/docs/capabilities/analytics/devvit-journeys)
 and its [official documentation source](https://github.com/reddit/devvit-docs/blob/main/docs/capabilities/analytics/devvit-journeys.md),
-plus the installed `@devvit/analytics@0.15.1` API.
+plus the installed `@devvit/analytics@0.15.3` API.

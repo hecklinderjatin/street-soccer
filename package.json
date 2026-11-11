@@ -37,6 +37,7 @@
     "test:dependencies": "node checks/dependency-check.mjs",
     "postinstall": "node scripts/patch-glob-compat.mjs",
     "test:journeys": "rolldown checks/journeys-check.ts --platform node --format esm -o node_modules/.cache/journeys-check.mjs && node node_modules/.cache/journeys-check.mjs",
+    "test:freekick-journeys-browser": "node checks/freekick-journeys-browser.mjs",
     "test:journeys-browser": "node checks/journeys-browser.mjs"
   },
   "engines": {

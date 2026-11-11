@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Free Kick Journeys (2026-11-11):** add Challenge and Practice to the existing Reddit Journeys lifecycle. Interactive ready emits once per page; committed START GAME/PLAY (guarded first-shot fallback) starts one attempt. Challenge clear/failure ends with points; Practice only ends on explicit Quit/Restart as incomplete. Pause/help, same-spot retry and New Spot retain the same tracker. Restart ends the old started attempt and prepares a rematch tracker; Restart/Play Again wait for intro commitment before requesting a fresh ID. Keep Practice unranked. Extend bounded allowlists with fixed Free Kick modes, no-clock duration, starting level/target/lives, points and active seconds; no per-shot events or free text. Types/lint, Journeys SDK/API checks, 34 Free Kick rules/panel/API checks and actual source-only mocked Challenge/Practice browser lifecycle checks pass. No application build, live telemetry, review submission or deployment performed. Reddit approval/allowlisting remains unverified.
+
 **Practice aligned with Challenge (2026-11-11):** replace Practice’s legacy random setup generator with practiceKick using the same configuredKick implementation as Challenge: post shot-distance range, wall placement/gap and level-based angle/keeper/wall settings, with the chosen Practice level held fixed. Same kits already flow from startingConfig. Keep unlimited same-spot attempts, no life loss/level escalation, New Spot using the same post geometry, Restart preserving the chosen level, and no record submissions. Refresh Practice entry to the navy/pixel card theme, show post distance/wall/kits, default level to Challenge’s starting difficulty, and remove stale normal-best copy. Types/lint, 34 Free Kick rules/panel/API checks and source-only feed/setup/restart/Challenge UI checks pass. Geometry checks compare Practice and Challenge with identical seeds and verify fixed levels across difficulty settings; actual Practice setup screenshot inspected. No application build or live Reddit writes performed.
 
 **Remove legacy Free Kick Play (2026-11-11):** remove the freekick expanded entry, freekick.html/bootstrap and the old unlimited-run browser fixture/command. All non-Practice Free Kick games now initialize the post-configured Challenge without a legacy mode flag or fallback goal-based progression. Keep only Challenge and selected-level Practice, including Restart. Remove legacy device-best writes and legacy results/share UI; Challenge retains its record save, leaderboard results and Join button. Records client sends Challenge only; API rejects Play mode for start/result/share. Historical Play receipt parsing remains solely for existing stored data/retention compatibility; it is not an enabled game entry or accepted submission. Refresh README and fixtures. Types/lint, 33 Free Kick rules/panel/API checks, normal/Challenge/Practice restart checks, actual Challenge UI and responsive feed/practice browser checks pass. No application build or live Reddit writes performed.
@@ -748,6 +750,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Free Kick reuses createMatchJourney and the existing nonblocking SDK adapter. Challenge completion means reaching a terminal result (clear or fail); Practice exits/restarts remain incomplete and do not submit ranked records. Report untimed settings as durationSec 0, explicit numeric level/target/lives and bounded points/active seconds. Reading instructions and Practice New Spot never split attempts.
+
 - Practice should train the Challenge on that post, not use the old unrelated random distances. Share geometry generation while keeping unlimited attempts, fixed selected level and ranking isolation.
 
 - Expose only Challenge and Practice, reject new legacy Play API requests, and retain read compatibility for existing records rather than deleting historical player data.
@@ -1170,6 +1174,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Review and merge pending Free Kick cleanup, Practice parity and Journeys changes when requested. Validate accepted Free Kick receipts on the approved/allowlisted Reddit app; local mocks establish lifecycle behavior only.
+
 - Native review of refreshed Practice setup, Challenge-matching distances/wall placement and fixed-level retries/New Spot after the next user-run upload.
 
 - Native Reddit review of the two remaining Free Kick entries after the next user-run upload; old Play entry links should no longer be offered.
@@ -1274,7 +1280,7 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 - Playtest the on-ball frame, vertical power slider and dedicated shooting pad on a phone in Reddit (feed card -> PLAY FREE KICK -> expanded). Tune the strike and difficulty curve from real play.
 
-- Free Kick follow-ups (not built): a server leaderboard or daily best, Journeys/games-played tracking, hiding the power band at high levels.
+- Free Kick follow-ups: hiding the power band at high levels and any separate games-played counting. Challenge boards and Challenge/Practice Journeys are implemented; live Journeys ingestion still needs Reddit approval/allowlisting.
 
 - Push main when requested, then playtest selecting and applying a post flair in Reddit after the next build/upload.
 
@@ -1579,6 +1585,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-11:** add Challenge/Practice Free Kick Journeys with intentional start, terminal Challenge results, explicit Quit/Restart, fresh rematch IDs and uninterrupted Practice retries/New Spot. Extend fixed bounded settings/results schema and document scoring/privacy/review scope. Types/lint, SDK/API lifecycle and 34 Free Kick rules/panel/API checks plus source-only mocked browser lifecycle checks pass; no app build or live telemetry/deployment.
 
 - **2026-11-11:** update Practice to the post’s Challenge geometry and styling, default to its starting level, and preserve unlimited unranked fixed-level training. Types/lint and rule/API/source-browser checks pass; no application build performed.
 

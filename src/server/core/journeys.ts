@@ -80,7 +80,7 @@ export function createJourneyRoutes(
         : {
             game: {
               win: result.outcome === 'win' || result.outcome === 'cleared',
-              score: result.goalsFor,
+              score: result.points ?? result.goalsFor,
             },
           }),
     });

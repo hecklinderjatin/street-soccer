@@ -69,7 +69,7 @@ The server checks integer speed bounds, a scored goal and at least one shot, app
 
 ## Match analytics
 
-Reddit Journeys integration is **enabled by default** at the app owner’s request. The proposed map records interactive readiness, a committed match start/rematch, terminal results and explicit quits. Custom fields are limited to predefined mode, difficulty, duration, outcome, goals and elapsed match time; team names, usernames, Reddit IDs and free text are not added. Reddit supplies its standard contextual metadata. Tracking never blocks gameplay, and watching the AI preview does not start a journey.
+Reddit Journeys integration is **enabled by default** at the app owner’s request. The proposed map records interactive readiness, a committed match start/rematch, terminal results and explicit quits. Free Kick Challenge and Practice use the same lifecycle, including explicit Quit/Restart; Practice retries and New Spot stay in one unranked session. Custom fields are limited to predefined mode, difficulty, duration, outcome, goals, elapsed time and Free Kick level/target/lives/points; team names, usernames, Reddit IDs and free text are not added. Reddit supplies its standard contextual metadata. Tracking never blocks gameplay, and watching the AI preview does not start a journey.
 
 The app declares the Journeys permission and attempts tracking, but Reddit accepts events only after map approval and app allowlisting. No second code change is needed once Reddit grants access to a deployed enabled build. To disable tracking, build both client and server with `STREET_SOCCER_JOURNEYS_ENABLED=false`. See [the review map and activation guide](docs/journeys-review-map.md). No review submission, upload or publication is performed by this change. No third-party collector is configured. Platform analytics is managed by Reddit; the existing deletion tool covers our app’s Redis data.
 
@@ -113,6 +113,7 @@ Run these in WSL from this folder:
 - `npm run test:casual-browser`: browser interaction checks against a running local build (install Playwright Chromium first, or set `CHROMIUM_PATH` to a system Chromium)
 - `npm run test:chaos-browser`: test Chaos preview geometry, actual shots/goals, percentage rules, replay and Custom isolation with mocked Reddit APIs
 - `npm run test:journeys`: check tracking boundaries, privacy allowlists, denial/failure handling and rematch lifecycle
+- `npm run test:freekick-journeys-browser`: check actual Free Kick source tracking with mocked endpoints, without an app build
 - `npm run test:journeys-browser`: check a local build’s tracking hooks with mocked Reddit endpoints
 - `npm run test:games`: completed-game counter regression checks for concurrent retries, failed commits, lost replies, expiry and deletion
 - `npm run test:privacy`: regression checks for deletion isolation, account lookup failures and mandatory score-thread pinning

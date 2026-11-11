@@ -1,3 +1,8 @@
+import {
+  freeKickJourneySettings,
+  freeKickJourneyResult,
+} from '../src/shared/freeKickJourneys';
+import { FREE_KICK_CHALLENGE_DEFAULT } from '../src/shared/freeKickChallenge';
 import assert from 'node:assert/strict';
 import { createJourneyRoutes } from '../src/server/core/journeys';
 import {
@@ -13,7 +18,11 @@ import {
 } from '../src/shared/journeys';
 import { DEFAULT_MATCH_CONFIG } from '../src/shared/matchConfig';
 
-assert.equal(journeysEnabled, false, 'non-Vite test bundles safely omit telemetry');
+assert.equal(
+  journeysEnabled,
+  false,
+  'non-Vite test bundles safely omit telemetry'
+);
 const settings = journeySettings(
   { ...DEFAULT_MATCH_CONFIG, dailyMode: 'survival' },
   'daily',
@@ -232,6 +241,80 @@ await flush(); // no rejection escapes
 const neverResponds = createMatchJourney(settings, () => new Promise(() => {}));
 neverResponds.start();
 neverResponds.end(result); // returns immediately
+// Free Kick uses no match clock and bounded numeric settings only.
+const fk = freeKickJourneySettings(
+  FREE_KICK_CHALLENGE_DEFAULT,
+  false,
+  3,
+  false
+);
+assert.equal(fk.mode, 'freekick-challenge');
+assert.equal(fk.durationSec, 0);
+assert.deepEqual(
+  readJourneySettings({ ...fk, username: 'private', kit: 'pink' }),
+  fk
+);
+assert.equal(readJourneySettings({ ...fk, durationSec: 60 }), null);
+assert.equal(readJourneySettings({ ...fk, level: 11 }), null);
+const practice = freeKickJourneySettings(
+  FREE_KICK_CHALLENGE_DEFAULT,
+  true,
+  7,
+  true
+);
+assert.deepEqual(readJourneySettings(practice), practice);
+assert.equal(readJourneySettings({ ...practice, lives: 3 }), null);
+const cleared = freeKickJourneyResult(false, true, 5, 7, 2400, 600.2, false);
+assert.deepEqual(readJourneyResult(cleared), cleared);
+assert.equal(cleared.outcome, 'cleared');
+assert.equal(cleared.elapsedSec, 601);
+assert.equal(
+  freeKickJourneyResult(false, false, 1, 4, 300, 400, false).outcome,
+  'failed'
+);
+assert.equal(readJourneyResult({ ...cleared, mode: 'classic' }), null);
+assert.equal(
+  readJourneyResult({ ...result, elapsedSec: 601 }),
+  null,
+  'normal match bounds stay unchanged'
+);
+assert.equal(readJourneyResult({ ...cleared, points: Infinity }), null);
+const practiceQuit = freeKickJourneyResult(
+  true,
+  false,
+  120,
+  200,
+  25000,
+  3600,
+  true
+);
+assert.deepEqual(readJourneyResult(practiceQuit), practiceQuit);
+assert.equal(readJourneyResult({ ...practiceQuit, outcome: 'cleared' }), null);
+const fkAttempt = createMatchJourney(fk, send);
+const initialCalls = calls.length;
+fkAttempt.start();
+fkAttempt.start();
+await flush();
+fkAttempt.end(cleared);
+fkAttempt.end(cleared);
+await flush();
+const fkEnd = calls.slice(initialCalls).find((c) => c.event === 'end');
+assert.ok(fkEnd);
+assert.equal(Reflect.get(fkEnd.data ?? {}, 'complete'), true);
+assert.equal(
+  Reflect.get(Reflect.get(fkEnd.data ?? {}, 'game') ?? {}, 'score'),
+  2400
+);
+const practiceAttempt = createMatchJourney(practice, send);
+const practiceCalls = calls.length;
+practiceAttempt.start();
+await flush();
+practiceAttempt.end(practiceQuit);
+await flush();
+const practiceEnd = calls.slice(practiceCalls).find((c) => c.event === 'end');
+assert.ok(practiceEnd);
+assert.equal(Reflect.get(practiceEnd.data ?? {}, 'complete'), false);
+assert.equal(Reflect.get(practiceEnd.data ?? {}, 'game'), undefined);
 console.log(
   'Journeys passed: disabled gate, DTO privacy, Hono/SDK integration, denial/outage, single-end, rematch IDs, delayed starts and explicit quits'
 );
