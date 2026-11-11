@@ -242,7 +242,7 @@ export function freeKickResults(
       posting = false;
     }
   }
-  const community = communityJoin(screen.element, true);
+  const community = communityJoin(screen.element);
   void save();
   return {
     destroy() {

@@ -4,7 +4,7 @@ import { pixelLabel } from './pixelLabel';
 
 // Optional results action, never an interstitial or a membership requirement.
 // The SDK cannot read prior membership; honor confirmed joins/skip preferences.
-export function communityJoin(results: HTMLElement, portrait = false) {
+export function communityJoin(results: HTMLElement) {
   const key =
     context?.userId && context?.subredditId
       ? `street-soccer:joined:${context.userId}:${context.subredditId}`
@@ -20,21 +20,10 @@ export function communityJoin(results: HTMLElement, portrait = false) {
   }
   if (!context?.postId || !context.subredditName || known)
     return { destroy() {} };
-  const root = document.createElement('section');
-  root.className = `results-community${portrait ? ' is-portrait' : ''}`;
-  root.setAttribute('aria-label', 'Join the community');
-  const copy = document.createElement('div');
-  const title = document.createElement('strong');
-  title.textContent = 'Enjoyed the match?';
-  const description = document.createElement('p');
-  description.textContent = `Join r/${context.subredditName} for new challenges and game updates.`;
-  copy.append(title, description);
-  const note = document.createElement('p');
-  note.className = 'results-community-note';
-  note.textContent =
-    'Optional. Reddit will ask for permission. Joining won’t post anything on your behalf.';
+  const actions = results.querySelector('.results-actions');
+  if (!actions) return { destroy() {} };
   const status = document.createElement('p');
-  status.className = 'results-community-status';
+  status.className = 'community-join-status';
   status.setAttribute('role', 'status');
   let pending = false,
     disposed = false;
@@ -45,6 +34,9 @@ export function communityJoin(results: HTMLElement, portrait = false) {
     },
     true
   );
+  join.classList.add('community-join-button');
+  join.title =
+    'Optional. Reddit will ask for permission. Joining won’t post anything on your behalf.';
   async function subscribe(event: MouseEvent) {
     if (pending || disposed) return;
     if (!context.userId) {
@@ -99,9 +91,6 @@ export function communityJoin(results: HTMLElement, portrait = false) {
       }
       if (!disposed) {
         join.hidden = true;
-        title.textContent = 'Welcome to the community!';
-        description.textContent = `r/${context.subredditName}`;
-        note.hidden = true;
         status.textContent = 'Thanks for joining! Welcome to the street.';
         status.classList.add('is-success');
       }
@@ -119,14 +108,13 @@ export function communityJoin(results: HTMLElement, portrait = false) {
       }
     }
   }
-  root.append(copy, join, note, status);
-  const actions = results.querySelector('.results-actions');
-  if (actions?.parentElement) actions.before(root);
-  else (results.querySelector('.results-panel') ?? results).append(root);
+  actions.append(join);
+  actions.after(status);
   return {
     destroy() {
       disposed = true;
-      root.remove();
+      join.remove();
+      status.remove();
     },
   };
 }

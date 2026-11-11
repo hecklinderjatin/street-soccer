@@ -52,8 +52,12 @@ export class ResultScene extends Phaser.Scene {
       this.scene.start('Match', { ...r.config, rematch: true });
     };
     const screen = resultsScreen(r, currentPostType());
-    const community = communityJoin(screen.element);
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => community.destroy());
+    const addJoinButton = () => {
+      const community = communityJoin(screen.element);
+      this.events.once(Phaser.Scenes.Events.SHUTDOWN, () =>
+        community.destroy()
+      );
+    };
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => screen.destroy());
     if (r.config.mode === 'casual') {
       screen.actions.append(
@@ -68,6 +72,7 @@ export class ResultScene extends Phaser.Scene {
           true
         )
       );
+      addJoinButton();
       return;
     }
     const post = casualButton(
@@ -80,6 +85,7 @@ export class ResultScene extends Phaser.Scene {
       post,
       casualButton('PLAY CUSTOM', () => this.scene.start('Casual'), true)
     );
+    addJoinButton();
     void this.saveResult(screen.fillBoard);
   }
 

@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Join as a result action button only (2026-11-11):** simplify the previous inline section at the user’s clarification: append one secondary Join Community button directly to the existing result action group in normal and Free Kick. Remove the separate heading, marketing copy, container and visible note; retain permission explanation in the button title and concise status only after a click. Mount after existing actions to preserve primary-button order/styles. Results remain immediately usable, with no added screen/modal/section. Keep native consent, diagnostics, success thanks and known-join suppression. Types/lint and focused community API/browser checks pass, asserting the Join button is the last existing action. No application build/live writes performed.
+
 **Optional inline results Join (2026-11-11):** remove the automatic community popup and its fixed backdrop, modal role, hidden/inert results gating, focus trap and Continue interstitial. Replace communityPrompt with shared communityJoin: small Enjoyed the match copy and a secondary Join Community button below stats/leaderboards and before the primary results actions in normal and Free Kick results. Keep all results/actions immediately usable even during consent/subscription. Preserve permission note, explicit trusted click/native consent, diagnostics, successful-join thanks and account/community/device suppression (including earlier skip preferences). No manual Already Joined or Retry controls. Rename/remove old popup code, CSS and browser fixture; update test:community. Types/lint, community API/inline browser checks and actual Free Kick results UI checks pass; screenshot inspected. No application build or live Reddit writes performed.
 
 **Remove manual member option (2026-11-11):** user clarified that existing members must skip the popup, not see an Already Joined option. Remove that control and its styles, restore two-button focus handling. Preserve suppression for confirmed in-game joins and previously stored self-confirmed preferences so those users skip the screen without further interaction. True first-visit automatic membership detection remains blocked by SDK access; do not claim this change solves externally created memberships. Types/lint and focused community checks pass; no application build/live writes performed.
@@ -738,6 +740,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Use only a button in the existing results actions, as clarified by the user; do not add a community card or promotional section.
+
 - Make joining an optional secondary result action instead of a blocking screen. This avoids obstructing existing members without pretending the SDK can verify their membership.
 
 - Remove the rejected manual membership button while honoring existing stored skip preferences. Do not substitute the app account membership list or a subscription write for an unavailable player membership check.
@@ -1152,6 +1156,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Native review of the single secondary Join Community action in the existing normal/Free Kick result button group.
+
 - Native review of inline Join Community on normal and Free Kick results after the next user-run upload. Subscription permission issues remain diagnosable by their server log reference; they no longer interrupt results.
 
 - Automatic suppression for members who joined outside the game still requires Reddit-supported player membership access. This requirement remains incomplete; the manual option has been removed.
@@ -1553,6 +1559,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-11:** reduce results Join UI to one existing-action-group button, removing the extra section and copy. Types/lint and focused checks pass; no build performed.
 
 - **2026-11-11:** remove blocking join popup, add optional inline Join Community below result leaderboards, and preserve consent/diagnostics/success suppression. Types/lint and focused API/DOM/Free Kick browser checks pass; no application build performed.
 

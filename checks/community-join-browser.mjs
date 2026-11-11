@@ -92,8 +92,7 @@ try {
         window.played++;
       document.querySelector('.results-actions button').focus();
       window.community = window.communityJoin(
-        document.querySelector('#results'),
-        p
+        document.querySelector('#results')
       );
     }, portrait);
   for (const [width, height, portrait] of [
@@ -124,8 +123,8 @@ try {
         .locator('.results-panel')
         .evaluate((e) =>
           e
-            .querySelector('.results-board')
-            .nextElementSibling.classList.contains('results-community')
+            .querySelector('.results-actions')
+            .lastElementChild.classList.contains('community-join-button')
         ),
       true
     );
@@ -182,7 +181,7 @@ try {
   await page.evaluate(() => window.resolveConsent(true));
   await page.waitForFunction(() =>
     document
-      .querySelector('.results-community-status.is-success')
+      .querySelector('.community-join-status.is-success')
       ?.textContent.includes('Thanks')
   );
   assert.equal(
@@ -193,10 +192,10 @@ try {
   );
   assert.equal(await page.evaluate(() => window.writes), 2);
   await open(true);
-  assert.equal(await page.locator('.results-community').count(), 0);
+  assert.equal(await page.locator('.community-join-button').count(), 0);
   await page.evaluate(() => (window.context.userId = 't2_other'));
   await open(true);
-  assert.equal(await page.locator('.results-community').count(), 1);
+  assert.equal(await page.locator('.community-join-button').count(), 1);
   await page
     .getByRole('button', { name: 'JOIN COMMUNITY', exact: true })
     .click();
@@ -206,7 +205,7 @@ try {
   });
   await page.waitForTimeout(20);
   assert.equal(await page.evaluate(() => window.writes), 2);
-  assert.equal(await page.locator('.results-community').count(), 0);
+  assert.equal(await page.locator('.community-join-button').count(), 0);
   await page.evaluate(() =>
     localStorage.setItem(
       'street-soccer:joined:t2_other:t5_s:self-confirmed',
@@ -214,7 +213,7 @@ try {
     )
   );
   await open(true);
-  assert.equal(await page.locator('.results-community').count(), 0);
+  assert.equal(await page.locator('.community-join-button').count(), 0);
   assert.deepEqual(errors, []);
   console.log(
     'Inline results Join passed: immediate usable results, no popup/focus trap, placement, responsive layout, consent/error/success, no retry, suppression and cleanup.'
