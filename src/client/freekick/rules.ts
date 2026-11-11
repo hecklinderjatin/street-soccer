@@ -1,6 +1,7 @@
 import { BALL, FREE_KICK as FK, PITCH } from '../../shared/tuning';
 import {
   freeKickRoundLevel,
+  infinityTier,
   challengeProgress,
   challengeRandom,
   type FreeKickChallengeConfig,
@@ -906,7 +907,7 @@ export const greatSavePoints = (xgot: number) =>
 // level for that round, a fixed per-post angle, the spot within
 // FK.challengeDistanceRangeM of the post's distance (never nearer than
 // FK.challengeNearestM nor beyond FK.maxDistance) and the wall at the
-// post's distance from goal.
+// post's distance from the ball.
 export function challengeKick(
   config: FreeKickChallengeConfig,
   round: number,
@@ -918,9 +919,29 @@ export function challengeKick(
       ? (FK.maxLevel - FK.infinityStartLevel) * FK.infinityGoalsPerLevel + 1
       : config.goals
   );
-  const level = levelFor(
+  const base = levelFor(
     (freeKickRoundLevel(config, round) - 1) * FK.goalsPerLevel
   );
+  // Infinity past level 10: each Pro+ tier a likelier jumping wall and a
+  // quicker, surer keeper (and, below, a further and wider spot).
+  const tier = config.mode === 'infinity' ? infinityTier(round) : 0;
+  const level = tier
+    ? {
+        ...base,
+        wallJumpChance: Math.min(
+          0.95,
+          base.wallJumpChance + tier * FK.infinityTierJumpChance
+        ),
+        reactSec: Math.max(
+          0.1,
+          base.reactSec - tier * FK.infinityTierReactSec
+        ),
+        readNoise: Math.max(
+          2,
+          base.readNoise - tier * FK.infinityTierReadNoise
+        ),
+      }
+    : base;
   const rand = challengeRandom(
     postId,
     config.mode === 'infinity' && progress === 1 ? `layout:${round}` : 'layout'
@@ -934,22 +955,35 @@ export function challengeKick(
   const angle =
     side *
     (round % 2 ? -1 : 1) *
-    level.maxAngle *
-    postAngle *
-    lerp(FK.challengeAngleShare[0], FK.challengeAngleShare[1], progress);
+    (level.maxAngle * postAngle *
+      lerp(FK.challengeAngleShare[0], FK.challengeAngleShare[1], progress) +
+      (tier * FK.infinityTierAngleDeg * Math.PI) / 180);
   const nearest = Math.max(
     FK.challengeNearestM,
     config.distanceM - FK.challengeDistanceRangeM
   );
   const furthest = Math.min(
     FK.maxDistance / FK.pxPerMetre,
-    config.distanceM + FK.challengeDistanceRangeM
+    config.distanceM +
+      FK.challengeDistanceRangeM +
+      tier * FK.infinityTierDistanceM
   );
+  const distance = lerp(nearest, furthest, progress) * FK.pxPerMetre;
   return makeKick(level, rand, {
-    distance: lerp(nearest, furthest, progress) * FK.pxPerMetre,
-    wallFromGoal: config.wallFromGoalM * FK.pxPerMetre,
+    distance,
+    wallFromGoal: postWallFromGoal(config, distance),
     angle,
   });
+}
+
+// The wall's distance from goal (world px) for a spot this far out: the
+// post's distance from the ball, but never nearer goal than
+// FK.challengeWallFromGoalM (a near spot pulls it toward the ball).
+function postWallFromGoal(config: FreeKickChallengeConfig, distance: number) {
+  return Math.max(
+    FK.challengeWallFromGoalM * FK.pxPerMetre,
+    distance - config.wallGapM * FK.pxPerMetre
+  );
 }
 
 // Practice uses the same post geometry as Challenge, at a fixed chosen level.
@@ -1004,7 +1038,7 @@ function configuredKick(
   );
   return makeKick(levelFor((level - 1) * FK.goalsPerLevel), rand, {
     distance,
-    wallFromGoal: config.wallFromGoalM * FK.pxPerMetre,
+    wallFromGoal: postWallFromGoal(config, distance),
   });
 }
 

@@ -188,3 +188,75 @@ body {
     gap: 10px;
   }
 }
+.practice-panel [hidden] {
+  display: none;
+}
+
+/* Practice's in-game setup: a sheet over the bottom of the view; what to
+   practise and the level apply as soon as they change. */
+.fk-practice-sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px max(14px, env(safe-area-inset-bottom));
+  background: #0c192a;
+  border-top: 3px solid #ffa300;
+  box-shadow: 0 -6px #0006;
+  color: #fff1e8;
+  font:
+    13px/1.4 ui-monospace,
+    monospace;
+  animation: fk-sheet-up 180ms ease-out;
+}
+@keyframes fk-sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fk-practice-sheet {
+    animation: none;
+  }
+}
+.fk-practice-sheet header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #ffec27;
+  font-size: 13px;
+}
+.fk-practice-sheet .fk-ps-done {
+  min-height: 40px;
+  padding: 6px 16px;
+}
+.fk-ps-row {
+  display: grid;
+  gap: 6px;
+}
+.fk-ps-row[hidden] {
+  display: none;
+}
+.fk-ps-label {
+  color: #a8b9cd;
+  font-size: 10px;
+}
+.fk-practice-sheet select {
+  font: inherit;
+  font-size: 16px;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid #58718c;
+  border-radius: 0;
+  background: #22354c;
+  color: #fff1e8;
+}
+.fk-practice-sheet select:focus-visible,
+.fk-practice-sheet button:focus-visible {
+  outline: 3px solid #ffec27;
+  outline-offset: 2px;
+}

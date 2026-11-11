@@ -1092,12 +1092,23 @@ export const FREE_KICK = {
   approachScale: 0.6, // ... at this speed
   timeEaseRate: 14, // the play speed eases toward its target this fast (1/s), never a hard cut
   trailFadeSec: 1.1, // the flight trail fades out this long after the kick is decided
+  ghostAlpha: 0.22, // Practice: the last shot's path stays this faint until the next strike
   // Challenge (user request, 2026-11-11): the post's creator sets the kits,
   // lives, goals to win, shot distance, wall distance from goal and
   // difficulty (shared/freeKickChallenge.ts). Each round (a new spot after
   // a goal) follows a fixed per-post sequence, progressively harder to its target.
   infinityStartLevel: 2, // Infinity begins at Easy
-  infinityGoalsPerLevel: 2, // two scored goals raise the level; continue at Pro after level 10
+  infinityGoalsPerLevel: 2, // two scored goals raise the level; after level 10 they raise the Pro+ tier
+  // Pro+ (user request, 2026-11-11): past level 10 each tier (PRO 2, PRO 3
+  // ...) moves the spot further and wider, makes the wall likelier to jump
+  // and the keeper quicker, up to infinityMaxTier.
+  infinityMaxTier: 10,
+  infinityPracticeGoals: [0, 4, 8, 12, 16, 20, 24, 30, 36], // Practice can load the Infinity kick after this many goals
+  infinityTierDistanceM: 0.5, // furthest spot: 30 m at Pro, 35 m at the top tier
+  infinityTierAngleDeg: 0.6, // extra angle either side per tier
+  infinityTierJumpChance: 0.03, // wall jump chance per tier (0.6 at level 10)
+  infinityTierReactSec: 0.008, // keeper reacts this much sooner per tier (0.2 s at level 10)
+  infinityTierReadNoise: 0.5, // and misreads this many px less per tier (8 at level 10)
   challengeMaxLives: 10, // most lives a post can give
   challengeMaxGoals: 20, // most goals a post can ask for
   challengeDistanceChoicesM: [20, 25, 30, 35], // the post's shot distance, metres from goal ...
@@ -1105,10 +1116,15 @@ export const FREE_KICK = {
   challengeAngleShare: [0.15, 1], // opening/final angle as a share of the level limit
   challengePostAngleShare: [0.75, 1], // stable per-post variation in the angle limit
   challengeNearestM: 15, // ... but never nearer than this (the box is 13.75 m deep)
-  challengeWallChoicesM: [6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26], // the wall's distance from goal, metres ...
-  challengeWallGapM: 9, // ... always at least this far from the ball (nearer spots pull it toward goal)
-  // First and final round levels, spread across the goal target, by
-  // the post's difficulty.
+  challengeWallGapChoicesM: [9, 10, 11, 12, 13, 14, 15], // the wall's distance from the ball, every round (user request, 2026-11-11) ...
+  challengeWallGapM: 9, // ... never nearer than this (about the rules' 9.15 m) ...
+  challengeWallFromGoalM: 6, // ... and never nearer goal than this (near spots pull it toward the ball)
+  challengeWallChoicesM: [6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26], // older posts only: the wall's distance from goal they saved
+  // The fixed level (wall size, keeper sharpness) of every round of a
+  // Challenge, and of a Playground kick, by difficulty (user request,
+  // 2026-11-11: no longer spread across the goal target).
+  difficultyLevels: { noob: 1, easy: 3, normal: 5, hard: 7, pro: 10 },
+  // Infinity's skill names: the lowest level each reads as.
   challengeLevels: {
     noob: [1, 3],
     easy: [2, 5],
@@ -1126,11 +1142,11 @@ export const FREE_KICK = {
   customWallMen: [1, 4], // wall players, including one lying behind it
   customShiftSteps: 4, // the wall slides up to this many steps either way ...
   customShiftPx: 15, // ... of this many world px (half a player)
-  customLevels: { noob: 1, easy: 3, normal: 5, hard: 7, pro: 10 }, // keeper sharpness and wall jump height by difficulty
   customTitleMax: 60, // characters in a shared setup's title
   customSaveSlots: 5, // saved setups per player
   customSaveDays: 30, // saved setups are deleted this long after the last save
-  customShareCooldownSec: 300, // one shared post per player per this long
+  customShareCooldownSec: 300, // one shared post per player per this long ...
+  customSharesPerDay: 2, // ... and at most this many per UTC day
   resultSec: 1.9, // result animation before the next kick
   fadeSec: 0.3, // cut to the next spot
 } as const;

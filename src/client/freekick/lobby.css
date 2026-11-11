@@ -46,14 +46,23 @@
   color: #c3cedd;
   font-size: 12px;
 }
-/* All the post's buttons in one row: the ranked run (wider), then
-   PRACTICE and PLAYGROUND, or just PLAYGROUND on a Playground post. */
+/* A pyramid: the ranked run full width on top, PRACTICE and PLAYGROUND
+   side by side under it (just PLAYGROUND, full width, on a Playground
+   post, which has no Practice). */
 .freekick-lobby .preview-actions {
-  grid-template-columns: 1.4fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
-.freekick-lobby[data-mode='playground'] .preview-actions {
-  grid-template-columns: 1fr 1fr;
+.freekick-lobby .preview-actions .freekick-challenge {
+  grid-column: 1 / -1;
+}
+.freekick-lobby[data-mode='playground'] .preview-actions .freekick-playground {
+  grid-column: 1 / -1;
+}
+:is(#mobile-lobby, .freekick-lobby) .freekick-practice.mobile-casual,
+:is(#mobile-lobby, .freekick-lobby) .freekick-playground.mobile-casual {
+  min-height: 44px;
+  padding: 8px;
 }
 :is(#mobile-lobby, .freekick-lobby) .freekick-playground.mobile-casual {
   border-bottom-color: #008751;

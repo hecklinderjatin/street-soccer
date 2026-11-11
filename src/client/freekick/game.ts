@@ -10,7 +10,8 @@ import type { PlaygroundLink } from './playgroundLink';
 export function createFreeKickGame(
   practice = false,
   level = 1,
-  playground: PlaygroundLink | null = null
+  playground: PlaygroundLink | null = null,
+  practiceRound: number | null = null
 ) {
   const box = document.getElementById('freekick');
   if (!box) throw new Error('#freekick container missing');
@@ -35,6 +36,7 @@ export function createFreeKickGame(
         instance.registry.set('freekickPractice', practice);
         instance.registry.set('freekickPracticeLevel', level);
         instance.registry.set('freekickPlayground', playground);
+        instance.registry.set('freekickPracticeRound', practiceRound);
       },
     },
     scene: [FreeKickScene],

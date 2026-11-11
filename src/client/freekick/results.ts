@@ -4,7 +4,7 @@ import type { FreeKickStats } from '../../shared/freeKick';
 import type { FreeKickChallengeConfig } from '../../shared/freeKickChallenge';
 import {
   endlessFreeKick,
-  freeKickSkill,
+  infinitySkill,
 } from '../../shared/freeKickChallenge';
 import { DIFFICULTY_LABEL } from '../../shared/types';
 import { casualButton, casualScreen } from '../ui/casualScreen';
@@ -38,9 +38,9 @@ export function freeKickResults(
           ? 'CHALLENGE COMPLETE'
           : 'CHALLENGE FAILED',
     custom
-      ? `ONE SHOT · ${challenge.config.distanceM} M · ${DIFFICULTY_LABEL[challenge.config.difficulty]}`
+      ? `${stats.shots} ${stats.shots === 1 ? 'ATTEMPT' : 'ATTEMPTS'} · ${challenge.config.distanceM} M · ${DIFFICULTY_LABEL[challenge.config.difficulty]}`
       : infinity
-      ? `${stats.goals} GOALS · ${challenge.config.lives} LIVES · REACHED ${freeKickSkill(stats.level)}`
+      ? `${stats.goals} GOALS · ${challenge.config.lives} LIVES · REACHED ${infinitySkill(stats.goals)}`
       : `${challenge.config.goals} GOALS · ${challenge.config.lives} ${challenge.config.lives === 1 ? 'LIFE' : 'LIVES'} · ${challenge.config.distanceM} M · ${DIFFICULTY_LABEL[challenge.config.difficulty]}`,
     false,
     {
@@ -164,7 +164,10 @@ export function freeKickResults(
     try {
       await records.save(stats);
       if (closed) return;
-      status.textContent = 'Run saved. Leaderboards updated.';
+      status.textContent =
+        challenge.config.mode !== 'infinity' && !challenge.won
+          ? 'Run saved. Only completed challenges rank on the leaderboard.'
+          : 'Run saved. Leaderboards updated.';
       retry.hidden = true;
     } catch {
       if (!closed)

@@ -57,7 +57,7 @@ export function customMaxWallGap(distanceM: number) {
 }
 
 export const customLevel = (kick: CustomKick) =>
-  FK.customLevels[kick.difficulty];
+  FK.difficultyLevels[kick.difficulty];
 
 const whole = (value: unknown, lo: number, hi: number) =>
   typeof value === 'number' &&

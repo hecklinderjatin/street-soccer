@@ -19,7 +19,12 @@ export type FreeKickStats = {
   xg: number; // the run's expected goals (sum over shots), in hundredths
 };
 export type FreeKickRun = { id: string; day: string };
-export type FreeKickLeader = { rank: number; username: string; value: number };
+export type FreeKickLeader = {
+  rank: number;
+  username: string;
+  value: number;
+  attempts?: number; // runs started over the same seven days
+};
 export type FreeKickBoard = {
   top: FreeKickLeader[];
   me: FreeKickLeader | null;
@@ -28,6 +33,7 @@ export type FreeKickBoards = {
   day: string;
   score: FreeKickBoard;
   speed: FreeKickBoard;
+  goals: FreeKickBoard; // most goals in a run (shown for Infinity)
 };
 export const freeKickMaxKmh = Math.ceil(
   Math.hypot(
@@ -105,10 +111,11 @@ export function readFreeKickStats(
   )
     return null;
   if (mode === 'custom' && challenge) {
-    // One shot: a goal or a miss, at the post's fixed level.
+    // Retaken until scored: exactly one goal, after any number of misses,
+    // at the post's fixed level.
     if (
-      shots !== 1 ||
-      goals > 1 ||
+      shots < 1 ||
+      goals !== 1 ||
       greatSaves !== 0 ||
       level !== freeKickRoundLevel(challenge, goals)
     )
@@ -128,12 +135,7 @@ export function readFreeKickStats(
       greatSaves !== 0 ||
       misses < 0 ||
       (won ? misses >= challenge.lives : misses !== challenge.lives) ||
-      level !==
-        challengeRoundLevel(
-          challenge.difficulty,
-          Math.max(0, goals - (won ? 1 : 0)),
-          challenge.goals
-        )
+      level !== challengeRoundLevel(challenge.difficulty)
     )
       return null;
   } else if (

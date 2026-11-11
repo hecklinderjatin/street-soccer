@@ -141,6 +141,8 @@ export class Stage {
   private readonly shadow: Phaser.GameObjects.Image;
   private trail: Pt[] = [];
   private trailFade = 1;
+  // Practice: the last shot's path, faint, until the next shot is struck.
+  private ghost: Pt[] = [];
   private rolled = 0;
   private last: Pt = { x: 0, y: 0, z: 0 };
   private lastTime = 0;
@@ -187,6 +189,15 @@ export class Stage {
     if (last && Math.hypot(b.x - last.x, b.y - last.y, b.z - last.z) < 6)
       return;
     this.trail.push({ x: b.x, y: b.y, z: b.z });
+  }
+
+  // The finished flight's path, to show again as a ghost.
+  lastTrail(): Pt[] {
+    return [...this.trail];
+  }
+
+  setGhost(path: readonly Pt[]) {
+    this.ghost = [...path];
   }
 
   fadeTrail(dt: number) {
@@ -819,6 +830,26 @@ export class Stage {
     this.trailBands.forEach((g, i) =>
       g.clear().setDepth(-(cuts[i] ?? GOAL_X) + 0.45)
     );
+    const band = (path: readonly Pt[]) => (i: number) => {
+      const x = ((path[i - 1]?.x ?? 0) + (path[i]?.x ?? 0)) / 2;
+      const slot = cuts.findIndex((c) => x < c);
+      return this.trailBands[slot < 0 ? 3 : slot];
+    };
+    // The ghost of the last shot: thin, faint and even along its length.
+    if (this.ghost.length >= 2)
+      drawRibbon(
+        this.ghost.map((p) => {
+          cam.project(p.x, p.y, p.z, at);
+          return {
+            x: at.x,
+            y: at.y,
+            w: Math.max(1, R * at.scale * 0.35),
+            a: FK.ghostAlpha,
+          };
+        }),
+        TRAIL_LAYERS,
+        band(this.ghost)
+      );
     if (this.trailFade <= 0 || this.trail.length < 2) return;
     // Up to the ball as drawn (between sim steps) while it is in flight.
     const path =
@@ -834,10 +865,6 @@ export class Stage {
         a: this.trailFade * (0.1 + 0.9 * f ** 1.6),
       };
     });
-    drawRibbon(pts, TRAIL_LAYERS, (i) => {
-      const x = ((path[i - 1]?.x ?? 0) + (path[i]?.x ?? 0)) / 2;
-      const band = cuts.findIndex((c) => x < c);
-      return this.trailBands[band < 0 ? 3 : band];
-    });
+    drawRibbon(pts, TRAIL_LAYERS, band(path));
   }
 }

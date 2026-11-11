@@ -1,6 +1,10 @@
 import { context, reddit, redis } from '@devvit/web/server';
 import { removePlayerResults, removeUnavailableAccounts } from './privacyData';
-import { playgroundCooldownKey, playgroundSavesKey } from './playground';
+import {
+  playgroundCooldownKey,
+  playgroundSavesKey,
+  playgroundSharesKey,
+} from './playground';
 
 // Leaderboards cover today and the previous 6 UTC days. A day's data is
 // deleted when it becomes the 8th day back (the start of the UTC day
@@ -79,7 +83,13 @@ export async function forgetPlayer(username: string) {
   // Saved Playground kicks (shared posts are the player's own Reddit posts).
   await redis.del(
     playgroundSavesKey(username),
-    playgroundCooldownKey(username)
+    playgroundCooldownKey(username),
+    // (share counters live two days: today and yesterday)
+    playgroundSharesKey(username),
+    playgroundSharesKey(
+      username,
+      new Date(Date.now() - 86_400_000).toISOString().slice(0, 10)
+    )
   );
 }
 

@@ -1,18 +1,32 @@
 import type { FreeKickBoard, FreeKickBoards } from '../../shared/freeKick';
 import { pixelLabel } from '../ui/pixelLabel';
+import { freeKickChallenge } from '../challenge';
+import { endlessFreeKick } from '../../shared/freeKickChallenge';
 
 // Free Kick's two seven-day boards (highest score, fastest goal), drawn
 // with the normal match's markup and styles (style.css): the feed card's
 // .preview-ranking + .mobile-board-modal (ui/mobileLobby.ts) and the
 // results card's .results-board (ui/resultsScreen.ts).
 
-type Kind = 'score' | 'speed';
+type Kind = 'score' | 'speed' | 'goals';
 const TAB_LABEL: Record<Kind, string> = {
   score: 'HIGHEST SCORE',
   speed: 'FASTEST GOALS',
+  goals: 'MOST GOALS',
 };
+// Infinity ranks how far a run got (Most Goals); the others its fastest
+// goal (user request, 2026-11-11).
+const kinds = (): Kind[] =>
+  endlessFreeKick(freeKickChallenge()) ? ['score', 'goals'] : ['score', 'speed'];
+// " in N attempts": runs started in the same seven days ("" before counting began).
+const tries = (n?: number) =>
+  n ? ` in ${n} ${n === 1 ? 'attempt' : 'attempts'}` : '';
 const value = (kind: Kind, n: number) =>
-  kind === 'score' ? `${n.toLocaleString()} pts` : `${n} km/h`;
+  kind === 'score'
+    ? `${n.toLocaleString()} pts`
+    : kind === 'goals'
+      ? `${n} ${n === 1 ? 'goal' : 'goals'}`
+      : `${n} km/h`;
 
 async function fetchBoards(limit: number): Promise<FreeKickBoards> {
   const response = await fetch(`/api/freekick/leaders?limit=${limit}`, {
@@ -27,7 +41,7 @@ function tabs(onSelect: (kind: Kind) => void) {
   group.className = 'leaderboard-tabs';
   group.setAttribute('role', 'group');
   group.setAttribute('aria-label', 'Leaderboard category');
-  const buttons = (['score', 'speed'] as const).map((kind) => {
+  const buttons = kinds().map((kind) => {
     const button = document.createElement('button');
     button.type = 'button';
     button.textContent = TAB_LABEL[kind];
@@ -111,28 +125,32 @@ export function freeKickFeedBoard() {
         );
     best.textContent =
       typeof data !== 'string' && data.me
-        ? `Your best: #${data.me.rank} · ${value('score', data.me.value)}`
+        ? `Your best: #${data.me.rank} · ${value('score', data.me.value)}${tries(data.me.attempts)}`
         : '';
   }
 
   function drawSheet() {
     pixelLabel(
       sheetTitle,
-      kind === 'score' ? '7-DAY LEADERBOARD' : '7-DAY FASTEST GOALS'
+      kind === 'score'
+        ? '7-DAY LEADERBOARD'
+        : kind === 'goals'
+          ? '7-DAY MOST GOALS'
+          : '7-DAY FASTEST GOALS'
     );
     category.select(kind);
     rows.replaceChildren();
     prev.hidden = next.hidden = true;
     if (!full) return;
-    const board = full[kind];
+    const board = full[kind] ?? { top: [], me: null }; // (an older server: no goals board)
     for (const leader of board.top.slice(page * 5, page * 5 + 5))
       rows.append(row(leader.rank, leader.username, value(kind, leader.value)));
     status.textContent = !board.top.length
-      ? kind === 'speed'
+      ? kind !== 'score'
         ? 'No goals recorded yet'
         : 'No scores yet. Set the first!'
       : board.me
-        ? `Your best: #${board.me.rank}`
+        ? `Your best: #${board.me.rank}${tries(board.me.attempts)}`
         : 'You: no score in 7 days';
     prev.hidden = page === 0;
     next.hidden = (page + 1) * 5 >= board.top.length;
@@ -239,7 +257,14 @@ export function freeKickResultsBoard() {
 
   function draw() {
     category.select(kind);
-    pixelLabel(title, kind === 'score' ? '7-DAY TOP 3' : '7-DAY FASTEST');
+    pixelLabel(
+      title,
+      kind === 'score'
+        ? '7-DAY TOP 3'
+        : kind === 'goals'
+          ? '7-DAY MOST GOALS'
+          : '7-DAY FASTEST'
+    );
     rows.replaceChildren();
     best.textContent = '';
     if (typeof data === 'string') {
@@ -247,7 +272,7 @@ export function freeKickResultsBoard() {
       status.textContent = data;
       return;
     }
-    const current = data[kind];
+    const current = data[kind] ?? { top: [], me: null };
     status.hidden = current.top.length > 0;
     status.textContent =
       kind === 'score' ? 'No scores in 7 days' : 'No goals recorded yet';
@@ -266,8 +291,8 @@ export function freeKickResultsBoard() {
       rows.append(li);
     }
     const me = current.me;
-    if (me && !current.top.some((leader) => leader.username === me.username))
-      best.textContent = `YOUR BEST: #${me.rank} · ${value(kind, me.value)}`;
+    if (me)
+      best.textContent = `YOUR BEST: #${me.rank} · ${value(kind, me.value)}${tries(me.attempts).toUpperCase()}`;
   }
 
   async function refresh() {

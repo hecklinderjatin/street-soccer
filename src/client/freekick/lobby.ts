@@ -26,7 +26,7 @@ export function showFreeKickLobby() {
   const custom = fk.mode === 'custom' && fk.custom ? fk.custom : null;
   const mode = custom ? 'playground' : infinity ? 'infinity' : 'challenge';
   const lives = custom
-    ? '1 SHOT'
+    ? 'ONE GOAL'
     : `${fk.lives} ${fk.lives === 1 ? 'LIFE' : 'LIVES'}`;
   const card = document.createElement('section');
   card.className = 'freekick-lobby';
@@ -48,7 +48,7 @@ export function showFreeKickLobby() {
   if (custom) card.querySelector('.freekick-practice')?.remove();
   const caption = card.querySelector('.mobile-match-facts small');
   if (caption && (infinity || custom))
-    caption.textContent = custom ? 'SHOTS' : 'ENDLESS GOALS';
+    caption.textContent = custom ? 'GOALS TO WIN' : 'ENDLESS GOALS';
   const description = card.querySelector('.freekick-description');
   const data: unknown = context?.postData;
   const value =
@@ -58,10 +58,10 @@ export function showFreeKickLobby() {
   const notes = card.querySelector('.freekick-mode-notes');
   if (notes)
     notes.textContent = custom
-      ? `Playground kick: ${custom.distanceM} m, ${custom.wallMen}-man wall, ${DIFFICULTY_LABEL[custom.difficulty].toLowerCase()} keeper. One shot: score it to rank. Playground: build and share your own.`
+      ? `Playground kick: ${custom.distanceM} m, ${custom.wallMen}-man wall, ${DIFFICULTY_LABEL[custom.difficulty].toLowerCase()} keeper. Retry until you score; every miss lowers the prize. Playground: build and share your own.`
       : infinity
         ? `Infinity: ${lives.toLowerCase()}. Start at Easy, rise to Pro. Score until lives run out. Practice: unlimited retries.`
-        : `Challenge: ${fk.goals} goals, ${lives.toLowerCase()}, spots around ${fk.distanceM} m, wall ${fk.wallFromGoalM} m from goal. Fixed sequence for everyone; harder after each goal. Practice: any level, unlimited retries.`;
+        : `Challenge: ${fk.goals} goals, ${lives.toLowerCase()}, spots around ${fk.distanceM} m, wall ${fk.wallGapM} m from the ball. Fixed sequence for everyone; spots move further and wider. Practice any round.`;
   for (const [selector, text, entry] of [
     [
       '.freekick-challenge',
@@ -102,14 +102,14 @@ export function showFreeKickLobby() {
     const label = card.querySelector<HTMLElement>(selector ?? '');
     if (label && text) pixelLabel(label, text);
   }
-  if (custom) addActivity(card);
+  addActivity(card);
   host.replaceChildren(card);
   const preview = card.querySelector<HTMLElement>('.freekick-preview');
   if (preview) stopPreview = watchFreeKickPreview(preview);
 }
 
-// A Playground post's card, as a match card: games played (completed
-// shots on this post) and the seven-day top 3 with ALL > for both boards.
+// Every Free Kick card, as a match card: games played (completed runs
+// on this post) and the seven-day top 3 with ALL > for both boards.
 function addActivity(card: HTMLElement) {
   const details = card.querySelector('.freekick-lobby-details');
   const notes = card.querySelector('.freekick-mode-notes');
@@ -128,7 +128,7 @@ function addActivity(card: HTMLElement) {
       games.title =
         count === null
           ? 'Game count unavailable'
-          : `${count} completed shots on this post`;
+          : `${count} completed runs on this post`;
     })
     .catch(() => {
       if (games) games.title = 'Game count unavailable';

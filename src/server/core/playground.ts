@@ -14,6 +14,10 @@ export const playgroundSavesKey = (username: string) =>
   `playground:saves:${username}`;
 export const playgroundCooldownKey = (username: string) =>
   `cooldown:playground:${username}`;
+// Shares today (UTC), at most FK.customSharesPerDay; kept two days.
+export const playgroundSharesKey = (username: string, day = today()) =>
+  `playground:shares:${username}:${day}`;
+const today = () => new Date().toISOString().slice(0, 10);
 
 export class PlaygroundError extends Error {
   constructor(
@@ -95,6 +99,17 @@ export async function sharePlayground(username: string, raw: unknown) {
       'You shared a kick recently. Try again in a few minutes.',
       429
     );
+  // A daily cap per player: count first, give the share back if over.
+  const shares = playgroundSharesKey(username);
+  const count = await redis.incrBy(shares, 1);
+  await redis.expire(shares, 2 * 86_400);
+  if (count > FK.customSharesPerDay) {
+    await redis.incrBy(shares, -1);
+    throw new PlaygroundError(
+      `You can share ${FK.customSharesPerDay} kicks a day. Try again tomorrow (UTC).`,
+      429
+    );
+  }
   await redis.set(key, '1', {
     expiration: new Date(Date.now() + FK.customShareCooldownSec * 1000),
   });
@@ -104,7 +119,7 @@ export async function sharePlayground(username: string, raw: unknown) {
     kicker: setup.kicker,
     wall: setup.wall,
   };
-  const description = `A custom free kick built by u/${username} in the Playground. One life: score as many as you can.`;
+  const description = `A custom free kick built by u/${username} in the Playground. One shot: score it to rank.`;
   try {
     const post = await reddit.submitCustomPost({
       title: setup.title,
@@ -122,6 +137,7 @@ export async function sharePlayground(username: string, raw: unknown) {
     return post.url;
   } catch (error) {
     await redis.del(key);
+    await redis.incrBy(shares, -1); // a failed post uses no share
     throw error;
   }
 }

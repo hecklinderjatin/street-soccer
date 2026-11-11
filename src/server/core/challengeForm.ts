@@ -478,9 +478,9 @@ const freeKickFields: FormField[] = [
   {
     type: 'select',
     name: 'fkWallDistance',
-    label: 'Wall distance from goal',
-    helpText: `At least ${FK.challengeWallGapM} m in front of the chosen shot distance; nearer spots pull it toward goal.`,
-    options: numbers(FK.challengeWallChoicesM, ' m'),
+    label: 'Wall distance from the ball',
+    helpText: `The wall stands this far in front of the ball on every round (real walls stand about ${FK.challengeWallGapM} m away).`,
+    options: numbers(FK.challengeWallGapChoicesM, ' m'),
     required: true,
   },
   {
@@ -488,7 +488,7 @@ const freeKickFields: FormField[] = [
     name: 'fkDifficulty',
     label: 'Difficulty',
     helpText:
-      'Sets the first round. Every goal brings a new angle and a tougher wall and keeper, up to the limit for this difficulty.',
+      'Sets the wall and keeper for every round. Each goal moves the spot further out and wider.',
     options: DIFFICULTIES.map((value) => ({
       value,
       label: capital(DIFFICULTY_LABEL[value].toLowerCase()),
@@ -530,7 +530,7 @@ export function challengeFormData(values?: ChallengeValues): ChallengeValues {
     fkLives: [String(FREE_KICK_CHALLENGE_DEFAULT.lives)],
     fkGoals: [String(FREE_KICK_CHALLENGE_DEFAULT.goals)],
     fkDistance: [String(FREE_KICK_CHALLENGE_DEFAULT.distanceM)],
-    fkWallDistance: [String(FREE_KICK_CHALLENGE_DEFAULT.wallFromGoalM)],
+    fkWallDistance: [String(FREE_KICK_CHALLENGE_DEFAULT.wallGapM)],
     fkDifficulty: [FREE_KICK_CHALLENGE_DEFAULT.difficulty],
     ...values,
   };
@@ -562,7 +562,7 @@ export function readChallenge(
       lives: Number(values.fkLives?.[0]),
       goals: Number(values.fkGoals?.[0]),
       distanceM: Number(values.fkDistance?.[0]),
-      wallFromGoalM: Number(values.fkWallDistance?.[0]),
+      wallGapM: Number(values.fkWallDistance?.[0]),
       difficulty: values.fkDifficulty?.[0],
     });
     if (typeof parsed === 'string') return capital(parsed);

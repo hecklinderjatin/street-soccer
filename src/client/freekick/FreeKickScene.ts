@@ -33,12 +33,13 @@ import {
   endlessFreeKick,
   freeKickRankedMode,
   freeKickRoundLevel,
-  freeKickSkill,
+  infinitySkill,
   challengeRandom,
   type FreeKickChallengeConfig,
 } from '../../shared/freeKickChallenge';
 import { DIFFICULTY_LABEL } from '../../shared/types';
 import { PlaygroundLink } from './playgroundLink';
+import { practiceNextLabel, practicePicks } from './practicePicks';
 import { releaseEarlyDownloads, withEarlyDownloads } from '../earlyAssets';
 import { playAttempt, playReady } from '../playMetrics';
 import { newProjected } from '../render/Projector';
@@ -171,6 +172,9 @@ export class FreeKickScene extends Phaser.Scene {
   private maxLives: number = FK.lives;
   private side: 1 | -1 = readSide();
   private practiceLevel = 1;
+  // Practice on one of the post's Challenge rounds (0-based), or null for
+  // random spots at practiceLevel.
+  private practiceRound: number | null = null;
   private records = new FreeKickRecords();
   private shots = 0;
   private shotKmh = 0;
@@ -233,6 +237,9 @@ export class FreeKickScene extends Phaser.Scene {
   private infoButton!: TextButton;
   private pauseButton!: TextButton;
   private sideButton!: TextButton;
+  private nextButton!: TextButton;
+  private setupButton!: TextButton;
+  private practicePanel: HTMLElement | null = null;
   private overlay: FreeKickOverlay = null;
   private overlayLayer: Phaser.GameObjects.Container | null = null;
   private lifeIcons: Phaser.GameObjects.Image[] = [];
@@ -252,6 +259,16 @@ export class FreeKickScene extends Phaser.Scene {
     this.practiceLevel = practiceLevel(
       this.registry.get('freekickPracticeLevel')
     );
+    const round: unknown = this.registry.get('freekickPracticeRound');
+    this.practiceRound =
+      this.practice &&
+      !this.playground &&
+      typeof round === 'number' &&
+      Number.isInteger(round) &&
+      round >= 0 &&
+      (endlessFreeKick(freeKickChallenge()) || round < freeKickChallenge().goals)
+        ? round
+        : null;
     this.challenge = this.practice ? null : freeKickChallenge();
     this.records = new FreeKickRecords();
     this.maxLives = this.challenge?.lives ?? FK.lives;
@@ -286,6 +303,7 @@ export class FreeKickScene extends Phaser.Scene {
       this.scale.off(Phaser.Scale.Events.RESIZE, this.layout, this);
       this.resultScreen?.destroy();
       this.quitButton?.remove();
+      this.practicePanel?.remove();
       if (this.playground) this.playground.changed = null;
     });
 
@@ -293,6 +311,10 @@ export class FreeKickScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-ESC', (event: KeyboardEvent) => {
       if (event.repeat || this.playground) return;
       event.preventDefault();
+      if (this.practicePanel) {
+        this.closePracticePanel();
+        return;
+      }
       // As the match: Escape closes any panel, else pauses.
       this.setOverlay(this.overlay ? null : 'pause');
     });
@@ -417,7 +439,13 @@ export class FreeKickScene extends Phaser.Scene {
         ? customKick(this.playground.kick)
         : this.challenge
           ? postKick(this.challenge, this.goals, context?.postId ?? 'local')
-          : practiceKick(freeKickChallenge(), this.practiceLevel, Math.random);
+          : this.practiceRound !== null
+            ? postKick(
+                freeKickChallenge(),
+                this.practiceRound,
+                context?.postId ?? 'local'
+              )
+            : practiceKick(freeKickChallenge(), this.practiceLevel, Math.random);
       this.lastPower = null;
       this.contact = ballContact(0, 0);
       this.power = FK.defaultPower;
@@ -430,7 +458,14 @@ export class FreeKickScene extends Phaser.Scene {
     this.strike = null;
     this.acc = 0;
     this.frameCamera();
+    // Practice: the shot just taken stays as a faint ghost on a retaken
+    // spot until the next strike (user request, 2026-11-11).
+    const ghost = this.practice && retry ? (this.stage?.lastTrail() ?? []) : [];
     this.stage?.setKick(this.cam);
+    this.stage?.setGhost(ghost);
+    this.nextButton.setLabel(
+      practiceNextLabel(freeKickChallenge(), this.practiceRound)
+    );
     this.resultFx.hide();
     // What the player can read before the kick: a man lying behind the
     // wall, a keeper cheating toward it.
@@ -453,11 +488,13 @@ export class FreeKickScene extends Phaser.Scene {
     const mode = this.playground
       ? `PLAYGROUND  ${DIFFICULTY_LABEL[this.playground.kick.difficulty]}`
       : this.practice
-        ? `PRACTICE LEVEL ${this.setup.level.level}`
+        ? this.practiceRound !== null
+          ? `PRACTICE ${endlessFreeKick(freeKickChallenge()) ? 'GOAL' : 'ROUND'} ${this.practiceRound + 1}`
+          : `PRACTICE LEVEL ${this.setup.level.level}`
         : this.challenge?.mode === 'custom' && this.challenge.custom
           ? `PLAYGROUND  ${DIFFICULTY_LABEL[this.challenge.custom.difficulty]}`
           : this.challenge?.mode === 'infinity'
-            ? `${freeKickSkill(this.setup.level.level)}  LEVEL ${this.setup.level.level}`
+            ? `${infinitySkill(this.goals)}  LEVEL ${this.setup.level.level}`
             : this.challenge
               ? `ROUND ${this.goals + 1}  LEVEL ${this.setup.level.level}`
               : this.retry
@@ -484,8 +521,12 @@ export class FreeKickScene extends Phaser.Scene {
     }
     const xg = this.currentXg();
     const next = this.streak + 1;
+    // Practice is unranked: the spot's xG only, no point values (user
+    // request, 2026-11-11); each shot's XGOT shows on its banner.
     this.xgText.setText(
-      `XG ${xg.toFixed(2)}  GOAL ${goalPoints(xg, 0, next)}-${goalPoints(xg, 1, next)}`
+      this.practice && !this.playground
+        ? `XG ${xg.toFixed(2)}`
+        : `XG ${xg.toFixed(2)}  GOAL ${goalPoints(xg, 0, next)}-${goalPoints(xg, 1, next)}`
     );
   }
 
@@ -554,6 +595,7 @@ export class FreeKickScene extends Phaser.Scene {
     const b = this.play.ball;
     this.shotKmh = launchSpeedKmh(b.vx, b.vy, b.vz);
     this.prevBall = { x: b.x, y: b.y, z: b.z };
+    this.stage?.setGhost([]); // the new shot replaces the ghost
     this.sfx('ball-strike');
     this.timeScale = 1;
     this.setPhase('flight');
@@ -617,11 +659,16 @@ export class FreeKickScene extends Phaser.Scene {
           freeKickRoundLevel(this.challenge, this.goals) >
             this.setup.level.level
         : false;
+      // Infinity milestones (user request, 2026-11-11) take the banner's
+      // headline: a new skill (NORMAL, HARD, PRO, PRO 2 ...), every 10
+      // goals, then any level rise; the goal's details stay underneath.
+      const milestone = this.milestone();
       // One line per style tag: all five side by side overflow the view.
       this.showBanner(
-        'GOAL!',
-        PAL.yellow,
+        milestone ?? 'GOAL!',
+        milestone ? PAL.orange : PAL.yellow,
         [
+          ...(milestone ? ['GOAL!'] : []),
           this.practice ? xgotLine : `+${points}  ${xgotLine}`,
           ...(this.challenge ? [this.challengeLine()] : []),
           ...tags,
@@ -629,6 +676,14 @@ export class FreeKickScene extends Phaser.Scene {
         true
       );
       if (up) this.hint = `ROUND ${this.goals + 1}: NEW ANGLE, TOUGHER DEFENCE`;
+      // A Challenge keeps one level: each round is a new, harder spot.
+      else if (
+        this.challenge &&
+        !endlessFreeKick(this.challenge) &&
+        this.challenge.mode !== 'custom' &&
+        challengeOutcome(this.goals, this.lives, this.challenge) === 'open'
+      )
+        this.hint = `ROUND ${this.goals + 1}: FURTHER OUT, WIDER ANGLE`;
       this.sfx('goal-celebration');
       this.slowUntil = this.clock + FK.slowMoSec;
       if (!this.reducedMotion.matches) this.cameras.main.shake(220, 0.006);
@@ -639,7 +694,8 @@ export class FreeKickScene extends Phaser.Scene {
       if (great && !this.practice) {
         this.greatSaves++;
         this.score += greatSavePoints(xgot);
-      } else if (!this.practice) this.lives--;
+      } else if (!this.practice && this.challenge?.mode !== 'custom')
+        this.lives--; // (a Playground post retries until scored, prize falling)
       this.streak = 0;
       this.lastPower = this.strike?.power ?? null;
       const livesLine = this.practice
@@ -654,7 +710,7 @@ export class FreeKickScene extends Phaser.Scene {
       this.showBanner(
         great ? 'GREAT SAVE!' : BANNER[outcome],
         outcome === 'saved' ? PAL.blue : PAL.orange,
-        [outcome === 'saved' ? xgotLine : '', livesLine]
+        [outcome === 'saved' || this.practice ? xgotLine : '', livesLine]
           .filter((line) => line !== '')
           .join('\n'),
         false
@@ -664,6 +720,19 @@ export class FreeKickScene extends Phaser.Scene {
       this.sfx('goal-miss');
     }
     this.updateHud();
+  }
+
+  // The Infinity milestone the goal just scored reached, if any.
+  private milestone() {
+    const c = this.challenge;
+    if (!c || c.mode !== 'infinity') return null;
+    const before = infinitySkill(this.goals - 1);
+    const after = infinitySkill(this.goals);
+    if (after !== before) return `NOW ${after}!`;
+    if (this.goals % 10 === 0) return `${this.goals} GOALS!`;
+    const level = freeKickRoundLevel(c, this.goals);
+    if (level > freeKickRoundLevel(c, this.goals - 1)) return `LEVEL ${level}!`;
+    return null;
   }
 
   private endKick() {
@@ -815,6 +884,7 @@ export class FreeKickScene extends Phaser.Scene {
     if (
       this.overlay !== null ||
       this.editing ||
+      this.practicePanel !== null ||
       this.phase !== 'aim' ||
       this.gesture ||
       over.length > 0
@@ -1099,6 +1169,14 @@ export class FreeKickScene extends Phaser.Scene {
     const show = this.phase === 'aim' && !this.editing;
     const swiping = this.gesture?.mode === 'swipe';
     this.sideButton.setVisible(!this.editing);
+    const practiceUi =
+      this.practice &&
+      !this.playground &&
+      this.overlay === null &&
+      this.practicePanel === null &&
+      this.phase === 'aim';
+    this.nextButton.setVisible(practiceUi);
+    this.setupButton.setVisible(practiceUi);
     this.contactStyle.setVisible(show);
     this.contactBall?.setVisible(show);
     this.powerLabel.setVisible(show);
@@ -1262,6 +1340,29 @@ export class FreeKickScene extends Phaser.Scene {
       { width: 220, height: 52, textSize: 2, fill: PAL.darkGray }
     ).setDepth(HUD + 2);
 
+    // Practice (user request, 2026-11-11): move on and change the setup
+    // without the pause menu.
+    this.nextButton = new TextButton(
+      this,
+      0,
+      0,
+      'NEW SPOT',
+      () => this.nextPractice(),
+      { width: 220, height: 52, textSize: 2, fill: PAL.blue }
+    )
+      .setDepth(HUD + 2)
+      .setVisible(false);
+    this.setupButton = new TextButton(
+      this,
+      0,
+      0,
+      'SETUP',
+      () => this.openPracticePanel(),
+      { width: 220, height: 52, textSize: 2, fill: PAL.darkGray }
+    )
+      .setDepth(HUD + 2)
+      .setVisible(false);
+
     // One master sound switch, as in the match.
     setSoundMuted(this.sound, soundMuted());
     this.soundButton = new TextButton(
@@ -1326,6 +1427,9 @@ export class FreeKickScene extends Phaser.Scene {
     // As the match's HUD: pause at the right, i left of it, sound left of i.
     this.pauseButton.setPosition(W - 60, 56);
     this.sideButton.setPosition(W / 2, pad.y - 70);
+    // Practice: under the goals count, top left.
+    this.setupButton.setPosition(24 + 110, 176);
+    this.nextButton.setPosition(24 + 110, 238);
     this.infoButton.setPosition(W - 144, 56);
     this.soundButton.setPosition(W - 228, 56);
     // Up to five a row, right to left; a challenge's extra lives wrap below.
@@ -1346,6 +1450,7 @@ export class FreeKickScene extends Phaser.Scene {
   private setOverlay(which: FreeKickOverlay, skipIntro = false) {
     if (this.phase === 'loading' || this.phase === 'over' || !this.stage)
       return;
+    if (which !== null && this.practicePanel) this.closePracticePanel();
     if (
       which === null &&
       this.introPending &&
@@ -1392,8 +1497,7 @@ export class FreeKickScene extends Phaser.Scene {
       ...(this.challenge ? { challenge: this.challenge } : {}),
       newSpot: () => {
         this.setOverlay(null);
-        this.hint = '';
-        this.newKick(false);
+        this.nextPractice();
       },
       intro: this.introPending,
       restart: () => this.restart(),
@@ -1404,6 +1508,101 @@ export class FreeKickScene extends Phaser.Scene {
       close: () => this.setOverlay(null),
     }).setDepth(HUD + 20);
     if (this.overlay === 'pause') this.renderQuit();
+  }
+
+  // ---- Practice: move on, and the in-game setup panel --------------------
+
+  // NEW SPOT (random spots), or the next picked Challenge round / Infinity
+  // kick (a Challenge's rounds wrap round).
+  private nextPractice() {
+    if (!this.practice || this.playground) return;
+    if (this.phase !== 'aim') return;
+    this.hint = '';
+    const config = freeKickChallenge();
+    if (this.practiceRound !== null)
+      this.practiceRound = endlessFreeKick(config)
+        ? this.practiceRound + 1
+        : (this.practiceRound + 1) % Math.max(1, config.goals);
+    this.newKick(false);
+  }
+
+  private applyPractice(round: number | null, level: number) {
+    this.practiceRound = round;
+    this.practiceLevel = practiceLevel(level);
+    this.hint = '';
+    this.newKick(false);
+  }
+
+  // A slide-up sheet over the bottom of the view: what to practise (random
+  // spots or a picked kick) and the level, applied as soon as they change.
+  private openPracticePanel() {
+    const host = document.getElementById('freekick');
+    if (!host || this.practicePanel || this.phase !== 'aim') return;
+    this.resetGesture();
+    const config = freeKickChallenge();
+    const picks = practicePicks(config);
+    const panel = document.createElement('section');
+    panel.className = 'fk-practice-sheet';
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-label', 'Practice setup');
+    panel.innerHTML =
+      '<header><strong class="fk-ps-title"></strong><button type="button" class="casual-button fk-ps-done"></button></header><label class="fk-ps-row"><span class="fk-ps-label">PRACTISE</span><select class="fk-ps-pick"></select></label><label class="fk-ps-row fk-ps-level-row"><span class="fk-ps-label">LEVEL</span><select class="fk-ps-level"></select></label>';
+    const get = <T extends HTMLElement>(selector: string) =>
+      panel.querySelector<T>(selector);
+    const title = get('.fk-ps-title');
+    const done = get<HTMLButtonElement>('.fk-ps-done');
+    const pick = get<HTMLSelectElement>('.fk-ps-pick');
+    const level = get<HTMLSelectElement>('.fk-ps-level');
+    const levelRow = get('.fk-ps-level-row');
+    if (title) pixelLabel(title, 'PRACTICE SETUP');
+    if (done) pixelLabel(done, 'DONE');
+    pick?.add(new Option('RANDOM SPOTS', ''));
+    for (const option of picks)
+      pick?.add(new Option(option.label, String(option.round + 1)));
+    if (!picks.length) pick?.closest('label')?.remove();
+    for (let n = 1; n <= FK.maxLevel; n++)
+      level?.add(new Option(`LEVEL ${n}`, String(n)));
+    // A picked kick no longer on the list (Infinity, stepped past it) still shows.
+    if (
+      pick &&
+      this.practiceRound !== null &&
+      !picks.some((option) => option.round === this.practiceRound)
+    )
+      pick.add(
+        new Option(
+          `${endlessFreeKick(config) ? 'INFINITY GOAL' : 'CHALLENGE ROUND'} ${this.practiceRound + 1}`,
+          String(this.practiceRound + 1)
+        )
+      );
+    if (pick)
+      pick.value =
+        this.practiceRound === null ? '' : String(this.practiceRound + 1);
+    if (level) level.value = String(this.practiceLevel);
+    const sync = () => {
+      if (levelRow) levelRow.hidden = Boolean(pick?.value);
+    };
+    const apply = () => {
+      const picked = Number(pick?.value || 0);
+      this.applyPractice(
+        picked >= 1 ? picked - 1 : null,
+        Number(level?.value ?? this.practiceLevel)
+      );
+      sync();
+    };
+    pick?.addEventListener('change', apply);
+    level?.addEventListener('change', apply);
+    done?.addEventListener('click', () => this.closePracticePanel());
+    sync();
+    host.append(panel);
+    this.practicePanel = panel;
+    this.drawControls();
+    done?.focus({ preventScroll: true });
+  }
+
+  private closePracticePanel() {
+    this.practicePanel?.remove();
+    this.practicePanel = null;
+    this.drawControls();
   }
 
   // i (or Tab): page 1 -> page 2 -> play, as the match's advanceInfo.
@@ -1449,14 +1648,16 @@ export class FreeKickScene extends Phaser.Scene {
         ? this.challenge.mode === 'infinity'
           ? `INFINITY - ${this.goals} GOALS`
           : this.challenge.mode === 'custom'
-            ? 'PLAYGROUND - ONE SHOT'
+            ? 'PLAYGROUND - SCORE TO FINISH'
             : `GOALS ${this.goals}/${this.challenge.goals}`
         : this.streak >= 2
           ? `STREAK ${this.streak}  X${multiplier}`
           : ''
     );
     this.lifeIcons.forEach((icon, i) =>
-      icon.setVisible(!this.practice).setAlpha(i < this.lives ? 1 : 0.2)
+      icon
+        .setVisible(!this.practice && this.challenge?.mode !== 'custom')
+        .setAlpha(i < this.lives ? 1 : 0.2)
     );
   }
 
@@ -1467,13 +1668,13 @@ export class FreeKickScene extends Phaser.Scene {
     if (c.mode === 'custom')
       return this.goals > 0
         ? 'SCORED! RUN COMPLETE'
-        : this.lives <= 0
-          ? 'MISSED. RUN COMPLETE'
-          : 'ONE SHOT: MAKE IT COUNT';
+        : this.shots === 0
+          ? 'SCORE TO FINISH: EVERY MISS LOWERS THE PRIZE'
+          : `ATTEMPT ${this.shots + 1} - PRIZE FALLS WITH EACH MISS`;
     if (c.mode === 'infinity' && this.lives <= 0)
       return 'INFINITY RUN COMPLETE';
     if (c.mode === 'infinity')
-      return `${freeKickSkill(this.setup.level.level)} - ${this.goals} GOALS - ${this.lives} LIVES LEFT`;
+      return `${infinitySkill(this.goals)} - ${this.goals} GOALS - ${this.lives} LIVES LEFT`;
     const state = challengeOutcome(this.goals, this.lives, c);
     if (state === 'won') return 'CHALLENGE COMPLETE!';
     if (state === 'lost') return 'CHALLENGE FAILED';

@@ -3,7 +3,14 @@ import assert from 'node:assert/strict';
 import { build } from 'rolldown';
 const state = {
   name: 'alice',
-  context: { postId: 't3_fk', postData: { matchType: 'freekick' } },
+  // A 2-goal Challenge with 4 lives: `valid` below (2 goals, 3 misses) completes it.
+  context: {
+    postId: 't3_fk',
+    postData: {
+      matchType: 'freekick',
+      freeKick: { kicker: 'pink', wall: 'blue', lives: 4, goals: 2, distanceM: 25, wallGapM: 9, difficulty: 'normal' },
+    },
+  },
   values: new Map(),
   hashes: new Map(),
   boards: new Map(),
@@ -46,13 +53,14 @@ export const redis={
  hSet:async(k,vs)=>{const map=s.hashes.get(k)??new Map();for(const [u,v] of Object.entries(vs))map.set(u,v);s.hashes.set(k,map);bump(k);},
  hDel:async(k,us)=>{for(const u of us)s.hashes.get(k)?.delete(u);bump(k);},
  zAdd:async(k,v)=>{const map=s.boards.get(k)??new Map();map.set(v.member,v.score);s.boards.set(k,map);bump(k);},
+ zIncrBy:async(k,u,n)=>{const map=s.boards.get(k)??new Map();map.set(u,(map.get(u)??0)+n);s.boards.set(k,map);bump(k);},
  zScore:async(k,u)=>s.boards.get(k)?.get(u),
  zRange:async k=>[...(s.boards.get(k)??[])].map(([member,score])=>({member,score})),
  zRem:async(k,us)=>{for(const u of us)s.boards.get(k)?.delete(u);bump(k);},
  watch:async(...keys)=>{
   const snapshot=keys.map(k=>s.versions.get(k)??0);const ops=[];
   const tx={multi:async()=>{},discard:async()=>{ops.length=0;},exec:async()=>{if(keys.some((k,i)=>(s.versions.get(k)??0)!==snapshot[i]))return [];const result=[];for(const op of ops){op();result.push(1);}return result;}};
-  for(const name of ['zAdd','hSet','expire','set','del','incrBy'])tx[name]=async(...args)=>ops.push(()=>redis[name](...args));return tx;
+  for(const name of ['zAdd','hSet','expire','set','del','incrBy','zIncrBy'])tx[name]=async(...args)=>ops.push(()=>redis[name](...args));return tx;
  }
 };
 export const reddit={getCurrentUsername:async()=>s.name,getCommentById:async()=>({id:'t1_scores',postId:'t3_fk',stickied:true,removed:false,body:'Scores'}),submitComment:async input=>{s.comments.push(input);return {id:'t1_shared'};}};
@@ -138,7 +146,7 @@ assert.equal(
     await call('/result', {
       ...run,
       mode: 'challenge',
-      result: { ...valid, shots: 4 },
+      result: { ...valid, shots: 7 }, // 5 misses: more than the post's 4 lives
     })
   ).status,
   400
@@ -288,7 +296,7 @@ const challengeStats = {
   shots: 4,
   score: 1500,
   bestStreak: 3,
-  level: 7,
+  level: 5,
 };
 assert.equal(
   (
@@ -322,6 +330,26 @@ assert.equal(
 );
 assert.ok(completedChallenge.body.score.me.value >= 1500);
 assert.ok(completedChallenge.body.speed.me.value >= 100);
+// Each started run is one attempt toward "best in N attempts".
+assert.ok(completedChallenge.body.score.me.attempts >= 1);
+// A failed Challenge (out of lives short of the target) is saved, not ranked.
+state.name = 'bob';
+const failedRun = await call('/start', {
+  mode: 'challenge',
+  id: 'challenge-run-identifier-fail',
+});
+assert.equal(failedRun.status, 200);
+age(failedRun.body);
+const failed = await call('/result', {
+  ...failedRun.body,
+  mode: 'challenge',
+  result: { ...challengeStats, goals: 1, shots: 3, bestStreak: 1, score: 400 },
+});
+assert.equal(failed.status, 200);
+assert.equal(failed.body.score.me, null, 'failed challenges do not rank');
+assert.equal(failed.body.speed.me, null);
+assert.ok(!failed.body.score.top.some((row) => row.username === 'bob'));
+state.name = 'alice';
 
 state.context.postData.freeKick={mode:'infinity',kicker:'pink',wall:'blue',lives:2};
 const inf=await call('/start',{mode:'infinity',id:'infinity-run-identifier-1234'});
@@ -330,7 +358,9 @@ const infStats={...valid,mode:'infinity',goals:2,shots:4,level:3,greatSaves:0};
 assert.equal((await call('/result',{...inf.body,mode:'challenge',result:infStats})).status,400);
 assert.equal((await call('/result',{...inf.body,mode:'infinity',result:{...infStats,shots:3}})).status,400);
 assert.equal((await call('/result',{...inf.body,mode:'infinity',result:infStats})).status,200);
-assert.equal((await call('/result',{...inf.body,mode:'infinity',result:infStats})).status,200);
+const infSaved=await call('/result',{...inf.body,mode:'infinity',result:infStats});
+assert.equal(infSaved.status,200);
+assert.ok(infSaved.body.goals.me.value>=2,'Infinity runs rank on Most Goals');
 
 await removePlayerResults(
   eraser,

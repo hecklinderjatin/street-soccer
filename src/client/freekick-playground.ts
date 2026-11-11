@@ -605,7 +605,11 @@ function showKits() {
       say('Shared! Opening your post...');
       navigateTo(url);
     } catch (error) {
-      say(message(error));
+      // Daily limit, cooldown or a failed post: an alert, not a status line.
+      say('');
+      showAlert("COULDN'T SHARE", message(error), [
+        ['OK', 'secondary', () => undefined],
+      ]);
     } finally {
       share.disabled = false;
     }

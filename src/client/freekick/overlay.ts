@@ -192,7 +192,12 @@ function detailsPage(
             ? 'PLAYGROUND'
             : 'CHALLENGE',
     ],
-    ['LIVES', practice ? 'UNLIMITED' : String(options.lives)],
+    [
+      'LIVES',
+      practice || options.challenge?.mode === 'custom'
+        ? 'UNLIMITED'
+        : String(options.lives),
+    ],
     ['LEVEL', `${options.level} / ${FK.maxLevel}`],
     ['DISTANCE', `${options.metres} M`],
     challenge
@@ -201,7 +206,7 @@ function detailsPage(
           challenge.mode === 'infinity'
             ? 'INFINITY'
             : challenge.mode === 'custom'
-              ? 'ONE SHOT'
+              ? '1 GOAL'
               : `${challenge.goals} GOALS`,
         ]
       : ['LEVEL UP', practice ? 'FIXED LEVEL' : `${FK.goalsPerLevel} GOALS`],
@@ -222,15 +227,15 @@ function detailsPage(
   const notes = practice
     ? [
         'Train this Free Kick setup at your chosen fixed level.',
-        'Unlimited attempts. Pause > New Spot changes the angle.',
+        'Unlimited attempts. NEW SPOT moves on; SETUP changes level or kick.',
         'Practice does not submit scores or speed records.',
       ]
     : challenge?.mode === 'custom'
       ? [
           'A kick built by a player in the Playground.',
           'Everyone faces the same spot, wall and keeper.',
-          'You get one shot: score it to rank.',
-          'Harder kicks and better finishes score more points.',
+          'Retry until you score: misses cost no life.',
+          'Each miss lowers what the goal is worth.',
           'Your best score and fastest goal rank on this post.',
         ]
       : infinity && challenge
@@ -244,10 +249,10 @@ function detailsPage(
       : challenge
         ? [
             `Score ${challenge.goals} goals before your ${challenge.lives} ${challenge.lives === 1 ? 'life runs' : 'lives run'} out.`,
-            `Spots around ${challenge.distanceM} m, wall ${challenge.wallFromGoalM} m from goal.`,
-            'Fixed sequence for everyone. Each goal is harder; a miss costs a life.',
+            `Spots around ${challenge.distanceM} m, wall ${challenge.wallGapM} m from the ball.`,
+            'Same wall and keeper every round; each goal moves the spot further and wider.',
             'Harder spots (low XG) and better finishes (XGOT) score more points.',
-            'Completed runs rank on this post: highest score and fastest goal.',
+            'Only completed challenges rank: highest score and fastest goal.',
           ]
         : [
             'Low XG spots pay more. A better finish (XGOT) pays up to 3x.',
@@ -320,10 +325,10 @@ function helpPage(
     [
       '4. LIVES AND LEVELS',
       practice
-        ? 'Unlimited retries at this level and spot. Pause > New Spot changes the setup.'
+        ? 'Unlimited retries at this level and spot. NEW SPOT moves on; SETUP changes the level or kick.'
         : challenge
           ? challenge.mode === 'custom'
-            ? 'One shot. Score it and the run is won; miss and it is over.'
+            ? 'Unlimited retries until you score. Each miss makes the spot count as easier, so the goal pays less.'
             : challenge.mode === 'infinity'
             ? `${challenge.lives} lives. Every miss costs one. Two goals per level: Easy to Pro, then keep scoring until lives run out.`
             : `${challenge.lives} ${challenge.lives === 1 ? 'life' : 'lives'}, ${challenge.goals} goals to win. A miss costs a life. Each goal advances the fixed sequence.`

@@ -62,8 +62,10 @@ export async function forgetPost(postId: string) {
       speedKey(postId, date),
       `fk-score:${postId}:${date}`,
       `fk-speed:${postId}:${date}`,
+      `fk-goals:${postId}:${date}`,
       `fk-runs:${postId}:${date}`,
-      `fk-runs:${postId}:${date}:stats`
+      `fk-runs:${postId}:${date}:stats`,
+      `fk-attempts:${postId}:${date}`
     );
   }
   await redis.del(...keys);
