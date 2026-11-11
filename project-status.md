@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Generic Join failure message (2026-11-11):** the shared normal/Free Kick results Join action now displays “Couldn’t join right now. You can join from the community page.” for consent/API/network/confirmation failures. Never render thrown exception text, server error details, HTTP codes or diagnostic references to players. Preserve server diagnostics and success/login messages. Types/lint and focused community API/browser checks pass, including mocked internal error/reference suppression. No app build, live join or deployment performed.
+
 **Main merge (2026-11-11):** fast-forwarded the tested Free Kick changes through b80e212 into main at the user’s request. Includes result Join visibility, legacy Play removal, Practice parity and Challenge/Practice Journeys. Existing types/lint, focused rules/API and mocked source-browser checks pass; no application build or deployment performed. Live Journeys ingestion still requires Reddit approval/allowlisting.
 
 **Free Kick Journeys (2026-11-11):** add Challenge and Practice to the existing Reddit Journeys lifecycle. Interactive ready emits once per page; committed START GAME/PLAY (guarded first-shot fallback) starts one attempt. Challenge clear/failure ends with points; Practice only ends on explicit Quit/Restart as incomplete. Pause/help, same-spot retry and New Spot retain the same tracker. Restart ends the old started attempt and prepares a rematch tracker; Restart/Play Again wait for intro commitment before requesting a fresh ID. Keep Practice unranked. Extend bounded allowlists with fixed Free Kick modes, no-clock duration, starting level/target/lives, points and active seconds; no per-shot events or free text. Types/lint, Journeys SDK/API checks, 34 Free Kick rules/panel/API checks and actual source-only mocked Challenge/Practice browser lifecycle checks pass. No application build, live telemetry, review submission or deployment performed. Reddit approval/allowlisting remains unverified.
@@ -752,6 +754,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Use fixed, generic player-facing Join failure copy; retain detailed server logging for diagnosis without exposing technical reasons/references in the results UI.
+
 - Merge the tested Free Kick branch into main and push at the user’s request; preserve the existing Reddit Journeys activation gate.
 
 - Free Kick reuses createMatchJourney and the existing nonblocking SDK adapter. Challenge completion means reaching a terminal result (clear or fail); Practice exits/restarts remain incomplete and do not submit ranked records. Report untimed settings as durationSec 0, explicit numeric level/target/lives and bounded points/active seconds. Reading instructions and Practice New Spot never split attempts.
@@ -1178,6 +1182,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Merge the generic Join message change when requested; verify the simple failure copy in normal and Free Kick results after deployment.
+
 - Validate accepted Free Kick receipts on the approved/allowlisted Reddit app after deployment; local mocks establish lifecycle behavior only. Free Kick cleanup, Practice parity and Journeys are now merged into main.
 
 - Native review of refreshed Practice setup, Challenge-matching distances/wall placement and fixed-level retries/New Spot after the next user-run upload.
@@ -1589,6 +1595,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-11:** replace shared results Join error details with fixed friendly copy, keeping server diagnostic logs. Types/lint and mocked community API/browser checks pass; no app build/deployment.
 
 - **2026-11-11:** fast-forward main through b80e212 at the user’s request, including Free Kick cleanup, Practice parity and Challenge/Practice Journeys. Record the merge and prepare the requested main push; no build or deployment.
 

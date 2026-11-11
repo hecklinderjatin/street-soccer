@@ -67,7 +67,10 @@ try {
         json: async () =>
           window.ok
             ? { joined: true }
-            : { error: 'Could not join.', reference: 'test-ref' },
+            : {
+                error: 'SDK permission error: internal details',
+                reference: 'test-ref',
+              },
       };
     };
   });
@@ -150,8 +153,10 @@ try {
   await page
     .getByRole('button', { name: 'JOIN COMMUNITY', exact: true })
     .click();
-  await page.waitForFunction(() =>
-    document.querySelector('[role=status]').textContent.includes('not approved')
+  await page.waitForFunction(
+    () =>
+      document.querySelector('[role=status]').textContent ===
+      'Couldn’t join right now. You can join from the community page.'
   );
   assert.equal(await page.evaluate(() => window.writes), 0);
   await page.evaluate(() => {
@@ -161,8 +166,10 @@ try {
   await page
     .getByRole('button', { name: 'JOIN COMMUNITY', exact: true })
     .click();
-  await page.waitForFunction(() =>
-    document.querySelector('[role=status]').textContent.includes('test-ref')
+  await page.waitForFunction(
+    () =>
+      document.querySelector('[role=status]').textContent ===
+      'Couldn’t join right now. You can join from the community page.'
   );
   assert.equal(
     await page.getByRole('button', { name: 'RETRY JOIN', exact: true }).count(),

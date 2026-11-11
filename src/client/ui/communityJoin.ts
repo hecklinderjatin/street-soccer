@@ -57,23 +57,7 @@ export function communityJoin(results: HTMLElement) {
         signal: AbortSignal.timeout(8000),
       });
       const payload: unknown = await response.json().catch(() => null);
-      if (!response.ok) {
-        const detail =
-          payload && typeof payload === 'object'
-            ? Reflect.get(payload, 'error')
-            : null;
-        const reference =
-          payload && typeof payload === 'object'
-            ? Reflect.get(payload, 'reference')
-            : null;
-        const fallback =
-          response.status === 404
-            ? 'Join is unavailable in this game version. Reopen the updated post.'
-            : `Could not join (HTTP ${response.status}). You can join from the subreddit page.`;
-        throw new Error(
-          `${typeof detail === 'string' ? detail.slice(0, 240) : fallback}${typeof reference === 'string' ? ' Ref: ' + reference.slice(0, 36) : ''}`
-        );
-      }
+      if (!response.ok) throw new Error('Join failed');
       if (
         !payload ||
         typeof payload !== 'object' ||
@@ -92,12 +76,11 @@ export function communityJoin(results: HTMLElement) {
         status.textContent = 'Thanks for joining! Welcome to the street.';
         status.classList.add('is-success');
       }
-    } catch (error) {
+    } catch {
+      // Keep API/SDK errors and diagnostic references out of player-facing copy.
       if (!disposed)
         status.textContent =
-          error instanceof Error
-            ? error.message
-            : 'Could not join. You can still continue playing.';
+          'Couldn’t join right now. You can join from the community page.';
     } finally {
       pending = false;
       if (!disposed) {
