@@ -3,7 +3,8 @@ import { casualButton } from './casualScreen';
 import { pixelLabel } from './pixelLabel';
 
 // Optional results action, never an interstitial or a membership requirement.
-// The SDK cannot read prior membership; honor confirmed joins/skip preferences.
+// The SDK cannot read prior membership. Suppress only confirmed in-game joins,
+// not an old preference to skip the removed popup.
 export function communityJoin(results: HTMLElement) {
   const key =
     context?.userId && context?.subredditId
@@ -11,10 +12,7 @@ export function communityJoin(results: HTMLElement) {
       : null;
   let known = false;
   try {
-    known =
-      !!key &&
-      (localStorage.getItem(key) === 'yes' ||
-        localStorage.getItem(`${key}:self-confirmed`) === 'yes');
+    known = !!key && localStorage.getItem(key) === 'yes';
   } catch {
     /* Optional device storage. */
   }
@@ -108,7 +106,9 @@ export function communityJoin(results: HTMLElement) {
       }
     }
   }
-  actions.append(join);
+  const exit = actions.querySelector('a[href]');
+  if (exit) exit.before(join);
+  else actions.append(join);
   actions.after(status);
   return {
     destroy() {

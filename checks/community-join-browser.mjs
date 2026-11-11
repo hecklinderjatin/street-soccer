@@ -213,7 +213,11 @@ try {
     )
   );
   await open(true);
-  assert.equal(await page.locator('.community-join-button').count(), 0);
+  assert.equal(
+    await page.locator('.community-join-button').count(),
+    1,
+    'old popup preference must not hide the result button'
+  );
   assert.deepEqual(errors, []);
   console.log(
     'Inline results Join passed: immediate usable results, no popup/focus trap, placement, responsive layout, consent/error/success, no retry, suppression and cleanup.'

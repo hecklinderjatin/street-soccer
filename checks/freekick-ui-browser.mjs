@@ -9,7 +9,7 @@ const scratch = await mkdtemp(join(tmpdir(), 'fk-flow-'));
 const sdk = join(scratch, 'client.ts');
 await writeFile(
   sdk,
-  `export const context={postId:'t3_fk',username:'tester',postData:{matchType:'freekick'}};
+  `export const context={postId:'t3_fk',username:'tester',userId:'t2_tester',subredditId:'t5_test',subredditName:'street_soccer_dev',postData:{matchType:'freekick'}};
 export const canRunAsUser=async()=>true;
 export const requestExpandedMode=()=>{};
 export const exitExpandedMode=event=>{if(!event.isTrusted||event.type!=='click')throw Error('Quit requires native click');window.__exited=true;};
@@ -109,6 +109,12 @@ try {
     await page.waitForTimeout(80);
   };
 
+  await page.addInitScript(() =>
+    localStorage.setItem(
+      'street-soccer:joined:t2_tester:t5_test:self-confirmed',
+      'yes'
+    )
+  );
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto(base + '/freekick-challenge.html?debug');
   await ready();
@@ -163,6 +169,18 @@ try {
   });
   await page.locator('.fk-results-screen').waitFor();
   assert.equal(await page.locator('.results-stats > div').count(), 6);
+  assert.equal(
+    await page
+      .getByRole('button', { name: 'JOIN COMMUNITY', exact: true })
+      .isVisible(),
+    true
+  );
+  assert.equal(
+    await page
+      .locator('.community-join-button')
+      .evaluate((e) => e.nextElementSibling?.tagName),
+    'A'
+  );
   await page
     .getByRole('button', { name: 'HIGHEST SCORE', exact: true })
     .click();

@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Free Kick result Join visibility (2026-11-11):** stop using the legacy self-confirmed popup-dismissal preference to suppress the new optional result button. Only a confirmed successful in-game join hides it. Position Join Community before the trusted Exit anchor on Free Kick Challenge/Play result actions (normal match action order unchanged). Source-only actual Challenge results test supplies full Reddit context and a preexisting popup preference, verifies visible Join between Play Again and Exit, and checks alignment at three sizes; screenshot inspected. Types/lint, community API/DOM and actual Free Kick UI checks pass. No application build or live joins performed.
+
 **Main merge (2026-11-11):** fast-forwarded `codex/inline-results-join` through `f1ac1cc` into main at the user’s request. Removes the automatic join popup/manual member option and adds one secondary Join Community button to existing normal/Free Kick result actions, without an extra screen or section. Preserve consent, diagnostics, thanks and known-join suppression. Existing types/lint and focused community checks pass. No application build or deployment performed.
 
 **Join as a result action button only (2026-11-11):** simplify the previous inline section at the user’s clarification: append one secondary Join Community button directly to the existing result action group in normal and Free Kick. Remove the separate heading, marketing copy, container and visible note; retain permission explanation in the button title and concise status only after a click. Mount after existing actions to preserve primary-button order/styles. Results remain immediately usable, with no added screen/modal/section. Keep native consent, diagnostics, success thanks and known-join suppression. Types/lint and focused community API/browser checks pass, asserting the Join button is the last existing action. No application build/live writes performed.
@@ -742,6 +744,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- A preference to skip a removed popup must not hide a newly requested optional result button. Preserve suppression only for successfully confirmed subscriptions.
+
 - Use only a button in the existing results actions, as clarified by the user; do not add a community card or promotional section.
 
 - Make joining an optional secondary result action instead of a blocking screen. This avoids obstructing existing members without pretending the SDK can verify their membership.
@@ -1158,6 +1162,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Native verification of Join Community between Play Again and Exit on Free Kick Challenge results after the next user-run upload.
+
 - Native review of the single secondary Join Community action in the existing normal/Free Kick result button group.
 
 - Native review of inline Join Community on normal and Free Kick results after the next user-run upload. Subscription permission issues remain diagnosable by their server log reference; they no longer interrupt results.
@@ -1561,6 +1567,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-11:** fix Free Kick result Join visibility with legacy popup preferences and position it above Exit. Types/lint and focused community/actual UI checks pass; no application build performed.
 
 - **2026-11-11:** merge single results Join button and popup removal into main through `f1ac1cc`; prepare requested GitHub push. No application build/deployment performed.
 
