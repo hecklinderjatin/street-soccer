@@ -51,8 +51,15 @@ try {
         scene.gameOver();
       });
       const replay = page.getByRole('button', { name: 'PLAY AGAIN' });
+      const playground = page.getByRole('link', { name: 'PLAYGROUND' });
       assert.equal(
         await replay.evaluate(
+          (button) => getComputedStyle(button).backgroundColor
+        ),
+        'rgb(255, 163, 0)'
+      );
+      assert.equal(
+        await playground.evaluate(
           (button) => getComputedStyle(button).backgroundColor
         ),
         'rgb(0, 228, 54)'

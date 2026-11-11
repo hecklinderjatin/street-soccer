@@ -52,11 +52,6 @@ export class ResultScene extends Phaser.Scene {
       this.scene.start('Match', { ...r.config, rematch: true });
     };
     const screen = resultsScreen(r, currentPostType());
-    const replay = casualButton(
-      r.config.mode === 'casual' ? 'REMATCH' : 'PLAY AGAIN',
-      rematch
-    );
-    replay.classList.add('results-replay');
     const addJoinButton = () => {
       const community = communityJoin(screen.element);
       this.events.once(Phaser.Scenes.Events.SHUTDOWN, () =>
@@ -66,7 +61,7 @@ export class ResultScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => screen.destroy());
     if (r.config.mode === 'casual') {
       screen.actions.append(
-        replay,
+        casualButton('REMATCH', rematch),
         casualButton('CHANGE SETTINGS', () => this.scene.start('Casual'), true),
         casualButton(
           'EXIT',
@@ -87,7 +82,7 @@ export class ResultScene extends Phaser.Scene {
     );
     post.classList.add('results-post-score');
     screen.actions.append(
-      replay,
+      casualButton('PLAY AGAIN', rematch),
       post,
       casualButton('PLAY CUSTOM', () => this.scene.start('Casual'), true)
     );

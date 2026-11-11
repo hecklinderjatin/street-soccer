@@ -10,7 +10,7 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 **Free Kick startup fix (2026-11-11):** The production Phaser bundle exports the wrap function used by the animated sky and traffic.
 
-**Results actions (2026-11-11):** Join Community sits in the shared results action grid across Free Kick, Classic, Daily, Chaos and Custom. Free Kick results link to Practice and the Playground builder. Results cards fit within the visible webview without an internal scrollbar. Play Again and Rematch use a green fill with dark lettering.
+**Results actions (2026-11-11):** Join Community sits in the shared results action grid across Free Kick, Classic, Daily, Chaos and Custom. Free Kick results link to Practice and the Playground builder. Results cards fit within the visible webview without an internal scrollbar. The Free Kick Playground button uses a green fill with dark lettering. Play Again and Rematch use the original orange style.
 
 **Free Kick daytime court (2026-11-11):** The shared stage and feed preview show a sun, drifting clouds, birds, irregular stands of trees and a two-lane road with moving traffic behind an enlarged basketball court with pole-mounted baskets. Low brick end walls run from both posts to the sidelines at one-third of crossbar height.
 
@@ -1675,6 +1675,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- 2026-11-11: Restored orange replay buttons and applied the green style to Playground in Free Kick results.
 
 - 2026-11-11: Switched results replay buttons to green with dark lettering.
 

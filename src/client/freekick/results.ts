@@ -160,15 +160,14 @@ export function freeKickResults(
       exitExpandedMode(event);
     }
   });
-  const replay = casualButton('PLAY AGAIN', again);
-  replay.classList.add('results-replay');
-  actions.append(replay);
+  actions.append(casualButton('PLAY AGAIN', again));
   for (const { label, entry } of [
     { label: 'PRACTICE', entry: 'freekick-practice' },
     { label: 'PLAYGROUND', entry: 'freekick-playground' },
   ]) {
     const link = document.createElement('a');
     link.className = 'casual-button secondary';
+    if (entry === 'freekick-playground') link.classList.add('results-playground');
     link.href = `${entry}.html`;
     pixelLabel(link, label);
     link.addEventListener('click', (event) => {
