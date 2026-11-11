@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Main merge (2026-11-11):** fast-forwarded `codex/match-tactics` through `4ce0ed5` into `main` at the user’s request. Includes manual Attack/Normal/Defend tactics, top-row shortcuts and feedback/help, plus exact 8%/15% possession speed penalties. Types and lint pass; the tactics change passed 71 logic checks. No application build or deployment performed.
+
 **Dribbling speed penalties (2026-11-11):** normal movement with the ball is 202.4 units/s (8% below 220), sprinting with the ball is 280.5 units/s (15% below 330). Shared player movement applies these values to human and AI carriers. Off-ball speeds remain unchanged.
 
 **Manual match tactics (2026-11-11):** right-side Attack / Normal / Defend selector, Normal selected by default, active green state and marker, plus brief rising/fading mode feedback. Top-row Digit8 / Digit9 / Digit0 select Defend / Normal / Attack; reserve those keys from action remapping. Tactics are blocked/hidden in pause and info overlays. Home outfield formation targets shift forward so the back line reaches halfway in Attack, or back 16% of pitch length in Defend; normal targeting is preserved, positions remain clamped, players move naturally and the human/keeper remain under their existing control. Selection survives kickoff and automatic Daily style changes, resets on a new match, and never changes opponent AI. Controls page explains positioning and shortcuts. Types, lint and 71 logic checks pass, including every formation across attack/defend/loose phases. No application build or browser playtest run.
@@ -1449,6 +1451,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-11:** merge manual match tactics and revised possession speeds into main through `4ce0ed5`; prepare the requested GitHub push. No application build or deployment performed.
 
 - **2026-11-11:** lower dribble speed to 202.4 and dribble sprint to 280.5 units/s for exact 8%/15% possession penalties. No application build performed.
 
