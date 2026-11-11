@@ -231,6 +231,29 @@ try {
   await page.waitForTimeout(30);
   assert.equal(await page.evaluate(() => window.writes), 2);
   assert.equal(await page.locator('.community-result-note').count(), 0);
+  await page.evaluate(() => {
+    window.context.userId = 't2_existing';
+    window.deferConsent = false;
+  });
+  await open(true);
+  const beforeExisting = await page.evaluate(() => window.writes);
+  await page
+    .getByRole('button', { name: 'ALREADY JOINED', exact: true })
+    .click();
+  assert.equal(await page.locator('.community-prompt').count(), 0);
+  assert.equal(await page.evaluate(() => window.writes), beforeExisting);
+  assert.equal(
+    await page.locator('.community-result-note.is-success').count(),
+    0
+  );
+  await open(true);
+  assert.equal(await page.locator('.community-prompt').count(), 0);
+  await page.evaluate(() => (window.context.subredditId = 't5_other'));
+  await open(true);
+  assert.equal(await page.locator('.community-prompt').count(), 1);
+  await page
+    .getByRole('button', { name: 'CONTINUE TO RESULTS', exact: true })
+    .click();
   assert.deepEqual(errors, []);
   console.log(
     'Community popup passed: portrait/landscape fit, results gating, optional continue, trusted consent, denial/error without a retry button, successful-join suppression, account isolation and cleanup.'

@@ -11,7 +11,10 @@ export function communityPrompt(results: HTMLElement, portrait = false) {
       : null;
   let known = false;
   try {
-    known = !!key && localStorage.getItem(key) === 'yes';
+    known =
+      !!key &&
+      (localStorage.getItem(key) === 'yes' ||
+        localStorage.getItem(`${key}:self-confirmed`) === 'yes');
   } catch {
     /* storage may be unavailable */
   }
@@ -66,6 +69,20 @@ export function communityPrompt(results: HTMLElement, portrait = false) {
     void subscribe(event);
   });
   const next = casualButton('CONTINUE TO RESULTS', () => close(), true);
+  const existing = casualButton(
+    'ALREADY JOINED',
+    () => {
+      // This is the player's preference, not an SDK-verified membership result.
+      try {
+        if (key) localStorage.setItem(`${key}:self-confirmed`, 'yes');
+      } catch {
+        /* Continue even when storage is unavailable. */
+      }
+      close();
+    },
+    true
+  );
+  existing.classList.add('community-existing');
   let resultNote: HTMLParagraphElement | null = null;
   function notifyResults(message: string, success = false) {
     if (disposed) return;
@@ -153,15 +170,25 @@ export function communityPrompt(results: HTMLElement, portrait = false) {
     }
     if (event.key === 'Tab') {
       const first = join.disabled ? next : join;
-      const target = event.shiftKey ? first : next;
+      const target = event.shiftKey ? first : existing;
       if (document.activeElement === target) {
         event.preventDefault();
-        (event.shiftKey ? next : first).focus();
+        (event.shiftKey ? existing : first).focus();
       }
     }
   }
   actions.append(join, next);
-  panel.append(tag, title, name, copy, permissionNote, actions, status, note);
+  panel.append(
+    tag,
+    title,
+    name,
+    copy,
+    permissionNote,
+    actions,
+    existing,
+    status,
+    note
+  );
   root.append(panel);
   document.body.append(root);
   document.addEventListener('keydown', keyboard);
