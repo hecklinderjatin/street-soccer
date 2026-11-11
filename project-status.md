@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Opponent match tactics (2026-11-11):** opponents select Attack when trailing, Defend when leading in the last minute/final 30% (whichever is shorter), and Normal otherwise. Require three seconds of stable intent and at least twelve live seconds between switches. Selection time freezes during stoppages, frozen kickoff and pause; fresh matches reset to Normal. Apply the mirrored manual formation offset plus attacking/defensive passing and pressing plans; Normal restores the last applied baseline Daily/standard plan. Preserve Daily plan reaction timing and Rampage difficulty progression, home manual selection, existing movement and accuracy. Selection reads only score/clock, never player tactics or input. Types/lint, 72 gameplay checks and Daily rules/forms regressions pass. No application build or browser playtest performed.
+
 **Visible tactics controls help (2026-11-11):** replace the two long tactics footer lines with a dedicated three-column highlighted tactics strip on the normal match info controls page, showing each mode and its formation effect. Desktop Controls/key bindings now explicitly list fixed top-row 8 Defend / 9 Normal / 0 Attack and explain that these are not numpad keys. Attempted remapping to those keys explains the reserved shortcuts. Types and lint pass; no application build or browser playtest performed.
 
 **Main merge (2026-11-11):** fast-forwarded `codex/match-tactics` through `4ce0ed5` into `main` at the user’s request. Includes manual Attack/Normal/Defend tactics, top-row shortcuts and feedback/help, plus exact 8%/15% possession speed penalties. Types and lint pass; the tactics change passed 71 logic checks. No application build or deployment performed.
@@ -698,6 +700,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Let opponents adapt to public score/time using the same formation modes, with delayed stable intent and a minimum hold. Keep the last applied Daily plan as Normal so automatic mode rules and difficulty retain their existing timing.
+
 - Show tactics in both info controls and desktop key bindings: the desktop Controls button opens a different panel, so footer-only instructions were insufficient.
 
 - Use exact 8% normal and 15% sprint possession penalties against off-ball speeds, as requested.
@@ -1084,6 +1088,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Playtest opponent Attack counterattack exposure, late Defend spacing and live-time switching across match durations and Daily modes.
+
 - Verify the highlighted tactics help and fixed desktop shortcut list on the next native Reddit playtest.
 
 - Review the revised possession speed penalties during the next match playtest.
@@ -1457,6 +1463,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-11:** add score/time-based opponent tactics with three-second reaction and twelve-second minimum hold. Preserve Daily/Rampage integration and human selection; types/lint, 72 gameplay checks and Daily regressions pass. No application build performed.
 
 - **2026-11-11:** make tactics controls prominent in the info page and add the missing fixed tactics shortcuts to desktop Controls. Types/lint pass; no build performed.
 

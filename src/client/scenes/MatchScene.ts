@@ -1,3 +1,4 @@
+import { OpponentTactics } from '../systems/opponentTactics';
 import { ChaosWeather } from '../render/ChaosWeather';
 import {
   chaosRules,
@@ -97,7 +98,12 @@ import {
   stepKeeperBody,
 } from '../systems/keeper';
 import { separatePlayers } from '../systems/collisions';
-import { TeamBrain, interceptPoint, type TeamView } from '../systems/ai';
+import {
+  TeamBrain,
+  interceptPoint,
+  type TeamView,
+  type TeamStyle,
+} from '../systems/ai';
 import { nextSwitchSelection } from '../systems/playerSwitch';
 import {
   resolveTackle,
@@ -232,6 +238,9 @@ export class MatchScene extends Phaser.Scene {
   private gameCount: ReturnType<typeof trackGame> | null = null;
   private resultShown = false;
   private botDifficulty: MatchConfig['difficulty'] = 'normal';
+  private opponentTacticTime = 0;
+  private opponentBaseStyle: TeamStyle = TACTICS.balanced;
+  private opponentTactics = new OpponentTactics();
   private tacticalKey = '';
   private pendingTactic = '';
   private pendingTacticAt = 0;
@@ -300,6 +309,9 @@ export class MatchScene extends Phaser.Scene {
     this.gameCount = null;
     this.resultShown = false;
     this.botDifficulty = data.difficulty;
+    this.opponentTacticTime = 0;
+    this.opponentBaseStyle = TACTICS.balanced;
+    this.opponentTactics = new OpponentTactics();
     this.tacticalKey = this.pendingTactic = '';
     this.pendingTacticAt = 0;
     this.fastestGoalKmh = 0;
@@ -758,6 +770,7 @@ export class MatchScene extends Phaser.Scene {
     // receiver keeps a guaranteed first touch while the pass is travelling;
     // once a loose ball has died, that flag is dropped.
     this.updateDailyTactics(t);
+    this.updateOpponentTactics(dt);
     const frozen = this.flow.playersFrozen;
     if (!ball.owner && ball.z === 0 && ball.speed < PASS.receiverStopBelow)
       this.clearReceivers();
@@ -1774,6 +1787,31 @@ export class MatchScene extends Phaser.Scene {
     return best;
   }
 
+  private updateOpponentTactics(dt: number) {
+    if (this.flow.phase !== 'live' || this.flow.playersFrozen) return;
+    this.opponentTacticTime += dt;
+    const mode = this.opponentTactics.update(
+      this.flow.score.home,
+      this.flow.score.away,
+      this.flow.clock,
+      this.config.durationSec,
+      this.opponentTacticTime
+    );
+    const base = this.opponentBaseStyle;
+    if (this.awayBrain.tactic !== mode) {
+      this.awayBrain.tactic = mode;
+      this.awayBrain.reset();
+    }
+    this.awayBrain.configure(
+      LEVELS[this.botDifficulty],
+      mode === 'attack'
+        ? TACTICS.attacking
+        : mode === 'defend'
+          ? TACTICS.defensive
+          : base
+    );
+  }
+
   private updateDailyTactics(time: number, force = false) {
     if (!this.config.dailyMode || this.config.mode === 'casual') return;
     if (!force && this.flow.phase !== 'live' && this.flow.phase !== 'kickoff')
@@ -1790,6 +1828,7 @@ export class MatchScene extends Phaser.Scene {
       }
       if (time < this.pendingTacticAt) return;
     }
+    this.opponentBaseStyle = plan.away;
     this.homeBrain.configure(LEVELS.normal, plan.home);
     this.awayBrain.configure(LEVELS[plan.difficulty], plan.away);
     this.botDifficulty = plan.difficulty;

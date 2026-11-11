@@ -1,3 +1,4 @@
+import { OpponentTactics } from '../src/client/systems/opponentTactics';
 import { existsSync } from 'node:fs';
 import { firstAssets } from '../src/client/art/assetList';
 import { chaosRules, NORMAL_RULES, chaosLabel } from '../src/shared/chaos';
@@ -915,6 +916,30 @@ check(
         );
       }
     }
+  }
+);
+check(
+  'opponent tactics: delayed changes, held choices, late lead protection and equal-score recovery',
+  () => {
+    const tactics = new OpponentTactics();
+    assert.equal(tactics.update(1, 0, 150, 180, 0), 'normal');
+    assert.equal(tactics.update(1, 0, 148, 180, 2), 'normal');
+    assert.equal(tactics.update(1, 0, 147, 180, 3), 'attack');
+    assert.equal(tactics.update(1, 2, 30, 180, 4), 'attack');
+    assert.equal(tactics.update(1, 2, 26, 180, 8), 'attack');
+    assert.equal(tactics.update(1, 2, 20, 180, 15), 'defend');
+    assert.equal(tactics.update(2, 2, 18, 180, 16), 'defend');
+    assert.equal(tactics.update(2, 2, 8, 180, 27), 'normal');
+    const short = new OpponentTactics();
+    assert.equal(short.update(0, 1, 25, 60, 0), 'normal');
+    assert.equal(short.update(0, 1, 25, 60, 10), 'normal');
+    assert.equal(short.update(0, 1, 18, 60, 11), 'normal');
+    assert.equal(short.update(0, 1, 15, 60, 14), 'defend');
+    const cancelled = new OpponentTactics();
+    cancelled.update(1, 0, 100, 180, 0);
+    cancelled.update(0, 0, 99, 180, 1);
+    assert.equal(cancelled.update(1, 0, 98, 180, 2), 'normal');
+    assert.equal(cancelled.update(1, 0, 97, 180, 4), 'normal');
   }
 );
 check('brain: no chaser while the ball is out behind a goal', () => {

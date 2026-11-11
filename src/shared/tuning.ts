@@ -593,6 +593,12 @@ export const AI = {
 // (FORMATIONS: defenders, midfielders, forwards).
 // Manual Defend shifts the outfield shape back by this share of pitch length.
 export const TACTIC_DROP = 0.16;
+export const OPPONENT_TACTICS = {
+  reactionSeconds: 3, // score/time must justify a new plan for this long
+  holdSeconds: 12, // minimum time between switches
+  lateSeconds: 60, // protect a lead only in the final minute ...
+  lateFraction: 0.3, // ... or final 30% of a shorter match
+} as const;
 
 export const TACTICS = {
   attacking: {
