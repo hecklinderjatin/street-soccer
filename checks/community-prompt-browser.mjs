@@ -69,7 +69,7 @@ try {
           window.ok
             ? { joined: true }
             : {
-                error: 'Could not join. Please retry.',
+                error: 'Could not join. You can join from the subreddit page.',
                 code: 'REDDIT_JOIN_FAILED',
                 reference: 'test-ref',
               },
@@ -183,16 +183,17 @@ try {
     /test-ref/
   );
   assert.equal(
-    await page
-      .getByRole('button', { name: 'RETRY JOIN', exact: true })
-      .isVisible(),
-    true
+    await page.getByRole('button', { name: 'RETRY JOIN', exact: true }).count(),
+    0
   );
+  await open(true);
   await page.evaluate(() => {
     window.ok = true;
     window.deferConsent = true;
   });
-  await page.getByRole('button', { name: 'RETRY JOIN', exact: true }).click();
+  await page
+    .getByRole('button', { name: 'JOIN COMMUNITY', exact: true })
+    .click();
   await page.waitForFunction(
     () => !document.querySelector('.community-prompt')
   );
@@ -232,7 +233,7 @@ try {
   assert.equal(await page.locator('.community-result-note').count(), 0);
   assert.deepEqual(errors, []);
   console.log(
-    'Community popup passed: portrait/landscape fit, results gating, optional continue, trusted consent, denial/error/retry, successful-join suppression, account isolation and cleanup.'
+    'Community popup passed: portrait/landscape fit, results gating, optional continue, trusted consent, denial/error without a retry button, successful-join suppression, account isolation and cleanup.'
   );
 } finally {
   await browser.close();

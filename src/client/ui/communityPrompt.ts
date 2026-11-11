@@ -66,19 +66,9 @@ export function communityPrompt(results: HTMLElement, portrait = false) {
     void subscribe(event);
   });
   const next = casualButton('CONTINUE TO RESULTS', () => close(), true);
-  const retry = casualButton(
-    'RETRY JOIN',
-    (event) => {
-      void subscribe(event);
-    },
-    true
-  );
-  retry.classList.add('community-retry');
-  retry.hidden = true;
   let resultNote: HTMLParagraphElement | null = null;
   function notifyResults(message: string, success = false) {
     if (disposed) return;
-    retry.hidden = true;
     resultNote ??= document.createElement('p');
     resultNote.className = `community-result-note${success ? ' is-success' : ''}`;
     resultNote.setAttribute('role', 'status');
@@ -122,7 +112,7 @@ export function communityPrompt(results: HTMLElement, portrait = false) {
         const fallback =
           response.status === 404
             ? 'Join is unavailable in this game version. Reopen the updated post.'
-            : `Could not join (HTTP ${response.status}). Please retry.`;
+            : `Could not join (HTTP ${response.status}). You can join from the subreddit page.`;
         throw new Error(
           `${typeof detail === 'string' ? detail.slice(0, 240) : fallback}${typeof reference === 'string' ? ' Ref: ' + reference.slice(0, 36) : ''}`
         );
@@ -132,7 +122,9 @@ export function communityPrompt(results: HTMLElement, portrait = false) {
         typeof payload !== 'object' ||
         Reflect.get(payload, 'joined') !== true
       )
-        throw new Error('Join confirmation was not received. Please retry.');
+        throw new Error(
+          'Join confirmation was not received. You can join from the subreddit page.'
+        );
       try {
         if (key) localStorage.setItem(key, 'yes');
       } catch {
@@ -146,10 +138,6 @@ export function communityPrompt(results: HTMLElement, portrait = false) {
           ? error.message
           : 'Could not join. You can still continue playing.'
       );
-      if (!disposed && resultNote) {
-        resultNote.after(retry);
-        retry.hidden = false;
-      }
     } finally {
       pending = false;
       if (!closed) {
@@ -182,7 +170,6 @@ export function communityPrompt(results: HTMLElement, portrait = false) {
     destroy() {
       disposed = true;
       resultNote?.remove();
-      retry.remove();
       close(false);
     },
   };

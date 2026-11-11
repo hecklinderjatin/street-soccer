@@ -148,10 +148,3 @@
   border-color: #00e436;
   color: #b7efca;
 }
-
-.community-retry {
-  width: 100%;
-}
-.community-retry[hidden] {
-  display: none !important;
-}

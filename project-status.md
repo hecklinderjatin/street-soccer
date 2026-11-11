@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Remove Join Retry (2026-11-11):** remove the Retry Join results button and its styles, as requested. Keep safe join diagnostics/references and confirmed-success thanks. Remove retry instructions from join errors; suggest joining from the subreddit page. Wording now identifies a permission issue without claiming the player denied consent. User screenshot reference 6e20b303 came from the permission-classified server failure path; its exact SDK cause remains available only in the corresponding community_join_failed log. Types/lint and community API/browser checks pass, including no Retry button on failure. No application build, live joins or production log access performed.
+
 **Main merge (2026-11-11):** fast-forwarded `codex/join-diagnostics` through `bb1009b` into main at the user’s request. Includes actionable join errors/references, correlated SDK logs, Retry Join and required Free Kick Restart. Existing types/lint and focused community/restart browser/API checks pass. Production join cause still requires a reproduced reference and server logs. No application build or deployment performed.
 
 **Join diagnostics and required Free Kick Restart (2026-11-11):** join failures now return safe reason/code and short reference. Log community_join_failed with the matching reference, deployed app version, SDK error code and bounded message (no request headers/account identifiers). Distinguish permission and rate-limit errors; client displays server details/reference with HTTP fallback and requires joined:true before thanking/storing success. Add a trusted-click Retry Join button on results. Verify live failures by reproducing while running `npx devvit logs street_soccer_dev street-soccer --since 15m`, then matching the screenshot reference to its SDK message. Existing catch swallowed the error, so no exact production cause is claimed. Free Kick Restart was already present in main; make its overlay callback required and always render its control. Actual source-only browser checks verify/click Restart in Play, Challenge and Practice and confirm settings/reset/record isolation; Challenge pause screenshot inspected. Types/lint and community API/browser and pause-restart checks pass. No application build, live Reddit joins or production log access performed.
@@ -728,6 +730,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Keep diagnostic references while removing the unwanted retry action. A permission-classified SDK failure is not proof that a user declined native consent; avoid blaming the player.
+
 - Correlate a safe on-screen join reference with SDK failure details in server logs instead of exposing raw platform errors to players or guessing the production cause. Require Free Kick Restart in the overlay contract.
 
 - Restart abandons the current attempt and starts with identical settings; it never submits a partial leaderboard result. Reuse the existing Free Kick reset and normal Match initialization rather than manually recreating their state.
@@ -1134,6 +1138,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Retrieve the community_join_failed log matching reference 6e20b303 to identify the actual production permission failure.
+
 - Upload the diagnostics version, reproduce a join failure and match its reference to `community_join_failed` in Devvit logs. Verify the visible Free Kick Restart against the deployed version; source/browser checks already show it in every Free Kick entry.
 
 - Native Reddit review of Pause Restart across normal/Daily modes and Free Kick Challenge/Practice after the next user-run upload.
@@ -1527,6 +1533,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-11:** remove Retry Join and misleading retry/consent wording while retaining join diagnostics. Types/lint and focused API/browser checks pass; no application build performed.
 
 - **2026-11-11:** merge join diagnostics, Retry Join and required Free Kick Restart into main through `bb1009b`; prepare requested GitHub push. No application build/deployment performed.
 

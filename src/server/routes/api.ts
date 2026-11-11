@@ -40,7 +40,7 @@ api.post('/community/join', async (c) => {
   if (!context.postId || !context.subredditId)
     return c.json(
       {
-        error: 'Open the game from a community post and retry.',
+        error: 'Join this community from its subreddit page.',
         code: 'POST_REQUIRED',
         reference,
       },
@@ -82,10 +82,10 @@ api.post('/community/join', async (c) => {
     return c.json(
       {
         error: denied
-          ? 'Reddit did not grant permission to join. Retry and approve the subscription request.'
+          ? 'Reddit blocked the join request because of a permission issue. You can join from the subreddit page.'
           : limited
-            ? 'Reddit is limiting join requests. Wait a moment and retry.'
-            : 'Reddit could not complete the join. Retry or join from the subreddit page.',
+            ? 'Reddit is limiting join requests. You can join later from the subreddit page.'
+            : 'Reddit could not complete the join. You can join from the subreddit page.',
         code,
         reference,
       },
