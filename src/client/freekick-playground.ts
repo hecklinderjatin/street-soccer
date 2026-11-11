@@ -43,6 +43,13 @@ let scored = false; // the current kick has been scored at least once
 let sheetUp = true;
 let openTile: string | null = null; // the setup window open over the menu
 const link = new PlaygroundLink(kick);
+// Desktop (wide landscape): the settings dock on the right of the game,
+// all open at once (playground.css moves the game column left for them).
+const dockQuery = window.matchMedia(
+  '(min-width: 900px) and (orientation: landscape)'
+);
+let docked = dockQuery.matches;
+document.documentElement.classList.add('is-playground');
 
 const host = document.getElementById('freekick');
 const el = <K extends keyof HTMLElementTagNameMap>(
@@ -235,8 +242,10 @@ function tile(
   menu.append(head);
   windows.append(win);
   renders.push(() => {
-    win.hidden = openTile !== id;
-    head.setAttribute('aria-expanded', String(openTile === id));
+    // Docked (desktop): every window shows at once, no menu or DONE.
+    win.hidden = !docked && openTile !== id;
+    done.hidden = docked;
+    head.setAttribute('aria-expanded', String(docked || openTile === id));
     pixelLabel(value, sum());
   });
 }
@@ -263,7 +272,9 @@ function buildSheet(root: HTMLElement) {
   grip.setAttribute('aria-label', 'Hide or show the setup');
   const gripTitle = el('span', 'pg-grip-title', 'PLAYGROUND  1/2 SETUP');
   grip.append(el('span', 'pg-grip-bar'), gripTitle);
-  grip.addEventListener('click', () => slide(!sheetUp));
+  grip.addEventListener('click', () => {
+    if (!docked) slide(!sheetUp);
+  });
   head.append(
     grip,
     button('SAVED', 'secondary pg-mini', () => void showSaves()),
@@ -346,17 +357,18 @@ function buildSheet(root: HTMLElement) {
   for (const [id, name, sum, rows] of groups)
     tile(id, name, sum, rows, menu, body);
   renders.push(() => {
-    menu.hidden = openTile !== null;
+    menu.hidden = docked || openTile !== null;
   });
 
   const status = el('p', 'pg-status');
   status.setAttribute('role', 'status');
   const foot = el('footer', 'pg-foot');
-  foot.append(
-    button('TEST SHOT', 'pg-test', () => slide(false)),
-    button('NEXT', 'pg-next', showKits)
-  );
-  sheet.append(head, body, status, foot);
+  const test = button('TEST SHOT', 'pg-test', () => slide(false));
+  foot.append(test, button('NEXT', 'pg-next', showKits));
+  // Docked, the kick is always playable: the panel says whether it has
+  // been scored yet in place of TEST SHOT.
+  const dockTested = el('p', 'pg-tested pg-dock-tested');
+  sheet.append(head, body, status, dockTested, foot);
 
   // Shown while testing (sheet down): back to the setup, or on to share.
   const float = el('div', 'pg-float');
@@ -367,11 +379,21 @@ function buildSheet(root: HTMLElement) {
     tested
   );
   renders.push(() => {
-    sheet.classList.toggle('is-down', !sheetUp);
-    float.hidden = sheetUp;
-    grip.setAttribute('aria-expanded', String(sheetUp));
-    pixelLabel(tested, scored ? 'SCORED: READY TO SHARE' : 'SCORE ONCE TO SHARE');
-    tested.classList.toggle('is-scored', scored);
+    sheet.classList.toggle('is-down', !docked && !sheetUp);
+    sheet.classList.toggle('is-docked', docked);
+    float.hidden = docked || sheetUp;
+    test.hidden = docked;
+    dockTested.hidden = !docked;
+    grip.setAttribute('aria-expanded', String(docked || sheetUp));
+    const line = scored
+      ? 'SCORED: READY TO SHARE'
+      : docked
+        ? 'SHOOT ON THE PITCH: SCORE ONCE TO SHARE'
+        : 'SCORE ONCE TO SHARE';
+    for (const node of [tested, dockTested]) {
+      pixelLabel(node, line);
+      node.classList.toggle('is-scored', scored);
+    }
   });
   root.append(sheet, float);
 
@@ -384,13 +406,20 @@ function buildSheet(root: HTMLElement) {
 
   // The camera frames the kick into the part of the view above the sheet.
   // The sheet fits its content, so it changes height as windows open.
+  // Docked beside the game (desktop), the panel covers none of it: the
+  // whole view frames the kick and it can be taken at any time.
   const reframe = () => {
     const height = root.clientHeight || 1;
-    const viewRatio = sheetUp ? 1 - sheet.offsetHeight / height : 1;
-    if (sheetUp === link.editing && Math.abs(viewRatio - link.viewRatio) < 0.005)
+    const editing = !docked && sheetUp;
+    const viewRatio = editing ? 1 - sheet.offsetHeight / height : 1;
+    if (editing === link.editing && Math.abs(viewRatio - link.viewRatio) < 0.005)
       return;
-    link.update({ editing: sheetUp, viewRatio });
+    link.update({ editing, viewRatio });
   };
+  dockQuery.addEventListener('change', (event) => {
+    docked = event.matches;
+    render();
+  });
   slide = (up: boolean) => {
     sheetUp = up;
     render();
@@ -416,14 +445,6 @@ function showKits() {
   screen.setAttribute('role', 'dialog');
   screen.setAttribute('aria-modal', 'true');
   const panel = el('div', 'practice-panel pg-panel');
-  const figures = el('div', 'pg-figures');
-  const kickerFig = el('span', 'pg-figure');
-  const wallFigs = Array.from({ length: kick.wallMen }, () =>
-    el('span', 'pg-figure is-wall')
-  );
-  const wallRow = el('span', 'pg-wall-row');
-  wallRow.append(...wallFigs);
-  figures.append(kickerFig, wallRow);
   const rows: (() => void)[] = [];
   const cycle = (color: JerseyColor, other: JerseyColor, d: -1 | 1) => {
     const n = JERSEY_COLORS.length;
@@ -475,7 +496,6 @@ function showKits() {
   panel.append(
     el('span', 'practice-mode', 'PLAYGROUND 2/2'),
     el('h1', '', 'KITS AND TITLE'),
-    figures,
     kitRow(
       'KICKER KIT',
       () => kicker,
@@ -494,11 +514,9 @@ function showKits() {
     actions
   );
   screen.append(panel);
-  host.append(screen);
+  document.body.append(screen); // over the whole page (and the docked panel)
   function paint() {
     for (const update of rows) update();
-    kickerFig.style.setProperty('--kit', hex(kicker));
-    for (const fig of wallFigs) fig.style.setProperty('--kit', hex(wallKit));
   }
   paint();
   input.focus({ preventScroll: true });
@@ -514,11 +532,39 @@ function showKits() {
   async function doSave() {
     say('Saving...');
     try {
+      // At most FK.customSaveSlots saved kicks: a new one needs a free slot
+      // (re-saving a loaded kick overwrites its own slot).
+      const existing = await request('saves');
+      const own = existing.some((s) => s.slot === slot);
+      if (!own && existing.length >= FK.customSaveSlots) {
+        say('');
+        showAlert(
+          'SAVES FULL',
+          `You can keep ${FK.customSaveSlots} saved kicks. Delete one in SAVED to make room.`,
+          [
+            [
+              'OPEN SAVED',
+              'pg-test',
+              () => {
+                close();
+                void showSaves();
+              },
+            ],
+            ['OK', 'secondary', () => undefined],
+          ]
+        );
+        return;
+      }
+      if (!own) slot = null;
       const saved = await api('/api/playground/save', { setup: setup(), slot });
       const at: unknown =
         saved && typeof saved === 'object' ? Reflect.get(saved, 'slot') : null;
+      const list: unknown =
+        saved && typeof saved === 'object' ? Reflect.get(saved, 'saves') : null;
       if (typeof at === 'number') slot = at;
-      say('Saved. Open SAVED on the setup screen to load it again.');
+      say(
+        `Saved (${Array.isArray(list) ? list.length : '?'}/${FK.customSaveSlots}). Load it from SAVED.`
+      );
     } catch (error) {
       say(message(error));
     }
@@ -602,7 +648,7 @@ function showAlert(
     );
   box.append(el('span', 'pg-alert-icon', '!'), title, line, row);
   shade.append(box);
-  host.append(shade);
+  document.body.append(shade);
   document.addEventListener('keydown', onKey, { capture: true });
   row.querySelector('button')?.focus({ preventScroll: true });
 }
@@ -628,11 +674,11 @@ async function showSaves() {
     button('CLOSE', 'secondary', close)
   );
   screen.append(panel);
-  host.append(screen);
+  document.body.append(screen); // over the whole page (and the docked panel)
   const show = (saves: PlaygroundSave[]) => {
     list.replaceChildren();
     status.textContent = saves.length
-      ? ''
+      ? `${saves.length}/${FK.customSaveSlots} slots used.`
       : 'Nothing saved yet. Build a kick, then NEXT > SAVE.';
     for (const save of saves) {
       const row = el('div', 'pg-save');

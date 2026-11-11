@@ -325,56 +325,29 @@
 
 /* Kits and title, and saved kicks: a card over the dimmed game. */
 .pg-screen {
-  position: absolute;
+  position: fixed;
   inset: 0;
   z-index: 30;
-  overflow-y: auto;
-  padding: 16px;
+  /* Fits the view: no scrolling inside the game. */
+  overflow: hidden;
+  padding: 12px;
   display: flex;
-  align-items: safe center;
+  align-items: center;
   justify-content: center;
   background: #080f1bd9;
   color: #fff1e8;
   font:
     13px/1.5 ui-monospace,
     monospace;
-  touch-action: pan-y;
 }
-.pg-panel {
-  gap: 12px;
+.pg-panel.practice-panel {
+  max-height: 100%;
+  overflow: hidden;
+  padding: 16px 18px;
+  gap: 10px;
 }
 .pg-panel h1 .lobby-pixel {
   max-width: 100%;
-}
-.pg-figures {
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  gap: 32px;
-  padding: 14px;
-  background: #5f574f;
-  border: 1px solid #293e58;
-}
-.pg-wall-row {
-  display: flex;
-  gap: 4px;
-}
-/* A blocky footballer: kit shirt, skin head, dark shorts. */
-.pg-figure {
-  --kit: #ef94aa;
-  width: 22px;
-  height: 52px;
-  border: 2px solid #000;
-  background: linear-gradient(
-    #e5b386 0 26%,
-    #000 26% 30%,
-    var(--kit) 30% 68%,
-    #292a30 68% 100%
-  );
-}
-.pg-figure:not(.is-wall) {
-  width: 28px;
-  height: 60px;
 }
 .pg-title-field {
   display: grid;
@@ -404,13 +377,14 @@
 .pg-panel .pg-status {
   padding: 0;
 }
+/* BACK, SAVE and SHARE TO SUB in one row. */
 .pg-actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1.7fr;
   gap: 8px;
 }
-.pg-actions .pg-share {
-  grid-column: 1 / -1;
+.pg-actions .casual-button {
+  padding: 8px 6px;
 }
 
 .pg-saves {
@@ -464,13 +438,38 @@
 .pg-panel h1 {
   font-size: 22px;
 }
-.pg-panel .pg-figures {
-  padding: 10px;
+.pg-panel .pg-value,
+.pg-panel .pg-arrow {
+  min-height: 38px;
+  height: 38px;
+}
+.pg-panel .pg-title-field input {
+  min-height: 40px;
+  padding: 6px 12px;
+}
+/* Short views: tighter still, so the card never needs scrolling. */
+@media (max-height: 560px) {
+  .pg-panel.practice-panel {
+    padding: 12px 14px;
+    gap: 6px;
+  }
+  .pg-panel h1 {
+    font-size: 16px;
+  }
+  .pg-panel .pg-facts {
+    display: none;
+  }
+  .pg-saves {
+    gap: 4px;
+  }
+  .pg-save {
+    padding: 6px 8px;
+  }
 }
 
 /* A game-styled alert over the whole Playground. */
 .pg-alert-shade {
-  position: absolute;
+  position: fixed;
   inset: 0;
   z-index: 40;
   display: flex;
@@ -526,4 +525,48 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
+}
+
+/* Desktop (wide landscape): the settings dock on the right, full height,
+   every group open at once; the game column centres in the space left. */
+@media (min-width: 900px) and (orientation: landscape) {
+  html.is-playground #freekick {
+    right: 400px;
+  }
+  .pg-sheet.is-docked {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: auto;
+    right: 0;
+    width: 400px;
+    max-height: none;
+    border-top: 0;
+    border-left: 3px solid #ffa300;
+    box-shadow: -6px 0 #0006;
+    transform: none;
+  }
+  .pg-sheet.is-docked .pg-body {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    align-content: start;
+    gap: 10px;
+    padding: 12px;
+  }
+  .pg-sheet.is-docked .pg-grip {
+    cursor: default;
+  }
+  .pg-sheet.is-docked .pg-grip-bar {
+    display: none;
+  }
+  .pg-dock-tested {
+    margin: 0 12px;
+    padding: 8px;
+    text-align: center;
+  }
+}
+.pg-dock-tested[hidden],
+.pg-foot [hidden] {
+  display: none;
 }
