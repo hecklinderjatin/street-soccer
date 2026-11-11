@@ -1,8 +1,13 @@
-import { watchFreeKickPreview } from './previewLifecycle';
+import { watchVisiblePreview } from '../ui/visiblePreview';
+import { startFreeKickDownloads } from '../earlyAssets';
 import { context, requestExpandedMode } from '@devvit/web/client';
 import { pixelLabel } from '../ui/pixelLabel';
 import { freeKickChallenge } from '../challenge';
 import { DIFFICULTY_LABEL } from '../../shared/types';
+import {
+  isLegacyPlaygroundDescription,
+  PLAYGROUND_DESCRIPTION,
+} from '../../shared/freeKickCustom';
 import { readGamesPlayed } from '../gameCount';
 import { freeKickFeedBoard } from './leaderboard';
 
@@ -54,7 +59,12 @@ export function showFreeKickLobby() {
   const value =
     data && typeof data === 'object' ? Reflect.get(data, 'description') : '';
   if (description)
-    description.textContent = typeof value === 'string' ? value : '';
+    description.textContent =
+      custom && isLegacyPlaygroundDescription(value)
+        ? PLAYGROUND_DESCRIPTION
+        : typeof value === 'string'
+          ? value
+          : '';
   const notes = card.querySelector('.freekick-mode-notes');
   if (notes)
     notes.textContent = custom
@@ -105,7 +115,14 @@ export function showFreeKickLobby() {
   addActivity(card);
   host.replaceChildren(card);
   const preview = card.querySelector<HTMLElement>('.freekick-preview');
-  if (preview) stopPreview = watchFreeKickPreview(preview);
+  if (preview) {
+    const lifecycle = watchVisiblePreview(preview, async () => {
+      startFreeKickDownloads();
+      const { createFreeKickPreview } = await import('./preview');
+      return () => createFreeKickPreview(preview);
+    });
+    stopPreview = lifecycle.destroy;
+  }
 }
 
 // Every Free Kick card, as a match card: games played (completed runs

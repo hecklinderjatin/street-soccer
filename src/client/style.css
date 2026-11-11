@@ -419,8 +419,6 @@ body {
   box-sizing: border-box;
   width: 100%;
   max-width: 560px;
-  max-height: 100%;
-  overflow: auto;
   padding: 18px;
   background: #101d30;
   border: 1px solid #69819a;
@@ -455,6 +453,29 @@ body {
 .mobile-board-status {
   font-size: 12px;
   color: #a8b6c9;
+}
+@media (max-height: 400px) {
+  .mobile-board-modal {
+    padding: 8px;
+  }
+  .mobile-board-sheet {
+    padding: 8px 12px;
+  }
+  .mobile-board-sheet header,
+  .mobile-board-sheet .leaderboard-tabs {
+    margin-bottom: 4px;
+  }
+  .mobile-board-sheet .leaderboard-tabs button,
+  :is(#mobile-lobby, .freekick-lobby) .mobile-board-close,
+  .mobile-board-sheet footer button {
+    min-height: 36px;
+  }
+  .mobile-board-sheet footer button {
+    padding-block: 5px;
+  }
+  .mobile-board-status {
+    margin: 5px 0;
+  }
 }
 @media (min-width: 700px) and (orientation: landscape) {
   .mobile-lobby-header {

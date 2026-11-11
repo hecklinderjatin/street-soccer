@@ -12,9 +12,9 @@ import type {
 import { POST_TYPE_LABEL, type PostType } from '../../shared/postType';
 import { formatClock } from '../../shared/matchConfig';
 import { DIFFICULTY_LABEL, type MatchConfig } from '../../shared/types';
-import { css } from './menuCard';
-import { JERSEY_SWATCH } from './palette';
+import { css, JERSEY_SWATCH } from './palette';
 import { pixelLabel } from './pixelLabel';
+import { boardPageSize } from './boardPageSize';
 
 // Native-size text and touch targets over the real match canvas. The canvas
 // fills the portrait card; settings sit over a gradient at its lower edge.
@@ -147,8 +147,12 @@ export function createMobileLobby(
     return li;
   };
   let boardRequest = 0;
+  let resizeBoard: (() => void) | undefined;
   return {
     element,
+    resizeBoard() {
+      resizeBoard?.();
+    },
     setGamesPlayed(count: number | null) {
       get('.preview-games').textContent =
         count === null ? '—' : count.toLocaleString();
@@ -197,6 +201,7 @@ export function createMobileLobby(
       const status = get('.mobile-board-status');
       const prev = get('.mobile-board-prev');
       const next = get('.mobile-board-next');
+      resizeBoard = undefined;
       modal.hidden = false;
       list.replaceChildren();
       prev.hidden = next.hidden = true;
@@ -212,11 +217,13 @@ export function createMobileLobby(
         const data: DailyLeadersResponse | SpeedLeadersResponse =
           await res.json();
         if (!element.isConnected || requested !== boardRequest) return;
-        let page = 0;
+        let offset = 0;
         const draw = () => {
+          const size = boardPageSize();
+          offset = Math.floor(offset / size) * size;
           list.replaceChildren();
           data.top
-            .slice(page * 5, page * 5 + 5)
+            .slice(offset, offset + size)
             .forEach((leader) => list.append(row(leader)));
           status.textContent = !data.top.length
             ? speed
@@ -225,16 +232,19 @@ export function createMobileLobby(
             : data.me
               ? `Your best: #${data.me.rank}`
               : 'You: no score in 7 days';
-          prev.hidden = page === 0;
-          next.hidden = (page + 1) * 5 >= data.top.length;
+          prev.hidden = offset === 0;
+          next.hidden = offset + size >= data.top.length;
         };
         prev.onclick = () => {
-          page--;
+          offset = Math.max(0, offset - boardPageSize());
           draw();
         };
         next.onclick = () => {
-          page++;
+          offset += boardPageSize();
           draw();
+        };
+        resizeBoard = () => {
+          if (!modal.hidden) draw();
         };
         draw();
       } catch {

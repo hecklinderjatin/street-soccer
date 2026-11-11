@@ -105,3 +105,12 @@ export function paintEllipseRing(
     }
   }
 }
+
+// Small deterministic RNG so baked art looks the same every time.
+export function seededRandom(seed: number) {
+  let s = seed;
+  return () => {
+    s = (s * 1664525 + 1013904223) % 4294967296;
+    return s / 4294967296;
+  };
+}

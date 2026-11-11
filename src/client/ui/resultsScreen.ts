@@ -16,8 +16,7 @@ import { formatClock } from '../../shared/matchConfig';
 import { POST_TYPE_LABEL, type PostType } from '../../shared/postType';
 import { casualScreen } from './casualScreen';
 import { pixelLabel } from './pixelLabel';
-import { css } from './menuCard';
-import { JERSEY_SWATCH, PAL } from './palette';
+import { css, JERSEY_SWATCH, PAL } from './palette';
 
 // One responsive results card for every mode. The page shell measures the
 // webview's visual viewport so the full card stays visible.

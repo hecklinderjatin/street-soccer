@@ -2,6 +2,8 @@ import { reddit, redis } from '@devvit/web/server';
 import type { PlaygroundSave } from '../../shared/api';
 import {
   parseCustomSetup,
+  isLegacyPlaygroundDescription,
+  PLAYGROUND_DESCRIPTION,
   type CustomSetup,
 } from '../../shared/freeKickCustom';
 import { FREE_KICK as FK } from '../../shared/tuning';
@@ -12,12 +14,34 @@ import { scoreThread } from './scoreThread';
 // request (privacy.ts forgetPlayer).
 export const playgroundSavesKey = (username: string) =>
   `playground:saves:${username}`;
+export const PLAYGROUND_OWNERS = 'privacy:playground-owners';
 export const playgroundCooldownKey = (username: string) =>
   `cooldown:playground:${username}`;
 // Shares today (UTC), at most FK.customSharesPerDay; kept two days.
 export const playgroundSharesKey = (username: string, day = today()) =>
   `playground:shares:${username}:${day}`;
 const today = () => new Date().toISOString().slice(0, 10);
+
+export async function cleanPlaygroundDescription(
+  postId: `t3_${string}`,
+  subredditName: string
+) {
+  const post = await reddit.getPostById(postId);
+  if (post.subredditName.toLowerCase() !== subredditName.toLowerCase())
+    return false;
+  const data = await post.getPostData();
+  const kick = data?.freeKick;
+  if (
+    data?.matchType !== 'freekick' ||
+    !kick ||
+    typeof kick !== 'object' ||
+    Reflect.get(kick, 'mode') !== 'custom' ||
+    !isLegacyPlaygroundDescription(data.description)
+  )
+    return false;
+  await post.mergePostData({ description: PLAYGROUND_DESCRIPTION });
+  return true;
+}
 
 export class PlaygroundError extends Error {
   constructor(
@@ -59,27 +83,49 @@ export async function savePlayground(
 ) {
   const setup = parseCustomSetup(raw, true);
   if (typeof setup === 'string') throw new PlaygroundError(setup);
-  const saves = await playgroundSaves(username);
-  const used = new Set(saves.map((s) => s.slot));
-  const target =
-    typeof slot === 'number' &&
-    Number.isInteger(slot) &&
-    slot >= 0 &&
-    slot < FK.customSaveSlots
-      ? slot
-      : Array.from({ length: FK.customSaveSlots }, (_, i) => i).find(
-          (i) => !used.has(i)
-        );
-  if (target === undefined)
-    throw new PlaygroundError(
-      `All ${FK.customSaveSlots} save slots are full. Delete one first.`
-    );
   const key = playgroundSavesKey(username);
-  await redis.hSet(key, {
-    [String(target)]: JSON.stringify({ setup, savedAt: Date.now() }),
-  });
-  await redis.expire(key, FK.customSaveDays * 86_400);
-  return { slot: target, saves: await playgroundSaves(username) };
+  const guard = `privacy:deleting:${username}`;
+  const retentionSec = FK.customSaveDays * 86_400;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const tx = await redis.watch(key, guard);
+    let queued = false;
+    try {
+      if (await redis.get(guard))
+        throw new PlaygroundError('Please retry shortly', 429);
+      const saves = await playgroundSaves(username);
+      const target =
+        typeof slot === 'number' &&
+        Number.isInteger(slot) &&
+        slot >= 0 &&
+        slot < FK.customSaveSlots
+          ? slot
+          : Array.from({ length: FK.customSaveSlots }, (_, i) => i).find(
+              (i) => !saves.some((save) => save.slot === i)
+            );
+      if (target === undefined)
+        throw new PlaygroundError(
+          `All ${FK.customSaveSlots} save slots are full. Delete one first.`
+        );
+      const savedAt = Date.now();
+      await tx.multi();
+      queued = true;
+      await tx.hSet(key, {
+        [String(target)]: JSON.stringify({ setup, savedAt }),
+      });
+      await tx.expire(key, retentionSec);
+      await tx.zAdd(PLAYGROUND_OWNERS, {
+        member: username,
+        score: savedAt + retentionSec * 1000,
+      });
+      if ((await tx.exec()).length === 3)
+        return { slot: target, saves: await playgroundSaves(username) };
+    } catch (error) {
+      if (!queued) await tx.multi().catch(() => {});
+      await tx.discard().catch(() => {});
+      throw error;
+    }
+  }
+  throw new PlaygroundError('Saves are busy. Please retry.', 429);
 }
 
 export async function deletePlayground(username: string, slot: unknown) {
@@ -119,7 +165,6 @@ export async function sharePlayground(username: string, raw: unknown) {
     kicker: setup.kicker,
     wall: setup.wall,
   };
-  const description = `A custom free kick built by u/${username} in the Playground. One shot: score it to rank.`;
   try {
     const post = await reddit.submitCustomPost({
       title: setup.title,
@@ -127,7 +172,11 @@ export async function sharePlayground(username: string, raw: unknown) {
       userGeneratedContent: {
         text: ['freekick', setup.title, JSON.stringify(freeKick)].join('\n\n'),
       },
-      postData: { matchType: 'freekick', freeKick, description },
+      postData: {
+        matchType: 'freekick',
+        freeKick,
+        description: PLAYGROUND_DESCRIPTION,
+      },
     });
     try {
       await scoreThread(post.id);

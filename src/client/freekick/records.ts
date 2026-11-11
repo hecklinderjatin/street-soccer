@@ -20,37 +20,24 @@ async function request(path: string, body: unknown) {
 export class FreeKickRecords {
   private readonly id = crypto.randomUUID();
   private startRequest: Promise<FreeKickRun> | null = null;
-  private run: FreeKickRun | null = null;
   start() {
     if (this.startRequest || !context?.postId) return;
     this.startRequest = request('start', {
       id: this.id,
       mode: freeKickRankedMode(freeKickChallenge()),
-    }).then((value) => {
-      this.run = value;
-      return value;
     });
     // A failed request must never block shooting or become an unhandled rejection.
     void this.startRequest.catch(() => {});
   }
   async save(result: FreeKickStats) {
     if (!context?.postId)
-      throw new Error('Leaderboards and score sharing are available on Reddit');
+      throw new Error('Leaderboards are available on Reddit');
     if (!this.startRequest) throw new Error('Run was not registered');
     const run = await this.startRequest;
     await request('result', {
       ...run,
       mode: freeKickRankedMode(freeKickChallenge()),
       result,
-    });
-  }
-  async post(comment: string, includeStats: boolean) {
-    if (!this.run) throw new Error('Save the run before sharing');
-    return request('post-score', {
-      ...this.run,
-      mode: freeKickRankedMode(freeKickChallenge()),
-      comment,
-      includeStats,
     });
   }
 }

@@ -8,6 +8,16 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Reddit action and feed compliance (2026-11-11):** Playground confirms the exact title, subreddit, and Reddit account before requesting consent and posting. Both inline leaderboard sheets paginate to fit the viewport without scrolling, and the feed allows native zoom.
+
+**Deferred music (2026-11-11):** Match and Free Kick background music starts downloading on the first game interaction when sound is enabled. Muted startup does not fetch the track.
+
+**Feed startup (2026-11-11):** The inline feed renders its native card and Play buttons before starting Phaser or art downloads. Live previews start after one second of continuous visibility. Free Kick uses only the away keeper atlas.
+
+**Playground privacy (2026-11-11):** New shared descriptions omit the username. The scheduler checks Playground save owners independently of ranked boards, and the feed hides the copied username on legacy Playground posts. Moderators can rewrite the stored description from the post menu.
+
+**Source cleanup (2026-11-11):** Removed the unused canvas menu/backdrop and obsolete Free Kick client state and sharing method.
+
 **Free Kick startup fix (2026-11-11):** The production Phaser bundle exports the wrap function used by the animated sky and traffic.
 
 **Results actions (2026-11-11):** Join Community sits in the shared results action grid across Free Kick, Classic, Daily, Chaos and Custom. Free Kick results link to Practice and the Playground builder. Results cards fit within the visible webview without an internal scrollbar. The Free Kick Playground button uses a green fill with dark lettering. Play Again and Rematch use the original orange style.
@@ -792,6 +802,16 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Keep inline boards in the feed and reduce rows per page on short viewports. Cancel or Escape leaves the Playground draft and test result in place.
+
+- Keep the audio element source-free until a trusted game gesture, so the 2.08 MB stream does not compete with startup art or JavaScript.
+
+- Share the native lobby between the feed and Phaser menu. Start inline preview loading after at least 15% of the card has been visible for one second; a local Play click can start immediately.
+
+- Save and index each Playground owner in the same guarded transaction. The SDK does not expose a keyspace scan to backfill pre-existing unindexed saves, so those retain their original expiry.
+
+- Keep the tested Free Kick score-sharing route available to older clients while removing its unused current-client method.
+
 - Check built Free Kick entrypoints with `node checks/freekick-build-browser.mjs` after building, so renderer omissions cannot hide behind the full Phaser used in source checks.
 
 - Birds and traffic share the Free Kick ambient clock and respect reduced motion. Traffic runs behind the basketball court.
@@ -1242,6 +1262,16 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Verify the sharing consent prompt and feed gestures inside the live Reddit Android and iOS apps.
+
+- Check first-interaction music and mute on the live Reddit Android and iOS webviews.
+
+- Measure the updated feed on the live Reddit webview and compare cold first-paint and first-play timings.
+
+- Verify **Clean up old Playground description** on an existing shared kick in the Reddit playtest, then use it on any remaining legacy Playground posts.
+
+- Continue the audit follow-up with Playground deletion coverage and startup performance.
+
 - Verify Free Kick startup in the live Reddit playtest after it picks up the rebuilt client.
 
 - Check traffic visibility at different kick angles in the live Reddit webview.
@@ -1675,6 +1705,16 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- 2026-11-11: Added explicit Playground posting confirmation and removed feed leaderboard scrolling and inline zoom restrictions.
+
+- 2026-11-11: Deferred background music downloads until interaction, skipped muted startup downloads, and released Free Kick music on scene shutdown.
+
+- 2026-11-11: Rendered the feed card before Phaser, delayed preview downloads until sustained visibility, and removed the unused Free Kick home keeper download.
+
+- 2026-11-11: Indexed Playground-only save owners for account deletion, removed copied usernames from shared descriptions, and added a targeted moderator cleanup action.
+
+- 2026-11-11: Removed the obsolete canvas menu/backdrop and unused Free Kick client code.
 
 - 2026-11-11: Restored orange replay buttons and applied the green style to Playground in Free Kick results.
 

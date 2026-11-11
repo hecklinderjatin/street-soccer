@@ -519,6 +519,7 @@
 .pg-alert-text {
   margin: 0;
   color: #c3cedd;
+  overflow-wrap: anywhere;
 }
 .pg-alert-actions {
   width: 100%;

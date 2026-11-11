@@ -1,5 +1,10 @@
-import { context, exitExpandedMode, navigateTo } from '@devvit/web/client';
-import { startEarlyDownloads } from './earlyAssets';
+import {
+  canRunAsUser,
+  context,
+  exitExpandedMode,
+  navigateTo,
+} from '@devvit/web/client';
+import { startFreeKickDownloads } from './earlyAssets';
 import { freeKickChallenge } from './challenge';
 import { pixelLabel } from './ui/pixelLabel';
 import { JERSEY_SWATCH } from './ui/palette';
@@ -28,7 +33,7 @@ import { PlaygroundLink } from './freekick/playgroundLink';
 // The settings sheet slides up over the bottom of the view; each group
 // opens from its tile, ranges step with arrows, switches are checkboxes.
 
-startEarlyDownloads();
+startFreeKickDownloads();
 
 const post = freeKickChallenge();
 let kick: CustomKick =
@@ -306,19 +311,24 @@ function buildSheet(root: HTMLElement) {
     )
   );
   const groups: [string, string, () => string, Node[]][] = [
-    ['shot', 'SHOT POSITION', () => `${kick.distanceM} M / ${angleText(kick)}`, [
-      stepper(
-        'DISTANCE',
-        () => `${kick.distanceM} M`,
-        (d) => setKick({ ...kick, distanceM: kick.distanceM + d })
-      ),
-      stepper(
-        'ANGLE',
-        () => angleText(kick),
-        // The left arrow moves the spot left.
-        (d) => setKick({ ...kick, angleDeg: kick.angleDeg - d })
-      ),
-    ]],
+    [
+      'shot',
+      'SHOT POSITION',
+      () => `${kick.distanceM} M / ${angleText(kick)}`,
+      [
+        stepper(
+          'DISTANCE',
+          () => `${kick.distanceM} M`,
+          (d) => setKick({ ...kick, distanceM: kick.distanceM + d })
+        ),
+        stepper(
+          'ANGLE',
+          () => angleText(kick),
+          // The left arrow moves the spot left.
+          (d) => setKick({ ...kick, angleDeg: kick.angleDeg - d })
+        ),
+      ],
+    ],
     [
       'wall',
       'WALL SETTING',
@@ -342,17 +352,22 @@ function buildSheet(root: HTMLElement) {
         checks,
       ],
     ],
-    ['difficulty', 'DIFFICULTY', () => DIFFICULTY_LABEL[kick.difficulty], [
-      stepper(
-        'KEEPER',
-        () => DIFFICULTY_LABEL[kick.difficulty],
-        (d) => {
-          const i = DIFFICULTIES.indexOf(kick.difficulty) + d;
-          const next = DIFFICULTIES[clamp(i, 0, DIFFICULTIES.length - 1)];
-          if (next) setKick({ ...kick, difficulty: next });
-        }
-      ),
-    ]],
+    [
+      'difficulty',
+      'DIFFICULTY',
+      () => DIFFICULTY_LABEL[kick.difficulty],
+      [
+        stepper(
+          'KEEPER',
+          () => DIFFICULTY_LABEL[kick.difficulty],
+          (d) => {
+            const i = DIFFICULTIES.indexOf(kick.difficulty) + d;
+            const next = DIFFICULTIES[clamp(i, 0, DIFFICULTIES.length - 1)];
+            if (next) setKick({ ...kick, difficulty: next });
+          }
+        ),
+      ],
+    ],
   ];
   for (const [id, name, sum, rows] of groups)
     tile(id, name, sum, rows, menu, body);
@@ -412,7 +427,10 @@ function buildSheet(root: HTMLElement) {
     const height = root.clientHeight || 1;
     const editing = !docked && sheetUp;
     const viewRatio = editing ? 1 - sheet.offsetHeight / height : 1;
-    if (editing === link.editing && Math.abs(viewRatio - link.viewRatio) < 0.005)
+    if (
+      editing === link.editing &&
+      Math.abs(viewRatio - link.viewRatio) < 0.005
+    )
       return;
     link.update({ editing, viewRatio });
   };
@@ -487,7 +505,7 @@ function showKits() {
   status.setAttribute('role', 'status');
   const say = (text: string) => (status.textContent = text);
   const actions = el('div', 'pg-actions');
-  const share = button('SHARE TO SUB', 'pg-share', () => void doShare());
+  const share = button('SHARE TO SUB', 'pg-share', confirmShare);
   actions.append(
     button('BACK', 'secondary', close),
     button('SAVE', 'secondary', () => void doSave()),
@@ -569,7 +587,7 @@ function showKits() {
       say(message(error));
     }
   }
-  async function doShare() {
+  function confirmShare() {
     if (!scored) {
       showAlert(
         'SCORE IT FIRST',
@@ -588,20 +606,50 @@ function showKits() {
       );
       return;
     }
-    if (parseCustomTitle(title) === null) {
+    const postTitle = parseCustomTitle(title);
+    if (postTitle === null) {
       say(`Give it a title (3 to ${FK.customTitleMax} characters).`);
       input.focus();
       return;
     }
+    const { subredditName, username, userId } = context ?? {};
+    if (!subredditName || !username || !userId) {
+      say('Sign in to Reddit to share this kick.');
+      return;
+    }
+    const confirmedSetup = { ...setup(), kick: { ...kick }, title: postTitle };
+    screen.inert = true;
+    showAlert(
+      'SHARE THIS KICK?',
+      `“${postTitle}” will be posted to r/${subredditName} from your Reddit account (u/${username}). Your username will be visible on the post.`,
+      [
+        ['CANCEL', 'secondary', () => {}],
+        [
+          'POST AS ME',
+          'pg-share',
+          (event) => void doShare(event, confirmedSetup),
+        ],
+      ],
+      () => {
+        screen.inert = false;
+        share.focus({ preventScroll: true });
+      }
+    );
+  }
+  async function doShare(event: MouseEvent, confirmedSetup: CustomSetup) {
     share.disabled = true;
-    say('Posting your kick...');
     try {
-      const response = await api('/api/playground/share', { setup: setup() });
+      if (!(await canRunAsUser(event))) return;
+      say('Posting your kick...');
+      const response = await api('/api/playground/share', {
+        setup: confirmedSetup,
+      });
       const url: unknown =
         response && typeof response === 'object'
           ? Reflect.get(response, 'url')
           : undefined;
-      if (typeof url !== 'string') throw new Error('Could not share. Please retry.');
+      if (typeof url !== 'string')
+        throw new Error('Could not share. Please retry.');
       say('Shared! Opening your post...');
       navigateTo(url);
     } catch (error) {
@@ -616,12 +664,11 @@ function showKits() {
   }
 }
 
-// A game-styled alert over everything: a heading, a line and its buttons
-// (each closes the alert, then does its action).
 function showAlert(
   heading: string,
   text: string,
-  actions: [string, string, () => void][]
+  actions: [string, string, (event: MouseEvent) => void][],
+  onClose?: () => void
 ) {
   if (!host) return;
   const shade = el('div', 'pg-alert-shade');
@@ -637,17 +684,30 @@ function showAlert(
   const close = () => {
     document.removeEventListener('keydown', onKey, { capture: true });
     shade.remove();
+    onClose?.();
   };
   const onKey = (event: KeyboardEvent) => {
-    if (event.key !== 'Escape') return;
-    event.stopImmediatePropagation();
-    close();
+    if (event.key === 'Escape') {
+      event.stopImmediatePropagation();
+      close();
+    } else if (event.key === 'Tab') {
+      const buttons = [...row.querySelectorAll('button')];
+      const first = buttons[0];
+      const last = buttons[buttons.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
+      }
+    }
   };
   for (const [label, className, act] of actions)
     row.append(
-      button(label, className, () => {
+      button(label, className, (event) => {
         close();
-        act();
+        act(event);
       })
     );
   box.append(el('span', 'pg-alert-icon', '!'), title, line, row);
@@ -726,7 +786,9 @@ async function showSaves() {
 // ---- Server -------------------------------------------------------------------
 
 const message = (error: unknown) =>
-  error instanceof Error ? error.message : 'Something went wrong. Please retry.';
+  error instanceof Error
+    ? error.message
+    : 'Something went wrong. Please retry.';
 
 async function api(path: string, body?: object): Promise<unknown> {
   const response = await fetch(path, {
@@ -739,7 +801,9 @@ async function api(path: string, body?: object): Promise<unknown> {
     const error: unknown =
       data && typeof data === 'object' ? Reflect.get(data, 'error') : null;
     throw new Error(
-      typeof error === 'string' ? error : 'Playground unavailable. Please retry.'
+      typeof error === 'string'
+        ? error
+        : 'Playground unavailable. Please retry.'
     );
   }
   return data;
@@ -787,6 +851,7 @@ if (host) {
     .then(({ createFreeKickGame }) => createFreeKickGame(true, 1, link))
     .catch(() => {
       if (loader)
-        loader.textContent = 'Couldn’t load the Playground. Please reopen the post.';
+        loader.textContent =
+          'Couldn’t load the Playground. Please reopen the post.';
     });
 }

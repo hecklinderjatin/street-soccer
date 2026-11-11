@@ -1,7 +1,7 @@
 // Background music streamed by the browser (an <audio> element) instead of
 // a Phaser sound, which would download the whole track before it can play
 // and then decode it into ~90 MB of memory. It starts while still
-// downloading and never holds up the match.
+// downloading. Its source is assigned only after a player gesture.
 //
 // Where the game uses Web Audio (`output`), the element is routed through
 // it: its own gain sets the volume (phones such as iPhones ignore an audio
@@ -17,14 +17,22 @@ export class StreamMusic {
   private readonly gain: GainNode | null = null;
   private source: MediaElementAudioSourceNode | null = null;
   private wanted = false; // should be playing
-  private readonly retry = () => {
-    if (this.wanted && this.el.paused) this.start();
+  private activated = false;
+  private muted = false;
+  private readonly onGesture = (event: Event) => {
+    if (!event.isTrusted) return;
+    this.activated = true;
+    this.start();
   };
 
-  constructor(url: string, volume: number, output?: MusicOutput) {
-    this.el = new Audio(url);
+  constructor(
+    private readonly url: string,
+    volume: number,
+    output?: MusicOutput
+  ) {
+    this.el = new Audio();
     this.el.loop = true;
-    this.el.preload = 'auto';
+    this.el.preload = 'none';
     this.el.volume = volume;
     if (output) {
       try {
@@ -38,10 +46,19 @@ export class StreamMusic {
       }
     }
     for (const type of GESTURES)
-      window.addEventListener(type, this.retry, { capture: true });
+      window.addEventListener(type, this.onGesture, { capture: true });
   }
 
   private start() {
+    if (
+      !this.activated ||
+      !this.wanted ||
+      this.muted ||
+      document.hidden ||
+      !this.el.paused
+    )
+      return;
+    if (!this.el.hasAttribute('src')) this.el.src = this.url;
     this.el.play().catch(() => undefined); // retried on the next gesture
   }
 
@@ -66,20 +83,24 @@ export class StreamMusic {
     this.el.currentTime = 0;
   }
 
-  // Only needed when not routed through Web Audio (there Phaser's master
-  // mute already applies).
   setMuted(muted: boolean) {
+    if (this.muted === muted) return;
+    this.muted = muted;
     if (!this.source) this.el.muted = muted;
+    if (muted) this.el.pause();
+    else this.start();
   }
 
   destroy() {
     this.wanted = false;
     for (const type of GESTURES)
-      window.removeEventListener(type, this.retry, { capture: true });
+      window.removeEventListener(type, this.onGesture, { capture: true });
     this.el.pause();
     this.source?.disconnect();
     this.gain?.disconnect();
-    this.el.removeAttribute('src');
-    this.el.load(); // drops the download and the buffered audio
+    if (this.el.hasAttribute('src')) {
+      this.el.removeAttribute('src');
+      this.el.load(); // drops the download and the buffered audio
+    }
   }
 }

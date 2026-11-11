@@ -6,11 +6,11 @@ import {
 import { practicePicks } from './freekick/practicePicks';
 import { pixelLabel } from './ui/pixelLabel';
 import { FREE_KICK as FK } from '../shared/tuning';
-import { startEarlyDownloads } from './earlyAssets';
+import { startFreeKickDownloads } from './earlyAssets';
 
 // Practice setup: random spots from the post's settings at a chosen level,
 // or (a Challenge post) one of its actual rounds, exactly as it plays.
-startEarlyDownloads();
+startFreeKickDownloads();
 const host = document.getElementById('freekick');
 const loader = document.getElementById('boot-loading');
 if (loader) loader.style.display = 'none';

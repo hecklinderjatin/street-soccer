@@ -4,6 +4,7 @@ import {
   playgroundCooldownKey,
   playgroundSavesKey,
   playgroundSharesKey,
+  PLAYGROUND_OWNERS,
 } from './playground';
 
 // Leaderboards cover today and the previous 6 UTC days. A day's data is
@@ -75,11 +76,6 @@ export async function forgetPlayer(username: string) {
   await redis.set(deletingKey(username), '1', {
     expiration: new Date(Date.now() + 60_000),
   });
-  await removePlayerResults(
-    redis,
-    (await activeBoards()).map((b) => b.member),
-    username
-  );
   // Saved Playground kicks (shared posts are the player's own Reddit posts).
   await redis.del(
     playgroundSavesKey(username),
@@ -91,20 +87,18 @@ export async function forgetPlayer(username: string) {
       new Date(Date.now() - 86_400_000).toISOString().slice(0, 10)
     )
   );
+  await removePlayerResults(
+    redis,
+    (await activeBoards()).map((b) => b.member),
+    username
+  );
+  await redis.zRem(PLAYGROUND_OWNERS, [username]);
 }
 
-// One board page per tick; the cursor rotates fairly through all boards.
-// An unavailable Reddit API is an error, never evidence of account deletion.
-export async function cleanupDeletedAccounts() {
-  const boards = await activeBoards();
-  if (!boards.length) return;
-  const index =
-    Number((await redis.get('privacy:board-index')) ?? 0) % boards.length;
-  const board = boards[index]?.member;
-  if (!board) return;
-  const cursorKey = `privacy:cursor:${board}`;
+async function checkAccountPage(key: string, count: number) {
+  const cursorKey = `privacy:cursor:${key}`;
   const cursor = Number((await redis.get(cursorKey)) ?? 0);
-  const page = await redis.zScan(board, cursor, undefined, 25);
+  const page = await redis.zScan(key, cursor, undefined, count);
   await removeUnavailableAccounts(
     page.members.map((entry) => entry.member),
     async (username) => Boolean(await reddit.getUserByUsername(username)),
@@ -113,6 +107,19 @@ export async function cleanupDeletedAccounts() {
   await redis.set(cursorKey, String(page.cursor), {
     expiration: new Date(Date.now() + RETENTION_SEC * 1000),
   });
-  if (page.cursor === 0)
+  return page.cursor;
+}
+
+// Check Playground independently so a player needs no ranked run to be found.
+// An unavailable Reddit API is an error, never evidence of account deletion.
+export async function cleanupDeletedAccounts() {
+  await redis.zRemRangeByScore(PLAYGROUND_OWNERS, 0, Date.now());
+  await checkAccountPage(PLAYGROUND_OWNERS, 10);
+  const boards = await activeBoards();
+  if (!boards.length) return;
+  const index =
+    Number((await redis.get('privacy:board-index')) ?? 0) % boards.length;
+  const board = boards[index]?.member;
+  if (board && (await checkAccountPage(board, 25)) === 0)
     await redis.set('privacy:board-index', String((index + 1) % boards.length));
 }

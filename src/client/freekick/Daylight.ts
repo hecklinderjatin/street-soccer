@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { FREE_KICK_GROUND_EXTENT } from '../art/pitchArt';
 import { carKey, createCarTexture } from '../art/sceneryArt';
 import { newProjected } from '../render/Projector';
-import { seededRandom } from '../ui/backdrop';
+import { seededRandom } from '../art/pixelArt';
 import { PX } from '../ui/palette';
 import type { KickCamera } from './KickCamera';
 import { GOAL_X, GOAL_Y } from './rules';

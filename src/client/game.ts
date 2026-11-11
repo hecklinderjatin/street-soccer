@@ -8,9 +8,14 @@ import { ResultScene } from './scenes/ResultScene';
 import { HudScene } from './scenes/HudScene';
 import { forceLandscape } from './ui/landscape';
 import { PAL } from './ui/palette';
+import type { mountMatchLobby } from './ui/matchLobby';
 import { markTiming } from './ui/timing';
 
-export function createGame(inline = false, casual = false) {
+export function createGame(
+  inline = false,
+  casual = false,
+  lobby?: ReturnType<typeof mountMatchLobby>
+) {
   markTiming('game code');
 
   const box = document.getElementById('game');
@@ -55,7 +60,7 @@ export function createGame(inline = false, casual = false) {
     },
     scene: [
       BootScene,
-      MenuScene,
+      new MenuScene(lobby),
       CasualScene,
       MatchScene,
       ResultScene,

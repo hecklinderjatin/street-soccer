@@ -19,7 +19,7 @@ import {
   carKey,
   createSceneryTextures,
 } from '../art/sceneryArt';
-import { seededRandom } from '../ui/backdrop';
+import { seededRandom } from '../art/pixelArt';
 import { Billboard } from './Billboard';
 import { Crowd } from './Crowd';
 import { Goal } from './Goal';

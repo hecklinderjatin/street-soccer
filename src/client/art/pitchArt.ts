@@ -1,9 +1,8 @@
 import Phaser from 'phaser';
 import { PITCH } from '../../shared/tuning';
-import { seededRandom } from '../ui/backdrop';
 import { PAL, PX } from '../ui/palette';
 import { paintPixelText } from '../ui/pixelFont';
-import { fill, hex, makeTexture, paintRing } from './pixelArt';
+import { fill, hex, makeTexture, paintRing, seededRandom } from './pixelArt';
 import { paintStreetAsphalt } from './streetAsphalt';
 
 // Textures for the 3D street court, painted at art-pixel resolution

@@ -87,3 +87,6 @@ export const JERSEY_SWATCH: Record<JerseyColor, number> = {
   cyan: PAL.kitCyan,
   maroon: PAL.kitMaroon,
 };
+
+export const css = (color: number, alpha = 1) =>
+  `rgba(${(color >> 16) & 255}, ${(color >> 8) & 255}, ${color & 255}, ${alpha})`;

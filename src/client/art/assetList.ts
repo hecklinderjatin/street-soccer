@@ -24,13 +24,21 @@ export const firstAssets = (config: MatchConfig): Asset[] => [
   atlas(PLAYER_SKIN_TEXTURE),
   atlas(PLAYER_HAIR_TEXTURE),
 ];
-export const REST_ASSETS: readonly Asset[] = [
-  atlas(playerTexture('homeKeeper')),
+const FREE_KICK_REST_ASSETS: readonly Asset[] = [
   atlas(playerTexture('awayKeeper')),
   { key: AUTHORED_BALL_TEXTURE, url: '/art/ball-authored.webp' },
   { key: AUTHORED_SHOT_BALL_TEXTURE, url: '/art/ball-shot-authored.webp' },
 ];
+export const REST_ASSETS: readonly Asset[] = [
+  atlas(playerTexture('homeKeeper')),
+  ...FREE_KICK_REST_ASSETS,
+];
 export const matchAssets = (config: MatchConfig): Asset[] => [
   ...firstAssets(config),
   ...REST_ASSETS,
+];
+
+export const freeKickAssets = (config: MatchConfig): Asset[] => [
+  ...firstAssets(config),
+  ...FREE_KICK_REST_ASSETS,
 ];

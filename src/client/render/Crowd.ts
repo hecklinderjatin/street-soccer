@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { CROWD } from '../../shared/tuning';
 import { FAN_VARIANTS, fanKey } from '../art/sceneryArt';
-import { seededRandom } from '../ui/backdrop';
+import { seededRandom } from '../art/pixelArt';
 import { PX } from '../ui/palette';
 import { newProjected, type Projector } from './Projector';
 

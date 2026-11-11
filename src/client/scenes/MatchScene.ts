@@ -631,8 +631,7 @@ export class MatchScene extends Phaser.Scene {
     }
     // Opening whistle once per match; if audio is locked, wait for a gesture.
     // Music: streamed through the game's Web Audio (volume and the master
-    // mute apply on every phone); a start the browser refuses before the
-    // first touch is retried on the next one (StreamMusic).
+    // mute apply on every phone); the first game gesture starts the download.
     if (!this.demo && !this.music && this.flow.phase !== 'fulltime') {
       const sound = this.sound;
       this.music = new StreamMusic(
@@ -642,6 +641,7 @@ export class MatchScene extends Phaser.Scene {
           ? { context: sound.context, destination: sound.destination }
           : undefined
       );
+      this.music.setMuted(soundMuted());
       this.music.play();
     }
     this.music?.setMuted(soundMuted());

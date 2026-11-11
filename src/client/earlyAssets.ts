@@ -1,4 +1,4 @@
-import { matchAssets, type Asset } from './art/assetList';
+import { freeKickAssets, matchAssets, type Asset } from './art/assetList';
 import { startingConfig } from './challenge';
 
 // Starts downloading the match art at once, in parallel with the game code
@@ -9,8 +9,8 @@ import { startingConfig } from './challenge';
 
 const early = new Map<string, Promise<string | null>>();
 
-export function startEarlyDownloads() {
-  for (const asset of matchAssets(startingConfig())) {
+export function startEarlyDownloads(assets = matchAssets(startingConfig())) {
+  for (const asset of assets) {
     if (early.has(asset.url)) continue;
     early.set(
       asset.url,
@@ -20,6 +20,10 @@ export function startEarlyDownloads() {
         .catch(() => null)
     );
   }
+}
+
+export function startFreeKickDownloads() {
+  startEarlyDownloads(freeKickAssets(startingConfig()));
 }
 
 // `assets` with each URL swapped for its early download, once those are in

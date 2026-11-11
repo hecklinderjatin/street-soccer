@@ -1,5 +1,6 @@
 import type { FreeKickBoard, FreeKickBoards } from '../../shared/freeKick';
 import { pixelLabel } from '../ui/pixelLabel';
+import { boardPageSize } from '../ui/boardPageSize';
 import { freeKickChallenge } from '../challenge';
 import { endlessFreeKick } from '../../shared/freeKickChallenge';
 
@@ -59,7 +60,7 @@ function tabs(onSelect: (kind: Kind) => void) {
 }
 
 // The feed card: 7-DAY TOP 3 (highest score) with ALL >, which opens the
-// full seven-day board sheet with both categories, five rows a page.
+// full seven-day board sheet with both categories, paginated to fit.
 export function freeKickFeedBoard() {
   const ranking = document.createElement('div');
   ranking.className = 'preview-ranking';
@@ -88,13 +89,13 @@ export function freeKickFeedBoard() {
   const next = get<HTMLButtonElement>(modal, '.mobile-board-next');
   const close = get<HTMLButtonElement>(modal, '.mobile-board-close');
   let kind: Kind = 'score';
-  let page = 0;
+  let offset = 0;
   let full: FreeKickBoards | null = null;
   let request = 0;
   let destroyed = false;
   const category = tabs((selected) => {
     kind = selected;
-    page = 0;
+    offset = 0;
     drawSheet();
   });
   get(modal, '.mobile-board-sheet header').after(category.group);
@@ -143,7 +144,9 @@ export function freeKickFeedBoard() {
     prev.hidden = next.hidden = true;
     if (!full) return;
     const board = full[kind] ?? { top: [], me: null }; // (an older server: no goals board)
-    for (const leader of board.top.slice(page * 5, page * 5 + 5))
+    const size = boardPageSize();
+    offset = Math.floor(offset / size) * size;
+    for (const leader of board.top.slice(offset, offset + size))
       rows.append(row(leader.rank, leader.username, value(kind, leader.value)));
     status.textContent = !board.top.length
       ? kind !== 'score'
@@ -152,13 +155,13 @@ export function freeKickFeedBoard() {
       : board.me
         ? `Your best: #${board.me.rank}${tries(board.me.attempts)}`
         : 'You: no score in 7 days';
-    prev.hidden = page === 0;
-    next.hidden = (page + 1) * 5 >= board.top.length;
+    prev.hidden = offset === 0;
+    next.hidden = offset + size >= board.top.length;
   }
 
   async function open() {
     modal.hidden = false;
-    page = 0;
+    offset = 0;
     full = null;
     drawSheet();
     status.textContent = 'Loading...';
@@ -205,14 +208,18 @@ export function freeKickFeedBoard() {
     if (event.target === modal) hide();
   });
   prev.addEventListener('click', () => {
-    page--;
+    offset = Math.max(0, offset - boardPageSize());
     drawSheet();
   });
   next.addEventListener('click', () => {
-    page++;
+    offset += boardPageSize();
     drawSheet();
   });
   document.addEventListener('keydown', onKey);
+  const resize = () => {
+    if (!modal.hidden) drawSheet();
+  };
+  window.addEventListener('resize', resize);
   void fetchBoards(3)
     .then((data) => {
       if (!destroyed) drawPreview(data.score);
@@ -226,6 +233,7 @@ export function freeKickFeedBoard() {
     destroy() {
       destroyed = true;
       document.removeEventListener('keydown', onKey);
+      window.removeEventListener('resize', resize);
       ranking.remove();
       modal.remove();
     },

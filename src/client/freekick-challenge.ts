@@ -1,8 +1,8 @@
-import { startEarlyDownloads } from './earlyAssets';
+import { startFreeKickDownloads } from './earlyAssets';
 
 // The ranked Free Kick challenge uses the post creator's settings.
 // Infinity posts use their own ranked entry; Practice stays unranked.
-startEarlyDownloads();
+startFreeKickDownloads();
 void import('./freekick/game')
   .then(({ createFreeKickGame }) => createFreeKickGame())
   .catch((error: unknown) => {

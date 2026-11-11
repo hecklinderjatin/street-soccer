@@ -133,7 +133,17 @@ export function parseCustomSetup(
   const untitled =
     draft && typeof rawTitle === 'string' && rawTitle.trim() === '';
   const title = untitled ? '' : parseCustomTitle(rawTitle);
-  if (title === null)
-    return `title: 3 to ${FK.customTitleMax} characters`;
+  if (title === null) return `title: 3 to ${FK.customTitleMax} characters`;
   return { kick, kicker, wall, title };
+}
+export const PLAYGROUND_DESCRIPTION =
+  'A custom free kick built in the Playground. Retry until you score.';
+
+export function isLegacyPlaygroundDescription(value: unknown) {
+  return (
+    typeof value === 'string' &&
+    /^A custom free kick built by u\/[A-Za-z0-9_-]+ in the Playground\. One shot: score it to rank\.$/.test(
+      value
+    )
+  );
 }

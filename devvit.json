@@ -58,6 +58,14 @@
         "endpoint": "/internal/menu/play-metrics"
       },
       {
+        "label": "Clean up old Playground description",
+        "description": "Remove the copied username from this Playground post",
+        "location": "post",
+        "forUserType": "moderator",
+        "postFilter": "currentApp",
+        "endpoint": "/internal/menu/clean-playground-description"
+      },
+      {
         "label": "Delete my Street Soccer data",
         "description": "Remove your saved leaderboard results in this subreddit",
         "location": "subreddit",

@@ -13,8 +13,7 @@ import { formatClock } from '../../shared/matchConfig';
 import { DIFFICULTY_LABEL } from '../../shared/types';
 import { casualButton, casualScreen } from '../ui/casualScreen';
 import { pixelLabel } from '../ui/pixelLabel';
-import { css } from '../ui/menuCard';
-import { JERSEY_SWATCH } from '../ui/palette';
+import { css, JERSEY_SWATCH } from '../ui/palette';
 
 export class CasualScene extends Phaser.Scene {
   constructor() {

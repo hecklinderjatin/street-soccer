@@ -2,7 +2,8 @@ import Phaser from 'phaser';
 import { context } from '@devvit/web/client';
 import { BALL, FREE_KICK as FK } from '../../shared/tuning';
 import { createBallTexture } from '../art/ballArt';
-import { matchAssets, queueAssets } from '../art/gameAssets';
+import { queueAssets } from '../art/gameAssets';
+import { freeKickAssets } from '../art/assetList';
 import { registerPlayerAtlases } from '../art/playerArt';
 import { startingConfig, freeKickChallenge } from '../challenge';
 import { releaseEarlyDownloads, withEarlyDownloads } from '../earlyAssets';
@@ -52,7 +53,7 @@ class FreeKickPreviewScene extends Phaser.Scene {
       this.scale.off(Phaser.Scale.Events.RESIZE, this.frame, this);
       this.game.events.off('preview-layout', this.frame, this);
     });
-    const assets = matchAssets(startingConfig());
+    const assets = freeKickAssets(startingConfig());
     void withEarlyDownloads(assets).then((ready) => {
       if (!this.sys.isActive()) return;
       const finish = () => {

@@ -24,7 +24,8 @@ import {
 import Phaser from 'phaser';
 import { BALL, FREE_KICK as FK } from '../../shared/tuning';
 import { BALL_KEY, createBallTexture } from '../art/ballArt';
-import { matchAssets, queueAssets, type Asset } from '../art/gameAssets';
+import { queueAssets, type Asset } from '../art/gameAssets';
+import { freeKickAssets } from '../art/assetList';
 import { registerPlayerAtlases } from '../art/playerArt';
 import { freeKickChallenge, startingConfig } from '../challenge';
 import {
@@ -242,7 +243,6 @@ export class FreeKickScene extends Phaser.Scene {
   private overlay: FreeKickOverlay = null;
   private overlayLayer: Phaser.GameObjects.Container | null = null;
   private lifeIcons: Phaser.GameObjects.Image[] = [];
-  private card: Phaser.GameObjects.GameObject[] = [];
 
   constructor() {
     super('FreeKick');
@@ -300,6 +300,8 @@ export class FreeKickScene extends Phaser.Scene {
       this.game.events.off(Phaser.Core.Events.HIDDEN, hidden);
       this.game.events.off(Phaser.Core.Events.VISIBLE, visible);
       this.scale.off(Phaser.Scale.Events.RESIZE, this.layout, this);
+      this.music?.destroy();
+      this.music = null;
       this.resultScreen?.destroy();
       this.quitButton?.remove();
       this.practicePanel?.remove();
@@ -325,7 +327,7 @@ export class FreeKickScene extends Phaser.Scene {
 
     // The art usually started downloading before this code arrived
     // (earlyAssets.ts); the loader then reads those copies.
-    const assets = matchAssets(startingConfig());
+    const assets = freeKickAssets(startingConfig());
     void withEarlyDownloads(assets).then((ready) => {
       if (!queueAssets(this, ready)) return this.ready(assets);
       this.load.once(Phaser.Loader.Events.COMPLETE, () => this.ready(assets));
@@ -362,7 +364,7 @@ export class FreeKickScene extends Phaser.Scene {
         : undefined
     );
     this.music.setMuted(soundMuted());
-    this.music.play(); // or on the first touch, if the browser refuses
+    this.music.play();
     this.newKick(false);
     this.prepareJourney(false);
     journeyAppReady();
@@ -810,8 +812,6 @@ export class FreeKickScene extends Phaser.Scene {
     this.runStartedAt = 0;
     this.measure('rematch_tap');
     this.measure = this.ranked ? playAttempt('freekick') : () => {};
-    for (const node of this.card) node.destroy();
-    this.card = [];
     this.score = this.goals = this.streak = this.bestStreak = 0;
     this.xgTotal = this.greatSaves = this.shotXg = 0;
     this.lives = this.maxLives;

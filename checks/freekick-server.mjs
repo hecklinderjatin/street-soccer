@@ -24,6 +24,9 @@ await build({
     api: 'src/server/routes/freeKick.ts',
     privacy: 'src/server/core/privacyData.ts',
     threads: 'src/server/core/scoreThread.ts',
+    playground: 'src/server/core/playground.ts',
+    cleanup: 'src/server/core/privacy.ts',
+    custom: 'src/shared/freeKickCustom.ts',
   },
   platform: 'node',
   output: {
@@ -49,6 +52,7 @@ export const redis={
  incrBy:async(k,n)=>{s.values.set(k,String(Number(s.values.get(k)??0)+n));bump(k);},
  del:async(...ks)=>{for(const k of ks){s.values.delete(k);s.boards.delete(k);s.hashes.delete(k);bump(k);}},
  expire:async(k,ttl)=>s.expires.set(k,ttl),
+ hGetAll:async k=>Object.fromEntries(s.hashes.get(k)??[]),
  hGet:async(k,u)=>s.hashes.get(k)?.get(u),
  hSet:async(k,vs)=>{const map=s.hashes.get(k)??new Map();for(const [u,v] of Object.entries(vs))map.set(u,v);s.hashes.set(k,map);bump(k);},
  hDel:async(k,us)=>{for(const u of us)s.hashes.get(k)?.delete(u);bump(k);},
@@ -56,6 +60,8 @@ export const redis={
  zIncrBy:async(k,u,n)=>{const map=s.boards.get(k)??new Map();map.set(u,(map.get(u)??0)+n);s.boards.set(k,map);bump(k);},
  zScore:async(k,u)=>s.boards.get(k)?.get(u),
  zRange:async k=>[...(s.boards.get(k)??[])].map(([member,score])=>({member,score})),
+ zRemRangeByScore:async(k,min,max)=>{for(const [m,v] of s.boards.get(k)??[])if(v>=min&&v<=max)s.boards.get(k).delete(m);},
+ zScan:async k=>({cursor:0,members:await redis.zRange(k)}),
  zRem:async(k,us)=>{for(const u of us)s.boards.get(k)?.delete(u);bump(k);},
  watch:async(...keys)=>{
   const snapshot=keys.map(k=>s.versions.get(k)??0);const ops=[];
@@ -63,7 +69,7 @@ export const redis={
   for(const name of ['zAdd','hSet','expire','set','del','incrBy','zIncrBy'])tx[name]=async(...args)=>ops.push(()=>redis[name](...args));return tx;
  }
 };
-export const reddit={getCurrentUsername:async()=>s.name,getCommentById:async()=>({id:'t1_scores',postId:'t3_fk',stickied:true,removed:false,body:'Scores'}),submitComment:async input=>{s.comments.push(input);return {id:'t1_shared'};}};
+export const reddit={getCurrentUsername:async()=>s.name,getUserByUsername:async name=>{if(s.lookupError)throw Error("Reddit unavailable");return s.accounts?.has(name)?{name}:null;},getPostById:async()=>({subredditName:"test",getPostData:async()=>s.oldPost,mergePostData:async patch=>Object.assign(s.oldPost,patch)}),submitCustomPost:async input=>{s.newPost=input;return {id:"t3_fk",url:"https://www.reddit.com/r/test/comments/fk"};},getCommentById:async()=>({id:'t1_scores',postId:'t3_fk',stickied:true,removed:false,body:'Scores'}),submitComment:async input=>{s.comments.push(input);return {id:'t1_shared'};}};
 `;
       },
     },
@@ -381,3 +387,68 @@ assert.equal((await call('/leaders')).status, 400);
 console.log(
   'Free Kick server passed: auth/post/mode guards, receipts, timing, immutable retry, independent boards, sharing placement/cooldown, erasure and post deletion'
 );
+
+const {
+  savePlayground,
+  sharePlayground,
+  cleanPlaygroundDescription,
+  PLAYGROUND_OWNERS,
+  playgroundSavesKey,
+  playgroundCooldownKey,
+  playgroundSharesKey,
+} = await import('../node_modules/.cache/fk-server/playground.mjs');
+const { cleanupDeletedAccounts, forgetPlayer } =
+  await import('../node_modules/.cache/fk-server/cleanup.mjs');
+const { CUSTOM_KICK_DEFAULT, PLAYGROUND_DESCRIPTION } =
+  await import('../node_modules/.cache/fk-server/custom.mjs');
+const setup = {
+  title: 'Corner practice',
+  kicker: 'pink',
+  wall: 'blue',
+  kick: CUSTOM_KICK_DEFAULT,
+};
+state.boards.clear();
+state.values.set('privacy:legacy-indexed', '1');
+state.accounts = new Set(['active']);
+await savePlayground('active', setup);
+const [first, second] = await Promise.all([
+  savePlayground('playgroundOnly', setup),
+  savePlayground('playgroundOnly', setup),
+]);
+assert.deepEqual([first.slot, second.slot].sort(), [0, 1]);
+assert.ok(state.boards.get(PLAYGROUND_OWNERS).has('playgroundOnly'));
+state.values.set(playgroundCooldownKey('playgroundOnly'), '1');
+state.values.set(playgroundSharesKey('playgroundOnly'), '1');
+state.lookupError = true;
+await assert.rejects(cleanupDeletedAccounts(), /Reddit unavailable/);
+assert.ok(state.hashes.has(playgroundSavesKey('playgroundOnly')));
+state.lookupError = false;
+await cleanupDeletedAccounts();
+assert.equal(state.hashes.has(playgroundSavesKey('playgroundOnly')), false);
+assert.equal(state.values.has(playgroundCooldownKey('playgroundOnly')), false);
+assert.equal(state.values.has(playgroundSharesKey('playgroundOnly')), false);
+assert.equal(state.boards.get(PLAYGROUND_OWNERS).has('playgroundOnly'), false);
+assert.ok(state.hashes.has(playgroundSavesKey('active')));
+await forgetPlayer('active');
+assert.equal(state.boards.get(PLAYGROUND_OWNERS).has('active'), false);
+await assert.rejects(savePlayground('active', setup), /Please retry shortly/);
+
+state.values.set('scorethread:t3_fk', 't1_scores');
+await sharePlayground('testSharer', setup);
+assert.equal(state.newPost.postData.description, PLAYGROUND_DESCRIPTION);
+assert.ok(!JSON.stringify(state.newPost.postData).includes('testSharer'));
+const legacy = 'A custom free kick built by u/oldPlayer in the Playground. One shot: score it to rank.';
+state.oldPost = {
+  matchType: 'freekick',
+  freeKick: { mode: 'custom', custom: CUSTOM_KICK_DEFAULT },
+  description: legacy,
+  other: 42,
+};
+assert.equal(await cleanPlaygroundDescription('t3_fk', 'other'), false);
+assert.equal(state.oldPost.description, legacy);
+assert.equal(await cleanPlaygroundDescription('t3_fk', 'test'), true);
+assert.equal(state.oldPost.description, PLAYGROUND_DESCRIPTION);
+assert.equal(state.oldPost.other, 42);
+assert.deepEqual(state.oldPost.freeKick.custom, CUSTOM_KICK_DEFAULT);
+assert.equal(await cleanPlaygroundDescription('t3_fk', 'test'), false);
+console.log('Playground privacy passed: save-only cleanup, lookup outage, save isolation, and legacy post descriptions.');
