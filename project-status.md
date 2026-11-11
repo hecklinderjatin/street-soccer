@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Practice aligned with Challenge (2026-11-11):** replace Practice’s legacy random setup generator with practiceKick using the same configuredKick implementation as Challenge: post shot-distance range, wall placement/gap and level-based angle/keeper/wall settings, with the chosen Practice level held fixed. Same kits already flow from startingConfig. Keep unlimited same-spot attempts, no life loss/level escalation, New Spot using the same post geometry, Restart preserving the chosen level, and no record submissions. Refresh Practice entry to the navy/pixel card theme, show post distance/wall/kits, default level to Challenge’s starting difficulty, and remove stale normal-best copy. Types/lint, 34 Free Kick rules/panel/API checks and source-only feed/setup/restart/Challenge UI checks pass. Geometry checks compare Practice and Challenge with identical seeds and verify fixed levels across difficulty settings; actual Practice setup screenshot inspected. No application build or live Reddit writes performed.
+
 **Remove legacy Free Kick Play (2026-11-11):** remove the freekick expanded entry, freekick.html/bootstrap and the old unlimited-run browser fixture/command. All non-Practice Free Kick games now initialize the post-configured Challenge without a legacy mode flag or fallback goal-based progression. Keep only Challenge and selected-level Practice, including Restart. Remove legacy device-best writes and legacy results/share UI; Challenge retains its record save, leaderboard results and Join button. Records client sends Challenge only; API rejects Play mode for start/result/share. Historical Play receipt parsing remains solely for existing stored data/retention compatibility; it is not an enabled game entry or accepted submission. Refresh README and fixtures. Types/lint, 33 Free Kick rules/panel/API checks, normal/Challenge/Practice restart checks, actual Challenge UI and responsive feed/practice browser checks pass. No application build or live Reddit writes performed.
 
 **Free Kick result Join visibility (2026-11-11):** stop using the legacy self-confirmed popup-dismissal preference to suppress the new optional result button. Only a confirmed successful in-game join hides it. Position Join Community before the trusted Exit anchor on Free Kick Challenge/Play result actions (normal match action order unchanged). Source-only actual Challenge results test supplies full Reddit context and a preexisting popup preference, verifies visible Join between Play Again and Exit, and checks alignment at three sizes; screenshot inspected. Types/lint, community API/DOM and actual Free Kick UI checks pass. No application build or live joins performed.
@@ -746,6 +748,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Practice should train the Challenge on that post, not use the old unrelated random distances. Share geometry generation while keeping unlimited attempts, fixed selected level and ranking isolation.
+
 - Expose only Challenge and Practice, reject new legacy Play API requests, and retain read compatibility for existing records rather than deleting historical player data.
 
 - A preference to skip a removed popup must not hide a newly requested optional result button. Preserve suppression only for successfully confirmed subscriptions.
@@ -1166,6 +1170,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Native review of refreshed Practice setup, Challenge-matching distances/wall placement and fixed-level retries/New Spot after the next user-run upload.
+
 - Native Reddit review of the two remaining Free Kick entries after the next user-run upload; old Play entry links should no longer be offered.
 
 - Native verification of Join Community between Play Again and Exit on Free Kick Challenge results after the next user-run upload.
@@ -1573,6 +1579,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-11:** update Practice to the post’s Challenge geometry and styling, default to its starting level, and preserve unlimited unranked fixed-level training. Types/lint and rule/API/source-browser checks pass; no application build performed.
 
 - **2026-11-11:** remove legacy Free Kick Play entry, bootstrap, device bests and result/share path; only Challenge and Practice remain and new Play submissions are rejected. Types/lint and focused rule/API/browser checks pass; no application build performed.
 

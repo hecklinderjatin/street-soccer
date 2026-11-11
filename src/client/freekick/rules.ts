@@ -883,7 +883,26 @@ export function challengeKick(
   round: number,
   rand: () => number
 ): KickSetup {
-  const level = challengeRoundLevel(config.difficulty, round);
+  return configuredKick(
+    config,
+    challengeRoundLevel(config.difficulty, round),
+    rand
+  );
+}
+
+// Practice uses the same post geometry as Challenge, at a fixed chosen level.
+export function practiceKick(
+  config: FreeKickChallengeConfig,
+  level: number,
+  rand: () => number
+): KickSetup {
+  return configuredKick(config, clamp(Math.round(level), 1, FK.maxLevel), rand);
+}
+function configuredKick(
+  config: FreeKickChallengeConfig,
+  level: number,
+  rand: () => number
+): KickSetup {
   const metres =
     config.distanceM + (rand() * 2 - 1) * FK.challengeDistanceRangeM;
   const distance = clamp(

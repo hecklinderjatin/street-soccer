@@ -77,35 +77,105 @@ body {
 .freekick-practice-setup {
   position: absolute;
   inset: 0;
+  overflow-y: auto;
+  padding: 20px;
   display: flex;
-  flex-direction: column;
+  align-items: safe center;
   justify-content: center;
-  gap: 20px;
-  padding: 32px;
-  background: #0c192a;
+  background: radial-gradient(ellipse at top, #243958, #080f1b 80%);
   color: #fff1e8;
-  font-family: monospace;
+  font:
+    13px/1.5 ui-monospace,
+    monospace;
+  touch-action: pan-y;
 }
-.freekick-practice-setup h1 {
+.practice-panel {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 500px;
+  padding: 24px;
+  background: #0c192a;
+  border: 1px solid #3b506b;
+  border-top: 3px solid #ffa300;
+  box-shadow: 5px 6px #0005;
+  display: grid;
+  gap: 14px;
+}
+.practice-mode {
   color: #ffec27;
-  font-size: clamp(20px, 5vw, 32px);
+  font-size: 11px;
 }
-.freekick-practice-setup p {
-  line-height: 1.5;
+.practice-panel h1 {
+  margin: 0;
+  font-size: 26px;
+  color: #fff1e8;
+}
+.practice-panel p {
+  margin: 0;
   color: #a8b9cd;
 }
-.freekick-practice-setup select,
-.freekick-practice-setup button {
+.practice-settings {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.practice-settings > div {
+  padding: 12px;
+  background: #112037;
+  border: 1px solid #293e58;
+}
+.practice-settings small,
+.practice-settings strong {
+  display: block;
+}
+.practice-settings small {
+  font-size: 10px;
+  color: #91a4bc;
+}
+.practice-settings strong {
+  margin-top: 5px;
+  font-size: 20px;
+}
+.practice-panel select {
   font: inherit;
-  font-size: 18px;
-  padding: 16px;
-  min-height: 52px;
-  border: 1px solid #3b506b;
+  font-size: 16px;
+  padding: 12px;
+  min-height: 48px;
+  border: 1px solid #58718c;
   background: #22354c;
   color: #fff1e8;
+  width: 100%;
 }
-.freekick-practice-setup button {
-  background: #ffa300;
-  color: #08111e;
-  font-weight: bold;
+.practice-panel .casual-button {
+  min-height: 52px;
+  width: 100%;
+}
+.practice-panel .practice-kits,
+.practice-panel .practice-hint {
+  font-size: 11px;
+}
+.practice-panel [role='status']:empty {
+  display: none;
+}
+.practice-panel .lobby-readable {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+.practice-panel .lobby-pixel {
+  display: inline-block;
+  height: 1em;
+  max-width: 100%;
+}
+@media (max-width: 359px) {
+  .freekick-practice-setup {
+    padding: 12px;
+  }
+  .practice-panel {
+    padding: 16px;
+    gap: 10px;
+  }
 }

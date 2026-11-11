@@ -153,7 +153,9 @@ try {
     content: readFileSync('src/client/freekick.css', 'utf8'),
   });
   await page.evaluate(() => {
-    window.FK = { maxLevel: 8 };
+    window.FK = { maxLevel: 10 };
+    window.freeKickChallenge = () => ({distanceM:20,wallFromGoalM:10,kicker:'pink',wall:'blue',difficulty:'normal'});
+    window.challengeRoundLevel = () => 3;
     window.startEarlyDownloads = () => {};
     window.practiceStarts = [];
     window.loadPracticeGame = async () => ({
@@ -166,6 +168,9 @@ try {
       compile('src/client/freekick-practice.ts', true) +
       '}',
   });
+  assert.equal(await page.locator('#practice-level').inputValue(),'3');
+  assert.match(await page.locator('.practice-distance').textContent(),/20 M/);
+  assert.match(await page.locator('.practice-wall').textContent(),/10 M/);
   await page.locator('#practice-level').selectOption('3');
   await page.locator('button[type="submit"]').click();
   await page.waitForFunction(() => window.practiceStarts.length === 1);

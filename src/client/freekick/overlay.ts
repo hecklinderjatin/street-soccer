@@ -197,8 +197,8 @@ function detailsPage(
   }
   const notes = practice
     ? [
-        'Train at your chosen level with unlimited attempts.',
-        'The same spot repeats. Pause > New Spot changes it.',
+        'Train this Challenge setup at your chosen fixed level.',
+        'Unlimited attempts. Pause > New Spot changes the angle.',
         'Practice does not submit scores or speed records.',
       ]
     : challenge

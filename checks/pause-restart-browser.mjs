@@ -9,7 +9,7 @@ const scratch = await mkdtemp(join(tmpdir(), 'fk-flow-'));
 const sdk = join(scratch, 'client.ts');
 await writeFile(
   sdk,
-  `export const context={postId:'t3_fk',username:'tester',postData:{matchType:'freekick'}};
+  `export const context={postId:'t3_fk',username:'tester',postData:{matchType:'freekick',freeKick:{kicker:'pink',wall:'blue',lives:2,goals:3,distanceM:20,wallFromGoalM:10,difficulty:'hard'}}};
 export const canRunAsUser=async()=>true;
 export const requestExpandedMode=()=>{};
 export const exitExpandedMode=event=>{if(!event.isTrusted||event.type!=='click')throw Error('Quit requires native click');window.__exited=true;};
@@ -112,6 +112,8 @@ try {
   for (const entry of ['freekick-challenge.html', 'freekick-practice.html']) {
     await page.goto(base + '/' + entry + '?debug');
     if (entry.includes('practice')) {
+      assert.equal(await page.locator('#practice-level').inputValue(),'5');
+      await page.screenshot({path:'/tmp/freekick-practice-setup-updated.png'});
       await page.locator('#practice-level').selectOption('3');
       await page.locator('button[type=submit]').click();
     }

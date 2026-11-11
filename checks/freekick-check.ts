@@ -32,6 +32,7 @@ import {
   aimAtGoalLine,
   ballContact,
   challengeKick,
+  practiceKick,
   curvedStrike,
   swipeBow,
   crossing,
@@ -659,6 +660,25 @@ check('only Challenge and Practice remain registered Free Kick entries', () => {
   const entries=JSON.parse(readFileSync('devvit.json','utf8')).post.entrypoints;
   assert.equal(entries.freekick,undefined);
   assert.ok(entries['freekick-challenge']);assert.ok(entries['freekick-practice']);
+});
+
+check('practice matches Challenge geometry at a chosen fixed level', () => {
+  for (const difficulty of DIFFICULTIES) {
+    const config={...FREE_KICK_CHALLENGE_DEFAULT,difficulty,distanceM:20,wallFromGoalM:10};
+    const first=challengeRoundLevel(difficulty,0);
+    assert.deepEqual(practiceKick(config,first,seeded(12)),challengeKick(config,0,seeded(12)));
+    for (const level of [1,3,10]) {
+      const rand=seeded(20);
+      for(let i=0;i<10;i++) {
+        const kick=practiceKick(config,level,rand);
+        assert.equal(kick.level.level,level);
+        assert.ok(kick.distance/FK.pxPerMetre>=15 && kick.distance/FK.pxPerMetre<=25);
+        const d=Math.hypot(GOAL_X-kick.spot.x,GOAL_Y-kick.spot.y);
+        const gap=((kick.wall.x-kick.spot.x)/(GOAL_X-kick.spot.x))*d;
+        assert.ok(Math.abs(gap-Math.max(d-10*FK.pxPerMetre,FK.challengeWallGapM*FK.pxPerMetre))<1e-6);
+      }
+    }
+  }
 });
 
 console.log(`\n${passed} checks passed`);

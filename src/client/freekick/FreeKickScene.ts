@@ -50,6 +50,7 @@ import {
   aimAtGoalLine,
   ballContact,
   challengeKick,
+  practiceKick,
   curvedStrike,
   goalPoints,
   greatSavePoints,
@@ -145,7 +146,7 @@ export class FreeKickScene extends Phaser.Scene {
 
   private practice = false;
   // A challenge run: this post's settings (goals to win with its lives,
-  // its distance, wall and difficulty); null in Play or Practice.
+  // its distance, wall and difficulty); null in Practice.
   private challenge: FreeKickChallengeConfig | null = null;
   private maxLives: number = FK.lives;
   private side: 1 | -1 = readSide();
@@ -351,10 +352,7 @@ export class FreeKickScene extends Phaser.Scene {
       // A challenge round per goal: a new angle, one level harder.
       this.setup = this.challenge
         ? challengeKick(this.challenge, this.goals, Math.random)
-        : makeKick(
-            levelFor((this.practiceLevel - 1) * FK.goalsPerLevel),
-            Math.random
-          );
+        : practiceKick(freeKickChallenge(), this.practiceLevel, Math.random);
       this.lastPower = null;
       this.contact = ballContact(0, 0);
       this.power = FK.defaultPower;
