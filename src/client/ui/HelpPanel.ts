@@ -1,3 +1,5 @@
+import type { MatchTactic } from '../systems/ai';
+import { tacticButton, paintTacticButton } from './TacticButton';
 import Phaser from 'phaser';
 import { context } from '@devvit/web/client';
 import { VIEW } from '../../shared/tuning';
@@ -38,7 +40,12 @@ type Item = Phaser.GameObjects.GameObject;
 export function buildHelpLayer(
   scene: Phaser.Scene,
   onClose: () => void,
-  options: { label?: string; back?: () => void; desktop?: boolean } = {}
+  options: {
+    label?: string;
+    back?: () => void;
+    desktop?: boolean;
+    tactic?: () => MatchTactic;
+  } = {}
 ) {
   const items: Item[] = [];
   const cx = VIEW.width / 2;
@@ -69,35 +76,54 @@ export function buildHelpLayer(
     pixelText(
       scene,
       cx,
-      700,
+      546,
       'DELETE SAVED SCORES: SUBREDDIT MENU > DELETE MY STREET SOCCER DATA',
-      1,
+      BODY,
       CARD.soft
     ).setOrigin(0.5),
     pixelText(
       scene,
       cx,
-      710,
+      566,
       `REPORT A PROBLEM: ${where}`,
       BODY,
       CARD.soft
     ).setOrigin(0.5)
   );
 
-  // A dedicated strip, rather than tactics buried in the footer copy.
-  tile(scene, items, 60, 592, 1160, 44);
-  for (const [i, [name, detail]] of [
-    ['DEFEND', 'DROP THE TEAM BACK'],
-    ['NORMAL', 'DEFAULT POSITIONING'],
-    ['ATTACK', 'BACK LINE TO HALFWAY'],
-  ].entries()) {
+  // The same controls as the right-side selector, kept clear of navigation.
+  tile(scene, items, 60, 588, 1160, 44);
+  const tacticExamples: { button: TextButton; mode: MatchTactic }[] = [];
+  for (const [i, mode] of (['attack', 'normal', 'defend'] as const).entries()) {
     const x = 80 + i * 380;
-    const control = options.desktop
-      ? `${8 + i > 9 ? 0 : 8 + i}: ${name}`
-      : name;
+    const button = tacticButton(
+      scene,
+      x + 72,
+      610,
+      mode,
+      options.tactic?.() ?? 'normal',
+      () => {}
+    );
+    button.disableInteractive();
+    tacticExamples.push({ button, mode });
+    const key = mode === 'attack' ? '0' : mode === 'normal' ? '9' : '8';
+    const lines =
+      mode === 'attack'
+        ? ['BACK LINE TO', 'HALFWAY']
+        : mode === 'normal'
+          ? ['DEFAULT', 'POSITIONING']
+          : ['DROP TEAM', 'BACK'];
     items.push(
-      pixelText(scene, x, 595, `TACTICS / ${control}`, 2, PAL.yellow),
-      pixelText(scene, x, 615, detail ?? '', 2, CARD.soft)
+      button,
+      pixelText(
+        scene,
+        x + 162,
+        593,
+        `${options.desktop ? key + ': ' : ''}${lines[0]}`,
+        2,
+        CARD.soft
+      ),
+      pixelText(scene, x + 162, 613, lines[1] ?? '', 2, CARD.soft)
     );
   }
 
@@ -129,6 +155,8 @@ export function buildHelpLayer(
     // Desktop key caps show the player's current bindings.
     refreshKeys(bindings: Readonly<KeyBindings>) {
       for (const cap of caps) cap.refresh(bindings);
+      for (const { button, mode } of tacticExamples)
+        paintTacticButton(button, mode, options.tactic?.() ?? 'normal');
     },
   };
 }
@@ -251,7 +279,7 @@ const KEY_ROW = 32; // a row with a key cap (at least)
 const NOTE_ROW = 24; // a muted note under a row
 const CAP_H = 26;
 const COL_W = 520;
-const COL_BOTTOM = TOP - 8 + 504 - 14; // inside the column tile
+const COL_BOTTOM = 532; // leave room for the report/data lines and tactics examples
 
 type KeyCap = { refresh: (bindings: Readonly<KeyBindings>) => void };
 

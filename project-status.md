@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Consistent tactics help buttons (2026-11-11):** replace the cramped text-only tactics strip with the same 144x44 pixel buttons as live gameplay via shared TacticButton helpers. Show the current active highlight when info opens, explain each mode alongside its button and retain top-row keyboard numbers on desktop. Help examples are noninteractive while paused. Keep examples clear of Back/Play navigation; move report/data text inside the card and tighten desktop column spacing to reserve room. Types/lint pass. A temporary source-only Vite/Chromium preview verifies touch and desktop button bounds, noninteractive examples and no horizontal/navigation overlap; screenshots inspected. No application build or live Reddit writes performed.
+
 **Main merge (2026-11-11):** fast-forwarded `codex/minor-package-updates` through `ffaeb0e` into `main` at the user’s request. Includes visible tactics controls help, adaptive opponent tactics and compatible patch/minor dependency updates. Existing types/lint, compatibility, gameplay, Free Kick/Daily and source-preview checks pass. No application build or deployment performed.
 
 **Patch/minor package updates (2026-11-11):** update Devvit analytics/start/web/CLI together to 0.15.3, Hono 4.13.17, Hono Node server 2.1.6, Vite 8.3.8, typescript-eslint 8.72.2, Playwright 1.65.0, globals 17.14.0 and minimatch override 11.0.7. Regenerate the lockfile and install; retain the glob compatibility patch. Phaser 3.90.0, TypeScript 6.0.3 and Node 24 typings remain on their current major versions. npm outdated now lists only those three major upgrades, npm ls reports a consistent tree. Types, lint, dependency compatibility, 72 gameplay checks, 31 Free Kick checks/panels/API, Daily regressions and source-only WebGL live-preview browser checks pass. Unit runner finds zero tests. No application build or deployment performed.
@@ -704,6 +706,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Reuse one tactics button factory/active-state painter in the live HUD and info controls examples so their appearance stays consistent. Help previews display the selected tactic without changing it while paused.
+
 - Update only patch/minor releases and keep Devvit packages synchronized. Defer Phaser 4, TypeScript 7 and Node 26 typings to separate compatibility work.
 
 - Let opponents adapt to public score/time using the same formation modes, with delayed stable intent and a minimum hold. Keep the last applied Daily plan as Normal so automatic mode rules and difficulty retain their existing timing.
@@ -1094,6 +1098,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Review the shared tactics examples and active-state synchronization on the native mobile info screen after the next user-run upload.
+
 - Native Reddit playtest after the next user-run upload with Devvit 0.15.3; application build/publish was not run during the dependency update.
 
 - Playtest opponent Attack counterattack exposure, late Defend spacing and live-time switching across match durations and Daily modes.
@@ -1471,6 +1477,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-11:** replace tactics help text strip with shared gameplay buttons and concise explanations; fix report/data clipping and reserve desktop layout space. Types/lint and source-only preview checks pass; no application build performed.
 
 - **2026-11-11:** merge controls-help fix, opponent tactics and patch/minor package updates into main through `ffaeb0e`; prepare requested GitHub push. No application build/deployment performed.
 

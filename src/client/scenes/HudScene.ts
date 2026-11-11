@@ -1,3 +1,4 @@
+import { tacticButton, paintTacticButton } from '../ui/TacticButton';
 import type { MatchTactic } from '../systems/ai';
 import { RampageFeedback, type RampageHudState } from '../ui/RampageFeedback';
 import { chaosRules } from '../../shared/chaos';
@@ -121,18 +122,13 @@ export class HudScene extends Phaser.Scene {
     for (const [i, mode] of (
       ['attack', 'normal', 'defend'] as const
     ).entries()) {
-      const button = new TextButton(
+      const button = tacticButton(
         this,
         VIEW.width - 82,
         178 + i * 52,
-        `${mode === 'normal' ? '> ' : ''}${mode.toUpperCase()}`,
-        () => this.selectTactic(mode),
-        {
-          width: 144,
-          height: 44,
-          textSize: 2,
-          fill: mode === 'normal' ? PAL.darkGreen : PAL.navy,
-        }
+        mode,
+        this.tactic,
+        () => this.selectTactic(mode)
       );
       this.tacticButtons.push({ mode, button });
     }
@@ -262,6 +258,7 @@ export class HudScene extends Phaser.Scene {
     drawSound();
     this.pauseLayer = this.buildPauseLayer().setVisible(false);
     const help = buildHelpLayer(this, () => this.setOverlay(null), {
+      tactic: () => this.tactic,
       label: 'PLAY MATCH',
       back: () => this.setOverlay('details'),
       desktop: this.desktop,
@@ -411,10 +408,7 @@ export class HudScene extends Phaser.Scene {
     this.tactic = mode;
     this.hud.onTactic(mode);
     for (const entry of this.tacticButtons) {
-      entry.button.setFill(entry.mode === mode ? PAL.darkGreen : PAL.navy);
-      entry.button.setLabel(
-        `${entry.mode === mode ? '> ' : ''}${entry.mode.toUpperCase()}`
-      );
+      paintTacticButton(entry.button, entry.mode, mode);
     }
     this.tweens.killTweensOf(this.tacticNotice);
     this.tacticNotice
