@@ -87,7 +87,6 @@
 .fk-results-screen .results-header > :last-child {
   text-align: right;
 }
-.fk-results-screen .results-actions > :first-child,
 .fk-results-screen
   .results-actions:not(:has(.community-join-button:not([hidden])))
   > .fk-results-exit {
@@ -98,13 +97,12 @@
    actions in one row, so the results fit without scrolling. */
 @media (min-width: 600px) and (min-aspect-ratio: 1/1) {
   .fk-results-screen .results-actions {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
   .fk-results-screen
     .results-actions:has(.community-join-button:not([hidden])) {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(6, minmax(0, 1fr));
   }
-  .fk-results-screen .results-actions > :first-child,
   .fk-results-screen
     .results-actions:not(:has(.community-join-button:not([hidden])))
     > .fk-results-exit {
@@ -118,4 +116,21 @@
     align-items: start;
     gap: 24px;
   }
+}
+
+/* Pair the primary replay and share action; remaining actions form even rows.
+   Keep the entire card in the viewport rather than creating a nested scroller. */
+.fk-results-screen .results-panel {
+  min-width: 0;
+  min-height: 0;
+  overflow: visible;
+}
+.fk-results-screen .results-actions > :first-child {
+  grid-column: auto;
+}
+.fk-results-screen .results-content,
+.fk-results-screen .results-board,
+.fk-results-screen .results-actions {
+  min-width: 0;
+  overflow: visible;
 }

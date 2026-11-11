@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Free Kick result sharing/layout (2026-11-11):** remove the standalone yellow Fastest Goal highlight from shared Challenge/Infinity/Playground result cards; retain speed records and board tabs. Add Post My Score beside Play Again, enabled after a successful run save. A trusted click requests Reddit permission, then opens the native comment/stats confirmation explaining account and destination; only an approved form submits the saved receipt to existing /api/freekick/post-score. Preserve cancellation, disposal/duplicate guards, generic failure copy and backend cooldown/validation. Pair portrait actions into three rows when Join is visible; use five/six columns on desktop and preserve viewport fitting without inner scrolling. Types/lint, 39 Free Kick rules/panel/API checks and mocked source-only Challenge/Playground UI checks pass at 320x480, 390x600 and 844x390, including permission denial, cancellation, API retry/success and disabled-after-post. Backend checks also verify Playground score-only comments use the user account and pinned Scores thread. Screenshots inspected. No app build, live comment or deployment performed.
+
 **Faster live preview (2026-11-12):** (1) `ui/visiblePreview.ts` starts downloading the preview code and art as soon as the card is visible; only creating the Phaser game waits, now 400 ms (was 1 s, and downloads only began after it). Applies to match and Free Kick cards. (2) The Free Kick feed preview loads small preview atlases (`public-release/art/player-<kit>-preview.webp`, plus skin, hair and awayKeeper) holding only the 32 poses its stage draws (`PREVIEW_FRAMES` in `art/playerSheets.ts`): about 270 KB of player art per card instead of about 1.1 MB. They load under the normal texture keys; `registerPlayerAtlases(scene, previewAtlasFrames(), false)` names their frames and skips animations. `npm run art:bake` writes them (29 atlases now) and `scripts/optimize_art.py` expects 29; Pillow is not installed system-wide in WSL (a venv was used). The full atlases did not change. (3) Instant poster: `.freekick-preview` paints the daytime court in CSS (sky, sun, trees, court); the canvas stays hidden until the preview court has drawn (`preview-ready` event, `.is-live`), then fades in. Not done: trimming the preview's Phaser code (about 180 KB gzipped). Not checked on a device.
 
 **Reddit action and feed compliance (2026-11-11):** Playground confirms the exact title, subreddit, and Reddit account before requesting consent and posting. Both inline leaderboard sheets paginate to fit the viewport without scrolling, and the feed allows native zoom.
@@ -804,6 +806,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Keep Free Kick goal speed in its leaderboard rather than a duplicate yellow results tag. Restore explicit score-comment sharing from saved receipts using native consent/confirmation and generic errors. Pair replay/share actions to retain all result controls without an inner scrollbar.
+
 - Keep inline boards in the feed and reduce rows per page on short viewports. Cancel or Escape leaves the Playground draft and test result in place.
 
 - Keep the audio element source-free until a trusted game gesture, so the 2.08 MB stream does not compete with startup art or JavaScript.
@@ -1264,6 +1268,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Merge/push the Free Kick results sharing/layout change when requested. Confirm the native Reddit permission/form flow and comment placement on device after deployment; local checks mock external writes.
+
 - Verify the sharing consent prompt and feed gestures inside the live Reddit Android and iOS apps.
 
 - Check first-interaction music and mute on the live Reddit Android and iOS webviews.
@@ -1707,6 +1713,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-11:** remove Free Kick results’ yellow fastest-goal tag; add confirmed Post My Score sharing from saved receipts, pair portrait actions and fit desktop controls without inner scroll. Types/lint, 39 Free Kick rules/panel/API and source-only Challenge/Playground sharing/layout checks pass; no app build/live comments/deployment.
 
 - 2026-11-11: Added explicit Playground posting confirmation and removed feed leaderboard scrolling and inline zoom restrictions.
 

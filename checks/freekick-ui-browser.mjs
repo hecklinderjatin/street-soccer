@@ -7,10 +7,32 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 const scratch = await mkdtemp(join(tmpdir(), 'fk-flow-'));
 const sdk = join(scratch, 'client.ts');
+const mode = process.env.FK_UI_MODE ?? 'challenge';
+const postData =
+  mode === 'custom'
+    ? {
+        matchType: 'freekick',
+        freeKick: {
+          mode: 'custom',
+          kicker: 'pink',
+          wall: 'blue',
+          custom: {
+            distanceM: 15,
+            angleDeg: 0,
+            wallGapM: 9,
+            wallShift: 0,
+            wallMen: 2,
+            jump: true,
+            lyer: false,
+            difficulty: 'pro',
+          },
+        },
+      }
+    : { matchType: 'freekick' };
 await writeFile(
   sdk,
-  `export const context={postId:'t3_fk',username:'tester',userId:'t2_tester',subredditId:'t5_test',subredditName:'street_soccer_dev',postData:{matchType:'freekick'}};
-export const canRunAsUser=async()=>true;
+  `export const context={postId:'t3_fk',username:'tester',userId:'t2_tester',subredditId:'t5_test',subredditName:'street_soccer_dev',postData:${JSON.stringify(postData)}};
+export const canRunAsUser=async e=>{if(!e.isTrusted)throw Error('Consent requires a native click');return window.__allow!==false;};
 export const requestExpandedMode=(event,entry)=>{if(!event.isTrusted||event.type!=='click')throw Error('Practice requires native click');window.__expandedEntry=entry;};
 export const exitExpandedMode=event=>{if(!event.isTrusted||event.type!=='click')throw Error('Quit requires native click');window.__exited=true;};
 export const showForm=async form=>{(window.__forms??=[]).push(form);return {action:window.__cancel?'CANCELED':'SUBMITTED',values:{comment:'Great run',includeStats:true}};};
@@ -53,6 +75,7 @@ try {
     saves = [],
     posts = [];
   page.on('pageerror', (e) => errors.push(e.message));
+  let failPost = false;
   const boards = {
     day: '2026-11-08',
     score: {
@@ -80,7 +103,12 @@ try {
     }
     if (path === '/api/freekick/post-score') {
       posts.push(body);
-      return route.fulfill({ json: { commentId: 't1_shared' } });
+      return failPost
+        ? route.fulfill({
+            status: 503,
+            json: { error: 'Internal permission failure: secret-reference' },
+          })
+        : route.fulfill({ json: { commentId: 't1_shared' } });
     }
     if (path === '/api/freekick/leaders')
       return route.fulfill({ json: boards });
@@ -164,7 +192,11 @@ try {
     const s = window.__game.scene.getScene('FreeKick');
     s.records.start();
     s.lives = 0;
-    s.shots = 3;
+    s.shots = 4;
+    s.goals = 1;
+    s.score = 74;
+    s.bestStreak = 1;
+    s.fastestGoalKmh = 75;
     s.gameOver();
   });
   await page.locator('.fk-results-screen').waitFor();
@@ -200,8 +232,8 @@ try {
       ?.textContent.includes('125 km/h')
   );
   assert.equal(saves.length, 1);
-  assert.equal(saves[0].mode, 'challenge');
-  assert.equal(saves[0].result.mode, 'challenge');
+  assert.equal(saves[0].mode, mode);
+  assert.equal(saves[0].result.mode, mode);
 
   for (const [width, height] of [
     [320, 480],
@@ -209,19 +241,58 @@ try {
     [844, 390],
   ]) {
     await page.setViewportSize({ width, height });
-    await page.waitForTimeout(100);
+    await page.waitForFunction(() =>
+      [...document.querySelectorAll('.results-actions .casual-button')]
+        .filter((e) => e.getClientRects().length)
+        .every((e) => {
+          const b = e.getBoundingClientRect();
+          return (
+            b.top >= -0.5 &&
+            b.left >= -0.5 &&
+            b.right <= innerWidth + 0.5 &&
+            b.bottom <= innerHeight + 0.5
+          );
+        })
+    );
     const buttons = await page
       .locator('.results-actions .casual-button:visible')
       .evaluateAll((nodes) =>
         nodes.map((n) => n.getBoundingClientRect().toJSON())
       );
-    assert.equal(buttons.length, 5);
-    assert.equal(buttons[1].top, buttons[2].top);
-    assert.equal(buttons[3].top, buttons[4].top);
+    assert.equal(buttons.length, 6);
+    assert.ok(
+      buttons.every(
+        (b) =>
+          b.top >= -0.5 &&
+          b.left >= -0.5 &&
+          b.right <= width + 0.5 &&
+          b.bottom <= height + 0.5
+      )
+    );
+    for (const selector of [
+      '.fk-results-screen',
+      '.results-panel',
+      '.results-board',
+      '.results-actions',
+    ])
+      assert.equal(
+        await page
+          .locator(selector)
+          .evaluate(
+            (e) =>
+              ['auto', 'scroll'].includes(getComputedStyle(e).overflowY) &&
+              e.scrollHeight > e.clientHeight
+          ),
+        false,
+        selector + ' has no nested scroll'
+      );
+    assert.equal(buttons[0].top, buttons[1].top);
+    assert.equal(buttons[2].top, buttons[3].top);
+    assert.equal(buttons[4].top, buttons[5].top);
     if (width < height) {
-      assert.ok(buttons[0].width > buttons[1].width);
+      assert.ok(Math.abs(buttons[0].width - buttons[1].width) < 1);
       assert.ok(
-        buttons[0].top < buttons[1].top && buttons[1].top < buttons[3].top
+        buttons[0].top < buttons[2].top && buttons[2].top < buttons[4].top
       );
     } else {
       assert.ok(buttons.every((button) => button.top === buttons[0].top));
@@ -242,8 +313,72 @@ try {
     );
     if (width === 390)
       await page.screenshot({
-        path: join(tmpdir(), 'freekick-results-polished.png'),
+        path: join(tmpdir(), `freekick-results-${mode}.png`),
       });
+  }
+  assert.equal(await page.locator('.results-speed-highlight').count(), 0);
+  const share = page.getByRole('button', {
+    name: 'POST MY SCORE',
+    exact: true,
+  });
+  await page.evaluate(() => (window.__allow = false));
+  await share.click();
+  assert.equal(posts.length, 0);
+  await page.evaluate(() => {
+    window.__allow = true;
+    window.__cancel = true;
+  });
+  await share.click();
+  await page.waitForTimeout(50);
+  assert.equal(posts.length, 0);
+  await page.evaluate(() => (window.__cancel = false));
+  failPost = true;
+  await share.click();
+  await page.waitForFunction(() =>
+    document
+      .querySelector('.fk-results-status')
+      .textContent.includes('Couldn’t post')
+  );
+  assert.equal(posts.length, 1);
+  assert.equal(await share.isEnabled(), true);
+  assert.doesNotMatch(
+    await page.locator('.fk-results-status').textContent(),
+    /Internal|secret-reference/
+  );
+  failPost = false;
+  await share.click();
+  await page.getByRole('button', { name: 'POSTED!', exact: true }).waitFor();
+  assert.equal(posts.length, 2);
+  assert.equal(posts[1].includeStats, true);
+  assert.equal(posts[1].mode, mode);
+  assert.equal(posts[1].comment, 'Great run');
+  assert.equal(
+    await page
+      .getByRole('button', { name: 'POSTED!', exact: true })
+      .isDisabled(),
+    true
+  );
+  assert.match(
+    await page.evaluate(() => window.__forms.at(-1).description),
+    /public comment.*Reddit|public comment.*u\//
+  );
+  for (const selector of [
+    '.fk-results-screen',
+    '.results-panel',
+    '.results-board',
+    '.results-actions',
+  ]) {
+    assert.equal(
+      await page
+        .locator(selector)
+        .evaluate(
+          (e) =>
+            ['auto', 'scroll'].includes(getComputedStyle(e).overflowY) &&
+            e.scrollHeight > e.clientHeight
+        ),
+      false,
+      selector + ' has no nested scroll'
+    );
   }
   assert.deepEqual(errors, []);
   console.log(

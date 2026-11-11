@@ -368,6 +368,19 @@ const infSaved=await call('/result',{...inf.body,mode:'infinity',result:infStats
 assert.equal(infSaved.status,200);
 assert.ok(infSaved.body.goals.me.value>=2,'Infinity runs rank on Most Goals');
 
+// Shared Playground posts use the same explicit score-comment flow.
+const { CUSTOM_KICK_DEFAULT: shareKick } = await import('../node_modules/.cache/fk-server/custom.mjs');
+state.context.postData.freeKick={mode:'custom',custom:shareKick,kicker:'pink',wall:'blue'};
+const customShareRun=await call('/start',{mode:'custom',id:'custom-share-run-identifier-1234'});
+assert.equal(customShareRun.status,200);age(customShareRun.body);
+const customShareStats={...valid,mode:'custom',goals:1,shots:2,bestStreak:1,level:5,greatSaves:0};
+assert.equal((await call('/result',{...customShareRun.body,mode:'custom',result:customShareStats})).status,200);
+state.values.delete('cooldown:comment:t3_fk:alice');
+assert.equal((await call('/post-score',{...customShareRun.body,mode:'custom',comment:'',includeStats:true})).status,200);
+assert.equal(state.comments.at(-1).runAs,'USER');
+assert.equal(state.comments.at(-1).id,'t1_scores');
+assert.match(state.comments.at(-1).text,/500 points/);
+
 await removePlayerResults(
   eraser,
   [...(state.boards.get('privacy:boards') ?? new Map()).keys()],
