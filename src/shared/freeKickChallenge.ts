@@ -67,7 +67,8 @@ export function parseFreeKickChallenge(
     mode !== 'custom'
   )
     return 'choose a Free Kick mode';
-  // A Playground post: its one kick, one life, until the first miss.
+  // A Playground post: its one kick, a single shot (a one-goal target
+  // with one life: the run ends on the first shot, scored or missed).
   if (mode === 'custom') {
     const custom = parseCustomKick(get('custom'));
     if (typeof custom === 'string') return custom;
@@ -77,7 +78,7 @@ export function parseFreeKickChallenge(
       kicker,
       wall,
       lives: 1,
-      goals: 0,
+      goals: 1,
       distanceM: custom.distanceM,
       wallFromGoalM: custom.distanceM - custom.wallGapM,
       difficulty: custom.difficulty,
@@ -118,9 +119,10 @@ export function postFreeKickChallenge(postData: unknown) {
   return typeof config === 'string' ? FREE_KICK_CHALLENGE_DEFAULT : config;
 }
 
-// Infinity and Playground runs have no goal target: they end on lives.
+// Infinity runs have no goal target: they end on lives. (A Playground
+// post is a one-shot run: one goal to win, one life.)
 export const endlessFreeKick = (config: FreeKickChallengeConfig) =>
-  config.mode === 'infinity' || config.mode === 'custom';
+  config.mode === 'infinity';
 
 // The ranked mode a post's runs are saved under.
 export const freeKickRankedMode = (config: FreeKickChallengeConfig) =>

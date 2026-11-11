@@ -28,13 +28,17 @@ export function freeKickResults(
     ? String(stats.goals)
     : `${stats.goals}/${challenge.config.goals}`;
   const screen = casualScreen(
-    infinity
-      ? 'RUN COMPLETE'
-      : challenge.won
-        ? 'CHALLENGE COMPLETE'
-        : 'CHALLENGE FAILED',
     custom
-      ? `${stats.goals} GOALS IN A ROW · ${challenge.config.distanceM} M · ${DIFFICULTY_LABEL[challenge.config.difficulty]}`
+      ? challenge.won
+        ? 'SCORED!'
+        : 'MISSED'
+      : infinity
+        ? 'RUN COMPLETE'
+        : challenge.won
+          ? 'CHALLENGE COMPLETE'
+          : 'CHALLENGE FAILED',
+    custom
+      ? `ONE SHOT · ${challenge.config.distanceM} M · ${DIFFICULTY_LABEL[challenge.config.difficulty]}`
       : infinity
       ? `${stats.goals} GOALS · ${challenge.config.lives} LIVES · REACHED ${freeKickSkill(stats.level)}`
       : `${challenge.config.goals} GOALS · ${challenge.config.lives} ${challenge.config.lives === 1 ? 'LIFE' : 'LIVES'} · ${challenge.config.distanceM} M · ${DIFFICULTY_LABEL[challenge.config.difficulty]}`,
@@ -60,7 +64,7 @@ export function freeKickResults(
   pixelLabel(mode, 'FREE KICK');
   const over = document.createElement('span');
   over.textContent = custom
-    ? 'CUSTOM KICK'
+    ? 'PLAYGROUND'
     : infinity
       ? 'INFINITY'
       : 'CHALLENGE';

@@ -172,7 +172,7 @@ function detailsPage(
           ? challenge.mode === 'infinity'
             ? `${freeKickSkill(options.level)} · INFINITY`
             : challenge.mode === 'custom'
-              ? `${DIFFICULTY_LABEL[challenge.difficulty]} CUSTOM KICK`
+              ? `${DIFFICULTY_LABEL[challenge.difficulty]} PLAYGROUND`
               : `${DIFFICULTY_LABEL[challenge.difficulty]} CHALLENGE`
           : 'RANKED RUN',
       BODY,
@@ -187,7 +187,7 @@ function detailsPage(
         : challenge?.mode === 'infinity'
           ? 'INFINITY'
           : challenge?.mode === 'custom'
-            ? 'CUSTOM'
+            ? 'PLAYGROUND'
             : 'CHALLENGE',
     ],
     ['LIVES', practice ? 'UNLIMITED' : String(options.lives)],
@@ -199,7 +199,7 @@ function detailsPage(
           challenge.mode === 'infinity'
             ? 'INFINITY'
             : challenge.mode === 'custom'
-              ? 'ENDLESS'
+              ? 'ONE SHOT'
               : `${challenge.goals} GOALS`,
         ]
       : ['LEVEL UP', practice ? 'FIXED LEVEL' : `${FK.goalsPerLevel} GOALS`],
@@ -226,9 +226,9 @@ function detailsPage(
     : challenge?.mode === 'custom'
       ? [
           'A kick built by a player in the Playground.',
-          'The same spot, wall and keeper every time.',
-          'Score as many goals in a row as you can.',
-          'One life: your first miss ends the run.',
+          'Everyone faces the same spot, wall and keeper.',
+          'You get one shot: score it to rank.',
+          'Harder kicks and better finishes score more points.',
           'Your best score and fastest goal rank on this post.',
         ]
       : infinity && challenge
@@ -321,7 +321,7 @@ function helpPage(
         ? 'Unlimited retries at this level and spot. Pause > New Spot changes the setup.'
         : challenge
           ? challenge.mode === 'custom'
-            ? 'One life. The same custom kick every time: keep scoring until your first miss.'
+            ? 'One shot. Score it and the run is won; miss and it is over.'
             : challenge.mode === 'infinity'
             ? `${challenge.lives} lives. Every miss costs one. Two goals per level: Easy to Pro, then keep scoring until lives run out.`
             : `${challenge.lives} ${challenge.lives === 1 ? 'life' : 'lives'}, ${challenge.goals} goals to win. A miss costs a life. Each goal advances the fixed sequence.`

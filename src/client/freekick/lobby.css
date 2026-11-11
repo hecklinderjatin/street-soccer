@@ -46,9 +46,35 @@
   color: #c3cedd;
   font-size: 12px;
 }
-/* CHALLENGE and PRACTICE side by side. */
+/* All the post's buttons in one row: the ranked run (wider), then
+   PRACTICE and PLAYGROUND, or just PLAYGROUND on a Playground post. */
 .freekick-lobby .preview-actions {
+  grid-template-columns: 1.4fr 1fr 1fr;
+  gap: 8px;
+}
+.freekick-lobby[data-mode='playground'] .preview-actions {
   grid-template-columns: 1fr 1fr;
+}
+:is(#mobile-lobby, .freekick-lobby) .freekick-playground.mobile-casual {
+  border-bottom-color: #008751;
+  color: #00e436;
+}
+/* The post's mode at the preview's top right, under its lives. */
+.freekick-mode-chip {
+  display: block;
+  padding: 6px 7px;
+  border: 1px solid #ffffff55;
+  box-shadow: 2px 2px #0006;
+  color: #081019;
+  font-size: 10px;
+  line-height: 1;
+  background: #ffa300;
+}
+.freekick-lobby[data-mode='infinity'] .freekick-mode-chip {
+  background: #ff77a8;
+}
+.freekick-lobby[data-mode='playground'] .freekick-mode-chip {
+  background: #00e436;
 }
 .freekick-lobby .preview-actions a {
   box-sizing: border-box;

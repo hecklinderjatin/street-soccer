@@ -180,8 +180,18 @@ export function makeKick(
   );
   const inner =
     edge - nearSide * (2 * FK.wallHalfWidth + (standing - 1) * FK.wallSpacing);
-  const shadow = clamp(atGoal(inner), GOAL_Y - POST_HALF, GOAL_Y + POST_HALF);
-  const open = (GOAL_Y - nearSide * POST_HALF + shadow) / 2;
+  // The wall's shadow on the goal line, and the open gaps beside it. The
+  // keeper stands in the bigger gap, shaded toward the wall: normally the
+  // far side, but a Playground wall slid off the near post can leave the
+  // bigger gap there.
+  const onGoal = (y: number) => clamp(y, GOAL_Y - POST_HALF, GOAL_Y + POST_HALF);
+  const innerShadow = onGoal(atGoal(inner));
+  const outerShadow = onGoal(atGoal(edge));
+  const nearPost = GOAL_Y + nearSide * POST_HALF;
+  const farPost = GOAL_Y - nearSide * POST_HALF;
+  const nearGap = Math.abs(nearPost - outerShadow) > Math.abs(innerShadow - farPost);
+  const shadow = nearGap ? outerShadow : innerShadow;
+  const open = ((nearGap ? nearPost : farPost) + shadow) / 2;
   // Visible keeper variety, rolled after the spot and wall.
   const keeperStyle: KeeperStyle =
     rand() < level.keeperCheatChance ? 'cheat' : 'line';

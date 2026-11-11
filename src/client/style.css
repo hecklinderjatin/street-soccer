@@ -401,17 +401,7 @@ body {
 }
 #mobile-lobby.is-casual .preview-actions {
   grid-template-columns: 1fr;
-}
-/* Free Kick posts: the ranked run, PRACTICE and PLAYGROUND in one row. */
-.freekick-lobby .preview-actions {
-  grid-template-columns: 1.4fr 1fr 1fr;
-  gap: 8px;
-}
-:is(#mobile-lobby, .freekick-lobby) .freekick-playground {
-  border-bottom-color: #008751;
-  color: #00e436;
-}
-#mobile-lobby.is-casual .mobile-lobby-details {
+}#mobile-lobby.is-casual .mobile-lobby-details {
   padding-top: 24px;
 }
 .mobile-board-modal {

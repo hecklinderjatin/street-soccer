@@ -104,7 +104,16 @@ export function readFreeKickStats(
     (goals > 0 && bestStreak < 1)
   )
     return null;
-  if ((mode === 'infinity' || mode === 'custom') && challenge) {
+  if (mode === 'custom' && challenge) {
+    // One shot: a goal or a miss, at the post's fixed level.
+    if (
+      shots !== 1 ||
+      goals > 1 ||
+      greatSaves !== 0 ||
+      level !== freeKickRoundLevel(challenge, goals)
+    )
+      return null;
+  } else if (mode === 'infinity' && challenge) {
     if (
       greatSaves !== 0 ||
       shots !== goals + challenge.lives ||

@@ -417,7 +417,7 @@ export class FreeKickScene extends Phaser.Scene {
         ? customKick(this.playground.kick)
         : this.challenge
           ? postKick(this.challenge, this.goals, context?.postId ?? 'local')
-          : this.practiceKick();
+          : practiceKick(freeKickChallenge(), this.practiceLevel, Math.random);
       this.lastPower = null;
       this.contact = ballContact(0, 0);
       this.power = FK.defaultPower;
@@ -455,7 +455,7 @@ export class FreeKickScene extends Phaser.Scene {
       : this.practice
         ? `PRACTICE LEVEL ${this.setup.level.level}`
         : this.challenge?.mode === 'custom' && this.challenge.custom
-          ? `CUSTOM KICK  ${DIFFICULTY_LABEL[this.challenge.custom.difficulty]}`
+          ? `PLAYGROUND  ${DIFFICULTY_LABEL[this.challenge.custom.difficulty]}`
           : this.challenge?.mode === 'infinity'
             ? `${freeKickSkill(this.setup.level.level)}  LEVEL ${this.setup.level.level}`
             : this.challenge
@@ -467,15 +467,6 @@ export class FreeKickScene extends Phaser.Scene {
     this.updateHud();
     this.updateXgText();
     this.setPhase('aim');
-  }
-
-  // Practice on a Playground post is its one kick; elsewhere a spot from
-  // the post's settings at the chosen level.
-  private practiceKick() {
-    const post = freeKickChallenge();
-    return post.mode === 'custom' && post.custom
-      ? customKick(post.custom)
-      : practiceKick(post, this.practiceLevel, Math.random);
   }
 
   // This attempt's xG (finishing the estimate if it isn't done yet).
@@ -1458,7 +1449,7 @@ export class FreeKickScene extends Phaser.Scene {
         ? this.challenge.mode === 'infinity'
           ? `INFINITY · ${this.goals} GOALS`
           : this.challenge.mode === 'custom'
-            ? `CUSTOM KICK · ${this.goals} GOALS`
+            ? 'PLAYGROUND · ONE SHOT'
             : `GOALS ${this.goals}/${this.challenge.goals}`
         : this.streak >= 2
           ? `STREAK ${this.streak}  X${multiplier}`
@@ -1474,9 +1465,11 @@ export class FreeKickScene extends Phaser.Scene {
     const c = this.challenge;
     if (!c) return '';
     if (c.mode === 'custom')
-      return this.lives <= 0
-        ? 'CUSTOM KICK RUN COMPLETE'
-        : `${this.goals} GOALS · ONE MISS ENDS THE RUN`;
+      return this.goals > 0
+        ? 'SCORED! RUN COMPLETE'
+        : this.lives <= 0
+          ? 'MISSED. RUN COMPLETE'
+          : 'ONE SHOT: MAKE IT COUNT';
     if (c.mode === 'infinity' && this.lives <= 0)
       return 'INFINITY RUN COMPLETE';
     if (c.mode === 'infinity')

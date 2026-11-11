@@ -41,7 +41,7 @@ let title = '';
 let slot: number | null = null; // the save slot this kick came from or went to
 let scored = false; // the current kick has been scored at least once
 let sheetUp = true;
-let openTile: string | null = 'shot';
+let openTile: string | null = null; // the setup window open over the menu
 const link = new PlaygroundLink(kick);
 
 const host = document.getElementById('freekick');
@@ -96,6 +96,7 @@ const summary = (k: CustomKick) =>
 const renders: (() => void)[] = [];
 function render() {
   for (const update of renders) update();
+  afterRender();
 }
 
 function setKick(next: CustomKick) {
@@ -158,10 +159,13 @@ function stepper(
     out,
     arrow('right', `${label}: next`, () => step(1))
   );
-  if (chip) out.before(chip);
   renders.push(() => {
     pixelLabel(out, value());
-    if (chip && swatch) chip.style.background = swatch();
+    // The kit's colour sits inside the value box, before its name.
+    if (chip && swatch) {
+      chip.style.background = swatch();
+      out.prepend(chip);
+    }
   });
   return row;
 }
@@ -179,7 +183,9 @@ function checkbox(
   box.setAttribute('aria-hidden', 'true');
   const text = el('span', 'pg-check-label', label);
   const hint = el('small', 'pg-check-note');
-  row.append(input, box, text, hint);
+  const words = el('span', 'pg-check-text');
+  words.append(text, hint);
+  row.append(input, box, words);
   input.addEventListener('change', () => set(input.checked));
   renders.push(() => {
     input.checked = checked();
@@ -188,31 +194,51 @@ function checkbox(
   return row;
 }
 
-function tile(id: string, name: string, sum: () => string, rows: Node[]) {
-  const wrap = el('div', 'pg-tile');
+// A closed tile in the sheet's menu; it opens its own window in place of
+// the menu (DONE closes it), so the sheet never scrolls.
+function tile(
+  id: string,
+  name: string,
+  sum: () => string,
+  rows: Node[],
+  menu: HTMLElement,
+  windows: HTMLElement
+) {
   const head = el('button', 'pg-tile-head');
   head.type = 'button';
-  const label = el('span', 'pg-tile-name', name);
   const value = el('span', 'pg-tile-sum');
-  const chevron = el('span', 'pg-chevron');
-  head.append(label, value, chevron);
-  const body = el('div', 'pg-tile-body');
-  body.id = `pg-${id}`;
-  head.setAttribute('aria-controls', body.id);
-  body.append(...rows);
-  wrap.append(head, body);
-  head.addEventListener('click', () => {
-    openTile = openTile === id ? null : id;
+  head.append(
+    el('span', 'pg-tile-name', name),
+    value,
+    el('span', 'pg-chevron')
+  );
+  const win = el('div', 'pg-window');
+  win.id = `pg-${id}`;
+  win.setAttribute('role', 'group');
+  win.setAttribute('aria-label', name);
+  head.setAttribute('aria-controls', win.id);
+  const bar = el('div', 'pg-window-bar');
+  const done = button('DONE', 'secondary pg-mini', () => {
+    openTile = null;
     render();
+    head.focus({ preventScroll: true });
   });
+  bar.append(el('span', 'pg-tile-name', name), done);
+  const body = el('div', 'pg-window-body');
+  body.append(...rows);
+  win.append(bar, body);
+  head.addEventListener('click', () => {
+    openTile = id;
+    render();
+    done.focus({ preventScroll: true });
+  });
+  menu.append(head);
+  windows.append(win);
   renders.push(() => {
-    const open = openTile === id;
-    wrap.classList.toggle('is-open', open);
-    head.setAttribute('aria-expanded', String(open));
-    body.hidden = !open;
+    win.hidden = openTile !== id;
+    head.setAttribute('aria-expanded', String(openTile === id));
     pixelLabel(value, sum());
   });
-  return wrap;
 }
 
 function button(
@@ -245,8 +271,31 @@ function buildSheet(root: HTMLElement) {
   );
 
   const body = el('div', 'pg-body');
-  body.append(
-    tile('shot', 'SHOT POSITION', () => `${kick.distanceM} M · ${angleText(kick)}`, [
+  const menu = el('div', 'pg-menu');
+  body.append(menu);
+  const checks = el('div', 'pg-checks');
+  checks.append(
+    checkbox(
+      'WALL JUMPS',
+      () => kick.jump,
+      (on) => setKick({ ...kick, jump: on })
+    ),
+    checkbox(
+      'LYING BEHIND',
+      () => kick.lyer,
+      (on) => {
+        if (on && kick.wallMen < 3) {
+          setStatus('A lying player needs 3 or more in the wall.');
+          render();
+          return;
+        }
+        setKick({ ...kick, lyer: on });
+      },
+      () => (kick.wallMen < 3 ? 'needs 3+ men' : '')
+    )
+  );
+  const groups: [string, string, () => string, Node[]][] = [
+    ['shot', 'SHOT POSITION', () => `${kick.distanceM} M · ${angleText(kick)}`, [
       stepper(
         'DISTANCE',
         () => `${kick.distanceM} M`,
@@ -258,8 +307,8 @@ function buildSheet(root: HTMLElement) {
         // The left arrow moves the spot left.
         (d) => setKick({ ...kick, angleDeg: kick.angleDeg - d })
       ),
-    ]),
-    tile(
+    ]],
+    [
       'wall',
       'WALL SETTING',
       () => `${kick.wallMen} MEN · ${kick.wallGapM} M`,
@@ -279,27 +328,10 @@ function buildSheet(root: HTMLElement) {
           () => String(kick.wallMen),
           (d) => setKick({ ...kick, wallMen: kick.wallMen + d })
         ),
-        checkbox(
-          'WALL JUMPS',
-          () => kick.jump,
-          (on) => setKick({ ...kick, jump: on })
-        ),
-        checkbox(
-          'ONE LYING BEHIND',
-          () => kick.lyer,
-          (on) => {
-            if (on && kick.wallMen < 3) {
-              setStatus('A lying player needs 3 or more in the wall.');
-              render();
-              return;
-            }
-            setKick({ ...kick, lyer: on });
-          },
-          () => (kick.wallMen < 3 ? 'needs 3+ men' : '')
-        ),
-      ]
-    ),
-    tile('difficulty', 'DIFFICULTY', () => DIFFICULTY_LABEL[kick.difficulty], [
+        checks,
+      ],
+    ],
+    ['difficulty', 'DIFFICULTY', () => DIFFICULTY_LABEL[kick.difficulty], [
       stepper(
         'KEEPER',
         () => DIFFICULTY_LABEL[kick.difficulty],
@@ -309,14 +341,19 @@ function buildSheet(root: HTMLElement) {
           if (next) setKick({ ...kick, difficulty: next });
         }
       ),
-    ])
-  );
+    ]],
+  ];
+  for (const [id, name, sum, rows] of groups)
+    tile(id, name, sum, rows, menu, body);
+  renders.push(() => {
+    menu.hidden = openTile !== null;
+  });
 
   const status = el('p', 'pg-status');
   status.setAttribute('role', 'status');
   const foot = el('footer', 'pg-foot');
   foot.append(
-    button('TEST SHOT', 'secondary pg-test', () => slide(false)),
+    button('TEST SHOT', 'pg-test', () => slide(false)),
     button('NEXT', 'pg-next', showKits)
   );
   sheet.append(head, body, status, foot);
@@ -346,22 +383,24 @@ function buildSheet(root: HTMLElement) {
   };
 
   // The camera frames the kick into the part of the view above the sheet.
+  // The sheet fits its content, so it changes height as windows open.
   const reframe = () => {
     const height = root.clientHeight || 1;
-    link.update({
-      editing: sheetUp,
-      viewRatio: sheetUp ? 1 - sheet.offsetHeight / height : 1,
-    });
+    const viewRatio = sheetUp ? 1 - sheet.offsetHeight / height : 1;
+    if (sheetUp === link.editing && Math.abs(viewRatio - link.viewRatio) < 0.005)
+      return;
+    link.update({ editing: sheetUp, viewRatio });
   };
   slide = (up: boolean) => {
     sheetUp = up;
     render();
-    reframe();
   };
+  afterRender = () => window.requestAnimationFrame(reframe);
   window.addEventListener('resize', reframe);
   reframe();
 }
 let setStatus: (text: string) => void = () => {};
+let afterRender: () => void = () => {};
 let slide: (up: boolean) => void = () => {};
 
 function leave(event: MouseEvent) {
@@ -486,7 +525,21 @@ function showKits() {
   }
   async function doShare() {
     if (!scored) {
-      say('Score your kick at least once first: BACK, then TEST SHOT.');
+      showAlert(
+        'SCORE IT FIRST',
+        'Prove your kick can be beaten: take a test shot and score it once, then share it.',
+        [
+          [
+            'TEST SHOT',
+            'pg-test',
+            () => {
+              close();
+              slide(false);
+            },
+          ],
+          ['NOT NOW', 'secondary', () => undefined],
+        ]
+      );
       return;
     }
     if (parseCustomTitle(title) === null) {
@@ -511,6 +564,47 @@ function showKits() {
       share.disabled = false;
     }
   }
+}
+
+// A game-styled alert over everything: a heading, a line and its buttons
+// (each closes the alert, then does its action).
+function showAlert(
+  heading: string,
+  text: string,
+  actions: [string, string, () => void][]
+) {
+  if (!host) return;
+  const shade = el('div', 'pg-alert-shade');
+  const box = el('div', 'pg-alert');
+  box.setAttribute('role', 'alertdialog');
+  box.setAttribute('aria-modal', 'true');
+  const title = el('h2', 'pg-alert-title', heading);
+  title.id = 'pg-alert-title';
+  box.setAttribute('aria-labelledby', title.id);
+  const line = el('p', 'pg-alert-text');
+  line.textContent = text;
+  const row = el('div', 'pg-alert-actions');
+  const close = () => {
+    document.removeEventListener('keydown', onKey, { capture: true });
+    shade.remove();
+  };
+  const onKey = (event: KeyboardEvent) => {
+    if (event.key !== 'Escape') return;
+    event.stopImmediatePropagation();
+    close();
+  };
+  for (const [label, className, act] of actions)
+    row.append(
+      button(label, className, () => {
+        close();
+        act();
+      })
+    );
+  box.append(el('span', 'pg-alert-icon', '!'), title, line, row);
+  shade.append(box);
+  host.append(shade);
+  document.addEventListener('keydown', onKey, { capture: true });
+  row.querySelector('button')?.focus({ preventScroll: true });
 }
 
 // ---- Saved kicks --------------------------------------------------------------

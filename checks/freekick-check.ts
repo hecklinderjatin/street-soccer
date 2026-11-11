@@ -792,13 +792,16 @@ check('playground kicks: limits, fixed setup, one-life ranked runs', () => {
   assert.equal(freeKickRoundLevel(config, 0), FK.customLevels.normal);
   assert.equal(freeKickRoundLevel(config, 50), FK.customLevels.normal);
   assert.equal(challengeOutcome(0, 1, config), 'open');
-  assert.equal(challengeOutcome(9, 0, config), 'lost');
+  assert.equal(challengeOutcome(1, 1, config), 'won'); // one shot: scored ...
+  assert.equal(challengeOutcome(0, 0, config), 'lost'); // ... or missed
   assert.deepEqual(postKick(config, 7, 't3_c'), customKick(base));
   assert.deepEqual(postFreeKickChallenge({matchType: 'freekick', freeKick: config}), config);
   assert.equal(typeof parseFreeKickChallenge({mode: 'custom', kicker: 'pink', wall: 'blue', custom: {...base, wallMen: 9}}), 'string');
-  const stats = {mode: 'custom', score: 500, goals: 2, shots: 3, bestStreak: 2, level: FK.customLevels.normal, fastestGoalKmh: 100, elapsedSec: 20, greatSaves: 0, xg: 100};
+  const stats = {mode: 'custom', score: 500, goals: 1, shots: 1, bestStreak: 1, level: FK.customLevels.normal, fastestGoalKmh: 100, elapsedSec: 20, greatSaves: 0, xg: 30};
   assert.ok(readFreeKickStats(stats, config));
-  assert.equal(readFreeKickStats({...stats, shots: 4}, config), null);
+  assert.equal(readFreeKickStats({...stats, shots: 2}, config), null);
+  assert.ok(readFreeKickStats({...stats, goals: 0, bestStreak: 0, score: 0, fastestGoalKmh: 0}, config));
+  assert.equal(readFreeKickStats({...stats, goals: 2, shots: 2, bestStreak: 2}, config), null);
   assert.equal(readFreeKickStats({...stats, level: 3}, config), null);
   assert.equal(readFreeKickStats({...stats, mode: 'infinity'}, config), null);
   assert.equal(readFreeKickStats(stats, FREE_KICK_CHALLENGE_DEFAULT), null);
@@ -808,6 +811,16 @@ check('playground kicks: limits, fixed setup, one-life ranked runs', () => {
   assert.equal(typeof parseCustomSetup({...setup, title: ''}), 'string');
   assert.equal(typeof parseCustomSetup({...setup, title: ''}, true), 'object');
   assert.equal(typeof parseCustomSetup({...setup, wall: 'pink'}), 'string');
+});
+
+check('keeper guards the bigger gap the wall leaves', () => {
+  const base = {...CUSTOM_KICK_DEFAULT, angleDeg: 20, wallMen: 2};
+  // Covering the near post (the usual wall): the keeper is on the far side.
+  const usual = customKick(base);
+  assert.ok((usual.keeperY - GOAL_Y) * usual.nearSide < 0);
+  // Slid well off the near post: the open near side is now the keeper's.
+  const slid = customKick({...base, wallShift: base.angleDeg > 0 ? FK.customShiftSteps : -FK.customShiftSteps});
+  assert.ok((slid.keeperY - GOAL_Y) * slid.nearSide > 0);
 });
 
 console.log(`\n${passed} checks passed`);

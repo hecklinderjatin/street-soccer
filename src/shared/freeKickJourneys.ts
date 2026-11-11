@@ -13,7 +13,7 @@ export function freeKickJourneySettings(
   return {
     mode: practice
       ? 'freekick-practice'
-      : endlessFreeKick(config) // (Playground posts report as Infinity runs)
+      : endlessFreeKick(config) // (Playground posts report as one-goal Challenges)
         ? 'freekick-infinity'
         : 'freekick-challenge',
     difficulty: config.difficulty,

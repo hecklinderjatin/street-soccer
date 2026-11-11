@@ -1,8 +1,5 @@
 import { freeKickChallenge } from './challenge';
-import {
-  challengeRoundLevel,
-  freeKickRoundLevel,
-} from '../shared/freeKickChallenge';
+import { challengeRoundLevel } from '../shared/freeKickChallenge';
 import { pixelLabel } from './ui/pixelLabel';
 import { FREE_KICK as FK } from '../shared/tuning';
 import { startEarlyDownloads } from './earlyAssets';
@@ -11,19 +8,7 @@ startEarlyDownloads();
 const host = document.getElementById('freekick');
 const loader = document.getElementById('boot-loading');
 if (loader) loader.style.display = 'none';
-const custom = freeKickChallenge();
-// A Playground post's kick is fixed: practise it straight away.
-if (host && custom.mode === 'custom' && custom.custom) {
-  if (loader) loader.style.display = '';
-  void import('./freekick/game')
-    .then(({ createFreeKickGame }) =>
-      createFreeKickGame(true, freeKickRoundLevel(custom, 0))
-    )
-    .catch(() => {
-      if (loader)
-        loader.textContent = 'Could not load Practice. Please reopen the post.';
-    });
-} else if (host) {
+if (host) {
   const config = freeKickChallenge();
   const setup = document.createElement('form');
   setup.className = 'freekick-practice-setup';
