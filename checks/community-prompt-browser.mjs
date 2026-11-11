@@ -54,6 +54,10 @@ try {
     window.ok = true;
     window.canRunAsUser = async (e) => {
       if (!e.isTrusted) throw Error('Untrusted');
+      if (window.deferConsent)
+        return new Promise((resolve) => {
+          window.resolveConsent = resolve;
+        });
       return window.allowed;
     };
     window.fetch = async () => {
@@ -96,7 +100,14 @@ try {
         .evaluate((e) => e.inert && e.style.visibility === 'hidden'),
       true
     );
+    assert.match(
+      await page.locator('.community-permission-note').textContent(),
+      /Reddit will ask for permission/
+    );
     assert.equal(await page.evaluate(() => window.writes), 0);
+    await page
+      .getByRole('button', { name: 'CONTINUE TO RESULTS', exact: true })
+      .scrollIntoViewIfNeeded();
     const bounds = await page
       .getByRole('button', { name: 'CONTINUE TO RESULTS', exact: true })
       .boundingBox();
@@ -133,6 +144,12 @@ try {
     document.querySelector('[role=status]').textContent.includes('not approved')
   );
   assert.equal(await page.evaluate(() => window.writes), 0);
+  assert.equal(await page.locator('.community-prompt').count(), 0);
+  assert.equal(
+    await page.locator('.community-result-note.is-success').count(),
+    0
+  );
+  await open(true);
   await page.evaluate(() => {
     window.allowed = true;
     window.ok = false;
@@ -145,13 +162,33 @@ try {
       .querySelector('[role=status]')
       .textContent.includes('Could not join')
   );
-  assert.equal(await page.locator('.community-prompt').count(), 1);
-  await page.evaluate(() => (window.ok = true));
+  assert.equal(await page.locator('.community-prompt').count(), 0);
+  assert.equal(
+    await page.locator('.community-result-note.is-success').count(),
+    0
+  );
+  await open(true);
+  await page.evaluate(() => {
+    window.ok = true;
+    window.deferConsent = true;
+  });
   await page
     .getByRole('button', { name: 'JOIN COMMUNITY', exact: true })
     .click();
   await page.waitForFunction(
     () => !document.querySelector('.community-prompt')
+  );
+  assert.equal(await page.locator('#results').evaluate((e) => e.inert), false);
+  assert.match(
+    await page.locator('.community-result-note').textContent(),
+    /Waiting/
+  );
+  assert.equal(await page.evaluate(() => window.writes), 1);
+  await page.evaluate(() => window.resolveConsent(true));
+  await page.waitForFunction(() =>
+    document
+      .querySelector('.community-result-note.is-success')
+      ?.textContent.includes('Thanks for joining')
   );
   assert.equal(await page.evaluate(() => window.writes), 2);
   await open(true);
@@ -164,6 +201,17 @@ try {
   await open(true);
   await page.evaluate(() => window.prompt.destroy());
   assert.equal(await page.locator('#results').evaluate((e) => e.inert), false);
+  await open(true);
+  await page
+    .getByRole('button', { name: 'JOIN COMMUNITY', exact: true })
+    .click();
+  await page.evaluate(() => {
+    window.prompt.destroy();
+    window.resolveConsent(true);
+  });
+  await page.waitForTimeout(30);
+  assert.equal(await page.evaluate(() => window.writes), 2);
+  assert.equal(await page.locator('.community-result-note').count(), 0);
   assert.deepEqual(errors, []);
   console.log(
     'Community popup passed: portrait/landscape fit, results gating, optional continue, trusted consent, denial/error/retry, successful-join suppression, account isolation and cleanup.'

@@ -34,6 +34,10 @@ export function communityPrompt(results: HTMLElement, portrait = false) {
   const copy = document.createElement('p');
   copy.textContent =
     'Enjoyed the match? Join for new challenges and game updates.';
+  const permissionNote = document.createElement('p');
+  permissionNote.className = 'community-permission-note';
+  permissionNote.textContent =
+    'Reddit will ask for permission. Joining won’t post anything on your behalf. You can decline and continue playing.';
   const status = document.createElement('p');
   status.className = 'community-prompt-status';
   status.setAttribute('role', 'status');
@@ -43,7 +47,8 @@ export function communityPrompt(results: HTMLElement, portrait = false) {
   note.className = 'community-prompt-note';
   note.textContent = 'Joining is optional. Continue to see your match results.';
   let closed = false,
-    pending = false;
+    pending = false,
+    disposed = false;
   const previousVisibility = results.style.visibility;
   const previousInert = results.inert;
   results.style.visibility = 'hidden';
@@ -61,10 +66,21 @@ export function communityPrompt(results: HTMLElement, portrait = false) {
     void subscribe(event);
   });
   const next = casualButton('CONTINUE TO RESULTS', () => close(), true);
+  let resultNote: HTMLParagraphElement | null = null;
+  function notifyResults(message: string, success = false) {
+    if (disposed) return;
+    resultNote ??= document.createElement('p');
+    resultNote.className = `community-result-note${success ? ' is-success' : ''}`;
+    resultNote.setAttribute('role', 'status');
+    resultNote.textContent = message;
+    (results.querySelector('.results-panel') ?? results).prepend(resultNote);
+    results.scrollTop = 0;
+  }
   async function subscribe(event: MouseEvent) {
-    if (pending || closed) return;
+    if (pending || disposed) return;
     if (!context.userId) {
-      status.textContent = 'Log in to Reddit to join this community.';
+      close();
+      notifyResults('Log in to Reddit to join this community.');
       return;
     }
     pending = true;
@@ -72,9 +88,13 @@ export function communityPrompt(results: HTMLElement, portrait = false) {
     pixelLabel(join, 'JOINING...');
     status.textContent = '';
     try {
-      if (!(await canRunAsUser(event)))
+      const consent = canRunAsUser(event);
+      close();
+      notifyResults('Waiting for Reddit permission…');
+      if (!(await consent))
         throw new Error('Joining was not approved. You can still continue.');
-      if (closed) return;
+      if (disposed) return;
+      notifyResults('Joining the community…');
       const response = await fetch('/api/community/join', {
         method: 'POST',
         signal: AbortSignal.timeout(8000),
@@ -86,13 +106,14 @@ export function communityPrompt(results: HTMLElement, portrait = false) {
       } catch {
         /* Joining still succeeded. */
       }
-      close();
+      notifyResults('Thanks for joining! Welcome to the street.', true);
     } catch (error) {
-      if (!closed)
-        status.textContent =
-          error instanceof Error
-            ? error.message
-            : 'Could not join. Please retry.';
+      close();
+      notifyResults(
+        error instanceof Error
+          ? error.message
+          : 'Could not join. You can still continue playing.'
+      );
     } finally {
       pending = false;
       if (!closed) {
@@ -116,13 +137,15 @@ export function communityPrompt(results: HTMLElement, portrait = false) {
     }
   }
   actions.append(join, next);
-  panel.append(tag, title, name, copy, actions, status, note);
+  panel.append(tag, title, name, copy, permissionNote, actions, status, note);
   root.append(panel);
   document.body.append(root);
   document.addEventListener('keydown', keyboard);
   join.focus();
   return {
     destroy() {
+      disposed = true;
+      resultNote?.remove();
       close(false);
     },
   };

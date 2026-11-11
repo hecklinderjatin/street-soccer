@@ -124,3 +124,27 @@
     transform: translateY(0);
   }
 }
+
+.community-prompt .community-permission-note {
+  color: #c3cedd;
+  font-size: 12px;
+  line-height: 1.6;
+  padding: 12px;
+  background: #112037;
+  border-left: 2px solid #29adff;
+}
+.community-result-note {
+  margin: 0;
+  padding: 12px 16px;
+  border-left: 3px solid #29adff;
+  background: #112037;
+  color: #c3cedd;
+  font:
+    13px/1.5 ui-monospace,
+    monospace;
+  text-align: center;
+}
+.community-result-note.is-success {
+  border-color: #00e436;
+  color: #b7efca;
+}

@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Community consent note and result thanks (2026-11-11):** add the requested explanation before the Join button: Reddit asks for permission, joining posts nothing, and denial still allows play. Join immediately reveals the last match details while native permission runs; show waiting/joining status there, then a themed Thanks for joining message only after subscription succeeds. Denied consent and errors show accurate messages on results without a false thank-you. Applies through the shared popup to normal and Free Kick; preserve landscape/portrait layouts and local successful-join suppression. Disposal prevents pending consent from initiating a join or updating another scene after results exit. Types/lint and focused Hono/Chromium checks pass (note, immediate transition, pending consent, denial/error/success, suppression, account isolation and cleanup). No application build or live Reddit writes performed.
+
 **Main merge (2026-11-11):** fast-forwarded `codex/freekick-challenge-boards` through `465d60e` into main at the user’s request. Includes optional community popup, Free Kick illustrated help/raised feedback/result alignment, and Challenge score/speed leaderboards. Existing types/lint and focused rules/API/source-browser checks pass; no application build or Reddit deployment performed. Membership detection limitation and stale older Free Kick flow harness remain documented below.
 
 **Free Kick Challenge result boards (2026-11-11):** show both Highest Score and Fastest Goals tabs below the stats on every completed Free Kick run, including Challenge wins/losses. Challenge now registers on its first shot and saves its completed snapshot using a distinct challenge mode. Validate terminal goals/lives, no great-save exemptions and the actual final-round level against server-owned post settings; reuse timing/immutable receipts, best-only seven-day post boards and existing privacy/deletion handling. Score uses completed-run points; speed still counts scored-shot launches only. Practice and quit runs remain unranked; challenge score-sharing remains disabled. Update info Records to seven days. Types/lint, 32 Free Kick rules/panel/API checks and source-only UI checks pass, including challenge save dispatch, both leaderboard tabs and responsive aligned results. No application build or live Reddit writes performed.
@@ -718,6 +720,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Reveal results immediately on Join, but thank the player only after confirmed subscription. Keep native Reddit permission consent intact and explain it before the button.
+
 - Enable Challenge record submission together with its result leaderboards so newly created Free Kick posts can populate both boards. Validate wins and terminal losses using the post settings rather than legacy unlimited-run limits.
 
 - Keep Free Kick feedback above the scene with no background plate; pair instructions with HUD examples and use a complete challenge stat grid instead of an uneven final row. Scope result alignment changes to Free Kick.
@@ -1118,6 +1122,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Native Reddit review of the consent explanation, immediate results transition and success thank-you in both layouts.
+
 - Native Reddit verification of Free Kick Challenge completion saves and both seven-day result boards after the next user-run upload.
 
 - Native mobile review of Free Kick help, unboxed Goal/Wide feedback and final-card alignment after the next user-run upload.
@@ -1505,6 +1511,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-11:** explain native Join consent, transition directly to results on Join, and show confirmed-success thanks on match details. Types/lint and focused API/browser checks pass; no build or live joins performed.
 
 - **2026-11-11:** merge community popup, Free Kick UI polish and Challenge result leaderboards into main through `465d60e`; prepare requested GitHub push. No application build/deployment performed.
 
