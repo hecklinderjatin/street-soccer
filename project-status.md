@@ -8,6 +8,10 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Results actions (2026-11-11):** Join Community sits in the shared results action grid across Free Kick, Classic, Daily, Chaos and Custom. Free Kick results link to Practice and the Playground builder. Results cards fit within the visible webview without an internal scrollbar.
+
+**Free Kick daytime court (2026-11-11):** The shared stage and feed preview now show a clear blue sky and a basketball court with two hoops behind the goal. Short brick walls flank the goal at one-third of crossbar height.
+
 **Practice fixes (2026-11-11):** (1) On-screen NEW SPOT button (top left under the goals count) in Practice; it reads NEXT ROUND / NEXT GOAL when a Challenge round or Infinity kick is picked (Pause > New Spot does the same). (2) SETUP button opens a slide-up sheet with the same picker as the setup page (random spots or a picked kick, plus level for random spots), applied the moment it changes; DONE or Escape closes it, and shooting is off while it is open. Picks come from the shared `freekick/practicePicks.ts`. (3) After each Practice shot (and Playground test shots), its path stays as a faint ghost (`FK.ghostAlpha`) on the retaken spot until the next strike. (4) Practice's HUD shows only the spot's XG (no goal point range) and every shot's banner shows its XGOT; the Playground keeps its point range.
 
 **Infinity fixes (2026-11-11):** (1) Infinity leaderboards show HIGHEST SCORE and MOST GOALS (new `fk-goals:<post>:<day>` board, best per player, erasable, removed with the post); Challenge and Playground keep HIGHEST SCORE and FASTEST GOALS. (2) Pro+ tiers: past level 10 (16 goals) every 2 goals is a tier, labelled PRO 2, PRO 3 ... up to PRO 11 (`FK.infinityMaxTier` 10); each tier adds 0.5 m to the furthest spot (35 m at the top), 0.6° of angle, +0.03 wall jump chance, 0.008 s quicker keeper reaction and 0.5 px less misread. HUD, run line and results ("REACHED PRO 4") use the tier names. (3) Practice on an Infinity post can load "INFINITY GOAL N (SKILL)" (`FK.infinityPracticeGoals`: after 0, 4, 8 ... 36 goals); New Spot steps to the next kick. (4) Milestone banners replace "GOAL!" on Infinity goals that reach a new skill ("NOW HARD!", "NOW PRO 3!"), every 10 goals ("20 GOALS!"), or a new level ("LEVEL 6!"); the goal's points stay underneath.
@@ -786,6 +790,12 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Free Kick results pair Practice and Playground in portrait and place all actions in one row in landscape.
+
+- Results cards use balanced rows in portrait and one action row on wide landscape. A viewport fit step scales the compact card when leaderboards and status updates would make it taller than the view.
+
+- The Free Kick goal-side walls are scenery. The daylight set uses a separate ground texture so it can replace the parking bays independently of the match court.
+
 - Playground (user request, 2026-11-11): reuse the real FreeKickScene for the preview and tests (a `PlaygroundLink` passes the kick, sheet state and visible-view ratio) rather than a separate drawing, so what players build is exactly what gets played. One life on shared kicks; the same kick repeats after each goal so the board ranks goals in a row. Limits live in tuning.ts (`custom*`) and are enforced by `parseCustomKick` on both client and server. Kits are shown as swatches/figures on screen 2, not re-rendered in the scene (only the post's two kits are downloaded). Sharing is gated on one scored test client-side only; the server cannot verify it.
 
 - Merge and push the tested Infinity branch and its pending parent fixes into main at the user’s request; do not deploy or publish the app as part of this Git operation.
@@ -1224,6 +1234,12 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Verify the Playground shortcut from Free Kick results in the live Reddit webview.
+
+- Verify results action spacing and Practice navigation in the live Reddit mobile and desktop views.
+
+- Check the new Free Kick scenery in the live Reddit mobile and desktop views.
+
 - Playground: playtest on device (`npm run dev`): sheet height and camera framing on short phones, arrow hold-repeat, extreme angles at 15 m, wall shift labels (LEFT/RIGHT from the kicker), sharing a post and playing it. Possible follow-ups: moderator removal/report flow for shared kicks, a gallery of shared kicks, in-scene kit preview.
 
 - Infinity is merged into main. Playtest the two-goals-per-level pacing and Pro endurance on device after deployment. Optional follow-ups discussed: difficulty milestones, streak/goal medals or a shared daily sequence; bonus lives are not implemented. Live Journeys acceptance still depends on Reddit approval/allowlisting.
@@ -1645,6 +1661,12 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- 2026-11-11: Added Playground to Free Kick results and fitted the expanded action grid without internal scrolling.
+
+- 2026-11-11: Aligned Join Community across results screens, removed results scrolling, and added Practice to Free Kick results.
+
+- 2026-11-11: Replaced the Free Kick night skyline and parking bays with clear daylight and a basketball court, and added low brick walls beside the goal.
 
 - **2026-11-11:** Free Kick fills landscape/desktop views (no side bars); info card centred; desktop breakpoint lowered to 760px landscape so Reddit's desktop view gets two-column results and the docked Playground panel. Server check mock gains `incrBy` and asserts games played counts a completed run once.
 

@@ -9,6 +9,7 @@ import { paintStreetAsphalt } from './streetAsphalt';
 // Textures for the 3D street court, painted at art-pixel resolution
 // (1 texel = PX world px). The Match scene maps them onto ProjectedPlanes.
 export const GROUND_KEY = 'court-ground';
+export const FREE_KICK_GROUND_KEY = 'freekick-ground';
 export const BACKDROP_KEY = 'court-backdrop';
 export const END_WALL_KEY = 'court-endwall';
 export const FENCE_KEY = 'court-fence';
@@ -41,6 +42,12 @@ export const GROUND_EXTENT = {
 // behind the left goal, a car park behind the right one. The hoops and cars
 // themselves are billboards placed by MatchScene.
 export const BASKETBALL = { x0: -660, x1: -160, y0: 180, y1: 1120 };
+export const FREE_KICK_BASKETBALL = {
+  x0: PITCH.width + 170,
+  x1: PITCH.width + 670,
+  y0: (PITCH.height - 940) / 2,
+  y1: (PITCH.height + 940) / 2,
+};
 export const PARKING = {
   rows: [
     [PITCH.width + 120, PITCH.width + 320],
@@ -63,7 +70,16 @@ export function createCourtTextures(scene: Phaser.Scene) {
   makeTexture(scene, CAP_KEY, GROUND_W, CAP_H, paintCap);
 }
 
-function paintGround(ctx: CanvasRenderingContext2D) {
+export function createFreeKickCourtTextures(scene: Phaser.Scene) {
+  makeTexture(scene, FREE_KICK_GROUND_KEY, GROUND_W, GROUND_H, (ctx) =>
+    paintGround(ctx, FREE_KICK_BASKETBALL)
+  );
+  makeTexture(scene, END_WALL_KEY, H, END_WALL_H, paintEndWall);
+  makeTexture(scene, FENCE_KEY, GROUND_W, FENCE_H, paintFence);
+  makeTexture(scene, CAP_KEY, GROUND_W, CAP_H, paintCap);
+}
+
+function paintGround(ctx: CanvasRenderingContext2D, basketball = BASKETBALL) {
   const rand = seededRandom(11);
   const ox = PAD_X;
 
@@ -92,17 +108,20 @@ function paintGround(ctx: CanvasRenderingContext2D) {
 
   // Pitch markings are drawn as projected lines each frame (render/PitchLines.ts):
   // painted into this texture they were too thin far away and flickered.
-  paintBasketball(ctx);
-  paintParking(ctx, rand);
+  paintBasketball(ctx, basketball);
+  if (basketball === BASKETBALL) paintParking(ctx, rand);
 }
 
 // Outdoor basketball court: green surface, brown keys, white lines,
 // laid out along y (hoops at the far and near baselines).
-function paintBasketball(ctx: CanvasRenderingContext2D) {
-  const x0 = ax(BASKETBALL.x0);
-  const x1 = ax(BASKETBALL.x1);
-  const y0 = ay(BASKETBALL.y0);
-  const y1 = ay(BASKETBALL.y1);
+function paintBasketball(
+  ctx: CanvasRenderingContext2D,
+  court: typeof BASKETBALL
+) {
+  const x0 = ax(court.x0);
+  const x1 = ax(court.x1);
+  const y0 = ay(court.y0);
+  const y1 = ay(court.y1);
   const w = x1 - x0;
   const h = y1 - y0;
   const cx = x0 + w / 2;

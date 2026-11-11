@@ -7,21 +7,6 @@
   grid-template-columns: minmax(0, 1fr);
 }
 
-/* EXIT is a link (a trusted click leaves the expanded view on Reddit),
-   drawn as the match's secondary results button. */
-.results-actions > a.casual-button {
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 0;
-  font-size: 12px;
-  text-decoration: none;
-}
-.results-actions > [hidden] {
-  display: none;
-}
-
 .fk-results-status {
   padding: 0;
   text-align: center;
@@ -88,22 +73,12 @@
   }
 }
 
-/* Free Kick keeps a single portrait column and aligned full-width actions. */
+/* Free Kick keeps a single portrait content column. */
 .fk-results-screen .results-panel {
   max-width: 620px;
 }
 .fk-results-screen .results-panel .results-content {
   grid-template-columns: minmax(0, 1fr);
-}
-.fk-results-screen .results-actions {
-  grid-template-columns: minmax(0, 1fr);
-}
-.fk-results-screen .results-actions > * {
-  grid-column: 1 / -1;
-  width: 100%;
-}
-.fk-results-screen .results-stats {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 .fk-results-screen .results-header {
   align-items: center;
@@ -112,9 +87,29 @@
 .fk-results-screen .results-header > :last-child {
   text-align: right;
 }
+.fk-results-screen .results-actions > :first-child,
+.fk-results-screen
+  .results-actions:not(:has(.community-join-button:not([hidden])))
+  > .fk-results-exit {
+  grid-column: 1 / -1;
+}
+
 /* Desktop (wide landscape): the summary beside the leaderboards and the
    actions in one row, so the results fit without scrolling. */
 @media (min-width: 600px) and (min-aspect-ratio: 1/1) {
+  .fk-results-screen .results-actions {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .fk-results-screen
+    .results-actions:has(.community-join-button:not([hidden])) {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+  .fk-results-screen .results-actions > :first-child,
+  .fk-results-screen
+    .results-actions:not(:has(.community-join-button:not([hidden])))
+    > .fk-results-exit {
+    grid-column: auto;
+  }
   .fk-results-screen .results-panel {
     max-width: 1000px;
   }
@@ -122,16 +117,5 @@
     grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
     align-items: start;
     gap: 24px;
-  }
-  .fk-results-screen .results-actions {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-  .fk-results-screen .results-actions > * {
-    grid-column: auto;
-  }
-}
-@media (max-width: 359px) {
-  .fk-results-screen .results-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

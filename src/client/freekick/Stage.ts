@@ -8,12 +8,13 @@ import {
   BALL_TEXTURE_W,
 } from '../art/ballArt';
 import {
-  BACKDROP_KEY,
-  BACKDROP_WALL_V,
+  createFreeKickCourtTextures,
+  END_WALL_KEY,
+  FREE_KICK_BASKETBALL,
+  FREE_KICK_GROUND_KEY,
   CAP_KEY,
   FENCE_KEY,
   GROUND_EXTENT,
-  GROUND_KEY,
 } from '../art/pitchArt';
 import {
   LOOKS,
@@ -25,6 +26,7 @@ import {
   type Kit,
   type Look,
 } from '../art/playerArt';
+import { createHoopTexture, HOOP_KEY } from '../art/sceneryArt';
 import { ProjectedPlane, type PlaneCorners } from '../render/ProjectedPlane';
 import { newProjected } from '../render/Projector';
 import { PAL, PX } from '../ui/palette';
@@ -48,12 +50,12 @@ const DEPTH_GROUND = -10_000_000;
 const DEPTH_LINES = DEPTH_GROUND + 1;
 const DEPTH_FAR = -1_000_000;
 const DEPTH_SKY = DEPTH_GROUND - 1;
-const SKY_TOP = 0x0d1533; // night sky overhead ...
-const SKY_LOW = 0x4b3463; // ... to the city glow at the horizon
-const SKYLINE_SCALE = 2.6; // the far skyline: the facade this much bigger ...
-const SKYLINE_BEYOND = 900; // ... this far past the end of the street ...
-const SKYLINE_SIDE = 1500; // ... reaching this far out either side ...
-const SKYLINE_SHADE = 0x59648f; // ... tinted into the night
+const SKY_TOP = 0x478fc9;
+const SKY_LOW = 0xc5e9fa;
+const DISTANT_GROUND = 0x9cab8d;
+const WALL_HEIGHT = BAR_Z / 3;
+const WALL_LENGTH = 160;
+const WALL_GAP = 12;
 const NET_BACK_X = GOAL_X + FK.goalDepth;
 const R = BALL.radius;
 const NET_SHADE = 0x1d2b53; // the net's inside is shaded dark
@@ -129,6 +131,7 @@ export type StagePose = {
 export class Stage {
   private planes: ProjectedPlane[] = [];
   private readonly sky: Phaser.GameObjects.Graphics;
+  private readonly hoops: Phaser.GameObjects.Image[];
   private readonly lines: Phaser.GameObjects.Graphics;
   private readonly net: Phaser.GameObjects.Graphics;
   private readonly frame: Phaser.GameObjects.Graphics;
@@ -152,6 +155,14 @@ export class Stage {
     private readonly scene: Phaser.Scene,
     kits: { kicker: Kit; wall: Kit }
   ) {
+    createFreeKickCourtTextures(scene);
+    createHoopTexture(scene);
+    this.hoops = [0, 1].map(() =>
+      scene.add
+        .image(0, 0, HOOP_KEY)
+        .setOrigin(0.5, 1)
+        .setDepth(DEPTH_FAR - 1)
+    );
     this.sky = scene.add.graphics().setDepth(DEPTH_SKY);
     this.lines = scene.add.graphics().setDepth(DEPTH_LINES);
     this.net = scene.add.graphics().setDepth(-NET_BACK_X);
@@ -211,10 +222,21 @@ export class Stage {
     pose: StagePose
   ) {
     const { width, height } = this.scene.scale;
+    // Project a distant ground point to keep the horizon fixed in the world.
+    cam.project(GOAL_X + 1_000_000, GOAL_Y, 0, at);
+    const horizon = Phaser.Math.Clamp(at.y, 0, height);
     this.sky
       .clear()
+      .fillStyle(DISTANT_GROUND)
+      .fillRect(0, horizon, width, height - horizon)
       .fillGradientStyle(SKY_TOP, SKY_TOP, SKY_LOW, SKY_LOW)
-      .fillRect(0, 0, width, height * 0.6);
+      .fillRect(0, 0, width, horizon);
+    const court = FREE_KICK_BASKETBALL;
+    const hoopX = (court.x0 + court.x1) / 2;
+    this.hoops.forEach((hoop, index) => {
+      cam.project(hoopX, index === 0 ? court.y0 - 20 : court.y1 + 20, 0, at);
+      hoop.setPosition(at.x, at.y).setScale(PX * at.scale);
+    });
     for (const plane of this.planes) plane.update(cam);
     this.drawLines(cam, setup);
     this.drawGoal(cam, play, pose);
@@ -242,14 +264,12 @@ export class Stage {
     this.planes.push(plane);
   }
 
-  // The court from x = near to the far end, as Court builds it for the
-  // match, plus the facade closing the view beyond the car park.
+  // Street surface, fences and low masonry around the goal.
   private buildCourt(near: number) {
     const { x0, x1, y1 } = GROUND_EXTENT;
     const H = PITCH.height;
     const T = PITCH.wallThickness;
     const wh = PITCH.wallHeight;
-    const bh = PITCH.backdropHeight;
     const v = (x: number, y: number, z: number) => ({ x, y, z });
     const u = (x: number) => (x - x0) / (x1 - x0);
 
@@ -259,7 +279,7 @@ export class Stage {
       const a = cuts[i] ?? near;
       const b = cuts[i + 1] ?? x1;
       this.quad(
-        GROUND_KEY,
+        FREE_KICK_GROUND_KEY,
         { tl: v(a, 0, 0), tr: v(b, 0, 0), bl: v(a, y1, 0), br: v(b, y1, 0) },
         12,
         24,
@@ -268,21 +288,7 @@ export class Stage {
       );
     }
 
-    // Far wall (brick face, coping, facade) and the near fence, both along x.
     const along = { u0: u(near), u1: 1 };
-    this.quad(
-      BACKDROP_KEY,
-      {
-        tl: v(near, -T, bh),
-        tr: v(x1, -T, bh),
-        bl: v(near, -T, wh),
-        br: v(x1, -T, wh),
-      },
-      24,
-      2,
-      { ...along, v0: 0, v1: BACKDROP_WALL_V },
-      DEPTH_FAR
-    );
     this.quad(
       CAP_KEY,
       {
@@ -297,7 +303,7 @@ export class Stage {
       DEPTH_FAR
     );
     this.quad(
-      BACKDROP_KEY,
+      END_WALL_KEY,
       {
         tl: v(near, 0, wh),
         tr: v(x1, 0, wh),
@@ -306,7 +312,7 @@ export class Stage {
       },
       24,
       2,
-      { ...along, v0: BACKDROP_WALL_V, v1: 1 },
+      { ...along, v0: 0, v1: 1 },
       DEPTH_FAR
     );
     this.quad(
@@ -324,44 +330,65 @@ export class Stage {
       0.6
     );
 
-    // Buildings across the far end, behind the car park: the facade only,
-    // standing on the ground (no brick wall behind the goal).
-    this.quad(
-      BACKDROP_KEY,
-      {
-        tl: v(x1, y1, bh - wh),
-        tr: v(x1, -T, bh - wh),
-        bl: v(x1, y1, 0),
-        br: v(x1, -T, 0),
-      },
-      12,
-      3,
-      { u0: 0, v0: 0, u1: (y1 + T) / (x1 - x0), v1: BACKDROP_WALL_V },
-      DEPTH_FAR - 1
-    );
-
-    // A taller, darker skyline further off, so the sky is never bare.
-    const span = y1 + T + 2 * SKYLINE_SIDE;
-    this.quad(
-      BACKDROP_KEY,
-      {
-        tl: v(x1 + SKYLINE_BEYOND, y1 + SKYLINE_SIDE, bh * SKYLINE_SCALE),
-        tr: v(x1 + SKYLINE_BEYOND, -T - SKYLINE_SIDE, bh * SKYLINE_SCALE),
-        bl: v(x1 + SKYLINE_BEYOND, y1 + SKYLINE_SIDE, 0),
-        br: v(x1 + SKYLINE_BEYOND, -T - SKYLINE_SIDE, 0),
-      },
-      12,
-      2,
-      {
-        u0: 0,
-        v0: 0,
-        u1: span / ((x1 - x0) * SKYLINE_SCALE),
-        v1: BACKDROP_WALL_V,
-      },
-      DEPTH_FAR - 2,
-      1,
-      SKYLINE_SHADE
-    );
+    // Leave the goal mouth open between two short brick walls.
+    const front = GOAL_X + 8;
+    const back = front + T;
+    const wallDepth = -front;
+    const faceUv = {
+      u0: 0,
+      v0: 0,
+      u1: WALL_LENGTH / H,
+      v1: WALL_HEIGHT / PITCH.endWallHeight,
+    };
+    for (const side of [-1, 1]) {
+      const inner = GOAL_Y + side * (POST_HALF + WALL_GAP);
+      const outer = inner + side * WALL_LENGTH;
+      const left = Math.min(inner, outer);
+      const right = Math.max(inner, outer);
+      for (const y of [left, right]) {
+        this.quad(
+          END_WALL_KEY,
+          {
+            tl: v(front, y, WALL_HEIGHT),
+            tr: v(back, y, WALL_HEIGHT),
+            bl: v(front, y, 0),
+            br: v(back, y, 0),
+          },
+          1,
+          1,
+          { ...faceUv, u1: T / H },
+          wallDepth,
+          1,
+          0xd4c5ba
+        );
+      }
+      this.quad(
+        END_WALL_KEY,
+        {
+          tl: v(front, left, WALL_HEIGHT),
+          tr: v(front, right, WALL_HEIGHT),
+          bl: v(front, left, 0),
+          br: v(front, right, 0),
+        },
+        4,
+        1,
+        faceUv,
+        wallDepth
+      );
+      this.quad(
+        CAP_KEY,
+        {
+          tl: v(back, left, WALL_HEIGHT),
+          tr: v(back, right, WALL_HEIGHT),
+          bl: v(front, left, WALL_HEIGHT),
+          br: v(front, right, WALL_HEIGHT),
+        },
+        4,
+        1,
+        { u0: 0, v0: 0, u1: WALL_LENGTH / (x1 - x0), v1: 1 },
+        wallDepth
+      );
+    }
   }
 
   // Chalk markings near the goal, and the referee's spray: a line where

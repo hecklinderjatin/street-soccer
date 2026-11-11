@@ -64,8 +64,12 @@ const FAN_FRAMES: Record<'idle' | 'cheer', string[]> = {
   ],
 };
 
-export function createSceneryTextures(scene: Phaser.Scene) {
+export function createHoopTexture(scene: Phaser.Scene) {
   makeTexture(scene, HOOP_KEY, HOOP_W, HOOP_H, paintHoop);
+}
+
+export function createSceneryTextures(scene: Phaser.Scene) {
+  createHoopTexture(scene);
   CAR_COLORS.forEach((color, i) => {
     makeTexture(scene, carKey(i), CAR_W, CAR_H, (ctx) => paintCar(ctx, color));
   });

@@ -1,11 +1,12 @@
 import { communityJoin } from '../ui/communityJoin';
-import { context, exitExpandedMode } from '@devvit/web/client';
+import {
+  context,
+  exitExpandedMode,
+  requestExpandedMode,
+} from '@devvit/web/client';
 import type { FreeKickStats } from '../../shared/freeKick';
 import type { FreeKickChallengeConfig } from '../../shared/freeKickChallenge';
-import {
-  endlessFreeKick,
-  infinitySkill,
-} from '../../shared/freeKickChallenge';
+import { endlessFreeKick, infinitySkill } from '../../shared/freeKickChallenge';
 import { DIFFICULTY_LABEL } from '../../shared/types';
 import { casualButton, casualScreen } from '../ui/casualScreen';
 import { css } from '../ui/menuCard';
@@ -40,12 +41,13 @@ export function freeKickResults(
     custom
       ? `${stats.shots} ${stats.shots === 1 ? 'ATTEMPT' : 'ATTEMPTS'} · ${challenge.config.distanceM} M · ${DIFFICULTY_LABEL[challenge.config.difficulty]}`
       : infinity
-      ? `${stats.goals} GOALS · ${challenge.config.lives} LIVES · REACHED ${infinitySkill(stats.goals)}`
-      : `${challenge.config.goals} GOALS · ${challenge.config.lives} ${challenge.config.lives === 1 ? 'LIFE' : 'LIVES'} · ${challenge.config.distanceM} M · ${DIFFICULTY_LABEL[challenge.config.difficulty]}`,
+        ? `${stats.goals} GOALS · ${challenge.config.lives} LIVES · REACHED ${infinitySkill(stats.goals)}`
+        : `${challenge.config.goals} GOALS · ${challenge.config.lives} ${challenge.config.lives === 1 ? 'LIFE' : 'LIVES'} · ${challenge.config.distanceM} M · ${DIFFICULTY_LABEL[challenge.config.difficulty]}`,
     false,
     {
       compactBelow: 700,
       minimalBelow: 640,
+      fitToViewport: true,
     }
   );
   screen.element.classList.add('results-screen', 'fk-results-screen');
@@ -144,6 +146,7 @@ export function freeKickResults(
   screen.panel.append(header, content, actions, status);
 
   const retry = casualButton('RETRY SAVE', () => void save(), true);
+  retry.classList.add('results-retry');
   retry.hidden = true;
   // EXIT leaves the expanded view with the trusted click on Reddit; off
   // Reddit it goes back to the feed card page.
@@ -157,7 +160,25 @@ export function freeKickResults(
       exitExpandedMode(event);
     }
   });
-  actions.append(casualButton('PLAY AGAIN', again), exit, retry);
+  actions.append(casualButton('PLAY AGAIN', again));
+  for (const { label, entry } of [
+    { label: 'PRACTICE', entry: 'freekick-practice' },
+    { label: 'PLAYGROUND', entry: 'freekick-playground' },
+  ]) {
+    const link = document.createElement('a');
+    link.className = 'casual-button secondary';
+    link.href = `${entry}.html`;
+    pixelLabel(link, label);
+    link.addEventListener('click', (event) => {
+      if (context?.postId) {
+        event.preventDefault();
+        requestExpandedMode(event, entry);
+      }
+    });
+    actions.append(link);
+  }
+  exit.classList.add('fk-results-exit');
+  actions.append(exit, retry);
   let closed = false;
   async function save() {
     status.textContent = 'Saving run...';

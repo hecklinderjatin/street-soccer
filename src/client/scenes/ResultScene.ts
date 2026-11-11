@@ -80,6 +80,7 @@ export class ResultScene extends Phaser.Scene {
       () => void this.postScore(post),
       true
     );
+    post.classList.add('results-post-score');
     screen.actions.append(
       casualButton('PLAY AGAIN', rematch),
       post,

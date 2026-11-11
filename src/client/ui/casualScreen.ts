@@ -5,7 +5,11 @@ export function casualScreen(
   title: string,
   subtitle: string,
   setup = false,
-  layout: { compactBelow?: number; minimalBelow?: number } = {}
+  layout: {
+    compactBelow?: number;
+    minimalBelow?: number;
+    fitToViewport?: boolean;
+  } = {}
 ) {
   const element = document.createElement('section');
   element.className = setup ? 'casual-screen is-setup' : 'casual-screen';
@@ -31,12 +35,30 @@ export function casualScreen(
     element.dataset.compact = String(available < (layout.compactBelow ?? 530));
     element.dataset.minimal = String(available < (layout.minimalBelow ?? 430));
   };
+  // Results can grow after the leaderboard or save status loads.
+  const fit = () => {
+    const style = getComputedStyle(element);
+    const available =
+      element.clientHeight -
+      parseFloat(style.paddingTop) -
+      parseFloat(style.paddingBottom);
+    panel.style.setProperty(
+      '--results-scale',
+      String(
+        Math.min(1, Math.max(0, available) / Math.max(1, panel.offsetHeight))
+      )
+    );
+  };
+  const observer = layout.fitToViewport ? new ResizeObserver(fit) : null;
+  observer?.observe(element);
+  observer?.observe(panel);
   resize();
   window.addEventListener('resize', resize);
   window.visualViewport?.addEventListener('resize', resize);
   const destroy = () => {
     window.removeEventListener('resize', resize);
     window.visualViewport?.removeEventListener('resize', resize);
+    observer?.disconnect();
     element.remove();
   };
   return { element, panel, heading, description, destroy };

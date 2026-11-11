@@ -25,7 +25,6 @@ import Phaser from 'phaser';
 import { BALL, FREE_KICK as FK } from '../../shared/tuning';
 import { BALL_KEY, createBallTexture } from '../art/ballArt';
 import { matchAssets, queueAssets, type Asset } from '../art/gameAssets';
-import { createCourtTextures } from '../art/pitchArt';
 import { registerPlayerAtlases } from '../art/playerArt';
 import { freeKickChallenge, startingConfig } from '../challenge';
 import {
@@ -342,7 +341,6 @@ export class FreeKickScene extends Phaser.Scene {
       .image(0, 0, BALL_KEY, 'a')
       .setDepth(HUD + 1)
       .setVisible(false);
-    createCourtTextures(this);
     const config = startingConfig();
     this.stage = new Stage(this, {
       kicker: config.home.jersey,

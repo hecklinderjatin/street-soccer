@@ -20,7 +20,7 @@ import { css } from './menuCard';
 import { JERSEY_SWATCH, PAL } from './palette';
 
 // One responsive results card for every mode. The page shell measures the
-// webview's visual viewport; auto margins centre the card when it fits.
+// webview's visual viewport so the full card stays visible.
 export function resultsScreen(result: MatchResult, type: PostType) {
   const casual = result.config.mode === 'casual';
   const dailyMode = casual ? undefined : result.config.dailyMode;
@@ -51,7 +51,7 @@ export function resultsScreen(result: MatchResult, type: PostType) {
         ? 'UNRANKED MATCH'
         : 'RANKED MATCH',
     false,
-    { compactBelow: 700, minimalBelow: 640 }
+    { compactBelow: 700, minimalBelow: 640, fitToViewport: true }
   );
   screen.element.classList.add('results-screen');
   screen.panel.classList.add('results-panel');

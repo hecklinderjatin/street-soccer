@@ -11,7 +11,7 @@ await writeFile(
   sdk,
   `export const context={postId:'t3_fk',username:'tester',userId:'t2_tester',subredditId:'t5_test',subredditName:'street_soccer_dev',postData:{matchType:'freekick'}};
 export const canRunAsUser=async()=>true;
-export const requestExpandedMode=()=>{};
+export const requestExpandedMode=(event,entry)=>{if(!event.isTrusted||event.type!=='click')throw Error('Practice requires native click');window.__expandedEntry=entry;};
 export const exitExpandedMode=event=>{if(!event.isTrusted||event.type!=='click')throw Error('Quit requires native click');window.__exited=true;};
 export const showForm=async form=>{(window.__forms??=[]).push(form);return {action:window.__cancel?'CANCELED':'SUBMITTED',values:{comment:'Great run',includeStats:true}};};
 export const showToast=value=>{window.__toast=value;};`
@@ -175,11 +175,15 @@ try {
       .isVisible(),
     true
   );
+  await page.getByRole('link', { name: 'PRACTICE', exact: true }).click();
   assert.equal(
-    await page
-      .locator('.community-join-button')
-      .evaluate((e) => e.nextElementSibling?.tagName),
-    'A'
+    await page.evaluate(() => window.__expandedEntry),
+    'freekick-practice'
+  );
+  await page.getByRole('link', { name: 'PLAYGROUND', exact: true }).click();
+  assert.equal(
+    await page.evaluate(() => window.__expandedEntry),
+    'freekick-playground'
   );
   await page
     .getByRole('button', { name: 'HIGHEST SCORE', exact: true })
@@ -206,24 +210,44 @@ try {
   ]) {
     await page.setViewportSize({ width, height });
     await page.waitForTimeout(100);
-    const widths = await page
+    const buttons = await page
       .locator('.results-actions .casual-button:visible')
       .evaluateAll((nodes) =>
-        nodes.map((n) => Math.round(n.getBoundingClientRect().width))
+        nodes.map((n) => n.getBoundingClientRect().toJSON())
       );
-    assert.ok(widths.every((w) => w === widths[0]));
+    assert.equal(buttons.length, 5);
+    assert.equal(buttons[1].top, buttons[2].top);
+    assert.equal(buttons[3].top, buttons[4].top);
+    if (width < height) {
+      assert.ok(buttons[0].width > buttons[1].width);
+      assert.ok(
+        buttons[0].top < buttons[1].top && buttons[1].top < buttons[3].top
+      );
+    } else {
+      assert.ok(buttons.every((button) => button.top === buttons[0].top));
+    }
     assert.equal(
       await page
         .locator('.results-panel')
         .evaluate((e) => e.scrollWidth > e.clientWidth),
       false
     );
+    assert.equal(
+      await page.locator('.results-panel').evaluate((panel) => {
+        const box = panel.getBoundingClientRect();
+        const screen = panel.parentElement.getBoundingClientRect();
+        return box.top >= screen.top && box.bottom <= screen.bottom;
+      }),
+      true
+    );
     if (width === 390)
-      await page.screenshot({ path: '/tmp/freekick-results-polished.png' });
+      await page.screenshot({
+        path: join(tmpdir(), 'freekick-results-polished.png'),
+      });
   }
   assert.deepEqual(errors, []);
   console.log(
-    'Free Kick UI passed: HUD help illustrations, wrapped descriptions, raised unboxed feedback, six aligned stat tiles and full-width actions at three sizes.'
+    'Free Kick UI passed: HUD help illustrations, wrapped descriptions, raised unboxed feedback, six aligned stat tiles and aligned actions with the full card visible at three sizes.'
   );
 } finally {
   await browser?.close();

@@ -3,7 +3,6 @@ import { context } from '@devvit/web/client';
 import { BALL, FREE_KICK as FK } from '../../shared/tuning';
 import { createBallTexture } from '../art/ballArt';
 import { matchAssets, queueAssets } from '../art/gameAssets';
-import { createCourtTextures } from '../art/pitchArt';
 import { registerPlayerAtlases } from '../art/playerArt';
 import { startingConfig, freeKickChallenge } from '../challenge';
 import { releaseEarlyDownloads, withEarlyDownloads } from '../earlyAssets';
@@ -60,7 +59,6 @@ class FreeKickPreviewScene extends Phaser.Scene {
         void releaseEarlyDownloads(assets);
         registerPlayerAtlases(this);
         createBallTexture(this);
-        createCourtTextures(this);
         const config = startingConfig();
         this.stage = new Stage(this, {
           kicker: config.home.jersey,

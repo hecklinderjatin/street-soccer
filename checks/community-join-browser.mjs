@@ -3,6 +3,8 @@ import { chromium } from 'playwright';
 import ts from 'typescript';
 import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 const compile = (file) => {
   const ast = ts.createSourceFile(
     file,
@@ -90,7 +92,7 @@ try {
     page.evaluate((p) => {
       window.community?.destroy();
       document.body.innerHTML =
-        '<section id="results" class="casual-screen results-screen"><div class="results-panel"><h1>RUN COMPLETE</h1><section class="results-board">7-DAY LEADERBOARDS</section><div class="results-actions"><button class="casual-button">PLAY AGAIN</button><button class="casual-button secondary">EXIT</button></div></div></section>';
+        '<section id="results" class="casual-screen results-screen"><div class="results-panel"><h1>RUN COMPLETE</h1><section class="results-board">7-DAY LEADERBOARDS</section><div class="results-actions"><button class="casual-button">PLAY AGAIN</button><button class="casual-button secondary">POST MY SCORE</button><button class="casual-button secondary">PLAY CUSTOM</button></div></div></section>';
       document.querySelector('.results-actions button').onclick = () =>
         window.played++;
       document.querySelector('.results-actions button').focus();
@@ -138,14 +140,17 @@ try {
       false
     );
     await page.getByRole('button', { name: 'PLAY AGAIN', exact: true }).click();
-    await page
-      .getByRole('button', { name: 'JOIN COMMUNITY', exact: true })
-      .scrollIntoViewIfNeeded();
+    const actions = await page.locator('.results-actions > button').evaluateAll(
+      (buttons) => buttons.map((button) => button.getBoundingClientRect().toJSON())
+    );
+    assert.ok(actions.every((button) => button.width === actions[0].width));
+    assert.equal(actions[3].top, actions[portrait ? 2 : 0].top);
+    assert.ok(actions.every((button) => button.top >= 0 && button.bottom <= height));
     if (width === 390 || width === 844)
       await page.screenshot({
         path: portrait
-          ? '/tmp/community-inline-portrait.png'
-          : '/tmp/community-inline-landscape.png',
+          ? join(tmpdir(), 'community-inline-portrait.png')
+          : join(tmpdir(), 'community-inline-landscape.png'),
       });
   }
   assert.equal(await page.evaluate(() => window.played), 4);

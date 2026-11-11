@@ -89,9 +89,7 @@ export function communityJoin(results: HTMLElement) {
       }
     }
   }
-  const exit = actions.querySelector('a[href]');
-  if (exit) exit.before(join);
-  else actions.append(join);
+  actions.insertBefore(join, actions.querySelector('.results-retry'));
   actions.after(status);
   return {
     destroy() {
