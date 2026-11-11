@@ -87,3 +87,33 @@
     display: none;
   }
 }
+
+/* Free Kick keeps a single portrait column and aligned full-width actions. */
+.fk-results-screen .results-panel {
+  max-width: 620px;
+}
+.fk-results-screen .results-panel .results-content {
+  grid-template-columns: minmax(0, 1fr);
+}
+.fk-results-screen .results-actions {
+  grid-template-columns: minmax(0, 1fr);
+}
+.fk-results-screen .results-actions > * {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+.fk-results-screen .results-stats {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.fk-results-screen .results-header {
+  align-items: center;
+  gap: 12px;
+}
+.fk-results-screen .results-header > :last-child {
+  text-align: right;
+}
+@media (max-width: 359px) {
+  .fk-results-screen .results-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

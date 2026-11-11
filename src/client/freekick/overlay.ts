@@ -1,3 +1,4 @@
+import { BALL_KEY } from '../art/ballArt';
 import Phaser from 'phaser';
 import { context } from '@devvit/web/client';
 import { FREE_KICK as FK } from '../../shared/tuning';
@@ -256,15 +257,15 @@ function helpPage(
   const sections: [string, string][] = [
     [
       '1. SET POWER',
-      'Use the slider at the side. Green marks wall-clearing power. Orange marks the last missed shot.',
+      'Drag the side slider. Green: clears the wall. Orange: your last missed shot.',
     ],
     [
       '2. CHOOSE SHOT TYPE',
-      'Drag the ball dot below the slider. Centre: power. Sides: curl. Bottom: chip. Top: low drive.',
+      'Drag the dot on the ball. Centre: power. Sides: curl. Bottom: chip. Top: low drive.',
     ],
     [
       '3. SWIPE TO SHOOT',
-      'Swipe from the ball toward the part of the goal you want, then release. The arrow shows your aim. Draw a curve and the ball curls along it.',
+      'Swipe at the goal, then release. The arrow shows your aim. A curved swipe adds curl.',
     ],
     [
       '4. LIVES AND LEVELS',
@@ -287,13 +288,16 @@ function helpPage(
           : 'Low XG spots pay more. A high XGOT finish pays up to 3x. A great save costs no life.',
     ],
   ];
-  const sectionH = 118;
+  const sectionH = 134;
   const top = card.y + 150;
   for (const [i, [heading, body]] of sections.entries()) {
     const y = top + i * sectionH;
+    helpHud(scene, items, i, left + 48, y + 48);
     items.push(
-      pixelText(scene, left, y, heading, 2.5, PAL.yellow),
-      pixelText(scene, left, y + 32, body, BODY, CARD.soft).setMaxWidth(inner)
+      pixelText(scene, left + 128, y, heading, 2.5, PAL.yellow),
+      pixelText(scene, left + 128, y + 32, body, BODY, CARD.soft).setMaxWidth(
+        inner - 128
+      )
     );
   }
   // Devvit Rules, as the match's how-to-play page.
@@ -339,6 +343,73 @@ function helpPage(
       { width: playW, height: 72, textSize: 3, fill: PAL.orange }
     )
   );
+}
+
+// HUD-like examples: actual ball/life art, power meter and gesture guides.
+function helpHud(
+  scene: Phaser.Scene,
+  items: Item[],
+  index: number,
+  x: number,
+  y: number
+) {
+  const g = scene.add.graphics();
+  items.push(g);
+  if (index === 0) {
+    g.fillStyle(PAL.navy).fillRect(x - 14, y - 44, 28, 88);
+    g.fillStyle(PAL.blue).fillRect(x - 10, y - 6, 20, 46);
+    g.fillStyle(PAL.green).fillRect(x - 20, y - 12, 40, 5);
+    g.fillStyle(PAL.orange).fillRect(x - 20, y + 16, 40, 4);
+    g.fillStyle(PAL.white).fillRect(x - 24, y - 4, 48, 9);
+  } else if (index === 1 || index === 3) {
+    if (index === 1) {
+      items.push(scene.add.image(x, y, BALL_KEY, 'a').setDisplaySize(76, 76));
+      g.lineStyle(2, PAL.white, 0.6).strokeRect(x - 44, y - 44, 88, 88);
+      // Dot above the image, as in the shot-type selector.
+      const dot = scene.add
+        .graphics()
+        .fillStyle(PAL.yellow)
+        .fillCircle(x, y + 5, 7);
+      items.push(dot);
+    } else {
+      for (let i = 0; i < 3; i++)
+        items.push(
+          scene.add
+            .image(x - 30 + i * 30, y - 12, BALL_KEY, 'a')
+            .setDisplaySize(28, 28)
+            .setAlpha(i === 2 ? 0.25 : 1)
+        );
+      items.push(
+        pixelText(scene, x, y + 18, 'LVL +', 2, PAL.green).setOrigin(0.5)
+      );
+    }
+  } else if (index === 2) {
+    g.lineStyle(7, PAL.blue, 0.25).lineBetween(x - 14, y + 40, x + 12, y - 28);
+    g.lineStyle(3, PAL.yellow).lineBetween(x - 14, y + 40, x + 12, y - 28);
+    g.fillStyle(PAL.yellow).fillTriangle(
+      x + 12,
+      y - 40,
+      x - 3,
+      y - 17,
+      x + 26,
+      y - 20
+    );
+    items.push(
+      scene.add.image(x - 14, y + 40, BALL_KEY, 'a').setDisplaySize(24, 24)
+    );
+  } else if (index === 4) {
+    for (let i = -1; i <= 1; i++) {
+      g.fillStyle(PAL.orange).fillCircle(x + i * 28, y - 22, 9);
+      g.fillRect(x + i * 28 - 8, y - 10, 16, 45);
+    }
+    g.lineStyle(2, PAL.white, 0.5).lineBetween(x - 48, y + 40, x + 48, y + 40);
+  } else {
+    items.push(
+      pixelText(scene, x, y - 28, 'XG', 3, PAL.yellow).setOrigin(0.5),
+      pixelText(scene, x, y + 4, '0.18', 2, PAL.white).setOrigin(0.5),
+      pixelText(scene, x, y + 30, '3X', 2, PAL.green).setOrigin(0.5)
+    );
+  }
 }
 
 // The match's pause menu: dimmed game, PAUSED, RESUME in green; the DOM

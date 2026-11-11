@@ -3,8 +3,6 @@ import { PAL } from '../ui/palette';
 import { pixelText } from '../ui/pixelFont';
 
 const CELL = 7; // font px per character cell
-const BAND_H = 170; // the plate behind the title
-const SLANT = 46; // its slanted ends
 const CONFETTI = 80;
 const CONFETTI_COLORS = [PAL.yellow, PAL.orange, PAL.pink, PAL.blue, PAL.green];
 const FADE_SEC = 0.25; // fades out this long before `endSec`
@@ -29,9 +27,9 @@ function bounceOut(t: number) {
   return 1 - 0.04 * (1 - ((u - 0.925) / 0.075) ** 2);
 }
 
-// How a kick ended, on screen. A goal: a flash, a plate wiping across, the
-// title slamming in and stretching (as the match's GOOOAL!) and confetti. A
-// miss: a tinted flash and the title dropping onto its plate with a thud.
+// Shot feedback stays above the play: outlined animated text and confetti,
+// without a full-width plate or a box around the subtitle. A goal stretches
+// like the match's GOOOAL; a miss settles with a small bounce.
 // Every frame is drawn from the result's age, so it pauses with the game
 // and nothing outlives a restart.
 export class ResultFx {
@@ -114,10 +112,10 @@ export class ResultFx {
     still: boolean
   ) {
     if (!this.shown) return;
-    const back = this.back.clear();
+    this.back.clear();
     const front = this.front.clear();
     const cx = width / 2;
-    const cy = height * 0.64; // below the goal, which stays in view
+    const cy = Math.max(220, height * 0.28); // clear of the kicker and ball
     const out = 1 - clamp01((age - (endSec - FADE_SEC)) / FADE_SEC);
 
     // The goal's title stretches: GOAL! -> GOOOAL!
@@ -130,32 +128,18 @@ export class ResultFx {
     const longest = this.goal ? 8 : text.length;
     const size = Math.max(
       4,
-      Math.min(12, Math.floor((width - 64) / (longest * CELL)))
+      Math.min(8, Math.floor((width - 64) / (longest * CELL)))
     );
     for (const letter of this.letters)
       letter.setText(text).setFontSize(size * CELL);
 
-    // Plate: wipes across for a goal, drops with the title for a miss.
+    // Miss titles settle from above; goals animate in place.
     const hit = still
       ? 1
       : this.goal
         ? easeOut(age / 0.2)
         : bounceOut(age / 0.5);
     const drop = this.goal ? 0 : (hit - 1) * 260;
-    const wipe = this.goal ? hit : 1;
-    const half = BAND_H / 2;
-    const x0 = -SLANT;
-    const x1 = x0 + (width + 2 * SLANT) * wipe;
-    const plate = (inset: number, color: number, alpha: number) => {
-      const top = cy + drop - half + inset;
-      const bottom = cy + drop + half - inset;
-      back.fillStyle(color, alpha * out);
-      back.fillTriangle(x0 + SLANT, top, x1 + SLANT, top, x0, bottom);
-      back.fillTriangle(x1 + SLANT, top, x1, bottom, x0, bottom);
-    };
-    plate(0, this.color, 0.95);
-    plate(8, PAL.ink, 0.92);
-
     const land = still ? 0 : Math.exp(-7 * Math.max(0, age - 0.25));
     const scale = still
       ? 1
@@ -175,18 +159,8 @@ export class ResultFx {
     const subAlpha = out * (still ? 1 : clamp01((age - 0.3) / 0.2));
     this.sub
       .setVisible(this.sub.text !== '')
-      .setPosition(cx, cy + half + 26)
+      .setPosition(cx, cy + 60)
       .setAlpha(subAlpha);
-    if (this.sub.text !== '')
-      back
-        .fillStyle(PAL.ink, 0.85 * subAlpha)
-        .fillRoundedRect(
-          cx - this.sub.width / 2 - 18,
-          cy + half + 14,
-          this.sub.width + 36,
-          this.sub.height + 24,
-          8
-        );
     if (still) return;
 
     // Flash: white for a goal, the title's colour for a miss.

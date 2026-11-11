@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Free Kick UI cleanup (2026-11-11):** how-to-play now pairs concise descriptions with HUD-like power meter, actual ball/contact and life art, swipe/aim guide, wall and xG examples. Space the six rows to prevent text collisions. Move result feedback from 64% to 28% down the view, reduce title size and remove its full-width bordered plate and subtitle box so the kicker stays visible. Align the portrait results to one content column and full-width actions; challenge stats use a complete six-tile grid (Shots replaces inapplicable Great Saves), and Goals shows the challenge target. Types/lint and 31 Free Kick rules/panel/API checks pass. New source-only WebGL UI check verifies illustrated help, text fit, raised unboxed feedback and results alignment at 320x480, 390x600 and 844x390; screenshots inspected. No application build or live Reddit writes performed.
+
 **Post-match community prompt (2026-11-11):** add an optional themed Join Community / Continue to Results dialog before normal match results (Classic, Custom/Casual and Daily) and Free Kick ranked/challenge results. Wide layout with side-by-side actions for normal matches; portrait card with stacked actions for Free Kick. Practice has no completed-match screen. Results save in the background and remain hidden/inert until dismissal. Explicit trusted Join click requests native user consent then POSTs the current-community subscription API; deny/error leaves Continue available. Add SUBSCRIBE_TO_SUBREDDIT permission. Remember confirmed joins in device storage scoped to user/community; SDK cannot detect memberships created earlier/outside the game, so those users may still see the prompt. Continue never claims membership. Support Escape, focus containment, cleanup, reduced motion and short-height scrolling. Types/lint and focused mocked Hono/Chromium checks pass (portrait/landscape fit, consent, failure/retry, join suppression and account isolation). Existing full Free Kick flow harness stops at its stale START label (current controls say PLAY), before results; this is not claimed as a passing check. No application build or live Reddit joins performed.
 
 **Main merge (2026-11-11):** fast-forwarded `codex/tactics-help-buttons` through `99bfe78` into main at the user’s request. Includes shared live/info tactics buttons, active-state synchronization and the revised below-Shoot layout. Types/lint and source-only touch/desktop preview checks passed. Join-community popup is not implemented: existing membership detection remains unresolved in the current SDK. No application build or deployment performed.
@@ -712,6 +714,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Keep Free Kick feedback above the scene with no background plate; pair instructions with HUD examples and use a complete challenge stat grid instead of an uneven final row. Scope result alignment changes to Free Kick.
+
 - Subscription happens only after an explicit Join action and native permission consent. Use only confirmed local join receipts for suppression; do not represent unavailable SDK membership information as a real membership check.
 
 - Group tactics with movement/shooting in the left info column, as requested, rather than a full-width strip competing with navigation.
@@ -1108,6 +1112,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Native mobile review of Free Kick help, unboxed Goal/Wide feedback and final-card alignment after the next user-run upload.
+
 - Native Reddit playtest subscription permission approval/denial and both end-screen layouts. Existing members who joined outside the game cannot currently be detected; revisit when a supported membership API is available. Update the older Free Kick flow harness labels to the current controls separately.
 
 - Review the below-Shoot tactics grouping on mobile after the next user-run upload.
@@ -1491,6 +1497,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-11:** illustrate Free Kick controls help, raise/unbox shot feedback and align final stats/actions. Types/lint, Free Kick checks and source-only WebGL UI checks pass; no application build performed.
 
 - **2026-11-11:** add themed optional post-match community popup to normal and Free Kick results, with wide/portrait layouts, native consent, explicit subscription endpoint and local successful-join suppression. Focused types/lint/Hono/Chromium checks pass; no application build or live Reddit joins performed.
 

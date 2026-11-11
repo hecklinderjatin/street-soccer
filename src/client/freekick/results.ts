@@ -112,7 +112,7 @@ export function freeKickResults(
   const tiles = document.createElement('div');
   tiles.className = 'results-stats';
   for (const [caption, value] of [
-    ['GOALS', `${stats.goals}/${stats.shots}`],
+    ['GOALS', `${stats.goals}/${challenge?.config.goals ?? stats.shots}`],
     ['XG', xg.toFixed(1)],
     ['FINISHING', `${finishing >= 0 ? '+' : ''}${finishing.toFixed(1)}`],
     ['GREAT SAVES', String(stats.greatSaves)],
@@ -120,12 +120,15 @@ export function freeKickResults(
     ['LEVEL', String(stats.level)],
   ]) {
     // A challenge has no great saves (every miss costs a life).
-    if (challenge && caption === 'GREAT SAVES') continue;
+    const tileCaption =
+      challenge && caption === 'GREAT SAVES' ? 'SHOTS' : caption;
+    const tileValue =
+      challenge && caption === 'GREAT SAVES' ? String(stats.shots) : value;
     const item = document.createElement('div');
     const number = document.createElement('strong');
-    pixelLabel(number, value ?? '');
+    pixelLabel(number, tileValue ?? '');
     const text = document.createElement('span');
-    text.textContent = caption ?? '';
+    text.textContent = tileCaption ?? '';
     item.append(number, text);
     tiles.append(item);
   }
