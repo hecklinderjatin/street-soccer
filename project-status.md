@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Dependency vulnerability fix (2026-11-11):** npm audit reproduced three affected package entries (one high, two moderate), all from Devvit CLI’s pinned isomorphic-git 1.33.1 and its parent chain. Scope an override to @devvit/cli for patched same-major isomorphic-git 1.44.12; retain Devvit 0.15.3 and other direct versions. Regenerate lockfile, removing obsolete path-browserify. Clean npm ci succeeds and explicit npm audit reports zero vulnerabilities. Types/lint, dependency compatibility (including the Git init API actually used by Devvit) and CLI version smoke check pass. Existing upstream deprecation notices are separate from audit findings. No app build, deployment or live Reddit operations performed.
+
 **Generic Join failure message (2026-11-11):** the shared normal/Free Kick results Join action now displays “Couldn’t join right now. You can join from the community page.” for consent/API/network/confirmation failures. Never render thrown exception text, server error details, HTTP codes or diagnostic references to players. Preserve server diagnostics and success/login messages. Types/lint and focused community API/browser checks pass, including mocked internal error/reference suppression. No app build, live join or deployment performed.
 
 **Main merge (2026-11-11):** fast-forwarded the tested Free Kick changes through b80e212 into main at the user’s request. Includes result Join visibility, legacy Play removal, Practice parity and Challenge/Practice Journeys. Existing types/lint, focused rules/API and mocked source-browser checks pass; no application build or deployment performed. Live Journeys ingestion still requires Reddit approval/allowlisting.
@@ -754,6 +756,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Override only @devvit/cli’s vulnerable isomorphic-git pin with patched 1.44.12; avoid the audit suggestion to change Devvit to a different major. Keep lockfile integrity and check the CLI’s actual Git initialization consumer.
+
 - Use fixed, generic player-facing Join failure copy; retain detailed server logging for diagnosis without exposing technical reasons/references in the results UI.
 
 - Merge the tested Free Kick branch into main and push at the user’s request; preserve the existing Reddit Journeys activation gate.
@@ -1182,6 +1186,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Merge/push the dependency security fix when requested. Keep the scoped Git override until upstream Devvit pins a safe version, then reassess it; npm audit currently reports zero findings.
+
 - Merge the generic Join message change when requested; verify the simple failure copy in normal and Free Kick results after deployment.
 
 - Validate accepted Free Kick receipts on the approved/allowlisted Reddit app after deployment; local mocks establish lifecycle behavior only. Free Kick cleanup, Practice parity and Journeys are now merged into main.
@@ -1595,6 +1601,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-11:** fix all three npm audit entries via scoped Devvit CLI isomorphic-git override 1.33.1 → 1.44.12 and regenerated lockfile. Clean npm ci, zero-vulnerability audit, types/lint, dependency compatibility/Git init and CLI version checks pass. No app build/deployment.
 
 - **2026-11-11:** replace shared results Join error details with fixed friendly copy, keeping server diagnostic logs. Types/lint and mocked community API/browser checks pass; no app build/deployment.
 

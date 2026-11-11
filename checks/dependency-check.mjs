@@ -1,6 +1,7 @@
 // Exercise the real consumers affected by the security overrides. These checks
 // need no Reddit credentials and never upload or publish the application.
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import {
   mkdtempSync,
@@ -16,6 +17,7 @@ import { join } from 'node:path';
 const require = createRequire(import.meta.url);
 const from = (parent, name) => createRequire(parent.resolve(name));
 const cli = from(require, '@devvit/cli');
+const git = cli('isomorphic-git');
 const inquirer = from(cli, 'inquirer');
 const editorModule = from(inquirer, 'external-editor');
 const tmp = editorModule('tmp');
@@ -31,6 +33,10 @@ const { FileList } = jake('filelist');
 const fixture = mkdtempSync(join(tmpdir(), 'street-soccer-dependencies-'));
 const originalCwd = process.cwd();
 try {
+  // Devvit init uses this API; keep its patched Git dependency compatible.
+  await git.init({ fs, dir: fixture, defaultBranch: 'main' });
+  assert.equal(await git.currentBranch({ fs, dir: fixture }), 'main');
+  assert.equal(existsSync(join(fixture, '.git', 'HEAD')), true);
   mkdirSync(join(fixture, 'nested'));
   for (const name of ['a.js', 'b.ts', 'nested/c.js', '.hidden.js'])
     writeFileSync(join(fixture, name), 'fixture');
@@ -91,7 +97,7 @@ try {
   assert.throws(() => tmp.tmpNameSync({ prefix: '../escape-' }));
   assert.throws(() => tmp.tmpNameSync({ postfix: '/../../escape' }));
   console.log(
-    'Dependency compatibility passed: Devvit glob/filelist, async matching, editor temp files and traversal rejection'
+    'Dependency compatibility passed: Devvit Git init, glob/filelist, async matching, editor temp files and traversal rejection'
   );
 } finally {
   process.chdir(originalCwd);

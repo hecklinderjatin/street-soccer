@@ -64,6 +64,9 @@
     "vite": "8.3.8"
   },
   "overrides": {
+    "@devvit/cli": {
+      "isomorphic-git": "1.44.12"
+    },
     "minimatch": "11.0.7",
     "tmp": "0.2.7"
   }
