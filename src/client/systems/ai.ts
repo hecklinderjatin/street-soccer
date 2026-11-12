@@ -23,7 +23,7 @@ import type { Player } from '../entities/Player';
 import { chipFlight, passTravelTime, throughSpot } from './actions';
 import type { StickInput } from './Controls';
 import { DEG, angleDiff, clamp, distToSegment, lerp } from './geometry';
-import { canTackle, type TackleKind } from './tackle';
+import { canTackle, tacklePhase, type TackleKind } from './tackle';
 
 // Shared outfield AI (Phase 3), the same for both teams. A TeamBrain hands
 // out roles a few times a second (think); every fixed step each AI player
@@ -321,7 +321,7 @@ export class TeamBrain {
       }
     } else if (owner && !owner.holding) {
       let doubled = false; // a second presser on an idle carrier (no backup then)
-      const presser = this.pickPresser(view, free, owner);
+      const presser = this.pickPresser(view, free, owner, time);
       if (presser) {
         const at = this.pressPoint(owner, idleFor, false);
         this.set(presser, 'press', null, at.x, at.y, true);
@@ -859,20 +859,43 @@ export class TeamBrain {
   }
 
   // Opponent on the ball: the AI player closest to the carrier presses,
-  // unless our human is already close to it. The current (main) presser
+  // unless our human is actively closing or tackling nearby. The main presser
   // keeps the job unless another is AI.pressKeep closer. A player the
   // carrier has got past (upfield of it) counts as AI.beatenPenalty
   // further away, so a goal-side teammate (usually the backup) steps up
   // and the beaten one recovers.
-  private pickPresser(view: TeamView, ai: readonly Player[], carrier: Player) {
+  private pickPresser(
+    view: TeamView,
+    ai: readonly Player[],
+    carrier: Player,
+    time: number
+  ) {
     const h = view.human;
-    // Our human near the carrier presses for us, but not once beaten (upfield
-    // of the carrier, e.g. chasing a counter from behind): then an AI
-    // teammate goal-side still steps up.
+    // Proximity alone is not an instruction to press: a stationary human,
+    // one backing away or one beaten by the carrier still needs AI help.
+    const humanDistance = h
+      ? Math.hypot(h.x - carrier.x, h.y - carrier.y)
+      : Infinity;
+    const humanClosing = h
+      ? ((carrier.x - h.x) * h.vx + (carrier.y - h.y) * h.vy) /
+        Math.max(1, humanDistance)
+      : 0;
+    const humanTackle = h ? tacklePhase(h, time) : 'none';
+    const humanEngaged =
+      humanTackle === 'windup' ||
+      humanTackle === 'active' ||
+      (humanTackle === 'none' &&
+        h &&
+        !h.stumbling &&
+        time >= h.lockUntil &&
+        humanClosing > AI.humanPressClosingSpeed);
     if (
       h &&
-      Math.hypot(h.x - carrier.x, h.y - carrier.y) < AI.humanPressDist &&
-      (h.x - carrier.x) * this.dir <= AI.beatenMargin
+      humanDistance < AI.humanPressDist &&
+      (h.x - carrier.x) * this.dir <= AI.beatenMargin &&
+      !h.lying &&
+      h.staggerUntil <= time &&
+      humanEngaged
     ) {
       this.mainPresser = null;
       return null;
@@ -1056,8 +1079,31 @@ export class TeamBrain {
       this.withError(pick, at),
       this.lineDepth(view.ball)
     );
-    this.set(pick, 'backup', null, spot.x, spot.y, this.recovering(pick, view));
+    this.set(
+      pick,
+      'backup',
+      null,
+      spot.x,
+      spot.y,
+      this.recovering(pick, view) || this.urgentDefence(pick, spot, view)
+    );
     return pick;
+  }
+
+  // Our teammates get back to a missed defensive assignment promptly. This
+  // changes their travel urgency, not the assignment, press count or skill.
+  private urgentDefence(
+    p: Player,
+    at: { x: number; y: number },
+    view: TeamView
+  ) {
+    return (
+      this.team === 'home' &&
+      Math.abs(view.ball.x - this.goalX) < PITCH.width / 2 &&
+      p.stamina >= AI.saveStaminaBelow &&
+      !p.sprintLocked &&
+      Math.hypot(at.x - p.x, at.y - p.y) > AI.teammateDefendSprintDist
+    );
   }
 
   // Recovery run: caught upfield of the ball (further than the level's
@@ -1128,7 +1174,17 @@ export class TeamBrain {
       if (pick < 0) break;
       const p = left.splice(pick, 1)[0];
       // (a marker caught upfield of the ball sprints back to its man)
-      if (p) this.set(p, 'mark', o, p.x, p.y, this.recovering(p, view));
+      if (p) {
+        const at = this.notDeeper(this.markPoint(o, ball), AI.lineMin);
+        this.set(
+          p,
+          'mark',
+          o,
+          p.x,
+          p.y,
+          this.recovering(p, view) || this.urgentDefence(p, at, view)
+        );
+      }
     }
     const line = this.lineDepth(ball);
     for (const p of left) {
@@ -1141,7 +1197,14 @@ export class TeamBrain {
           at.x = clamp(limit, AI.edgeMargin, PITCH.width - AI.edgeMargin);
       }
       at = this.notDeeper(at, line);
-      this.set(p, 'cover', null, at.x, at.y, recover);
+      this.set(
+        p,
+        'cover',
+        null,
+        at.x,
+        at.y,
+        recover || this.urgentDefence(p, at, view)
+      );
     }
   }
 

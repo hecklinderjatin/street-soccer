@@ -1249,15 +1249,134 @@ check('defending B+A: a beaten presser hands over and sprints back', () => {
   assert.notEqual(beaten?.role, 'press');
   assert.equal(beaten?.sprint, true, 'recovery run');
 });
-check('defending A: no recovery run for a goal-side defender', () => {
-  const gy = PITCH.height / 2;
-  const c = carrierAt(1000, gy);
-  const mates = team('home', [900, 600, 600, 1500]);
-  mates[0].y = gy;
-  const brain = defend(mates, c);
-  for (const m of mates.slice(1, 3))
-    assert.equal(brain.orders.get(m)?.sprint, false);
-});
+check(
+  'goal-side teammates recover distant assignments without sprinting at nearby ones',
+  () => {
+    const gy = PITCH.height / 2;
+    const c = carrierAt(1000, gy);
+    const mates = team('home', [900, 600, 600, 1500]);
+    mates[0].y = gy;
+    const brain = defend(mates, c);
+    for (const m of mates.slice(1, 3)) {
+      const order = brain.orders.get(m)!;
+      assert.equal(
+        order.sprint,
+        Math.hypot(order.x - m.x, order.y - m.y) > AI.teammateDefendSprintDist
+      );
+    }
+  }
+);
+
+check(
+  'teammates press when the nearby human is idle, retreating, beaten or recovering',
+  () => {
+    const gy = PITCH.height / 2;
+    const presses = (humanState: Record<string, unknown>) => {
+      const c = carrierAt(900, gy);
+      const h = player({ x: 800, y: gy, controlled: true, ...humanState });
+      const mates = [
+        h,
+        player({ x: 650, y: gy - 100 }),
+        player({ x: 400, y: gy + 200 }),
+        player({ x: 1200, y: gy + 300 }),
+      ];
+      const b = ball({ owner: c, x: c.x - 20, y: c.y });
+      const brain = new TeamBrain('home', LEVELS.normal);
+      const v = view(mates, [c], b, h);
+      brain.think(v, 1);
+      const pressing = [...brain.orders].filter(([, o]) => o.role === 'press');
+      if (pressing.length)
+        assert.ok(brain.steer(pressing[0]![0], v).move.r > 0);
+      return pressing.length;
+    };
+    assert.equal(presses({}), 1, 'stationary human does not suppress help');
+    assert.equal(presses({ vx: -150 }), 1, 'retreating human needs help');
+    assert.equal(presses({ vy: 150 }), 1, 'moving sideways is not closing');
+    assert.equal(
+      presses({ x: 940, vx: -150 }),
+      1,
+      'beaten human needs goal-side cover'
+    );
+    assert.equal(
+      presses({ vx: 150, staggerUntil: 2 }),
+      1,
+      'staggered human needs help'
+    );
+    assert.equal(
+      presses({ vx: 150, lying: true }),
+      1,
+      'fallen human needs help'
+    );
+    assert.equal(
+      presses({ vx: 150, tackleAt: 0.1, tackleUntil: 2 }),
+      1,
+      'recovering tackle cannot press'
+    );
+    assert.equal(
+      presses({ vx: 150 }),
+      0,
+      'human actively closing keeps the press'
+    );
+    assert.equal(
+      presses({ tackleAt: 0.99, tackleUntil: 2 }),
+      0,
+      'human winding up a tackle keeps the press'
+    );
+    assert.equal(
+      presses({ tackleAt: 1 - TACKLE.windupSec - 0.01, tackleUntil: 2 }),
+      0,
+      'active tackle keeps the press'
+    );
+  }
+);
+check(
+  'teammates track a dangerous runner promptly, with stamina guards and opponent isolation',
+  () => {
+    const run = (
+      side: 'home' | 'away',
+      stamina = 100,
+      sprintLocked = false
+    ) => {
+      const mirror = (x: number) => (side === 'home' ? x : PITCH.width - x);
+      const c = carrierAt(mirror(300), PITCH.height / 2);
+      c.team = side === 'home' ? 'away' : 'home';
+      const runner = carrierAt(mirror(150), 1100);
+      runner.team = c.team;
+      const h = player({
+        team: side,
+        x: mirror(220),
+        y: PITCH.height / 2,
+        vx: side === 'home' ? 150 : -150,
+        controlled: side === 'home',
+      });
+      const mates = [
+        h,
+        ...[100, 200, 300].map((y) =>
+          player({ team: side, x: mirror(200), y, stamina, sprintLocked })
+        ),
+      ];
+      const b = ball({ owner: c, x: mirror(280), y: c.y });
+      const brain = new TeamBrain(side, LEVELS.normal);
+      const v = view(mates, [c, runner], b, side === 'home' ? h : null);
+      brain.think(v, 1);
+      const entry = [...brain.orders].find(
+        ([, order]) => order.role === 'mark' && order.mark === runner
+      );
+      assert.ok(entry, 'runner gets a marker');
+      return { sprint: entry[1].sprint, move: brain.steer(entry[0], v).move };
+    };
+    assert.equal(AI.mateMinGap, 150);
+    assert.equal(run('home').sprint, true);
+    assert.ok(run('home').move.r > 0);
+    assert.equal(run('home', 10).sprint, false);
+    assert.equal(run('home', 100, true).sprint, false);
+    assert.equal(
+      run('away').sprint,
+      false,
+      'opponents keep their existing recovery rules'
+    );
+  }
+);
 
 // --- Custom match settings (moderator form -> postData -> game) ---
 
