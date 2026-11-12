@@ -2,24 +2,36 @@ import Phaser from 'phaser';
 import { PITCH } from '../../shared/tuning';
 import { PAL, PX } from '../ui/palette';
 import { paintPixelText } from '../ui/pixelFont';
-import { fill, hex, makeTexture, paintRing, seededRandom } from './pixelArt';
-import { paintStreetAsphalt } from './streetAsphalt';
+import { FREE_KICK_GROUND_KEY } from './assetList';
+import {
+  BASKETBALL,
+  FREE_KICK_GROUND_SIZE,
+  GROUND_H,
+  GROUND_W,
+  H,
+  ax,
+  ay,
+  paintFreeKickGround,
+  paintGround,
+} from './groundPaint';
+import { fill, hex, makeTexture, seededRandom } from './pixelArt';
 
 // Textures for the 3D street court, painted at art-pixel resolution
 // (1 texel = PX world px). The Match scene maps them onto ProjectedPlanes.
+// The ground itself is painted in groundPaint.ts.
+export {
+  BASKETBALL,
+  FREE_KICK_BASKETBALL,
+  FREE_KICK_GROUND_EXTENT,
+  GROUND_EXTENT,
+} from './groundPaint';
+export { FREE_KICK_GROUND_KEY };
 export const GROUND_KEY = 'court-ground';
-export const FREE_KICK_GROUND_KEY = 'freekick-ground';
 export const BACKDROP_KEY = 'court-backdrop';
 export const END_WALL_KEY = 'court-endwall';
 export const FENCE_KEY = 'court-fence';
 export const CAP_KEY = 'court-cap';
 
-const W = PITCH.width / PX;
-const H = PITCH.height / PX;
-const PAD_X = PITCH.groundPadX / PX;
-const PAD_NEAR = PITCH.groundPadNear / PX;
-const GROUND_W = W + 2 * PAD_X;
-const GROUND_H = H + PAD_NEAR;
 const WALL_H = PITCH.wallHeight / PX;
 const BACKDROP_H = PITCH.backdropHeight / PX;
 const END_WALL_H = PITCH.endWallHeight / PX;
@@ -29,29 +41,6 @@ const CAP_H = PITCH.wallThickness / PX;
 // The backdrop texture is facade on top, brick wall below; this is where they meet (0..1).
 export const BACKDROP_WALL_V = (BACKDROP_H - WALL_H) / BACKDROP_H;
 
-// World extents covered by the ground and backdrop textures.
-export const GROUND_EXTENT = {
-  x0: -PITCH.groundPadX,
-  x1: PITCH.width + PITCH.groundPadX,
-  y0: 0,
-  y1: PITCH.height + PITCH.groundPadNear,
-};
-
-export const FREE_KICK_GROUND_EXTENT = {
-  ...GROUND_EXTENT,
-  x1: GROUND_EXTENT.x1 + 360,
-};
-
-// Scenery beyond the goal lines (world coords): an outdoor basketball court
-// behind the left goal, a car park behind the right one. The hoops and cars
-// themselves are billboards placed by MatchScene.
-export const BASKETBALL = { x0: -660, x1: -160, y0: 180, y1: 1120 };
-export const FREE_KICK_BASKETBALL = {
-  x0: PITCH.width + 170,
-  x1: PITCH.width + 900,
-  y0: (PITCH.height - 1100) / 2,
-  y1: (PITCH.height + 1100) / 2,
-};
 export const PARKING = {
   rows: [
     [PITCH.width + 120, PITCH.width + 320],
@@ -62,12 +51,10 @@ export const PARKING = {
   bays: 11, // bays per row
 };
 
-// World -> ground texture (art px).
-const ax = (x: number) => (x + PITCH.groundPadX) / PX;
-const ay = (y: number) => y / PX;
-
 export function createCourtTextures(scene: Phaser.Scene) {
-  makeTexture(scene, GROUND_KEY, GROUND_W, GROUND_H, paintGround);
+  makeTexture(scene, GROUND_KEY, GROUND_W, GROUND_H, (ctx) =>
+    paintGround(ctx, BASKETBALL, GROUND_W, (rand) => paintParking(ctx, rand))
+  );
   makeTexture(scene, BACKDROP_KEY, GROUND_W, BACKDROP_H, paintBackdrop);
   makeTexture(scene, END_WALL_KEY, H, END_WALL_H, paintEndWall);
   makeTexture(scene, FENCE_KEY, GROUND_W, FENCE_H, paintFence);
@@ -75,121 +62,16 @@ export function createCourtTextures(scene: Phaser.Scene) {
 }
 
 export function createFreeKickCourtTextures(scene: Phaser.Scene) {
-  const width = ax(FREE_KICK_GROUND_EXTENT.x1);
-  makeTexture(scene, FREE_KICK_GROUND_KEY, width, GROUND_H, (ctx) =>
-    paintGround(ctx, FREE_KICK_BASKETBALL, width)
+  makeTexture(
+    scene,
+    FREE_KICK_GROUND_KEY,
+    FREE_KICK_GROUND_SIZE.width,
+    FREE_KICK_GROUND_SIZE.height,
+    paintFreeKickGround
   );
   makeTexture(scene, END_WALL_KEY, H, END_WALL_H, paintEndWall);
   makeTexture(scene, FENCE_KEY, GROUND_W, FENCE_H, paintFence);
   makeTexture(scene, CAP_KEY, GROUND_W, CAP_H, paintCap);
-}
-
-function paintGround(
-  ctx: CanvasRenderingContext2D,
-  basketball = BASKETBALL,
-  groundWidth = GROUND_W
-) {
-  const rand = seededRandom(11);
-  const ox = PAD_X;
-
-  // Street around the court: pavement slabs beyond the goal lines and near side.
-  fill(ctx, 0, 0, groundWidth, GROUND_H, PAL.darkGray);
-  for (let x = 0; x < groundWidth; x += 12)
-    fill(ctx, x, 0, 1, GROUND_H, PAL.black, 0.35);
-  for (let y = 0; y < GROUND_H; y += 12)
-    fill(ctx, 0, y, groundWidth, 1, PAL.black, 0.35);
-  // Road beyond the pavement on the near side.
-  fill(ctx, 0, H + 40, groundWidth, GROUND_H - H - 40, PAL.navy);
-  fill(ctx, 0, H + 40, groundWidth, 2, PAL.lightGray);
-  for (let x = 0; x < groundWidth; x += 24)
-    fill(ctx, x, H + 60, 12, 1, PAL.white, 0.7);
-
-  paintStreetAsphalt(ctx, ox, W, H, rand);
-
-  // Goal recesses: asphalt floor inside each net, in shadow.
-  const m = PITCH.goalMouth / PX;
-  const d = PITCH.goalDepth / PX;
-  const gTop = Math.floor((H - m) / 2);
-  for (const x of [ox - d, ox + W]) {
-    fill(ctx, x, gTop, d, m, 0x5f5852);
-    fill(ctx, x, gTop, d, m, PAL.black, 0.45);
-  }
-
-  // Pitch markings are drawn as projected lines each frame (render/PitchLines.ts):
-  // painted into this texture they were too thin far away and flickered.
-  paintBasketball(ctx, basketball);
-  if (basketball === BASKETBALL) {
-    paintParking(ctx, rand);
-  } else {
-    const verge = ax(basketball.x1 + 68);
-    fill(ctx, verge, 0, groundWidth - verge, GROUND_H, 0x829b64);
-    fill(ctx, verge - 2, 0, 2, GROUND_H, 0xbeb5a0);
-    for (let i = 0; i < 700; i++) {
-      const x = verge + rand() * (groundWidth - verge);
-      const y = rand() * GROUND_H;
-      fill(ctx, x, y, 2, 1, 0x5d7749, 0.36);
-    }
-  }
-}
-
-// Outdoor basketball court: green surface, brown keys, white lines,
-// laid out along y (hoops at the far and near baselines).
-function paintBasketball(
-  ctx: CanvasRenderingContext2D,
-  court: typeof BASKETBALL
-) {
-  const x0 = ax(court.x0);
-  const x1 = ax(court.x1);
-  const y0 = ay(court.y0);
-  const y1 = ay(court.y1);
-  const w = x1 - x0;
-  const h = y1 - y0;
-  const cx = x0 + w / 2;
-  const cy = y0 + h / 2;
-  const line = (x: number, y: number, lw: number, lh: number) =>
-    fill(ctx, x, y, lw, lh, PAL.white, 0.9);
-
-  fill(ctx, x0 - 3, y0 - 3, w + 6, h + 6, PAL.black, 0.5);
-  const freeKick = court === FREE_KICK_BASKETBALL;
-  fill(ctx, x0, y0, w, h, freeKick ? 0x487c71 : PAL.darkGreen);
-  if (freeKick) {
-    for (let x = x0 + 6; x < x1; x += 12)
-      fill(ctx, x, y0, Math.min(6, x1 - x), h, 0x5d9181, 0.3);
-  }
-  const keyW = freeKick ? 60 : 49;
-  const keyH = freeKick ? 67 : 59;
-  fill(ctx, cx - keyW / 2, y0, keyW, keyH, freeKick ? 0xac6950 : PAL.brown);
-  fill(ctx, cx - keyW / 2, y1 - keyH, keyW, keyH, freeKick ? 0xac6950 : PAL.brown);
-
-  // Boundary, half-court line, key outlines.
-  line(x0, y0, w, 1);
-  line(x0, y1 - 1, w, 1);
-  line(x0, y0, 1, h);
-  line(x1 - 1, y0, 1, h);
-  line(x0, cy, w, 1);
-  line(cx - keyW / 2, y0, 1, keyH);
-  line(cx + keyW / 2, y0, 1, keyH);
-  line(cx - keyW / 2, y0 + keyH, keyW + 1, 1);
-  line(cx - keyW / 2, y1 - keyH, 1, keyH);
-  line(cx + keyW / 2, y1 - keyH, 1, keyH);
-  line(cx - keyW / 2, y1 - keyH, keyW + 1, 1);
-
-  // Circles and three-point arcs (clipped to the court).
-  paintRing(ctx, cx + 0.5, cy + 0.5, 18, 17, PAL.white, 0.9);
-  paintRing(ctx, cx + 0.5, y0 + keyH + 0.5, 18, 17, PAL.white, 0.9);
-  paintRing(ctx, cx + 0.5, y1 - keyH + 0.5, 18, 17, PAL.white, 0.9);
-  for (const [hoopY, dir] of [
-    [y0 + 16, 1],
-    [y1 - 16, -1],
-  ] as const) {
-    for (let y = y0; y < y1; y++) {
-      for (let x = x0 + 2; x < x1 - 2; x++) {
-        const dist = Math.hypot(x + 0.5 - cx, y + 0.5 - hoopY);
-        if (Math.abs(dist - 75) < 0.6 && (y - hoopY) * dir >= 0)
-          fill(ctx, x, y, 1, 1, PAL.white, 0.9);
-      }
-    }
-  }
 }
 
 // Car park: dark asphalt, two rows of white-lined bays, a lane with

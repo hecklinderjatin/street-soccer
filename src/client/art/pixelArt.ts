@@ -1,4 +1,7 @@
 import Phaser from 'phaser';
+import { fill } from './paint';
+
+export { fill, hex, paintRing, seededRandom } from './paint';
 
 // Helpers for painting textures at art-pixel resolution. Textures are tiny
 // (one texel = one art pixel) and shown with setScale(PX).
@@ -10,10 +13,6 @@ export type FrameRect = {
   w: number;
   h: number;
 };
-
-export function hex(color: number) {
-  return `#${color.toString(16).padStart(6, '0')}`;
-}
 
 // Creates a canvas texture once and paints it. Returns false if it already existed.
 export function makeTexture(
@@ -33,21 +32,6 @@ export function makeTexture(
   return true;
 }
 
-export function fill(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  color: number,
-  alpha = 1
-) {
-  ctx.globalAlpha = alpha;
-  ctx.fillStyle = hex(color);
-  ctx.fillRect(Math.floor(x), Math.floor(y), w, h);
-  ctx.globalAlpha = 1;
-}
-
 // Paints rows of characters; each character maps to a colour, '.' is empty.
 export function paintRows(
   ctx: CanvasRenderingContext2D,
@@ -62,24 +46,6 @@ export function paintRows(
       if (color !== undefined) fill(ctx, ox + x, oy + y, 1, 1, color);
     });
   });
-}
-
-// Filled ring (annulus) between rInner and rOuter around (cx, cy).
-export function paintRing(
-  ctx: CanvasRenderingContext2D,
-  cx: number,
-  cy: number,
-  rOuter: number,
-  rInner: number,
-  color: number,
-  alpha = 1
-) {
-  for (let y = Math.floor(cy - rOuter); y <= Math.ceil(cy + rOuter); y++) {
-    for (let x = Math.floor(cx - rOuter); x <= Math.ceil(cx + rOuter); x++) {
-      const d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy);
-      if (d <= rOuter && d >= rInner) fill(ctx, x, y, 1, 1, color, alpha);
-    }
-  }
 }
 
 // Filled ellipse ring, used for flat markers on the ground.
@@ -104,13 +70,4 @@ export function paintEllipseRing(
       if (outer <= 1 && inner >= 1) fill(ctx, x, y, 1, 1, color, alpha);
     }
   }
-}
-
-// Small deterministic RNG so baked art looks the same every time.
-export function seededRandom(seed: number) {
-  let s = seed;
-  return () => {
-    s = (s * 1664525 + 1013904223) % 4294967296;
-    return s / 4294967296;
-  };
 }

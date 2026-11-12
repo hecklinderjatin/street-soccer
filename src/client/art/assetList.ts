@@ -48,7 +48,16 @@ export const freeKickPreviewAssets = (config: MatchConfig): Asset[] =>
       : asset
   );
 
+// The Free Kick ground, baked (`npm run art:court`): loading it saves
+// painting it (art/groundPaint.ts), which is painted only if it fails.
+export const FREE_KICK_GROUND_KEY = 'freekick-ground';
+export const FREE_KICK_GROUND_ASSET: Asset = {
+  key: FREE_KICK_GROUND_KEY,
+  url: '/art/freekick-ground.png',
+};
+
 export const freeKickAssets = (config: MatchConfig): Asset[] => [
+  FREE_KICK_GROUND_ASSET,
   ...firstAssets(config),
   ...FREE_KICK_REST_ASSETS,
 ];

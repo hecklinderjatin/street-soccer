@@ -1,7 +1,9 @@
 // Painted once into the court texture; coordinates are art pixels.
 // Warm, rough neighbourhood tarmac, with remnants of an older painted court.
+import type { PaintCtx } from './paint';
+
 export function paintStreetAsphalt(
-  ctx: CanvasRenderingContext2D,
+  ctx: PaintCtx,
   ox: number,
   width: number,
   height: number,

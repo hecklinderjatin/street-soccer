@@ -3,9 +3,12 @@ import type Phaser from 'phaser';
 const PREVIEW_DELAY_MS = 400; // was 1000; downloads now start without waiting
 const VISIBLE_RATIO = 0.15;
 
+// `delayMs`: how long the card must stay visible before the game is
+// created (so cards scrolled straight past build nothing).
 export function watchVisiblePreview(
   element: HTMLElement,
-  load: () => Promise<() => Phaser.Game>
+  load: () => Promise<() => Phaser.Game>,
+  delayMs = PREVIEW_DELAY_MS
 ) {
   let game: Phaser.Game | undefined;
   let visible = false;
@@ -47,7 +50,7 @@ export function watchVisiblePreview(
     else if (game) game.loop.wake();
     else {
       prepare().catch(() => undefined);
-      timer = window.setTimeout(() => void start(), PREVIEW_DELAY_MS);
+      timer = window.setTimeout(() => void start(), delayMs);
     }
   };
   document.addEventListener('visibilitychange', changed);
@@ -70,6 +73,11 @@ export function watchVisiblePreview(
   }
 
   return {
+    // Starts downloading the code and art now, visible or not (the game is
+    // still created only once the card is seen).
+    prefetch() {
+      if (!disposed) prepare().catch(() => undefined);
+    },
     startNow() {
       immediate = true;
       window.clearTimeout(timer);

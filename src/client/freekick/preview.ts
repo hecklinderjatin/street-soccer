@@ -3,7 +3,11 @@ import { context } from '@devvit/web/client';
 import { BALL, FREE_KICK as FK } from '../../shared/tuning';
 import { createBallTexture } from '../art/ballArt';
 import { queueAssets } from '../art/gameAssets';
-import { freeKickPreviewAssets } from '../art/assetList';
+import {
+  FREE_KICK_GROUND_ASSET,
+  freeKickPreviewAssets,
+  type Asset,
+} from '../art/assetList';
 import { registerPlayerAtlases } from '../art/playerArt';
 import { previewAtlasFrames } from '../art/playerSheets';
 import { startingConfig, freeKickChallenge } from '../challenge';
@@ -54,30 +58,50 @@ class FreeKickPreviewScene extends Phaser.Scene {
       this.scale.off(Phaser.Scale.Events.RESIZE, this.frame, this);
       this.game.events.off('preview-layout', this.frame, this);
     });
-    const assets = freeKickPreviewAssets(startingConfig());
-    void withEarlyDownloads(assets).then((ready) => {
-      if (!this.sys.isActive()) return;
-      const finish = () => {
-        void releaseEarlyDownloads(assets);
-        registerPlayerAtlases(this, previewAtlasFrames(), false);
-        createBallTexture(this);
-        const config = startingConfig();
-        this.stage = new Stage(this, {
-          kicker: config.home.jersey,
-          wall: config.away.jersey,
-        });
+    const config = startingConfig();
+    const court = [FREE_KICK_GROUND_ASSET];
+    const cast = freeKickPreviewAssets(config).filter(
+      (asset) => asset.key !== FREE_KICK_GROUND_ASSET.key
+    );
+    // The court first (its baked ground is one small image), then the
+    // players and the ball as soon as their art is in.
+    void this.fetchArt(court)
+      .then(() => {
+        if (!this.sys.isActive()) return;
+        // Paints whatever is not loaded (the ground only if its download
+        // failed).
+        this.stage = new Stage(this);
         this.nextKick();
         // The court is drawn from this frame on: show the canvas over the
         // card's CSS poster (lobby.css).
         this.events.once(Phaser.Scenes.Events.POST_UPDATE, () =>
           this.game.events.emit('preview-ready')
         );
-      };
-      if (queueAssets(this, ready)) {
-        this.load.once(Phaser.Loader.Events.COMPLETE, finish);
+        return this.fetchArt(cast);
+      })
+      .then(() => {
+        if (!this.sys.isActive() || !this.stage) return;
+        registerPlayerAtlases(this, previewAtlasFrames(), false);
+        createBallTexture(this);
+        this.stage.addCast({
+          kicker: config.home.jersey,
+          wall: config.away.jersey,
+        });
+        // The kicker has just appeared: give him his whole run-up.
+        if (!this.play)
+          this.nextAt = Math.max(this.nextAt, this.clock + FK.runupSec + 0.1);
+      });
+  }
+
+  // Loads `assets` (from their early downloads where there are some).
+  private async fetchArt(assets: readonly Asset[]) {
+    const ready = await withEarlyDownloads(assets);
+    if (this.sys.isActive() && queueAssets(this, ready))
+      await new Promise<void>((done) => {
+        this.load.once(Phaser.Loader.Events.COMPLETE, () => done());
         this.load.start();
-      } else finish();
-    });
+      });
+    void releaseEarlyDownloads(assets);
   }
 
   private frame() {
@@ -107,7 +131,8 @@ class FreeKickPreviewScene extends Phaser.Scene {
     this.play = null;
     this.acc = 0;
     this.resultAt = null;
-    this.nextAt = this.clock + 1.2;
+    // The first run-up starts as the canvas fades in; later kicks pause.
+    this.nextAt = this.clock + (this.attempt === 1 ? FK.runupSec + 0.1 : 1.2);
     this.frame();
     this.stage?.setKick(this.cam);
   }
@@ -116,7 +141,7 @@ class FreeKickPreviewScene extends Phaser.Scene {
     if (!this.stage) return;
     const dt = Math.min(0.05, deltaMs / 1000);
     this.clock += dt;
-    if (!this.play && this.clock >= this.nextAt)
+    if (!this.play && this.stage.hasCast() && this.clock >= this.nextAt)
       this.play = startPlay(this.setup, this.strike, Math.random);
     if (this.play && this.resultAt === null) {
       this.acc += dt;

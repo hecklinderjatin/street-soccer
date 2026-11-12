@@ -11,6 +11,10 @@ import {
 import { readGamesPlayed } from '../gameCount';
 import { freeKickFeedBoard } from './leaderboard';
 
+// Shorter than match cards' 400 ms: the code and art are usually in by
+// the time the card is seen (prefetched below).
+const FREE_KICK_PREVIEW_DELAY_MS = 150;
+
 let stopPreview: (() => void) | undefined;
 let stopBoard: (() => void) | undefined;
 
@@ -116,12 +120,24 @@ export function showFreeKickLobby() {
   host.replaceChildren(card);
   const preview = card.querySelector<HTMLElement>('.freekick-preview');
   if (preview) {
-    const lifecycle = watchVisiblePreview(preview, async () => {
-      startFreeKickPreviewDownloads();
-      const { createFreeKickPreview } = await import('./preview');
-      return () => createFreeKickPreview(preview);
-    });
+    const lifecycle = watchVisiblePreview(
+      preview,
+      async () => {
+        startFreeKickPreviewDownloads();
+        const { createFreeKickPreview } = await import('./preview');
+        return () => createFreeKickPreview(preview);
+      },
+      FREE_KICK_PREVIEW_DELAY_MS
+    );
     stopPreview = lifecycle.destroy;
+    // This card is the whole post, so it is about to be seen: fetch the
+    // preview's code and art as soon as the card has painted, rather than
+    // after the visibility check.
+    // (Safari has no requestIdleCallback.)
+    const prefetch = () => lifecycle.prefetch();
+    if (typeof requestIdleCallback === 'function')
+      requestIdleCallback(prefetch, { timeout: 300 });
+    else setTimeout(prefetch, 0);
   }
 }
 

@@ -115,6 +115,15 @@ class Figure {
   }
 }
 
+type Cast = {
+  kicker: Figure;
+  wall: Figure[];
+  lyer: Figure; // lying behind the wall, against low shots
+  keeper: Figure;
+  ball: Phaser.GameObjects.Image;
+  shadow: Phaser.GameObjects.Image;
+};
+
 // What the scene tells the stage each frame besides the kick itself.
 export type StagePose = {
   ball: Pt; // ball centre
@@ -137,12 +146,9 @@ export class Stage {
   private readonly net: Phaser.GameObjects.Graphics;
   private readonly frame: Phaser.GameObjects.Graphics;
   private readonly trailBands: Phaser.GameObjects.Graphics[];
-  private readonly kicker: Figure;
-  private readonly wall: Figure[];
-  private readonly lyer: Figure; // lying behind the wall, against low shots
-  private readonly keeper: Figure;
-  private readonly ball: Phaser.GameObjects.Image;
-  private readonly shadow: Phaser.GameObjects.Image;
+  // The players and the ball: null until their art is in (the feed
+  // preview shows the court first).
+  private cast: Cast | null = null;
   private trail: Pt[] = [];
   private trailFade = 1;
   // Practice: the last shot's path, faint, until the next shot is struck.
@@ -154,7 +160,7 @@ export class Stage {
 
   constructor(
     private readonly scene: Phaser.Scene,
-    kits: { kicker: Kit; wall: Kit }
+    kits?: { kicker: Kit; wall: Kit }
   ) {
     createFreeKickCourtTextures(scene);
     createFreeKickHoopTexture(scene);
@@ -172,17 +178,31 @@ export class Stage {
     this.trailBands = Array.from({ length: 4 }, () =>
       scene.add.graphics().setBlendMode(Phaser.BlendModes.ADD)
     );
+    if (kits) this.addCast(kits);
+  }
+
+  // The players and the ball, once their atlases and the ball texture are
+  // registered (the constructor does this when given the kits).
+  addCast(kits: { kicker: Kit; wall: Kit }) {
+    if (this.cast) return;
+    const scene = this.scene;
     const look = (i: number) =>
       LOOKS[i % LOOKS.length] ?? { skin: 0xffffff, hair: 0xffffff };
-    this.kicker = new Figure(scene, kits.kicker, look(0));
-    this.wall = Array.from(
-      { length: Math.max(...FK.wallMen) },
-      (_, i) => new Figure(scene, kits.wall, look(i + 1))
-    );
-    this.lyer = new Figure(scene, kits.wall, look(5));
-    this.keeper = new Figure(scene, 'awayKeeper', look(4));
-    this.shadow = scene.add.image(0, 0, BALL_SHADOW_KEY);
-    this.ball = scene.add.image(0, 0, BALL_KEY, 'a');
+    this.cast = {
+      kicker: new Figure(scene, kits.kicker, look(0)),
+      wall: Array.from(
+        { length: Math.max(...FK.wallMen) },
+        (_, i) => new Figure(scene, kits.wall, look(i + 1))
+      ),
+      lyer: new Figure(scene, kits.wall, look(5)),
+      keeper: new Figure(scene, 'awayKeeper', look(4)),
+      shadow: scene.add.image(0, 0, BALL_SHADOW_KEY),
+      ball: scene.add.image(0, 0, BALL_KEY, 'a'),
+    };
+  }
+
+  hasCast() {
+    return this.cast !== null;
   }
 
   // Rebuild the court for the camera and clear the previous flight trail.
@@ -239,8 +259,10 @@ export class Stage {
     for (const plane of this.planes) plane.update(cam);
     this.drawLines(cam, setup);
     this.drawGoal(cam, play, pose);
-    this.drawPeople(cam, setup, play, pose);
-    this.drawBall(cam, pose);
+    if (this.cast) {
+      this.drawPeople(this.cast, cam, setup, play, pose);
+      this.drawBall(this.cast, cam, pose);
+    }
     this.drawTrails(cam, setup, play, pose);
   }
 
@@ -738,6 +760,7 @@ export class Stage {
   }
 
   private drawPeople(
+    cast: Cast,
     cam: KickCamera,
     setup: KickSetup,
     play: KickPlay | null,
@@ -745,7 +768,7 @@ export class Stage {
   ) {
     const t = play?.t ?? 0;
     // Mirrored when he stands to the ball's right.
-    this.kicker.draw(
+    cast.kicker.draw(
       cam,
       pose.kicker.x,
       pose.kicker.y,
@@ -769,7 +792,7 @@ export class Stage {
             ? 'wall3'
             : 'wall4';
     const lift = wallTop(wall, t) - FK.wallHeight;
-    this.wall.forEach((man, i) => {
+    cast.wall.forEach((man, i) => {
       const y = wall.men[i];
       if (y === undefined) man.hide();
       else man.draw(cam, wall.x, y, wallFrame, false, lift);
@@ -777,15 +800,15 @@ export class Stage {
     // A man lying across the back of the wall (the lying hurt pose).
     if (wall.lyer && wall.men.length > 0) {
       const mid = wall.men.reduce((sum, m) => sum + m, 0) / wall.men.length;
-      this.lyer.draw(cam, wall.x + FK.wallLyerBehind, mid, 'hurt4');
-    } else this.lyer.hide();
+      cast.lyer.draw(cam, wall.x + FK.wallLyerBehind, mid, 'hurt4');
+    } else cast.lyer.hide();
 
     // Keeper: stance, jump, dive (frames lead to +y; flipped for -y), or a
     // standing block when it saved the ball without moving.
     const k = play?.keeper;
     if (!k) {
       const idle = 1 + (Math.floor(pose.timeSec * 4) % 3);
-      this.keeper.draw(
+      cast.keeper.draw(
         cam,
         GOAL_X - FK.keeperLineOff,
         setup.keeperY,
@@ -806,14 +829,14 @@ export class Stage {
       frame = p < 0.25 ? 'jump2' : p < 0.8 ? 'jump3' : 'jump4';
     } else if (play?.outcome === 'saved') frame = 'block1';
     const diving = k.mode === 'dive' || k.mode === 'down';
-    this.keeper.draw(cam, k.x, k.y, frame, diving && k.dir < 0);
+    cast.keeper.draw(cam, k.x, k.y, frame, diving && k.dir < 0);
   }
 
-  private drawBall(cam: KickCamera, pose: StagePose) {
+  private drawBall(cast: Cast, cam: KickCamera, pose: StagePose) {
     const b = pose.ball;
     cam.project(b.x, b.y, 0, at);
     const high = Math.min(1, (b.z - R) / 200);
-    this.shadow
+    cast.shadow
       .setPosition(at.x, at.y)
       .setScale(((2 * R) / 6) * at.scale * (1 - 0.4 * high))
       .setAlpha(0.45 * (1 - 0.6 * high))
@@ -833,7 +856,7 @@ export class Stage {
         ? (BALL_SHOT_FRAMES[shot] ?? 'shot1')
         : (BALL_FRAMES[Math.floor(this.rolled / 14) % BALL_FRAMES.length] ??
           'a');
-    this.ball
+    cast.ball
       .setFrame(frame)
       .setPosition(at2.x, at2.y)
       .setScale(((2 * R) / BALL_TEXTURE_W) * at2.scale)
