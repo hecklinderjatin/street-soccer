@@ -433,7 +433,9 @@ export const AI = {
   pressDeepFull: 1700, // ... fully from this far
   pressLeadSec: 0.4, // the presser aims where the carrier will be this soon (keeps its distance)
   pressKeep: 60, // the current presser keeps the job unless another is this much closer (px)
-  humanPressDist: 130, // our human player this close to the carrier counts as our presser
+  humanPressDist: 130, // human can take over pressing within this distance ...
+  humanPressClosingSpeed: 30, // ... while moving toward the carrier this fast, or actively tackling
+  teammateDefendSprintDist: 180, // our AI sprints to defensive assignments this far away when danger is in our half
   markGap: 50, // markers stand this far from their man, goal-side and toward the ball ...
   markSag: 0.12, // ... plus this much per px he is from the ball (tight near the ball, loose away from it) ...
   markGapMax: 170, // ... up to this
@@ -454,7 +456,7 @@ export const AI = {
   openDist: 140, // a support spot this close to an opponent shifts away from them
   supportMinDist: 240, // supporters keep at least this far from the carrier
   spaceDist: 150, // teammates closer than this push their spots apart (cover / support / run / show)
-  mateMinGap: 120, // hard rule, any job but going for the ball (chase / press): an AI player's target is never closer than this to a teammate (user request: defence too crowded)
+  mateMinGap: 150, // separation target for positioning roles; chase/press are exempt (user request: defence too crowded)
   restGap: 110, // rest defence: our deepest player stays this far goal-side of their most advanced one ...
   restBehindBall: 150, // ... and at least this far behind the ball
   runnerDepth: 170, // attacking, a runner goes no closer than this to their goal line (no goal-hanging on the keeper) ...

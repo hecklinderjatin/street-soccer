@@ -40,4 +40,15 @@ export class FreeKickRecords {
       result,
     });
   }
+  async post(comment: string, includeStats: boolean) {
+    if (!context?.postId || !this.startRequest)
+      throw new Error('Run unavailable');
+    const run = await this.startRequest;
+    return request('post-score', {
+      ...run,
+      mode: freeKickRankedMode(freeKickChallenge()),
+      comment,
+      includeStats,
+    });
+  }
 }

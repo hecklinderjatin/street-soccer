@@ -1,7 +1,8 @@
 import { communityJoin } from '../ui/communityJoin';
 import {
+  canRunAsUser,
   context,
-  exitExpandedMode,
+  showForm,
   requestExpandedMode,
 } from '@devvit/web/client';
 import type { FreeKickStats } from '../../shared/freeKick';
@@ -127,12 +128,6 @@ export function freeKickResults(
     tiles.append(item);
   }
   summary.append(tiles);
-  if (stats.fastestGoalKmh) {
-    const highlight = document.createElement('p');
-    highlight.className = 'results-speed-highlight';
-    highlight.textContent = `FASTEST GOAL ${stats.fastestGoalKmh} KM/H`;
-    summary.append(highlight);
-  }
   content.append(summary);
   const board = freeKickResultsBoard();
   if (board) content.append(board.root);
@@ -147,26 +142,22 @@ export function freeKickResults(
   const retry = casualButton('RETRY SAVE', () => void save(), true);
   retry.classList.add('results-retry');
   retry.hidden = true;
-  // EXIT leaves the expanded view with the trusted click on Reddit; off
-  // Reddit it goes back to the feed card page.
-  const exit = document.createElement('a');
-  exit.className = 'casual-button secondary';
-  exit.href = 'splash.html';
-  pixelLabel(exit, 'EXIT');
-  exit.addEventListener('click', (event) => {
-    if (context?.postId) {
-      event.preventDefault();
-      exitExpandedMode(event);
-    }
-  });
-  actions.append(casualButton('PLAY AGAIN', again));
+  const post = casualButton(
+    'POST MY SCORE',
+    (event) => void postScore(event),
+    true
+  );
+  post.classList.add('results-post-score');
+  post.disabled = true;
+  actions.append(casualButton('PLAY AGAIN', again), post);
   for (const { label, entry } of [
     { label: 'PRACTICE', entry: 'freekick-practice' },
     { label: 'PLAYGROUND', entry: 'freekick-playground' },
   ]) {
     const link = document.createElement('a');
     link.className = 'casual-button secondary';
-    if (entry === 'freekick-playground') link.classList.add('results-playground');
+    if (entry === 'freekick-playground')
+      link.classList.add('results-playground');
     link.href = `${entry}.html`;
     pixelLabel(link, label);
     link.addEventListener('click', (event) => {
@@ -177,14 +168,75 @@ export function freeKickResults(
     });
     actions.append(link);
   }
-  exit.classList.add('fk-results-exit');
-  actions.append(exit, retry);
+  actions.append(retry);
   let closed = false;
+  let saved = false;
+  let sharing = false;
+  let posted = false;
+  async function postScore(event: MouseEvent) {
+    if (closed || sharing || posted || !saved) return;
+    if (!context?.postId) {
+      status.textContent = 'Score sharing is available on Reddit.';
+      return;
+    }
+    sharing = true;
+    post.disabled = true;
+    try {
+      if (!(await canRunAsUser(event)) || closed) return;
+      const form = await showForm({
+        title: 'Post my score',
+        description: `Posts a public comment from u/${context.username ?? 'you'} on this post in r/${context.subredditName ?? 'this community'}. Score only: a reply in the pinned Scores comment. With your own words: a comment on the post.`,
+        acceptLabel: `Post as u/${context.username ?? 'me'}`,
+        fields: [
+          {
+            type: 'paragraph',
+            name: 'comment',
+            label: 'Your comment (optional)',
+            helpText: 'Up to 1000 characters',
+          },
+          {
+            type: 'boolean',
+            name: 'includeStats',
+            label: 'Share my score and Free Kick stats',
+            defaultValue: true,
+          },
+        ],
+      });
+      if (closed || form.action !== 'SUBMITTED') return;
+      const comment = form.values.comment ?? '';
+      if (
+        comment.trim().length > 1000 ||
+        (!comment.trim() && !form.values.includeStats)
+      ) {
+        status.textContent =
+          'Add a comment or include your score. Comments can have up to 1000 characters.';
+        return;
+      }
+      pixelLabel(post, 'POSTING...');
+      await records.post(comment, form.values.includeStats === true);
+      posted = true;
+      if (!closed) {
+        pixelLabel(post, 'POSTED!');
+        status.textContent = 'Score posted!';
+      }
+    } catch {
+      if (!closed)
+        status.textContent = 'Couldn’t post right now. Please try again.';
+    } finally {
+      sharing = false;
+      if (!closed) {
+        post.disabled = posted || !saved;
+        if (!posted) pixelLabel(post, 'POST MY SCORE');
+      }
+    }
+  }
   async function save() {
     status.textContent = 'Saving run...';
     try {
       await records.save(stats);
       if (closed) return;
+      saved = true;
+      if (!sharing && !posted) post.disabled = false;
       status.textContent =
         challenge.config.mode !== 'infinity' && !challenge.won
           ? 'Run saved. Only completed challenges rank on the leaderboard.'
