@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Main merge (2026-11-12):** fast-forwarded tested changes through 3cde673 into main at the user’s request. Includes shared Free Kick Post My Score, fastest-goal tag removal, no Exit/full-width replay/two-column results actions, and teammate defensive support with 150-unit spacing. Existing types/lint, gameplay/Daily/API and mocked source-browser sharing/layout checks pass. No app build, deployment or live Reddit comments performed.
+
 **Teammate defensive support/spacing (2026-11-12):** raise shared AI.mateMinGap from 120 to 150 for non-ball-winning positioning roles. Fix passive home defence when the controlled human is merely nearby: hand over pressing only while the human is goal-side, upright/not staggered and actively approaching (over 30 units/s toward the carrier) or in tackle windup/active contact. Idle/retreating/sideways/beaten humans and tackle recovery no longer suppress an AI presser. Home markers, cover and backup sprint toward defensive assignments over 180 units away when the ball is in their half, preserving stamina/sprint-lock guards, assignments and press limits. Opponents keep existing defensive urgency; both teams receive the requested spacing increase. Classic/Daily use this shared TeamBrain (also applies in Custom); Free Kick has its own defence. Types/lint, 74 gameplay checks and Daily/form regressions pass. New scenarios cover human engagement/recovery, tracked runners, fatigue/sprint lock and opponent isolation; existing spacing/back-line/tackle checks pass. No app build or on-device playtest performed.
 
 **Free Kick results action layout (2026-11-11):** remove Exit from the shared Free Kick terminal results card. Keep Play Again full width and every remaining action in a two-column grid in portrait and landscape, including Retry Save when needed. Remove the old desktop five/six-column overrides and keep existing viewport fitting/no inner scroll. Post My Score remains shared by Challenge, Infinity and Playground; extend actual source-browser fixtures to verify all three modes, mode-correct save/share requests, no Exit, full-width replay, two-column actions, visible controls and no nested scroll at 320x480, 390x600 and 844x390. Types/lint and all three mocked browser flows pass, including consent/cancel/retry/success; Playground screenshot inspected. No app build or live Reddit comments/deployment performed.
@@ -810,6 +812,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Merge and push the tested teammate-defence branch and its pending Free Kick result changes into main at the user’s request; publishing/deployment remain separate.
+
 - Treat a nearby human as the presser only when actively defending; position alone previously stopped teammates helping. Speed home teammates’ travel to distant defensive duties in their own half rather than raising tackle success or sending everyone at the ball. Apply the requested 150-unit spacing target to both sides, with existing chase/press exemptions.
 
 - Free Kick terminal results omit Exit at the user’s request; use a full-width replay followed by two-column actions at every orientation. Keep score posting on the shared results component for Challenge, Infinity and Playground rather than separate mode-specific controls.
@@ -1276,11 +1280,11 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
-- Merge/push teammate defensive support and spacing when requested. Playtest defensive handoffs and stamina use in Classic/Daily on device; automated role/steering/spacing regressions pass.
+- Teammate defensive support and spacing are merged into main. Playtest defensive handoffs and stamina use in Classic/Daily on device; automated role/steering/spacing regressions pass.
 
-- Merge/push the revised Free Kick results actions when requested. Verify native comment confirmation on a physical Reddit client after deployment; mocked sharing works across Challenge, Infinity and Playground.
+- Revised Free Kick results actions are merged into main. Verify native comment confirmation on a physical Reddit client after deployment; mocked sharing works across Challenge, Infinity and Playground.
 
-- Merge/push the Free Kick results sharing/layout change when requested. Confirm the native Reddit permission/form flow and comment placement on device after deployment; local checks mock external writes.
+- Free Kick results sharing/layout is merged into main. Confirm the native Reddit permission/form flow and comment placement on device after deployment; local checks mock external writes.
 
 - Verify the sharing consent prompt and feed gestures inside the live Reddit Android and iOS apps.
 
@@ -1725,6 +1729,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-12:** fast-forward main through 3cde673 at the user’s request, including teammate defence/150 spacing and Free Kick result sharing/layout updates. Record the merge and prepare the requested push; existing checks pass, no build/deployment.
 
 - **2026-11-12:** increase positioning spacing 120→150, keep an AI presser when the nearby human is inactive/beaten/recovering, and add stamina-aware home defensive recovery sprints. Types/lint, 74 gameplay checks and Daily/form regressions pass; no app build/on-device playtest.
 
