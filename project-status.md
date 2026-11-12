@@ -1732,6 +1732,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 
 ## Changelog
 
+- 2026-11-12: Pre-launch review: Devvit client/HTML rules, user-run post/comment/subscribe consent paths, data deletion and cleanup checked; full `npm run test:local` passes on main 0a769e2. The user reports device playtesting of everything pending (Free Kick preview and baked ground included) is done; ready for the user-run `npm run launch`.
+
 - 2026-11-12: Free Kick feed preview prefetches its code and art on idle, starts after 150 ms of visibility, shows the court before the players arrive, and loads a baked ground image (`npm run art:court`) instead of painting it (the full Free Kick game too). Types, lint, 72 logic checks, unit tests and build pass; not checked in a browser or on a device.
 
 - 2026-11-12: Free Kick feed preview paints its court while the art downloads and starts the first kick's run-up immediately. Types, lint and 72 logic checks pass; not checked on a device.
