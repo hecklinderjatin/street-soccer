@@ -1120,7 +1120,7 @@ public/ball.svg             pixel ball shown on the splash
 
 - The splash paints the real title screen on a canvas with shared Phaser-free code (menuCard.ts) instead of loading Phaser in the feed, so the card stays fast while looking exactly like the game.
 - Daily leaderboard ranks each player's best match of the UTC day by goal difference, then goals scored; results come from the client and are only sanity-checked (no replay validation).
-- Score comments are posted as the player; if that is refused, the app account posts them with the player's name rather than failing.
+- Score comments are posted only as the player (`runAs: 'USER'`, after the player confirms in a native form). If Reddit refuses, the player sees an error and the cooldown is refunded; the app account never posts on the player's behalf (Devvit Rules). The app's only comment is the pinned "Scores" thread that score-only shares reply to. (Corrected 2026-11-12: an earlier version of this note described an app-account fallback that the code no longer has.)
 
 - Custom match settings live in the post's postData, not Redis: the splash and the game get them from context with no request, and they can't change after posting. `/api/init` was left alone because the client never calls it.
 - Jersey colours are preset baked kits rather than a free colour picker. Recolouring on the device was removed for load time, and a preset palette keeps keepers (green/gold) and both teams distinct.
