@@ -8,7 +8,7 @@
   right: 0;
   bottom: 0;
   z-index: 20;
-  /* Sized to its content (the menu or one open window): it never scrolls. */
+  /* The mobile sheet fits the menu or one open window. */
   max-height: 64%;
   overflow: hidden;
   display: flex;
@@ -550,10 +550,15 @@
   .pg-sheet.is-docked .pg-body {
     flex: 1;
     min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
     display: grid;
     align-content: start;
     gap: 10px;
     padding: 12px;
+  }
+  .pg-sheet.is-docked > :not(.pg-body) {
+    flex-shrink: 0;
   }
   .pg-sheet.is-docked .pg-window-bar {
     padding: 8px 12px;

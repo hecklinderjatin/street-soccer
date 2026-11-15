@@ -411,9 +411,16 @@ export function strikeBall(spot: Spot, strike: Strike): Ball {
   const contact = ballContact(strike.contact.x, strike.contact.y);
   const loft = contact.y;
   const range = Math.hypot(GOAL_X - spot.x, GOAL_Y - spot.y);
+  const offCentre = Math.hypot(contact.x, loft);
+  const boostPower = Math.max(
+    0,
+    (p - FK.speedBoostStart) / (1 - FK.speedBoostStart)
+  );
+  const boostContact = Math.max(0, 1 - offCentre / FK.speedBoostContactRadius);
+  const boost = FK.speedBoost * boostPower * boostContact;
   const speed =
-    lerp(FK.speedMin, FK.speedMax, p) *
-    (1 - Math.hypot(contact.x, loft) * FK.offCentrePaceLoss) *
+    (lerp(FK.speedMin, FK.speedMax, p) + boost) *
+    (1 - offCentre * FK.offCentrePaceLoss) *
     (range / FK.rangeDistance) ** FK.rangeExp;
   const heading = Math.atan2(strike.targetY - spot.y, GOAL_X - spot.x);
   return {

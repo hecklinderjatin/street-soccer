@@ -78,29 +78,21 @@ export function freeKickResults(
   summary.className = 'results-summary';
   const hero = document.createElement('div');
   hero.className = 'results-hero';
-  hero.append(screen.heading, screen.description);
-  summary.append(hero);
+  const outcome = document.createElement('div');
+  outcome.className = 'fk-results-outcome';
+  outcome.append(screen.heading, screen.description);
 
-  // The score in the scoreboard's place: one block, with the device best.
   const scoreboard = document.createElement('div');
-  scoreboard.className = 'results-scoreboard fk-results-scoreboard';
-  scoreboard.setAttribute('role', 'group');
-  scoreboard.setAttribute('aria-label', `${stats.score} points`);
-  const block = document.createElement('div');
-  block.className = 'results-team';
-  block.style.setProperty('--kit', css(PAL.orange));
-  const label = document.createElement('strong');
+  scoreboard.className = 'fk-results-scoreboard';
+  const label = document.createElement('span');
   label.className = 'results-team-name';
-  pixelLabel(label, 'POINTS');
-  const bestLine = document.createElement('span');
-  bestLine.className = 'results-formation';
-  bestLine.textContent = `GOALS ${goalLine}`;
+  label.textContent = 'POINTS';
   const points = document.createElement('strong');
   points.className = 'results-goals';
   pixelLabel(points, stats.score.toLocaleString());
-  block.append(label, bestLine, points);
-  scoreboard.append(block);
-  summary.append(scoreboard);
+  scoreboard.append(points, label);
+  hero.append(outcome, scoreboard);
+  summary.append(hero);
 
   // Goals against expected goals: finishing above (+) or below (-) the
   // average kicker from the same spots.
@@ -127,7 +119,12 @@ export function freeKickResults(
     item.append(number, text);
     tiles.append(item);
   }
-  summary.append(tiles);
+  const statsLabel = document.createElement('h2');
+  statsLabel.className = 'fk-results-stats-label';
+  statsLabel.textContent = 'RUN STATS';
+  const statsSection = document.createElement('section');
+  statsSection.append(statsLabel, tiles);
+  summary.append(statsSection);
   content.append(summary);
   const board = freeKickResultsBoard();
   if (board) content.append(board.root);

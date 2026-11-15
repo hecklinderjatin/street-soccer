@@ -274,6 +274,15 @@ try {
       .evaluateAll((nodes) =>
         nodes.map((n) => n.getBoundingClientRect().toJSON())
       );
+    const hero = await page.locator('.results-hero').evaluate((element) => {
+      const [outcome, score] = [...element.children].map((child) =>
+        child.getBoundingClientRect().toJSON()
+      );
+      return { outcome, score };
+    });
+    assert.ok(hero.outcome.right < hero.score.left);
+    assert.ok(hero.outcome.top < hero.score.bottom);
+    assert.ok(hero.score.top < hero.outcome.bottom);
     assert.equal(buttons.length, 5);
     assert.ok(
       buttons.every(
@@ -301,12 +310,12 @@ try {
         false,
         selector + ' has no nested scroll'
       );
-    assert.equal(buttons[1].top, buttons[2].top);
+    assert.equal(buttons[0].top, buttons[1].top);
+    assert.equal(buttons[2].top, buttons[3].top);
     assert.equal(buttons[3].top, buttons[4].top);
-    assert.ok(buttons[0].width > buttons[1].width * 1.9);
-    assert.ok(
-      buttons[0].top < buttons[1].top && buttons[1].top < buttons[3].top
-    );
+    assert.ok(buttons[0].top < buttons[2].top);
+    assert.ok(buttons[0].width > buttons[2].width);
+    assert.ok(buttons[1].width > buttons[3].width);
     assert.equal(
       await page.getByRole('link', { name: 'EXIT', exact: true }).count(),
       0

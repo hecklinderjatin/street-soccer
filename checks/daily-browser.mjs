@@ -469,11 +469,26 @@ try {
         bottom: e.querySelector('.results-actions').getBoundingClientRect()
           .bottom,
         height: innerHeight,
+        scoreFirst:
+          e.querySelector('.results-scoreboard').getBoundingClientRect().bottom <=
+          e.querySelector('.results-hero').getBoundingClientRect().top,
+        beside:
+          e.querySelector('.results-summary').getBoundingClientRect().right <
+          e.querySelector('.results-board').getBoundingClientRect().left,
+        actionRows: [...e.querySelectorAll('.results-actions > .casual-button')]
+          .filter((button) => button.getClientRects().length)
+          .map((button) => button.getBoundingClientRect().top),
       }));
       assert.ok(
         layout.scroll <= 1 && layout.bottom <= layout.height,
         JSON.stringify({ mode, viewport, layout })
       );
+      assert.equal(layout.scoreFirst, true);
+      assert.equal(layout.beside, viewport.width >= 600);
+      const [replay, post, custom, join] = layout.actionRows;
+      assert.equal(replay, post);
+      assert.ok(replay < custom);
+      if (join !== undefined) assert.equal(custom, join);
     }
     await page
       .getByRole('button', { name: 'PLAY CUSTOM', exact: true })

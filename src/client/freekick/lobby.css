@@ -76,17 +76,13 @@
   color: #c3cedd;
   font-size: 12px;
 }
-/* A pyramid: the ranked run full width on top, PRACTICE and PLAYGROUND
-   side by side under it (just PLAYGROUND, full width, on a Playground
-   post, which has no Practice). */
+/* Challenge and Infinity span the top row. Shared Playground posts have
+   just two actions, side by side. */
 .freekick-lobby .preview-actions {
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
-.freekick-lobby .preview-actions .freekick-challenge {
-  grid-column: 1 / -1;
-}
-.freekick-lobby[data-mode='playground'] .preview-actions .freekick-playground {
+.freekick-lobby:not([data-mode='playground']) .freekick-challenge {
   grid-column: 1 / -1;
 }
 :is(#mobile-lobby, .freekick-lobby) .freekick-practice.mobile-casual,

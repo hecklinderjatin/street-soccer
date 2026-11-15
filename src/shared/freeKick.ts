@@ -37,7 +37,8 @@ export type FreeKickBoards = {
 };
 export const freeKickMaxKmh = Math.ceil(
   Math.hypot(
-    FK.speedMax * (FK.maxDistance / FK.rangeDistance) ** FK.rangeExp,
+    (FK.speedMax + FK.speedBoost) *
+      (FK.maxDistance / FK.rangeDistance) ** FK.rangeExp,
     FK.liftMax + FK.chipLift
   ) * GOAL_FEEDBACK.kmhPerUnit
 );

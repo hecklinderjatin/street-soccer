@@ -7,6 +7,7 @@ import {
   freeKickGoalMin,
 } from '../src/shared/freeKick';
 import { practiceLevel } from '../src/client/freekick/mode';
+import { launchSpeedKmh } from '../src/shared/goalSpeed';
 import { postType, competitiveResultAllowed } from '../src/shared/postType';
 import { challengeFormFor, readChallenge } from '../src/server/core/challengeForm';
 import { parseMatchConfig } from '../src/shared/matchConfig';
@@ -216,6 +217,16 @@ check('strike: contact controls flight while the swipe keeps the launch heading'
   assert.ok(blend.vz > drive.vz && blend.spin > 0);
   assert.ok(Math.abs(blend.vy / blend.vx - drive.vy / drive.vx) < 1e-9);
   assert.ok(Math.abs(Math.hypot(blend.spin / FK.curlMax, ballContact(1, 1).y) - 1) < 1e-9);
+});
+
+check('strike: full power at maximum range displays 135 km/h', () => {
+  const ball = strikeBall(
+    { x: GOAL_X - FK.maxDistance, y: GOAL_Y },
+    { power: 1, targetY: GOAL_Y, contact: ballContact(0, 0) }
+  );
+  const speed = launchSpeedKmh(ball.vx, ball.vy, ball.vz);
+  assert.equal(speed, 135);
+  assert.ok(speed <= freeKickMaxKmh);
 });
 
 check('strike: each side bends away from the selected contact', () => {

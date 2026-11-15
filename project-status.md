@@ -8,6 +8,30 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Main update (2026-11-16):** The approved results layouts, feed controls, Playground dock fix, 135 km/h Free Kick tuning, startup recovery, leaderboard keyboard behavior, production smoke checks, post fallbacks and automatic Playground flair are collected on main for the requested commit and push.
+
+**Automatic Playground flair (2026-11-16):** Shared Playground kicks select the current community's player-available Playground flair template by name, ignoring case and surrounding spaces, and submit its ID with the new post. A missing or moderator-only template prompts the player to ask a moderator for setup before consuming a share or cooldown.
+
+**Production smoke test and post fallback (2026-11-16):** Chromium separately verifies preview art prefetch and lazy canvas creation, then runs Classic from the feed through saved results and exercises all four Free Kick entrypoints. New match and shared Playground posts include Markdown fallback copy naming the mode, describing its objective, and telling players how to open the game.
+
+**Feed leaderboard keyboard controls (2026-11-16):** Classic, Daily and Free Kick share dialog focus handling. Opening focuses Close, Tab stays in the dialog, Escape dismisses it, and dismissal returns focus to All. Category changes keep focus on the selected tab, and pagination moves focus when the current button becomes hidden.
+
+**Expanded game startup recovery (2026-11-16):** Classic, Daily, Custom and every Free Kick entry show a focused error panel with Retry and Back to post if the game module fails to load. Retry reloads the game webview. Practice returns to its level picker after a reload.
+
+**Free Kick shot speed (2026-11-16):** A full-power centre strike at the 37.5 m range limit displays 135 km/h. The extra pace ramps in above 90% power and fades away from centre contact. Ranked speed validation uses the new maximum horizontal launch pace.
+
+**Desktop Playground settings (2026-11-16):** The dock scrolls its settings when vertical space is tight. Difficulty stays within the settings area, with the score-to-share hint and Next in their own fixed space below it.
+
+**Free Kick preview and leaderboard controls (2026-11-16):** Shared Playground previews show Play and Playground side by side. Challenge and Infinity previews label their primary actions Play Challenge and Play Infinity. The shared feed leaderboard footer pins Next to the right even when Previous is hidden.
+
+**Classic and Daily results (2026-11-16):** The ranked match card leads with the final score and groups the outcome, difficulty and match details under it. Landscape shows the score and stats beside the leaderboard. Replay and score sharing sit above Custom and optional Join Community.
+
+**Free Kick results layout (2026-11-16):** Challenge, Infinity and Playground share the approved pixel-style results layout. The outcome and points share a header, followed by a six-stat grid and the existing leaderboard. Play Again and Post My Score sit above Practice, Playground and Join Community. When Join Community is unavailable, the two remaining navigation buttons fill that row. Retry Save has its own row when needed.
+
+**Free Kick teaser (2026-11-12):** `promo/src/FreeKickTeaser.tsx` (Remotion composition `FreeKickTeaser`, 1080×1920, 15 s; `npm run render:teaser` in `promo/` writes `promo/out/free-kick-teaser-vertical.mp4`, about 7.9 MB). Cinematic three-shot cut on a hand-projected 3D rebuild of the game's Free Kick stage: (1) crane down from the sky over the road traffic and basketball court to the field, ball small on the spot; (2) hard cut to a long-lens close-up of the ball with the goal blurred behind; (3) hard cut behind the kicker, using the game's red-kit Free Kick sprite sheet (copied to `promo/public/teaser/` with the ball sheets). He stares back, runs in on the game's run-up curve and strikes; the shot ramps into slow motion with the game's glowing trail and kicked-up grit, then freezes with the ball in the air while the camera drifts round it. Lines: EVERY STREET HAS A LEGEND. / TODAY IT COULD BE YOU. / thud over black / STEP UP. / COMING SOON. Includes cinema bars, film grain, depth-of-field and a cold freeze grade. Sounds are synthesised by `promo/scripts/teaser-audio.mjs`: ambience, cut hits, footsteps, kick, slow-mo drop, heartbeats and thud. Checked with stills and `tsc` only; the full video was not watched.
+
+**Free Kick teaser, stone cut (2026-11-12):** `promo/src/FreeKickStoneTeaser.tsx` (composition `FreeKickStoneTeaser`, 1080×1920, 15 s; `npm run render:teaser-stone` writes `promo/out/free-kick-teaser-stone-vertical.mp4`). One unbroken take with smooth camera moves, no cuts and no stroll (user request: shorter, focus on the stone). The crane comes down from the sky and, in the same move, glides low and zooms in (60°→28° lens) on a stone lying on the free-kick spot, the goal soft behind. After a hushed hold, the player (the game's full red-kit sheet: Free Kick strike poses on the game's 0.55 s run-up curve) bursts in from off frame with three quick steps and strikes it. The stone flies hard toward the top corner (0.55 s flight) with the game's glowing trail and a motion-blur smear (1.5-frame shutter, a short streak kept when frozen). Time drains into slow motion and freezes while the lens pulls out and up to reveal him in follow-through with the stone hanging in the air. Same lines and end card as the first cut. It reuses the first cut's world, lens, leaves and text (exported from `FreeKickTeaser.tsx`); `stone.wav` is in `promo/scripts/teaser-audio.mjs`. Checked with stills and `tsc` only.
+
 **Main merge (2026-11-12):** fast-forwarded tested changes through 3cde673 into main at the user’s request. Includes shared Free Kick Post My Score, fastest-goal tag removal, no Exit/full-width replay/two-column results actions, and teammate defensive support with 150-unit spacing. Existing types/lint, gameplay/Daily/API and mocked source-browser sharing/layout checks pass. No app build, deployment or live Reddit comments performed.
 
 **Teammate defensive support/spacing (2026-11-12):** raise shared AI.mateMinGap from 120 to 150 for non-ball-winning positioning roles. Fix passive home defence when the controlled human is merely nearby: hand over pressing only while the human is goal-side, upright/not staggered and actively approaching (over 30 units/s toward the carrier) or in tackle windup/active contact. Idle/retreating/sideways/beaten humans and tackle recovery no longer suppress an AI presser. Home markers, cover and backup sprint toward defensive assignments over 180 units away when the ball is in their half, preserving stamina/sprint-lock guards, assignments and press limits. Opponents keep existing defensive urgency; both teams receive the requested spacing increase. Classic/Daily use this shared TeamBrain (also applies in Custom); Free Kick has its own defence. Types/lint, 74 gameplay checks and Daily/form regressions pass. New scenarios cover human engagement/recovery, tracked runners, fatigue/sprint lock and opponent isolation; existing spacing/back-line/tackle checks pass. No app build or on-device playtest performed.
@@ -812,11 +836,28 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Apply the community's Playground template during user-authored post creation. A player-available template is needed for regular users sharing kicks.
+
+- Test preview assets and renderer start separately. The preview can download art for a casual scroll impression while deferring Phaser creation until the card stays visible.
+- Generate post fallback text from the published mode and objective. Supply it when creating the post through Devvit.
+
+- Share leaderboard dialog focus behavior across feed modes. Lock only the background controls while the dialog is open and attach keyboard handling to the dialog itself so normal feed keyboard input remains available.
+
+- Reload the current document on startup Retry because browsers can cache a rejected module import. Use the existing Devvit exit action for Back to post.
+
+- Raise the Free Kick top-end pace on high-power centre strikes. A boost across all contact points removed valid chipped routes over the wall in the power-band regression.
+
+- Allow overflow scrolling inside the desktop Playground settings body so the header and footer remain visible and the full Difficulty row stays reachable.
+
+- Keep the three-action Free Kick previews in two rows and use one row for the two-action shared Playground preview.
+
+- Classic and Daily use the score-first ranked layout with the same desktop column proportions as Free Kick. Keep the shared match data and actions, including Daily outcomes, challenge metadata and both leaderboards.
+
 - Merge and push the tested teammate-defence branch and its pending Free Kick result changes into main at the user’s request; publishing/deployment remain separate.
 
 - Treat a nearby human as the presser only when actively defending; position alone previously stopped teammates helping. Speed home teammates’ travel to distant defensive duties in their own half rather than raising tackle success or sending everyone at the ball. Apply the requested 150-unit spacing target to both sides, with existing chase/press exemptions.
 
-- Free Kick terminal results omit Exit at the user’s request; use a full-width replay followed by two-column actions at every orientation. Keep score posting on the shared results component for Challenge, Infinity and Playground rather than separate mode-specific controls.
+- Free Kick terminal results use two action rows at every orientation: Play Again and Post My Score, then Practice, Playground and Join Community when available. Challenge, Infinity and Playground share the same results and posting flow.
 
 - Keep Free Kick goal speed in its leaderboard rather than a duplicate yellow results tag. Restore explicit score-comment sharing from saved receipts using native consent/confirmation and generic errors. Pair replay/share actions to retain all result controls without an inner scrollbar.
 
@@ -836,7 +877,6 @@ public/ball.svg             pixel ball shown on the splash
 
 - Free Kick scenery uses projected landscaping and pole shadows for depth. Cloud drift follows the system reduced-motion preference.
 
-- Free Kick results pair Practice and Playground in portrait and place all actions in one row in landscape.
 
 - Results cards use balanced rows in portrait and one action row on wide landscape. A viewport fit step scales the compact card when leaderboards and status updates would make it taller than the view.
 
@@ -1280,11 +1320,23 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Ensure the community has a player-available Playground post flair, then verify a shared kick receives it in Reddit playtest.
+
+- Check startup recovery and leaderboard focus in the native Reddit webview. Inspect fallback text on a newly created playtest post in Old Reddit.
+
+- Check the extra pace above 90% on long Free Kicks during playtest.
+
+- Confirm the dock spacing in Reddit’s desktop preview. The built-game dock checks passed at 905×745 and 720×480.
+
+- Verify shared Playground button alignment and feed leaderboard pagination in Reddit playtest.
+
+- Verify the Classic and Daily result cards in Reddit’s desktop and mobile playtest. Local checks rendered both result scenes directly because the broader browser suites stopped during briefing and Custom setup.
+
 - Time the Free Kick feed preview on a phone after the next upload (card visible to canvas fade-in and first run-up), and check the baked ground looks the same as the painted one. If still slow, the remaining cost is the shared Phaser chunk (~180 KB gzipped). Optional: ship the ground as WebP once an encoder is available (smaller than the 120 KiB PNG).
 
 - Teammate defensive support and spacing are merged into main. Playtest defensive handoffs and stamina use in Classic/Daily on device; automated role/steering/spacing regressions pass.
 
-- Revised Free Kick results actions are merged into main. Verify native comment confirmation on a physical Reddit client after deployment; mocked sharing works across Challenge, Infinity and Playground.
+- Verify the revised Free Kick result layout and native comment confirmation in the Reddit playtest.
 
 - Free Kick results sharing/layout is merged into main. Confirm the native Reddit permission/form flow and comment placement on device after deployment; local checks mock external writes.
 
@@ -1731,6 +1783,26 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-16:** Prepare the completed UI, Free Kick and app-review changes on main for the user-requested commit and push.
+
+- **2026-11-16:** Automatically apply Playground flair to shared kicks. Mocked posting checks cover matching the template, ignoring moderator-only alternatives and preserving share quotas when setup is missing. Build, types and lint passed.
+
+- **2026-11-16:** Restore the production browser suite through Classic results and all four Free Kick entrypoints. Add readable fallback text for new match and shared Playground posts. Production Chromium, posting and server checks, build, types and lint passed.
+
+- **2026-11-16:** Share leaderboard keyboard handling across Classic, Daily and Free Kick. Production Chromium checks passed for opening, tab wrapping, pagination, category changes and dismissal. Build, types and lint passed.
+
+- **2026-11-16:** Add shared startup recovery for all expanded modes. Production Chromium checks passed for blocked game modules, the exit request, and retry across seven mode fixtures. Build, types and lint passed.
+
+- **2026-11-16:** Raise the longest full-power centre Free Kick to 135 km/h. Free Kick physics, panel and server checks passed.
+
+- **2026-11-16:** Stop the desktop Playground settings from overlapping the footer. Build and focused Chromium checks passed. The broader production browser suite stopped on an earlier preview-art assertion.
+
+- **2026-11-16:** Align shared Playground preview buttons on one row, spell out both ranked Free Kick play actions, and pin Next to the right on feed leaderboards. Types, lint and build passed. Chromium verified button layout and pagination at 320 px and 875 px across Classic, Daily, Chaos and all three Free Kick modes.
+
+- **2026-11-16:** Apply the approved Classic and Daily results layout. Build and focused Chromium checks passed for both modes at 320×480, 390×600, 844×390 and 1280×720.
+
+- **2026-11-16:** Apply the approved Free Kick results layout with a shared outcome and points header, a compact stat grid, and replay and sharing above the navigation buttons. Types, lint, build and mocked browser checks pass for Challenge, Infinity and Playground at three viewport sizes. Inspected the Playground screenshot.
 
 - 2026-11-12: Pre-launch review: Devvit client/HTML rules, user-run post/comment/subscribe consent paths, data deletion and cleanup checked; full `npm run test:local` passes on main 0a769e2. The user reports device playtesting of everything pending (Free Kick preview and baked ground included) is done; ready for the user-run `npm run launch`.
 

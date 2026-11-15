@@ -6,6 +6,7 @@ const state = {
   // A 2-goal Challenge with 4 lives: `valid` below (2 goals, 3 misses) completes it.
   context: {
     postId: 't3_fk',
+    subredditName: 'test',
     postData: {
       matchType: 'freekick',
       freeKick: { kicker: 'pink', wall: 'blue', lives: 4, goals: 2, distanceM: 25, wallGapM: 9, difficulty: 'normal' },
@@ -69,7 +70,7 @@ export const redis={
   for(const name of ['zAdd','hSet','expire','set','del','incrBy','zIncrBy'])tx[name]=async(...args)=>ops.push(()=>redis[name](...args));return tx;
  }
 };
-export const reddit={getCurrentUsername:async()=>s.name,getUserByUsername:async name=>{if(s.lookupError)throw Error("Reddit unavailable");return s.accounts?.has(name)?{name}:null;},getPostById:async()=>({subredditName:"test",getPostData:async()=>s.oldPost,mergePostData:async patch=>Object.assign(s.oldPost,patch)}),submitCustomPost:async input=>{s.newPost=input;return {id:"t3_fk",url:"https://www.reddit.com/r/test/comments/fk"};},getCommentById:async()=>({id:'t1_scores',postId:'t3_fk',stickied:true,removed:false,body:'Scores'}),submitComment:async input=>{s.comments.push(input);return {id:'t1_shared'};}};
+export const reddit={getPostFlairTemplates:async name=>{s.flairSubreddit=name;return s.postFlairs;},getCurrentUsername:async()=>s.name,getUserByUsername:async name=>{if(s.lookupError)throw Error("Reddit unavailable");return s.accounts?.has(name)?{name}:null;},getPostById:async()=>({subredditName:"test",getPostData:async()=>s.oldPost,mergePostData:async patch=>Object.assign(s.oldPost,patch)}),submitCustomPost:async input=>{s.newPost=input;return {id:"t3_fk",url:"https://www.reddit.com/r/test/comments/fk"};},getCommentById:async()=>({id:'t1_scores',postId:'t3_fk',stickied:true,removed:false,body:'Scores'}),submitComment:async input=>{s.comments.push(input);return {id:'t1_shared'};}};
 `;
       },
     },
@@ -447,8 +448,23 @@ assert.equal(state.boards.get(PLAYGROUND_OWNERS).has('active'), false);
 await assert.rejects(savePlayground('active', setup), /Please retry shortly/);
 
 state.values.set('scorethread:t3_fk', 't1_scores');
+state.postFlairs = [
+  { id: 'mod-only', text: 'Playground', modOnly: true },
+  { id: 'daily', text: 'Daily Challenge', modOnly: false },
+];
+await assert.rejects(sharePlayground('testSharer', setup), /Playground post flair/);
+assert.equal(state.newPost, undefined);
+assert.equal(state.values.has(playgroundCooldownKey('testSharer')), false);
+assert.equal(state.values.has(playgroundSharesKey('testSharer')), false);
+state.postFlairs.push({ id: 'playground-flair', text: 'PLAYGROUND', modOnly: false });
 await sharePlayground('testSharer', setup);
+assert.equal(state.flairSubreddit, 'test');
+assert.equal(state.newPost.flairId, 'playground-flair');
 assert.equal(state.newPost.postData.description, PLAYGROUND_DESCRIPTION);
+assert.match(
+  state.newPost.textFallback.text,
+  /Free Kick Playground.*Score this player-built free kick.*\*\*Play\*\*/s
+);
 assert.ok(!JSON.stringify(state.newPost.postData).includes('testSharer'));
 const legacy = 'A custom free kick built by u/oldPlayer in the Playground. One shot: score it to rank.';
 state.oldPost = {

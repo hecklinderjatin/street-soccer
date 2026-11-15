@@ -39,7 +39,7 @@ try {
         json: { score: board, speed: board, goals: board },
       });
     }
-    if (pathname === '/api/daily-leaders')
+    if (pathname === '/api/daily-leaders' || pathname === '/api/result')
       return route.fulfill({ json: { top: leaders, me: null } });
     if (pathname.startsWith('/api/')) return route.fulfill({ status: 204 });
     return route.fulfill({ path: resolve('dist/client', '.' + pathname) });
@@ -84,16 +84,24 @@ try {
   });
   for (const freeKick of [false, true]) {
     art.length = 0;
+    const previewKeeper = freeKick
+      ? '/art/player-awayKeeper-preview.webp'
+      : '/art/player-awayKeeper.webp';
+    const prefetch = page.waitForRequest((request) =>
+      request.url().endsWith(previewKeeper)
+    );
     await page.goto(
       `${origin}/splash.html?debug${freeKick ? '&freeKick' : ''}`
     );
     await page.locator('.mobile-play').waitFor();
     assert.equal(await page.locator('canvas').count(), 0);
-    await page.evaluate(() => window.setFeedVisibility(true));
-    await page.waitForTimeout(100);
-    await page.evaluate(() => window.setFeedVisibility(false));
-    await page.waitForTimeout(1050);
-    assert.deepEqual(art, []);
+    await page.evaluate(() => {
+      window.setFeedVisibility(true);
+      window.setFeedVisibility(false);
+    });
+    // A brief impression may download art. It must not create the renderer.
+    await Promise.all([prefetch, page.waitForTimeout(450)]);
+    assert.equal(await page.locator('canvas').count(), 0);
     await page.evaluate(() => window.setFeedVisibility(true));
     await page.locator('canvas').waitFor();
     await page.waitForFunction((freeKick) => {
@@ -102,7 +110,7 @@ try {
           ?.stage;
       return window.__game?.scene.getScene('Match')?.ready;
     }, freeKick);
-    assert.ok(art.includes('/art/player-awayKeeper.webp'));
+    assert.ok(art.includes(previewKeeper));
     assert.equal(art.includes('/art/player-homeKeeper.webp'), !freeKick);
     assert.equal(await page.locator('.mobile-play').count(), 1);
   }
@@ -161,6 +169,21 @@ try {
   );
   await page.keyboard.press('A');
   await matchMusic;
+  const savedMatch = page.waitForRequest((request) =>
+    request.url().endsWith('/api/result') && request.method() === 'POST'
+  );
+  await page.evaluate(() => {
+    const match = window.__game.scene.getScene('Match');
+    match.flow.score = { home: 2, away: 1 };
+    match.flow.finished = true;
+  });
+  assert.equal((await savedMatch).postDataJSON().goalsFor, 2);
+  await page.getByRole('button', { name: 'PLAY AGAIN' }).waitFor();
+  assert.equal(await page.locator('.results-hero h1').textContent(), 'YOU WIN!');
+  await page
+    .locator('.results-board')
+    .getByText('u/Player1', { exact: true })
+    .waitFor();
   art.length = 0;
   for (const entry of ['infinity', 'challenge', 'practice', 'playground']) {
     const beforeMusic = musicRequests;
@@ -232,6 +255,32 @@ try {
       );
     }
     if (entry === 'playground') {
+      const settings = page.locator('.pg-sheet .pg-body');
+      const footer = page.locator('.pg-sheet .pg-foot');
+      const keeperNext = page.getByRole('button', { name: 'KEEPER: next' });
+      for (const viewport of [
+        { width: 905, height: 745 },
+        { width: 720, height: 480 },
+      ]) {
+        await page.setViewportSize(viewport);
+        await page.locator('.pg-sheet.is-docked').waitFor();
+        const footerBefore = await footer.boundingBox();
+        await keeperNext.scrollIntoViewIfNeeded();
+        const keeper = await keeperNext.boundingBox();
+        const body = await settings.boundingBox();
+        assert.ok(
+          keeper.y >= body.y && keeper.y + keeper.height <= body.y + body.height
+        );
+        assert.deepEqual(await footer.boundingBox(), footerBefore);
+        if (viewport.height === 480) {
+          assert.ok(
+            await settings.evaluate((element) => element.scrollTop > 0)
+          );
+        }
+        await keeperNext.click({ trial: true });
+      }
+      await page.setViewportSize({ width: 390, height: 600 });
+      await page.locator('.pg-sheet:not(.is-docked)').waitFor();
       await page.keyboard.press('A');
       assert.equal(musicRequests, beforeMusic);
       assert.equal(
@@ -268,7 +317,7 @@ try {
   }
   assert.ok(!art.includes('/art/player-homeKeeper.webp'));
   console.log(
-    'Production feed defers preview art; all four Free Kick entrypoints start without the home keeper atlas.'
+    'Production preview prefetch, lazy rendering, Classic feed-to-results and all four Free Kick entrypoints passed.'
   );
 } finally {
   await browser.close();

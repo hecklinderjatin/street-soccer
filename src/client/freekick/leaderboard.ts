@@ -1,6 +1,7 @@
 import type { FreeKickBoard, FreeKickBoards } from '../../shared/freeKick';
 import { pixelLabel } from '../ui/pixelLabel';
 import { boardPageSize } from '../ui/boardPageSize';
+import { leaderboardDialog } from '../ui/leaderboardDialog';
 import { freeKickChallenge } from '../challenge';
 import { endlessFreeKick } from '../../shared/freeKickChallenge';
 
@@ -70,7 +71,6 @@ export function freeKickFeedBoard() {
   modal.className = 'mobile-board-modal';
   modal.hidden = true;
   modal.setAttribute('role', 'dialog');
-  modal.setAttribute('aria-modal', 'true');
   modal.setAttribute('aria-label', '7-day Free Kick leaderboard');
   modal.innerHTML =
     '<div class="mobile-board-sheet"><header><strong></strong><button type="button" class="mobile-board-close" aria-label="Close leaderboard">✕</button></header><ol class="mobile-board-rows"></ol><p class="mobile-board-status" role="status"></p><footer><button type="button" class="mobile-board-prev">‹ PREV</button><button type="button" class="mobile-board-next">NEXT ›</button></footer></div>';
@@ -88,6 +88,7 @@ export function freeKickFeedBoard() {
   const prev = get<HTMLButtonElement>(modal, '.mobile-board-prev');
   const next = get<HTMLButtonElement>(modal, '.mobile-board-next');
   const close = get<HTMLButtonElement>(modal, '.mobile-board-close');
+  const dialog = leaderboardDialog(modal, more, close);
   let kind: Kind = 'score';
   let offset = 0;
   let full: FreeKickBoards | null = null;
@@ -141,8 +142,10 @@ export function freeKickFeedBoard() {
     );
     category.select(kind);
     rows.replaceChildren();
-    prev.hidden = next.hidden = true;
-    if (!full) return;
+    if (!full) {
+      dialog.paginate(prev, next, false, false);
+      return;
+    }
     const board = full[kind] ?? { top: [], me: null }; // (an older server: no goals board)
     const size = boardPageSize();
     offset = Math.floor(offset / size) * size;
@@ -155,58 +158,27 @@ export function freeKickFeedBoard() {
       : board.me
         ? `Your best: #${board.me.rank}${tries(board.me.attempts)}`
         : 'You: no score in 7 days';
-    prev.hidden = offset === 0;
-    next.hidden = offset + size >= board.top.length;
+    dialog.paginate(prev, next, offset > 0, offset + size < board.top.length);
   }
 
   async function open() {
-    modal.hidden = false;
     offset = 0;
     full = null;
     drawSheet();
     status.textContent = 'Loading...';
-    close.focus();
+    dialog.show();
     const current = ++request;
     try {
       const data = await fetchBoards(25);
-      if (destroyed || current !== request) return;
+      if (destroyed || modal.hidden || current !== request) return;
       full = data;
       drawSheet();
     } catch {
-      if (!destroyed && current === request)
+      if (!destroyed && !modal.hidden && current === request)
         status.textContent = 'Scores unavailable. Please try again.';
     }
   }
-  function hide() {
-    modal.hidden = true;
-    more.focus();
-  }
-  // Escape closes the open sheet; Tab keeps focus inside it.
-  const onKey = (event: KeyboardEvent) => {
-    if (modal.hidden) return;
-    if (event.key === 'Escape') {
-      event.preventDefault();
-      hide();
-    } else if (event.key === 'Tab') {
-      const buttons = [
-        ...modal.querySelectorAll<HTMLButtonElement>('button'),
-      ].filter((button) => !button.hidden && !button.disabled);
-      const first = buttons[0];
-      const last = buttons[buttons.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last?.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first?.focus();
-      }
-    }
-  };
   more.addEventListener('click', () => void open());
-  close.addEventListener('click', hide);
-  modal.addEventListener('click', (event) => {
-    if (event.target === modal) hide();
-  });
   prev.addEventListener('click', () => {
     offset = Math.max(0, offset - boardPageSize());
     drawSheet();
@@ -215,7 +187,6 @@ export function freeKickFeedBoard() {
     offset += boardPageSize();
     drawSheet();
   });
-  document.addEventListener('keydown', onKey);
   const resize = () => {
     if (!modal.hidden) drawSheet();
   };
@@ -232,7 +203,6 @@ export function freeKickFeedBoard() {
     modal,
     destroy() {
       destroyed = true;
-      document.removeEventListener('keydown', onKey);
       window.removeEventListener('resize', resize);
       ranking.remove();
       modal.remove();

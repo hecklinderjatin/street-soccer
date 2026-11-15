@@ -5,6 +5,7 @@ import {
   navigateTo,
 } from '@devvit/web/client';
 import { startFreeKickDownloads } from './earlyAssets';
+import { showLaunchError } from './ui/launchError';
 import { freeKickChallenge } from './challenge';
 import { pixelLabel } from './ui/pixelLabel';
 import { JERSEY_SWATCH } from './ui/palette';
@@ -207,7 +208,7 @@ function checkbox(
 }
 
 // A closed tile in the sheet's menu; it opens its own window in place of
-// the menu (DONE closes it), so the sheet never scrolls.
+// the menu (DONE closes it) on mobile.
 function tile(
   id: string,
   name: string,
@@ -837,7 +838,6 @@ async function request(
 // ---- Start --------------------------------------------------------------------
 
 if (host) {
-  const loader = document.getElementById('boot-loading');
   link.onGoal = () => {
     if (scored) return;
     scored = true;
@@ -849,9 +849,5 @@ if (host) {
   };
   void import('./freekick/game')
     .then(({ createFreeKickGame }) => createFreeKickGame(true, 1, link))
-    .catch(() => {
-      if (loader)
-        loader.textContent =
-          'Couldn’t load the Playground. Please reopen the post.';
-    });
+    .catch(showLaunchError);
 }

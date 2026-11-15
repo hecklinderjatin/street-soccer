@@ -37,6 +37,8 @@ Moderators choose **Create Street Soccer match** in the subreddit menu, then sel
 
 The final creation form includes **Post flair (optional)**, populated from the community's existing post flair templates. Choose a flair or **No flair**; the selection is applied when the post is created. If there are no templates, add them in Reddit's Post flair settings. A failed flair lookup leaves posting without flair available.
 
+**Playground shares** automatically use the community's **Playground** post flair. In Reddit's Post flair settings, make that template available to regular players so they can share their kicks.
+
 Classic keeps its existing title, description, teams, colours, formations, difficulty, match length (0:30–5:00) and opponent starting goals (0–5). New Daily templates use fixed creator settings:
 
 - **Comeback:** start 0–1 through 0–5 behind and finish ahead. The opponent protects its lead, balances when level and attacks when behind.

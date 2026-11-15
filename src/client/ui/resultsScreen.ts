@@ -22,6 +22,7 @@ import { css, JERSEY_SWATCH, PAL } from './palette';
 // webview's visual viewport so the full card stays visible.
 export function resultsScreen(result: MatchResult, type: PostType) {
   const casual = result.config.mode === 'casual';
+  const scoreFirst = !casual && (type === 'classic' || type === 'daily');
   const dailyMode = casual ? undefined : result.config.dailyMode;
   const won = dailyMode
     ? challengeCleared(
@@ -53,6 +54,7 @@ export function resultsScreen(result: MatchResult, type: PostType) {
     { compactBelow: 700, minimalBelow: 640, fitToViewport: true }
   );
   screen.element.classList.add('results-screen');
+  if (scoreFirst) screen.element.classList.add('match-results-score-first');
   screen.panel.classList.add('results-panel');
   screen.panel.dataset.mode = casual ? 'casual' : 'ranked';
   screen.panel.style.setProperty(
@@ -83,7 +85,6 @@ export function resultsScreen(result: MatchResult, type: PostType) {
   const hero = document.createElement('div');
   hero.className = 'results-hero';
   hero.append(screen.heading, screen.description);
-  summary.append(hero);
 
   const scoreboard = document.createElement('div');
   scoreboard.className = 'results-scoreboard';
@@ -96,7 +97,7 @@ export function resultsScreen(result: MatchResult, type: PostType) {
     if (side === 'away') {
       const versus = document.createElement('span');
       versus.className = 'results-versus';
-      pixelLabel(versus, 'VS');
+      pixelLabel(versus, scoreFirst ? '-' : 'VS');
       scoreboard.append(versus);
     }
     const team = document.createElement('div');
@@ -120,7 +121,6 @@ export function resultsScreen(result: MatchResult, type: PostType) {
     team.append(name, formation, goals);
     scoreboard.append(team);
   }
-  summary.append(scoreboard);
   const metadata = document.createElement('div');
   metadata.className = 'results-meta';
   const difficulty = document.createElement('span');
@@ -153,7 +153,15 @@ export function resultsScreen(result: MatchResult, type: PostType) {
     pixelLabel(effect, chaosLabel(result.config));
     metadata.append(effect);
   }
-  summary.append(metadata);
+  if (scoreFirst) {
+    const scorecard = document.createElement('section');
+    scorecard.className = 'match-results-scorecard';
+    scorecard.setAttribute('aria-label', 'Final score');
+    scorecard.append(scoreboard, hero, metadata);
+    summary.append(scorecard);
+  } else {
+    summary.append(hero, scoreboard, metadata);
+  }
 
   const stats = document.createElement('div');
   stats.className = 'results-stats';
@@ -170,7 +178,16 @@ export function resultsScreen(result: MatchResult, type: PostType) {
     item.append(number, caption);
     stats.append(item);
   }
-  summary.append(stats);
+  if (scoreFirst) {
+    const statsSection = document.createElement('section');
+    const statsHeading = document.createElement('h2');
+    statsHeading.className = 'match-results-stats-heading';
+    statsHeading.textContent = 'MATCH STATS';
+    statsSection.append(statsHeading, stats);
+    summary.append(statsSection);
+  } else {
+    summary.append(stats);
+  }
   if (result.fastestGoalKmh) {
     const highlight = document.createElement('p');
     highlight.className = 'results-speed-highlight';

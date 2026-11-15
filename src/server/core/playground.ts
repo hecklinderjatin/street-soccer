@@ -1,4 +1,4 @@
-import { reddit, redis } from '@devvit/web/server';
+import { context, reddit, redis } from '@devvit/web/server';
 import type { PlaygroundSave } from '../../shared/api';
 import {
   parseCustomSetup,
@@ -7,6 +7,7 @@ import {
   type CustomSetup,
 } from '../../shared/freeKickCustom';
 import { FREE_KICK as FK } from '../../shared/tuning';
+import { playgroundPostFallback } from './postFallback';
 import { scoreThread } from './scoreThread';
 
 // A player's saved Playground kicks: one hash per player, a field per slot,
@@ -145,6 +146,16 @@ export async function sharePlayground(username: string, raw: unknown) {
       'You shared a kick recently. Try again in a few minutes.',
       429
     );
+  const subreddit = context.subredditName;
+  const flairs = subreddit ? await reddit.getPostFlairTemplates(subreddit) : [];
+  const flair = flairs.find(
+    (template) =>
+      !template.modOnly && template.text.trim().toLowerCase() === 'playground'
+  );
+  if (!flair)
+    throw new PlaygroundError(
+      'This community needs a Playground post flair that players can use. Ask a moderator to set it up.'
+    );
   // A daily cap per player: count first, give the share back if over.
   const shares = playgroundSharesKey(username);
   const count = await redis.incrBy(shares, 1);
@@ -168,6 +179,8 @@ export async function sharePlayground(username: string, raw: unknown) {
   try {
     const post = await reddit.submitCustomPost({
       title: setup.title,
+      flairId: flair.id,
+      textFallback: playgroundPostFallback(setup.kick.distanceM),
       runAs: 'USER',
       userGeneratedContent: {
         text: ['freekick', setup.title, JSON.stringify(freeKick)].join('\n\n'),

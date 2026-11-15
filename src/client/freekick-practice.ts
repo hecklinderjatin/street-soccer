@@ -7,6 +7,7 @@ import { practicePicks } from './freekick/practicePicks';
 import { pixelLabel } from './ui/pixelLabel';
 import { FREE_KICK as FK } from '../shared/tuning';
 import { startFreeKickDownloads } from './earlyAssets';
+import { showLaunchError } from './ui/launchError';
 
 // Practice setup: random spots from the post's settings at a chosen level,
 // or (a Challenge post) one of its actual rounds, exactly as it plays.
@@ -82,13 +83,9 @@ if (host) {
         setup.remove();
         createFreeKickGame(true, level, null, round);
       })
-      .catch(() => {
-        if (loader) loader.style.display = 'none';
-        host.append(setup);
-        button.disabled = false;
-        const status = setup.querySelector('[role="status"]');
-        if (status)
-          status.textContent = 'Could not load Practice. Please try again.';
+      .catch((error: unknown) => {
+        setup.remove();
+        showLaunchError(error);
       });
   });
   host.append(setup);

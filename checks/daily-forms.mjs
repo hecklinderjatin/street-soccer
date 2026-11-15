@@ -95,6 +95,10 @@ for (const mode of ['comeback', 'hold-lead', 'survival', 'chaos']) {
   assert.ok(created.navigateTo?.includes('t3_new'), JSON.stringify(created));
   const saved = globalThis.formPosts.at(-1);
   assert.equal(saved.postData.match.dailyMode, mode);
+  assert.match(
+    saved.textFallback.text,
+    /Daily Challenge.*\*\*Play Challenge\*\*/s
+  );
   if (mode === 'chaos') {
     assert.equal(saved.postData.match.chaosEffect, 'goals');
     assert.equal(saved.postData.match.chaosStrength, 150);
@@ -103,6 +107,7 @@ for (const mode of ['comeback', 'hold-lead', 'survival', 'chaos']) {
   assert.equal(saved.flairId, 'flair-match');
   assert.equal('flairId' in saved.postData, false);
   if (mode === 'survival') {
+    assert.match(saved.textFallback.text, /Score 7 to win\. Concede 4/);
     assert.equal(saved.postData.match.survivalGoals, 7);
     assert.equal(saved.postData.match.survivalConceded, 4);
     assert.equal(saved.postData.match.durationSec, 300);
@@ -143,7 +148,15 @@ for (const type of ['classic', 'casual', 'freekick']) {
     flairId: ['flair-mod'],
   });
   assert.ok(created.navigateTo);
-  assert.equal(globalThis.formPosts.at(-1).flairId, 'flair-mod');
+  const saved = globalThis.formPosts.at(-1);
+  assert.equal(saved.flairId, 'flair-mod');
+  const playLabel =
+    type === 'freekick'
+      ? 'Play Challenge'
+      : type === 'casual'
+        ? 'Play Custom'
+        : 'Play Classic';
+  assert.ok(saved.textFallback.text.includes(`**${playLabel}**`));
   if (type === 'freekick') {
     assert.equal(
       response.showForm.form.fields.some((f) =>
@@ -167,6 +180,10 @@ for(const name of ['fkGoals','fkDistance','fkWallDistance','fkDifficulty','durat
 assert.ok((await post('/challenge-submit',infinityForm.showForm.data)).navigateTo);
 assert.equal(globalThis.formPosts.at(-1).postData.freeKick.mode,'infinity');
 assert.equal(globalThis.formPosts.at(-1).postData.freeKick.goals,0);
+assert.match(
+  globalThis.formPosts.at(-1).textFallback.text,
+  /Free Kick Infinity.*score as many free kicks.*Play Infinity/s
+);
 assert.ok((await post('/freekick-mode',{fkMode:['invalid']})).showToast);
 const badInfinity=await post('/challenge-submit',{...infinityForm.showForm.data,fkLives:['0']});
 assert.ok(badInfinity.showToast);assert.ok(!badInfinity.showForm.form.fields.some(f=>f.name==='fkGoals'));

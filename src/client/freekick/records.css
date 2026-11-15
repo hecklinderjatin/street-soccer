@@ -2,9 +2,42 @@
    styles (style.css: .results-*, .casual-button, .leaderboard-tabs,
    .preview-ranking, .mobile-board-*). Only Free Kick's differences live here. */
 
-/* One score block where the match shows two teams. */
+.fk-results-screen .results-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, auto);
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-top: 3px solid #ffa300;
+  background: #15253b;
+  text-align: left;
+}
+.fk-results-outcome {
+  min-width: 0;
+}
 .fk-results-scoreboard {
-  grid-template-columns: minmax(0, 1fr);
+  display: grid;
+  justify-items: end;
+  min-width: 0;
+  padding-left: 8px;
+  border-left: 1px solid #304963;
+}
+.fk-results-scoreboard .results-team-name,
+.fk-results-stats-label {
+  color: #a8b9cd;
+  font-size: 9px;
+  letter-spacing: 1px;
+}
+.fk-results-stats-label {
+  margin: 0 0 4px;
+}
+.fk-results-screen .results-stats {
+  gap: 1px;
+  border: 1px solid #293e58;
+  background: #293e58;
+}
+.fk-results-screen .results-stats > div {
+  border: 0;
 }
 
 .fk-results-status {
@@ -100,21 +133,26 @@
   }
 }
 
-/* Full-width replay, then two columns for every other action.
-   Keep the entire card in the viewport rather than creating a nested scroller. */
+/* Replay and sharing sit above the navigation row. */
 .fk-results-screen .results-panel {
   min-width: 0;
   min-height: 0;
   overflow: visible;
 }
-.fk-results-screen .results-actions > :first-child {
-  grid-column: 1 / -1;
-}
 .fk-results-screen .results-panel .results-actions {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+.fk-results-screen .results-actions > .casual-button {
+  grid-column: span 2;
+}
+.fk-results-screen .results-panel .results-actions > :first-child,
+.fk-results-screen .results-actions > .results-post-score,
+.fk-results-screen .results-actions:not(:has(.community-join-button:not([hidden])))
+  > a {
+  grid-column: span 3;
 }
 .fk-results-screen .results-actions > .results-retry {
-  grid-column: auto;
+  grid-column: 1 / -1;
 }
 .fk-results-screen .results-content,
 .fk-results-screen .results-board,

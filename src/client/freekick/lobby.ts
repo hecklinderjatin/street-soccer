@@ -47,7 +47,7 @@ export function showFreeKickLobby() {
       <div class="preview-teams-row"><h1 class="freekick-tagline"></h1><div class="mobile-match-facts"><small>GOALS TO WIN</small><strong class="freekick-progression"></strong></div></div>
       <p class="freekick-description"></p>
       <div class="preview-actions">
-        <a class="freekick-challenge mobile-play" href="freekick-challenge.html">CHALLENGE</a>
+        <a class="freekick-challenge mobile-play" href="freekick-challenge.html">PLAY CHALLENGE</a>
         <a class="freekick-practice mobile-casual" href="freekick-practice.html">PRACTICE</a>
         <a class="freekick-playground mobile-casual" href="freekick-playground.html">PLAYGROUND</a>
       </div>
@@ -79,7 +79,7 @@ export function showFreeKickLobby() {
   for (const [selector, text, entry] of [
     [
       '.freekick-challenge',
-      custom ? 'PLAY' : infinity ? 'INFINITY' : 'CHALLENGE',
+      custom ? 'PLAY' : infinity ? 'PLAY INFINITY' : 'PLAY CHALLENGE',
       infinity ? 'freekick-infinity' : 'freekick-challenge',
     ],
     ['.freekick-practice', 'PRACTICE', 'freekick-practice'],

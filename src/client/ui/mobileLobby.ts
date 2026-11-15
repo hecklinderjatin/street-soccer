@@ -15,6 +15,7 @@ import { DIFFICULTY_LABEL, type MatchConfig } from '../../shared/types';
 import { css, JERSEY_SWATCH } from './palette';
 import { pixelLabel } from './pixelLabel';
 import { boardPageSize } from './boardPageSize';
+import { leaderboardDialog } from './leaderboardDialog';
 
 // Native-size text and touch targets over the real match canvas. The canvas
 // fills the portrait card; settings sit over a gradient at its lower edge.
@@ -127,12 +128,12 @@ export function createMobileLobby(
   pixelLabel(get('.mobile-casual'), 'PLAY CUSTOM');
   get('.mobile-casual').hidden = type === 'casual';
   get('.mobile-casual').addEventListener('click', onCasual);
-  pixelLabel(get('.mobile-more'), 'ALL >');
+  const more = get('.mobile-more');
+  const modal = get('.mobile-board-modal');
+  const dialog = leaderboardDialog(modal, more, get('.mobile-board-close'));
+  pixelLabel(more, 'ALL >');
   get('.mobile-play').addEventListener('click', onPlay);
-  get('.mobile-more').addEventListener('click', onMore);
-  get('.mobile-board-close').addEventListener('click', () => {
-    get('.mobile-board-modal').hidden = true;
-  });
+  more.addEventListener('click', onMore);
   const row = (
     leader:
       DailyLeadersResponse['top'][number] | SpeedLeadersResponse['top'][number]
@@ -196,15 +197,14 @@ export function createMobileLobby(
       get('.mobile-board-speed').onclick = () =>
         void this.showBoard(onReddit, 'speed');
       const requested = ++boardRequest;
-      const modal = get('.mobile-board-modal');
       const list = get('.mobile-board-rows');
       const status = get('.mobile-board-status');
       const prev = get('.mobile-board-prev');
       const next = get('.mobile-board-next');
       resizeBoard = undefined;
-      modal.hidden = false;
+      dialog.show();
       list.replaceChildren();
-      prev.hidden = next.hidden = true;
+      dialog.paginate(prev, next, false, false);
       status.textContent = onReddit
         ? 'Loading...'
         : 'Leaderboard available on Reddit';
@@ -216,7 +216,8 @@ export function createMobileLobby(
         if (!res.ok) throw new Error('Leaderboard unavailable');
         const data: DailyLeadersResponse | SpeedLeadersResponse =
           await res.json();
-        if (!element.isConnected || requested !== boardRequest) return;
+        if (modal.hidden || !element.isConnected || requested !== boardRequest)
+          return;
         let offset = 0;
         const draw = () => {
           const size = boardPageSize();
@@ -232,8 +233,12 @@ export function createMobileLobby(
             : data.me
               ? `Your best: #${data.me.rank}`
               : 'You: no score in 7 days';
-          prev.hidden = offset === 0;
-          next.hidden = offset + size >= data.top.length;
+          dialog.paginate(
+            prev,
+            next,
+            offset > 0,
+            offset + size < data.top.length
+          );
         };
         prev.onclick = () => {
           offset = Math.max(0, offset - boardPageSize());
@@ -248,7 +253,7 @@ export function createMobileLobby(
         };
         draw();
       } catch {
-        if (requested === boardRequest && element.isConnected)
+        if (!modal.hidden && requested === boardRequest && element.isConnected)
           status.textContent = 'Scores unavailable. Please try again.';
       }
     },
