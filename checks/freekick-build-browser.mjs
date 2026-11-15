@@ -260,23 +260,26 @@ try {
       const keeperNext = page.getByRole('button', { name: 'KEEPER: next' });
       for (const viewport of [
         { width: 905, height: 745 },
+        { width: 950, height: 640 },
         { width: 720, height: 480 },
       ]) {
         await page.setViewportSize(viewport);
         await page.locator('.pg-sheet.is-docked').waitFor();
         const footerBefore = await footer.boundingBox();
-        await keeperNext.scrollIntoViewIfNeeded();
         const keeper = await keeperNext.boundingBox();
         const body = await settings.boundingBox();
         assert.ok(
           keeper.y >= body.y && keeper.y + keeper.height <= body.y + body.height
         );
         assert.deepEqual(await footer.boundingBox(), footerBefore);
-        if (viewport.height === 480) {
-          assert.ok(
-            await settings.evaluate((element) => element.scrollTop > 0)
-          );
-        }
+        assert.ok(await settings.evaluate((element) =>
+          element.scrollHeight <= element.clientHeight + 1
+        ));
+        const controls = await settings.locator('button:visible, output:visible, .pg-check:visible')
+          .evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().toJSON()));
+        assert.ok(controls.every((control) =>
+          control.top >= body.y && control.bottom <= body.y + body.height
+        ));
         await keeperNext.click({ trial: true });
       }
       await page.setViewportSize({ width: 390, height: 600 });

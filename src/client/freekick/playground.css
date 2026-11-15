@@ -550,21 +550,19 @@
   .pg-sheet.is-docked .pg-body {
     flex: 1;
     min-height: 0;
-    overflow-y: auto;
-    overscroll-behavior-y: contain;
     display: grid;
     align-content: start;
-    gap: 10px;
-    padding: 12px;
+    gap: 8px;
+    padding: 8px 12px;
   }
   .pg-sheet.is-docked > :not(.pg-body) {
     flex-shrink: 0;
   }
   .pg-sheet.is-docked .pg-window-bar {
-    padding: 8px 12px;
+    padding: 5px 10px;
   }
   .pg-sheet.is-docked .pg-window-body {
-    padding: 8px 12px 10px;
+    padding: 6px 10px;
     gap: 4px;
   }
   .pg-sheet.is-docked .pg-arrow,
@@ -585,6 +583,47 @@
     margin: 0 12px;
     padding: 8px;
     text-align: center;
+  }
+}
+@media (min-width: 600px) and (min-height: 480px) and (max-height: 620px) and (min-aspect-ratio: 1/1) {
+  .pg-sheet.is-docked .pg-body {
+    gap: 4px;
+    padding: 4px 8px;
+  }
+  .pg-sheet.is-docked .pg-window-bar {
+    padding: 3px 8px;
+    font-size: 10px;
+  }
+  .pg-sheet.is-docked .pg-window-body {
+    padding: 4px 8px;
+    gap: 3px;
+  }
+  .pg-sheet.is-docked .pg-arrow,
+  .pg-sheet.is-docked .pg-value {
+    height: 28px;
+    min-height: 28px;
+  }
+  .pg-sheet.is-docked .pg-checks {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px;
+  }
+  .pg-sheet.is-docked .pg-check {
+    min-height: 34px;
+    gap: 5px;
+    font-size: 9px;
+  }
+  .pg-sheet.is-docked .pg-check-note {
+    font-size: 9px;
+  }
+  .pg-sheet.is-docked .pg-head {
+    padding: 4px 8px;
+  }
+  .pg-sheet.is-docked .pg-dock-tested {
+    padding: 4px;
+    font-size: 9px;
+  }
+  .pg-sheet.is-docked .pg-foot {
+    padding: 4px 8px 6px;
   }
 }
 .pg-dock-tested[hidden],

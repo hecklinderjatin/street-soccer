@@ -20,7 +20,7 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 **Free Kick shot speed (2026-11-16):** A full-power centre strike at the 37.5 m range limit displays 135 km/h. The extra pace ramps in above 90% power and fades away from centre contact. Ranked speed validation uses the new maximum horizontal launch pace.
 
-**Desktop Playground settings (2026-11-16):** The dock scrolls its settings when vertical space is tight. Difficulty stays within the settings area, with the score-to-share hint and Next in their own fixed space below it.
+**Desktop Playground settings (2026-11-16):** All setup groups fit together without internal scrolling. Short desktop views use compact rows and paired wall toggles, with Difficulty above the score-to-share hint and Next.
 
 **Free Kick preview and leaderboard controls (2026-11-16):** Shared Playground previews show Play and Playground side by side. Challenge and Infinity previews label their primary actions Play Challenge and Play Infinity. The shared feed leaderboard footer pins Next to the right even when Previous is hidden.
 
@@ -847,7 +847,7 @@ public/ball.svg             pixel ball shown on the splash
 
 - Raise the Free Kick top-end pace on high-power centre strikes. A boost across all contact points removed valid chipped routes over the wall in the power-band regression.
 
-- Allow overflow scrolling inside the desktop Playground settings body so the header and footer remain visible and the full Difficulty row stays reachable.
+- Fit desktop Playground controls through responsive spacing and compact rows, keeping every group and the footer visible without a settings scroller.
 
 - Keep the three-action Free Kick previews in two rows and use one row for the two-action shared Playground preview.
 
@@ -1326,7 +1326,7 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 - Check the extra pace above 90% on long Free Kicks during playtest.
 
-- Confirm the dock spacing in Reddit’s desktop preview. The built-game dock checks passed at 905×745 and 720×480.
+- Confirm the compact Playground dock in Reddit’s desktop preview. Built-game checks passed without scrolling at 905×745, 950×640 and 720×480.
 
 - Verify shared Playground button alignment and feed leaderboard pagination in Reddit playtest.
 
@@ -1783,6 +1783,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-16:** Remove the desktop Playground settings scroller and compact the settings at short heights. The full production browser suite passed, including checks that every setting fits at three desktop sizes. Inspected desktop screenshots.
 
 - **2026-11-16:** Prepare the completed UI, Free Kick and app-review changes on main for the user-requested commit and push.
 
