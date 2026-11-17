@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Dependency maintenance (2026-11-17):** Upgrade Devvit packages together to 0.15.4, Hono to 4.13.19, its Node adapter to 2.1.8, ESLint to 10.15.0, Playwright to 1.65.1, Prettier to 3.10.1 and typescript-eslint to 8.73.0. Full local checks and production Chromium smoke pass; npm audit reports zero vulnerabilities. The unit runner discovers zero tests; the separate gameplay/server regressions execute successfully.
+
 **Main update (2026-11-16):** The approved results layouts, feed controls, Playground dock fix, 135 km/h Free Kick tuning, startup recovery, leaderboard keyboard behavior, production smoke checks, post fallbacks and automatic Playground flair are collected on main for the requested commit and push.
 
 **Automatic Playground flair (2026-11-16):** Shared Playground kicks select the current community's player-available Playground flair template by name, ignoring case and surrounding spaces, and submit its ID with the new post. A missing or moderator-only template prompts the player to ask a moderator for setup before consuming a share or cooldown.
@@ -836,6 +838,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Apply the requested non-major dependency updates only; retain Phaser 3.90.0, TypeScript 6.0.3 and Node 24 types. Keep Devvit packages at the same version and retain security overrides and the glob compatibility patch.
+
 - Apply the community's Playground template during user-authored post creation. A player-available template is needed for regular users sharing kicks.
 
 - Test preview assets and renderer start separately. The preview can download art for a casual scroll impression while deferring Phaser creation until the card stays visible.
@@ -1320,6 +1324,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Playtest Devvit 0.15.4 in Reddit before release; local checks and production browser smoke passed. The pre-existing Custom browser suite colour expectation remains a separate follow-up.
+
 - Ensure the community has a player-available Playground post flair, then verify a shared kick receives it in Reddit playtest.
 
 - Check startup recovery and leaderboard focus in the native Reddit webview. Inspect fallback text on a newly created playtest post in Old Reddit.
@@ -1783,6 +1789,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-17:** Refresh non-major application and development dependencies at the user’s request; major upgrades excluded. Updated the lockfile and verified types, lint, dependency compatibility, 74 gameplay checks, 40 Free Kick checks, privacy/game-count/speed/Daily/Journeys regressions, build and production browser smoke (Classic feed-to-results and all four Free Kick entries). npm audit: zero vulnerabilities. No deployment or live Reddit writes.
 
 - **2026-11-16:** Remove the desktop Playground settings scroller and compact the settings at short heights. The full production browser suite passed, including checks that every setting fits at three desktop sizes. Inspected desktop screenshots.
 
