@@ -235,8 +235,8 @@ function detailsPage(
           'A kick built by a player in the Playground.',
           'Everyone faces the same spot, wall and keeper.',
           'Retry until you score: misses cost no life.',
-          'Timer includes aiming, misses, pauses and restarts.',
-          'First finish locks your time. Replay for fastest goal speed.',
+          'Timer includes aiming, misses and pauses.',
+          'Play Again starts a fresh timer. Your fastest run ranks.',
         ]
       : infinity && challenge
         ? [
@@ -328,7 +328,7 @@ function helpPage(
         ? 'Unlimited retries at this level and spot. NEW SPOT moves on; SETUP changes the level or kick.'
         : challenge
           ? challenge.mode === 'custom'
-            ? 'First goal locks your finish time. Misses, pauses and restarts count. Replays can improve goal speed.'
+            ? 'Misses and pauses count until you score. Play Again or Restart starts a fresh timed run.'
             : challenge.mode === 'infinity'
               ? `${challenge.lives} lives. Every miss costs one. Two goals per level: Easy to Pro, then keep scoring until lives run out.`
               : `${challenge.lives} ${challenge.lives === 1 ? 'life' : 'lives'}, ${challenge.goals} goals to win. A miss costs a life. Each goal advances the fixed sequence.`
@@ -343,7 +343,7 @@ function helpPage(
       practice
         ? 'XG shows how hard the spot is. XGOT how hard your shot was to save.'
         : challenge?.mode === 'custom'
-          ? 'Timer starts after the briefing. Lowest time wins; equal times share rank. Speed records stay open to replays.'
+          ? 'Each run starts after the briefing. Lowest time wins; equal times share rank. Replay to improve time or speed.'
           : challenge
             ? 'Low XG spots pay more. A high XGOT finish pays up to 3x. Your points are shown at the end.'
             : 'Low XG spots pay more. A high XGOT finish pays up to 3x. A great save costs no life.',

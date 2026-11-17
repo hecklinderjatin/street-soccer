@@ -69,8 +69,17 @@ for (const action of ['start', 'result', 'post-score'] as const)
         );
         if (!stats || stats.mode !== Reflect.get(body, 'mode'))
           return c.json({ error: 'Invalid completed Free Kick run' }, 400);
-        await saveFreeKick(context.postId!, username, run, stats, receivedAt);
-        return c.json(await freeKickLeaders(context.postId!, username));
+        const runFinishMs = await saveFreeKick(
+          context.postId!,
+          username,
+          run,
+          stats,
+          receivedAt
+        );
+        return c.json({
+          ...(await freeKickLeaders(context.postId!, username)),
+          ...(runFinishMs === undefined ? {} : { runFinishMs }),
+        });
       }
       const stats = await finishedFreeKick(context.postId!, username, run);
       if (!stats)
@@ -104,7 +113,7 @@ for (const action of ['start', 'result', 'post-score'] as const)
             : null;
         const detail =
           stats.mode === 'custom'
-            ? `**u/${username}:** Free Kick Playground — First finish ${finish ? finishTime(finish.value) : 'not ranked'} | ${stats.shots} shots this run | Fastest goal ${stats.fastestGoalKmh} km/h`
+            ? `**u/${username}:** Free Kick Playground — Best finish ${finish ? finishTime(finish.value) : 'not ranked'} | ${stats.shots} shots this run | Fastest goal ${stats.fastestGoalKmh} km/h`
             : `**u/${username}:** Free Kick — ${stats.score} points | ${stats.goals} goals / ${stats.shots} shots | Level ${stats.level} | Best streak ${stats.bestStreak} | Fastest goal ${stats.fastestGoalKmh} km/h`;
         const posted = await reddit.submitComment({
           id: comment ? context.postId! : await scoreThread(context.postId!),

@@ -162,7 +162,7 @@
   overflow: visible;
 }
 
-/* A retained first finish can span days; keep its full precision on phones. */
+/* A long run can span hours; keep its full precision on phones. */
 .fk-results-screen.is-playground .results-hero {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }

@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Playground replay timers (2026-11-17):** Supersedes the first-finish lock: every Play Again/Restart begins a new timed run after briefing; fastest completed run ranks. Pauses/misses count. Per-run server receipts preserve timing across completion retries; result cards show the current run separately from personal best. Full local checks and production Playground replay/failure tests pass; existing Classic/Free Kick production smoke also passes.
+
 **Four team kits and Join label (2026-11-17):** Add Lime, Gold, Navy and Coral to team selectors and baked gameplay/feed atlases. Navy has light shorts/socks; outfield Gold uses its own ramp without changing the goalkeeper. The shared cyan results action is now JOIN in every mode. All 37 player atlases baked and 39 release images optimized; existing kit files unchanged. Full local, community API/browser, new-kit production browser, Playground finish browser and production smoke checks pass. Rendered Lime/Gold and Navy/Coral matches inspected.
 
 **Cyan Join button (2026-11-17):** Highlight the shared results Join Community action in cyan with navy pixel text and a darker blue raised border. Applies to Classic, Daily, Custom and ranked Free Kick results, preserving size, position and behavior. Build and community API/browser checks pass; built CSS colours verified across shared result variants and portrait screenshot inspected.
@@ -846,6 +848,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Follow dev-test feedback: reset Playground timers for new runs and keep the minimum completed time. Preserve per-run immutable server finish timestamps; legacy completed receipts without timestamps never acquire fabricated finish times.
+
 - Append colours to the existing kit order to preserve saved identities; bake both full and feed-preview atlases. Keep keeper ramps unchanged and use contrasting Navy shorts/socks. Shorten the shared results/popup label to JOIN while retaining descriptive accessibility labels.
 
 - Use the shared Join component’s results-only CSS for cyan emphasis across modes, keeping existing replay/Playground colours and layout.
@@ -1340,6 +1344,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Recheck Playground Play Again/Restart on Reddit after the per-run timer change; full local and Playground browser validation passed.
+
 - Inspect the four new kits and cyan JOIN on Reddit devices before release; local validation, saved selection, gameplay/preview asset loading and rendered matches passed.
 
 - Check the cyan Join action in Reddit’s native result screens after release; local browser/build validation passed.
@@ -1813,6 +1819,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-17:** Reset shared Playground timers for each new play, rank best completed time, and distinguish current result from personal best. Full local checks and production Playground browser tests pass, covering zeroed new timers, improved bests, slower results, immutable save retries, server timing, ties, concurrency and erasure. Native Reddit verification pending.
 
 - **2026-11-17:** Add Lime (#B6F542), Gold (#D9A441), Navy (#243B73) and Coral (#FF7F73) kits, swatches and full/feed atlases; rename the shared results action to JOIN. Art release, full local checks, community/kit/Playground production browsers and Classic/Free Kick smoke pass. Full/preview assets load for every new colour; Lime/Gold and Navy/Coral rendered matches inspected. No deployment.
 

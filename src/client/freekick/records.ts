@@ -70,7 +70,7 @@ export class FreeKickRecords {
         mode: freeKickRankedMode(freeKickChallenge()),
         result: this.finishSnapshot ?? result,
       });
-      const elapsedMs = boards.finish?.me?.value;
+      const elapsedMs = boards.runFinishMs ?? boards.finish?.me?.value;
       if (elapsedMs !== undefined) {
         this.stoppedMs = elapsedMs;
         this.timing = { elapsedMs, locked: true, at: performance.now() };

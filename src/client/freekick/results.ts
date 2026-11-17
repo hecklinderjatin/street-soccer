@@ -87,7 +87,7 @@ export function freeKickResults(
   scoreboard.className = 'fk-results-scoreboard';
   const label = document.createElement('span');
   label.className = 'results-team-name';
-  label.textContent = custom ? 'FIRST FINISH' : 'POINTS';
+  label.textContent = custom ? 'FINISH TIME' : 'POINTS';
   const points = document.createElement('strong');
   points.className = 'results-goals';
   pixelLabel(points, custom ? '—' : stats.score.toLocaleString());
@@ -232,9 +232,9 @@ export function freeKickResults(
     status.textContent = 'Saving run...';
     try {
       const boards = await records.save(stats);
-      const finish = boards?.finish?.me;
-      if (custom && finish && !closed)
-        pixelLabel(points, finishTime(finish.value));
+      const elapsed = boards?.runFinishMs ?? boards?.finish?.me?.value;
+      if (custom && elapsed !== undefined && !closed)
+        pixelLabel(points, finishTime(elapsed));
       if (closed) return;
       saved = true;
       if (!sharing && !posted) post.disabled = false;
@@ -242,7 +242,7 @@ export function freeKickResults(
         challenge.config.mode !== 'infinity' && !challenge.won
           ? 'Run saved. Only completed challenges rank on the leaderboard.'
           : custom
-            ? 'First finish locked. Replay to improve your goal speed.'
+            ? 'Run saved. Replay to improve your finish time or goal speed.'
             : 'Run saved. Leaderboards updated.';
       retry.hidden = true;
     } catch {

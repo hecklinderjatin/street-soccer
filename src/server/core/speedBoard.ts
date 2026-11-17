@@ -25,7 +25,8 @@ export async function saveSpeed(
   kmh: number,
   expires: number,
   guards: readonly string[],
-  now = Date.now()
+  now = Date.now(),
+  lowerIsBetter = false
 ) {
   for (let attempt = 0; attempt < 3; attempt++) {
     const tx = await store.watch(key, ...guards);
@@ -40,7 +41,8 @@ export async function saveSpeed(
       if (
         blocked ||
         expires <= now ||
-        (previous !== undefined && previous >= kmh)
+        (previous !== undefined &&
+          (lowerIsBetter ? previous >= 0 && previous <= kmh : previous >= kmh))
       ) {
         await tx.discard();
         return;

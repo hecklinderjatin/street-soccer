@@ -1677,7 +1677,7 @@ export class FreeKickScene extends Phaser.Scene {
           ? `INFINITY - ${this.goals} GOALS`
           : this.challenge.mode === 'custom'
             ? this.records.finishLocked
-              ? 'SPEED REPLAY - FINISH LOCKED'
+              ? 'RUN COMPLETE'
               : 'PLAYGROUND - FASTEST FINISH'
             : `GOALS ${this.goals}/${this.challenge.goals}`
         : this.streak >= 2

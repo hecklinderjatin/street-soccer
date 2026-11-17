@@ -1,4 +1,4 @@
-import { playgroundFinish } from './playgroundFinish';
+import { savePlaygroundFinish } from './playgroundFinish';
 import { postFreeKickChallenge } from '../../shared/freeKickChallenge';
 import { context, redis } from '@devvit/web/server';
 import { FREE_KICK as FK } from '../../shared/tuning';
@@ -26,6 +26,7 @@ type Receipt = {
   started: number;
   result: FreeKickStats | null;
   completedDay: string | null;
+  finishedAt: number | null;
 };
 function receipts(raw: string | undefined): Receipt[] {
   if (!raw) return [];
@@ -46,6 +47,10 @@ function receipts(raw: string | undefined): Receipt[] {
             postFreeKickChallenge(context.postData)
           ),
           completedDay: freeKickDay(Reflect.get(body, 'completedDay')),
+          finishedAt:
+            typeof Reflect.get(body, 'finishedAt') === 'number'
+              ? Reflect.get(body, 'finishedAt')
+              : null,
         },
       ];
     });
@@ -60,7 +65,8 @@ export async function freeKickReceipt(
   post: string,
   username: string,
   run: FreeKickRun,
-  result?: FreeKickStats
+  result?: FreeKickStats,
+  receivedAt = Date.now()
 ) {
   const board = freeKickKey(post, run.day, 'runs'),
     hash = `${board}:stats`;
@@ -101,17 +107,25 @@ export async function freeKickReceipt(
         Date.now() - previous.started + 1000 < minimum * 1000
       )
         throw new Error('Run finished too quickly');
+      if (result && previous && receivedAt < previous.started)
+        throw new Error('Invalid run clock');
       const next: Receipt =
         previous?.id === run.id
           ? {
               ...previous,
               result: result ?? previous.result,
+              finishedAt: previous.result
+                ? previous.finishedAt
+                : result
+                  ? receivedAt
+                  : null,
               completedDay: previous.completedDay ?? (result ? today() : null),
             }
           : {
               id: run.id,
               started: Date.now(),
               result: null,
+              finishedAt: null,
               completedDay: null,
             };
       await tx.multi();
@@ -155,9 +169,18 @@ export async function beginFreeKick(
   id: string
 ) {
   const run = { id, day: today() };
-  await freeKickReceipt(post, username, run);
+  const receipt = await freeKickReceipt(post, username, run);
   return postFreeKickChallenge(context.postData).mode === 'custom'
-    ? { ...run, finish: await playgroundFinish(post, username) }
+    ? {
+        ...run,
+        finish: {
+          elapsedMs: Math.max(
+            0,
+            (receipt.finishedAt ?? Date.now()) - receipt.started
+          ),
+          locked: receipt.result !== null,
+        },
+      }
     : run;
 }
 export async function finishedFreeKick(
@@ -177,15 +200,19 @@ export async function saveFreeKick(
   stats: FreeKickStats,
   receivedAt = Date.now()
 ) {
-  const receipt = await freeKickReceipt(post, username, run, stats);
+  const receipt = await freeKickReceipt(post, username, run, stats, receivedAt);
   // Only Challenges that reached their goal target rank (user request,
   // 2026-11-11); a failed run is recorded (games played) but not ranked.
   const config = postFreeKickChallenge(context.postData);
   if (stats.mode === 'challenge' && stats.goals < config.goals) return;
-  if (stats.mode === 'custom')
-    await playgroundFinish(post, username, true, receivedAt);
   const day = receipt.completedDay ?? run.day,
     guards = [`privacy:deleting:${username}`, gamesDeletedKey(post)];
+  const runFinishMs =
+    stats.mode === 'custom' && receipt.finishedAt !== null
+      ? receipt.finishedAt - receipt.started
+      : undefined;
+  if (runFinishMs !== undefined)
+    await savePlaygroundFinish(post, username, day, runFinishMs);
   for (const [kind, value] of [
     ['score', stats.score],
     ['speed', stats.fastestGoalKmh],
@@ -197,6 +224,7 @@ export async function saveFreeKick(
     await registerBoard(key, day);
     await saveSpeed(redis, key, username, value, boardExpiry(day), guards);
   }
+  return runFinishMs;
 }
 export async function freeKickLeaders(
   post: string,

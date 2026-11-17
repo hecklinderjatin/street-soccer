@@ -33,9 +33,9 @@ Choose **Free Kick → Infinity** for an endless post. Creators set only the kic
 
 ## Shared Playground leaderboards
 
-Shared Playground posts rank **Fastest Finish** (lowest milliseconds, displayed as seconds to three decimal places) and **Fastest Goals** (highest km/h). After the briefing, the server starts one timer per player and post. Aiming, misses, pauses, restarts, closing the game and refreshing all count until the first submitted goal locks the finish. A replay cannot improve this locked time, but can improve the speed record. Equal finish milliseconds share rank. Logged-out play and the Playground builder remain unranked. Old point records do not become times.
+Shared Playground posts rank **Fastest Finish** (lowest milliseconds, displayed as seconds to three decimal places) and **Fastest Goals** (highest km/h). Each run starts its own server timer after the briefing. Aiming, misses and pauses count until a goal. **Play Again** and **Restart** start a fresh timed run; completed runs can improve either personal best. Equal finish milliseconds share rank. Logged-out play and the Playground builder remain unranked. Old point records do not become times.
 
-Clocks and locked finishes expire with their start day's seven-UTC-day window, matching the app's retained player-data policy; after expiry a new timed entry can begin. The authoritative finish uses server receipt time, so network delay can affect close results. Goal reports use the existing validated run receipts; this is not a server-simulated or cheat-proof game.
+Results cover seven UTC dates by completion day and follow the app's player/post erasure policy. Server receipt time is authoritative, so network delay can affect close results. Retrying the same completion preserves its original time. Goal reports use validated run receipts; goals are not simulated server-side.
 
 ## For moderators
 

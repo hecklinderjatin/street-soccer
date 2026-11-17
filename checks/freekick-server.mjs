@@ -465,9 +465,9 @@ assert.equal(
 );
 assert.equal(state.comments.at(-1).runAs, 'USER');
 assert.equal(state.comments.at(-1).id, 't1_scores');
-assert.match(state.comments.at(-1).text, /First finish \d+\.\d{3} s/);
+assert.match(state.comments.at(-1).text, /Best finish \d+\.\d{3} s/);
 
-// Timed Playground: persistent first start, immutable first finish, replay speed.
+// Every new run gets a fresh server timer; the leaderboard keeps the best.
 const RealDate = Date;
 let clockNow = new RealDate().setUTCHours(23, 59, 55, 0);
 globalThis.Date = class extends RealDate {
@@ -480,112 +480,103 @@ globalThis.Date = class extends RealDate {
 };
 try {
   state.name = 'timed';
-  const first = await call('/start', {
-    mode: 'custom',
-    id: 'timed-first-identifier-1234',
-  });
+  const startTimed = (id) =>
+    call('/start', { mode: 'custom', id: `timed-run-identifier-${id}` });
+  const complete = (r, extra = {}) =>
+    call('/result', {
+      ...r.body,
+      mode: 'custom',
+      result: { ...customShareStats, ...extra },
+    });
+  const first = await startTimed('first');
   assert.deepEqual(first.body.finish, { elapsedMs: 0, locked: false });
   clockNow += 4000;
-  const restart = await call('/start', {
-    mode: 'custom',
-    id: 'timed-restart-identifier-1234',
-  });
-  assert.equal(restart.body.finish.elapsedMs, 4000);
-  clockNow += 8347; // crosses UTC midnight; refresh/restart retains prior clock
-  const refresh = await call('/start', {
-    mode: 'custom',
-    id: 'timed-refresh-identifier-1234',
-  });
-  assert.equal(refresh.body.finish.elapsedMs, 12347);
-  age(restart.body);
-  const finished = await call('/result', {
-    ...restart.body,
-    mode: 'custom',
-    result: customShareStats,
-  });
+  const repeatedStart = await startTimed('first');
+  assert.equal(
+    repeatedStart.body.finish.elapsedMs,
+    4000,
+    'same run keeps aiming/pause time'
+  );
+  const restarted = await startTimed('restart');
+  assert.deepEqual(
+    restarted.body.finish,
+    { elapsedMs: 0, locked: false },
+    'restart resets the timer'
+  );
+  clockNow += 8347;
+  const finished = await complete(restarted);
   assert.equal(finished.status, 200);
-  assert.equal(finished.body.finish.me.value, 12347);
+  assert.equal(finished.body.runFinishMs, 8347);
+  assert.equal(finished.body.finish.me.value, 8347);
   clockNow += 20000;
-  const replay = await call('/start', {
-    mode: 'custom',
-    id: 'timed-replay-identifier-1234',
-  });
-  assert.deepEqual(replay.body.finish, { elapsedMs: 12347, locked: true });
-  age(replay.body);
-  const speedReplay = await call('/result', {
-    ...replay.body,
-    mode: 'custom',
-    result: { ...customShareStats, fastestGoalKmh: 110 },
-  });
-  assert.equal(speedReplay.status, 200);
-  assert.equal(speedReplay.body.finish.me.value, 12347);
-  assert.equal(speedReplay.body.speed.me.value, 110);
-  assert.equal(
-    speedReplay.body.score.me,
-    null,
-    'old points do not populate the time board'
+  const replay = await startTimed('replay');
+  assert.deepEqual(
+    replay.body.finish,
+    { elapsedMs: 0, locked: false },
+    'Play Again starts fresh'
   );
-  // A client-provided time is ignored. Only server timestamps rank.
-  state.name = 'tie';
-  const tie = await call('/start', {
-    mode: 'custom',
-    id: 'timed-tie-identifier-1234',
-  });
-  clockNow += 12347;
-  age(tie.body);
-  const tied = await call('/result', {
-    ...tie.body,
-    mode: 'custom',
-    result: { ...customShareStats, finishMs: 1 },
-  });
-  assert.equal(tied.body.finish.me.value, 12347);
-  const timeRows = tied.body.finish.top.filter((row) =>
-    ['tie', 'timed'].includes(row.username)
-  );
-  assert.equal(timeRows.length, 2);
-  assert.equal(timeRows[0].rank, timeRows[1].rank, 'equal ms share rank');
-  state.name = 'racer';
-  const concurrent = await Promise.all(
-    [1, 2].map((n) =>
-      call('/start', { mode: 'custom', id: `timed-concurrent-identifier-${n}` })
-    )
-  );
-  assert.ok(concurrent.every((r) => r.status === 200));
-  assert.deepEqual(concurrent[0].body.finish, concurrent[1].body.finish);
   clockNow += 5000;
-  for (const r of concurrent) age(r.body);
-  const saves = await Promise.all(
-    concurrent.map((r) =>
-      call('/result', { ...r.body, mode: 'custom', result: customShareStats })
-    )
-  );
-  assert.ok(saves.every((r) => r.status === 200));
-  assert.ok(saves.every((r) => r.body.finish.me.value === 5000));
-  state.name = 'pending';
-  await call('/start', { mode: 'custom', id: 'timed-pending-identifier-1234' });
+  const faster = await complete(replay, { fastestGoalKmh: 110 });
+  assert.equal(faster.body.runFinishMs, 5000);
+  assert.equal(faster.body.finish.me.value, 5000);
+  assert.equal(faster.body.speed.me.value, 110);
+  const slower = await startTimed('slower');
+  clockNow += 9000;
+  const slow = await complete(slower);
   assert.equal(
-    (await call('/leaders')).body.finish.me,
-    null,
-    'unscored clocks never rank'
+    slow.body.runFinishMs,
+    9000,
+    'show current time separately from best'
   );
+  assert.equal(
+    slow.body.finish.me.value,
+    5000,
+    'slower replay never replaces best'
+  );
+  clockNow += 10000;
+  const retry = await complete(slower);
+  assert.equal(
+    retry.body.runFinishMs,
+    9000,
+    'completion retry preserves timestamp'
+  );
+  assert.equal(retry.body.finish.me.value, 5000);
+  state.name = 'tie';
+  const tie = await startTimed('tie');
+  clockNow += 5000;
+  const tied = await complete(tie, { finishMs: 1 });
+  assert.equal(tied.body.runFinishMs, 5000, 'ignore client-supplied times');
+  const rows = tied.body.finish.top.filter((r) =>
+    ['tie', 'timed'].includes(r.username)
+  );
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0].rank, rows[1].rank);
+  state.name = 'racer';
+  const concurrent = await Promise.all([
+    startTimed('concurrent-a'),
+    startTimed('concurrent-b'),
+  ]);
+  clockNow += 5000;
+  const one = complete(concurrent[0]);
+  clockNow += 1000;
+  const two = complete(concurrent[1]);
+  const saves = await Promise.all([one, two]);
+  assert.ok(saves.every((r) => r.status === 200));
+  assert.equal(
+    (await call('/leaders')).body.finish.me.value,
+    5000,
+    'concurrent slower write cannot replace faster record'
+  );
+  state.name = 'pending';
+  await startTimed('pending');
+  assert.equal((await call('/leaders')).body.finish.me, null);
   await removePlayerResults(
     eraser,
     [...(state.boards.get('privacy:boards') ?? new Map()).keys()],
     'timed'
   );
-  assert.ok(
-    ![...state.hashes.entries()].some(
-      ([key, users]) => key.startsWith('fk-finish:') && users.has('timed')
-    )
-  );
-  // Once the retained clock ages out of the seven-day window, a fresh entry is allowed.
-  clockNow += 8 * 86400000;
-  state.name = 'tie';
-  const expired = await call('/start', {
-    mode: 'custom',
-    id: 'timed-expired-identifier-1234',
-  });
-  assert.deepEqual(expired.body.finish, { elapsedMs: 0, locked: false });
+  state.name = 'timed';
+  assert.equal((await call('/leaders')).body.finish.me, null);
 } finally {
   // Remove synthetic future buckets: the in-memory Redis does not run TTLs.
   const realDay = new RealDate().toISOString().slice(0, 10);
@@ -599,7 +590,7 @@ try {
   state.name = 'alice';
 }
 console.log(
-  'Playground time passed: server ms, restart/refresh/midnight, immutable first goal, replay speed, ties, concurrency, expiry and erasure.'
+  'Playground time passed: fresh replay/restart, same-run timing, faster/slower results, immutable retry, server ms, ties, concurrency and erasure.'
 );
 
 await removePlayerResults(

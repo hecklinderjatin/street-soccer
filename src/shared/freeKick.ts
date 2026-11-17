@@ -34,6 +34,7 @@ export type FreeKickBoard = {
   me: FreeKickLeader | null;
 };
 export type FreeKickBoards = {
+  runFinishMs?: number; // current completed Playground run; board retains personal best
   day: string;
   finish?: FreeKickBoard; // shared Playground only: milliseconds, lowest first
   score: FreeKickBoard;

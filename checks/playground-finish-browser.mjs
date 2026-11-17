@@ -47,6 +47,7 @@ try {
   const empty = { top: [], me: null };
   const me = { rank: 1, username: 'Player', value: 12347 };
   const boards = {
+    runFinishMs: 12347,
     day: '2026-11-17',
     score: { top: [{ ...me, value: 500 }], me: null },
     finish: { top: [me], me },
@@ -54,8 +55,7 @@ try {
     goals: empty,
   };
   let starts = 0,
-    results = 0,
-    locked = false;
+    results = 0;
   let failNextResult = false;
   const payloads = [];
   await page.route('http://localhost/**', async (route) => {
@@ -67,7 +67,7 @@ try {
         json: {
           ...body,
           day: '2026-11-17',
-          finish: { elapsedMs: locked ? 12347 : (starts - 1) * 1000, locked },
+          finish: { elapsedMs: 0, locked: false },
         },
       });
     }
@@ -81,7 +81,7 @@ try {
           json: { error: 'Temporary failure' },
         });
       }
-      locked = true;
+      boards.runFinishMs = results === 1 ? 12347 : 20000;
       return route.fulfill({ json: boards });
     }
     if (pathname === '/api/freekick/leaders')
@@ -120,7 +120,7 @@ try {
     await page.evaluate(() => window.__game.scene.getScene('FreeKick').shots),
     0
   );
-  // Miss, pause and restart: each new run reuses the server clock.
+  // Miss, pause and restart: each new run has a fresh server clock.
   await page.evaluate(() => {
     const s = window.__game.scene.getScene('FreeKick');
     s.shoot({ power: 0.8, targetY: 0, contact: { x: 0, y: 0 } });
@@ -132,14 +132,14 @@ try {
   });
   await play();
   await page.waitForFunction(
-    () => window.__game.scene.getScene('FreeKick').records.elapsedMs() >= 1000
+    () => window.__game.scene.getScene('FreeKick').records.elapsedMs() !== null
   );
   assert.equal(results, 0, 'misses never finish the timer');
   await page.reload();
   await ready();
   await play();
   await page.waitForFunction(
-    () => window.__game.scene.getScene('FreeKick').records.elapsedMs() >= 2000
+    () => window.__game.scene.getScene('FreeKick').records.elapsedMs() !== null
   );
   assert.equal(starts, 3);
   await page.evaluate(() => {
@@ -158,13 +158,13 @@ try {
     window.__game.scene.getScene('FreeKick').gameOver()
   );
   await page
-    .getByText('First finish locked. Replay to improve your goal speed.', {
+    .getByText('Run saved. Replay to improve your finish time or goal speed.', {
       exact: true,
     })
     .waitFor();
   assert.equal(
     await page.locator('.fk-results-scoreboard').innerText(),
-    '12.347 s\nFIRST FINISH'
+    '12.347 s\nFINISH TIME'
   );
   assert.equal(results, 1, 'result card reuses the goal snapshot');
   assert.equal(payloads[0].result.mode, 'custom');
@@ -207,13 +207,13 @@ try {
   await page.getByRole('button', { name: 'PLAY AGAIN', exact: true }).click();
   await play();
   await page.waitForFunction(
-    () => window.__game.scene.getScene('FreeKick').records.finishLocked
+    () => window.__game.scene.getScene('FreeKick').records.elapsedMs() !== null
   );
-  assert.equal(
-    await page.evaluate(() =>
-      window.__game.scene.getScene('FreeKick').records.elapsedMs()
-    ),
-    12347
+  assert.ok(
+    await page.evaluate(() => {
+      const r = window.__game.scene.getScene('FreeKick').records;
+      return !r.finishLocked && r.elapsedMs() < 1000;
+    })
   );
   // A failed immediate report retries the identical frozen goal snapshot.
   failNextResult = true;
@@ -235,7 +235,7 @@ try {
     window.__game.scene.getScene('FreeKick').gameOver()
   );
   await page
-    .getByText('First finish locked. Replay to improve your goal speed.', {
+    .getByText('Run saved. Replay to improve your finish time or goal speed.', {
       exact: true,
     })
     .waitFor();
@@ -243,7 +243,7 @@ try {
   assert.deepEqual(payloads[1].result, payloads[2].result);
   assert.equal(
     await page.locator('.fk-results-scoreboard').innerText(),
-    '12.347 s\nFIRST FINISH'
+    '20.000 s\nFINISH TIME'
   );
   await page.goto('http://localhost/splash.html');
   await page
@@ -256,7 +256,7 @@ try {
     .waitFor();
   assert.deepEqual(errors, []);
   console.log(
-    'Playground production browser passed: briefing/start, miss/restart/refresh, immediate goal snapshot, time/speed tabs, results/feed, locked replay, report retries and responsive cards.'
+    'Playground production browser passed: briefing/start, miss/restart/refresh, immediate goal snapshot, time/speed tabs, results/feed, fresh replay, current/best time, report retries and responsive cards.'
   );
 } finally {
   await browser.close();
