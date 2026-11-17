@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Infinity upload entry fix (2026-11-18):** Reproduced the endless loading bar on the real Infinity post `1xtr5jv` in playtest 0.0.39. Its HTML loaded, but `/freekick-infinity.js` returned 404; `/freekick-challenge.js` returned 200. Separate identical bootstraps produced equal script contents, and Devvit's webview uploader drops the duplicate filename from its asset map. Infinity now references the same source bootstrap as Challenge; the redundant source was removed. Added an upload-deduplication guard to both npm and Devvit release builds, plus a production test using the affected post's settings through Start Game, a real swipe/shot, pause and restart. Types/lint/build, upload guard, real-swipe test, startup/failure/Retry across all four Free Kick entries and seven module-recovery scenarios pass. No upload performed: the Windows CLI requires login, and the WSL identity query did not finish; both queries were stopped. Rebuild/reupload the user's existing playtest and verify the affected post. The earlier published-version lookup did not identify the user's playtest version.
+
 **Faster loading and mode audit (2026-11-18):** All Free Kick gameplay now reuses the compact full-resolution feed atlases and registers their matching frames without unused match animations. Default player artwork drops from 1,067,640 to 276,844 bytes (74.1%); gameplay poses are preserved. Shared match loading now bounds image requests, stops repeated failed retries, avoids preparing incomplete assets, and offers Retry after the original boot overlay disappears. Free Kick previews retain the court when cast art fails. Normal startup and failed-art/Retry checks pass across Classic, Custom/Casual, all four Daily variants and all four Free Kick entries. Stalled-match and compact-frame checks also pass, alongside types/lint/build, 74 gameplay checks, 41 Free Kick rules, panel checks, production smoke and module-recovery browsers. No deployment.
 
 **Free Kick loading recovery (2026-11-18):** Reproduced Infinity's indefinite loading bar when an early art request stalls. Early artwork fetches now time out after eight seconds and fall back to Phaser; Free Kick's fallback images also have an eight-second per-file limit. Missing required art and preparation failures show the existing Retry/Back panel. Ground painting remains a valid fallback. Types, lint, build, panel checks and production Infinity loading regressions pass, including stalled prefetch, missing/stalled required art and successful retry. Production Classic/Free Kick smoke and module-recovery checks passed. No deployment; native Reddit latency unmeasured.
@@ -852,6 +854,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Share the ranked Free Kick bootstrap at the HTML input, rather than artificially making identical entry scripts unique. Gameplay still reads Infinity/Challenge/Playground mode from post data. Check built entry scripts against a content-deduplicated upload inventory before release, since serving every local build file hides this deployment failure.
+
 - Reuse existing compact Free Kick atlases at their original resolution: Stage uses the same poses in feed and gameplay. Keep full atlases for matches, where running/tackling/celebration poses are needed. Give all image requests an explicit per-file timeout; let Match retry Boot failures once, then show recovery instead of automatically restarting downloads forever. Recreate a boot overlay when its earlier fade/removal has begun.
 
 - Bound artwork download attempts rather than waiting indefinitely before Phaser starts. Preserve parallel downloads and successful blob reuse. Validate required Free Kick textures before creating the stage; keep the optional ground texture's existing local painting fallback.
@@ -1352,6 +1356,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Upload/rebuild the shared-entry fix and verify the affected Infinity post on Reddit. Playtest 0.0.39 still references the missing duplicate script; GitHub and local build success alone do not verify its uploaded asset map.
+
 - Measure Free Kick startup on Reddit devices after release; the 74.1% player-art reduction is measured from shipped files, not a claimed 74.1% reduction in end-to-end loading time.
 
 - Verify Infinity loading on Reddit with the user's connection/device after release. Local stalled-download reproduction covers client recovery, but does not measure Reddit hosting or native webview latency.
@@ -1831,6 +1837,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-18:** Reproduce actual Infinity 0.0.39 failure: its bootstrap JS is absent from Reddit's asset map after content deduplication. Use Challenge's shared bootstrap from both HTML pages; remove the duplicate TS entry. Add release build asset-map checks and a production start/swipe/restart regression. Types/lint/build, upload guard, real swipe test, four-entry Free Kick failure/Retry checks and seven module-recovery scenarios pass. Live validation requires rebuilding/reuploading the playtest; no upload performed.
 
 - **2026-11-18:** Switch every Free Kick entry to compact full-resolution atlases (74.1% smaller default player downloads), with matching frame registration. Audit shared loading across modes: bound image requests, stop failed retry loops, avoid incomplete Boot preparation, recreate expired error overlays, and retain safe feed scenery on missing cast art. Types/lint/build, 74 gameplay and 41 Free Kick checks, panels, production startup/failure/Retry checks across modes, Classic stalls, compact frames, smoke and module-recovery browsers pass. No deployment.
 

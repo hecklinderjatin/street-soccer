@@ -86,7 +86,7 @@
     "onPostDelete": "/internal/triggers/on-post-delete"
   },
   "scripts": {
-    "build": "vite build",
+    "build": "vite build && node checks/upload-entrypoints.mjs",
     "dev": "vite build --watch"
   },
   "dev": {

@@ -17,6 +17,8 @@
     <div id="boot-loading">
       <div class="boot-bar"></div>
     </div>
-    <script type="module" src="freekick-infinity.ts"></script>
+    <!-- Ranked modes share one bootstrap. Separate identical JS outputs can
+         lose one URL when Devvit deduplicates uploaded assets by content. -->
+    <script type="module" src="freekick-challenge.ts"></script>
   </body>
 </html>
