@@ -41,8 +41,8 @@
     "test:logic": "rolldown checks/logic-check.ts --platform node --format esm --external node:assert/strict -o node_modules/.cache/logic-check.mjs && node node_modules/.cache/logic-check.mjs",
     "test:freekick": "rolldown checks/freekick-check.ts --platform node --format esm --external node:assert/strict -o node_modules/.cache/freekick-check.mjs && node node_modules/.cache/freekick-check.mjs && node checks/freekick-panels.mjs && node checks/freekick-server.mjs",
     "test:privacy": "rolldown checks/privacy-check.ts --platform node --format esm --external node:assert/strict -o node_modules/.cache/privacy-check.mjs && node node_modules/.cache/privacy-check.mjs",
-    "test:dependencies": "node checks/dependency-check.mjs",
-    "postinstall": "node scripts/patch-glob-compat.mjs",
+    "test:dependencies": "node checks/dependency-check.mjs && node checks/picomatch-security.mjs",
+    "postinstall": "node scripts/patch-glob-compat.mjs && node scripts/patch-picomatch-security.mjs",
     "test:journeys": "rolldown checks/journeys-check.ts --platform node --format esm -o node_modules/.cache/journeys-check.mjs && node node_modules/.cache/journeys-check.mjs",
     "test:freekick-journeys-browser": "node checks/freekick-journeys-browser.mjs",
     "test:journeys-browser": "node checks/journeys-browser.mjs"

@@ -15,6 +15,10 @@ for (const file of (await readdir(root))
   const hash = createHash('sha256')
     .update(await readFile(resolve(root, file)))
     .digest('hex');
+  assert.ok(
+    !unique.has(hash),
+    `JS upload aliases would be lost: ${unique.get(hash)} and ${file}`
+  );
   if (!unique.has(hash)) {
     unique.set(hash, file);
     uploaded.add(file);

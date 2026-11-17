@@ -39,6 +39,36 @@ function phaserFlags(): Plugin {
   };
 }
 
+// Rolldown can emit identical empty JS proxies for distinct CSS files. Devvit
+// deduplicates their bytes but loses the other URL aliases on a fresh upload.
+// Keep generated proxies addressable without changing their imports or CSS.
+function distinctWebviewScripts(): Plugin {
+  return {
+    name: 'distinct-webview-scripts',
+    generateBundle: {
+      order: 'post',
+      handler(_options, bundle) {
+        const scripts = new Map<string, string[]>();
+        for (const entry of Object.values(bundle)) {
+          if (entry.type !== 'chunk' || !entry.fileName.endsWith('.js'))
+            continue;
+          const names = scripts.get(entry.code) ?? [];
+          names.push(entry.fileName);
+          scripts.set(entry.code, names);
+        }
+        for (const names of scripts.values()) {
+          if (names.length < 2) continue;
+          for (const name of names) {
+            const entry = bundle[name];
+            if (entry?.type === 'chunk')
+              entry.code += `\n/* Devvit upload path: ${encodeURIComponent(name)} */\n`;
+          }
+        }
+      },
+    },
+  };
+}
+
 export default defineConfig({
   publicDir: resolve('public-release'),
   define: {
@@ -57,5 +87,6 @@ export default defineConfig({
       client: { build: { sourcemap: false } },
       server: { build: { sourcemap: false } },
     }),
+    distinctWebviewScripts(),
   ],
 });

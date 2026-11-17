@@ -41,3 +41,38 @@ for (const file of ['glob.js', 'sync.js']) {
   writeFileSync(path, source);
 }
 console.log('Applied glob 7 compatibility with patched minimatch 11');
+
+// filelist normalizes candidate paths to '/', but normalizes patterns to '\\'
+// on Windows. Minimatch 11 treats those backslashes as escapes. Keep both
+// sides in the same form without downgrading the patched matcher.
+const root = new URL('../', import.meta.url);
+const lock = JSON.parse(
+  readFileSync(new URL('package-lock.json', root), 'utf8')
+);
+for (const path of Object.keys(lock.packages)) {
+  if (!path.endsWith('/filelist')) continue;
+  const file = new URL(`${path}/index.js`, root);
+  let source;
+  try {
+    source = readFileSync(file, 'utf8');
+  } catch (error) {
+    if (error.code === 'ENOENT') continue; // omitted dev dependency
+    throw error;
+  }
+  const metadata = JSON.parse(
+    readFileSync(new URL(`${path}/package.json`, root), 'utf8')
+  );
+  if (metadata.version !== '1.0.6')
+    throw new Error(
+      'Review/remove the filelist compatibility patch for the new version'
+    );
+  const before = 'pat = path.normalize(pat);';
+  const after = String.raw`pat = path.normalize(pat).replace(/\\/g, '/');`;
+  if (source.includes(after)) continue;
+  if (source.split(before).length !== 2)
+    throw new Error(
+      'Unexpected filelist source; compatibility patch needs review'
+    );
+  writeFileSync(file, source.replace(before, after));
+  console.log('Applied filelist Windows path compatibility with minimatch 11');
+}

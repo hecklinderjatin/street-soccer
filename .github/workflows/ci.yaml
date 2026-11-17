@@ -18,13 +18,14 @@ jobs:
         with:
           node-version: 24.18.0
       - name: Install Dependencies
-        run: npm install --no-fund
-      - parallel:
-          - name: Typecheck
-            run: npm run test:types
-          - name: Lint
-            run: npm run lint
-          - name: Unit Test
-            run: npm run test:unit
-          - name: Build
-            run: npm run build
+        run: npm ci --no-fund
+      - name: Dependency compatibility and security mitigation
+        run: npm run test:dependencies
+      - name: Typecheck
+        run: npm run test:types
+      - name: Lint
+        run: npm run lint
+      - name: Unit Test
+        run: npm run test:unit
+      - name: Build
+        run: npm run build

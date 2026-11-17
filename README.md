@@ -137,9 +137,13 @@ Run these in WSL from this folder:
 
 ## Dependency security
 
-The lockfile pins patched `minimatch@11.0.3` and `tmp@0.2.7` through npm overrides. These remove the 48 npm audit findings present on 2026-10-31 without changing the stable Devvit release. Both full and production-only installs report zero known vulnerabilities at that date.
+The lockfile pins `minimatch@11.0.7`, `tmp@0.2.7` and Devvit's `isomorphic-git@1.44.12` through npm overrides.
 
-Devvit’s transitive `glob@7.2.3` expects the old minimatch matcher shape. The root `postinstall` script applies a checked, idempotent compatibility fix: use the new matcher’s public `pattern` and `test()` APIs. It retains glob’s callback/EventEmitter API and minimatch’s nonrecursive matching. Keep install scripts enabled; if an install intentionally used `--ignore-scripts`, run `npm run postinstall` afterward. Review/remove the fix when upstream glob/Devvit updates. `npm run test:dependencies` verifies actual legacy glob/filelist consumers, async/event matching, temporary-file cleanup and path traversal rejection; it also runs in `test:local`.
+**2026-11-18 audit:** the 23 high findings all trace to picomatch's [single-branch repeated-extglob ReDoS advisory](https://github.com/advisories/GHSA-fc5q-39xc-vjpf). No patched npm release is available. `postinstall` applies a checked local mitigation to every installed locked copy of picomatch 2.3.2 and 4.0.7, adapted from [upstream's conservative proposal](https://github.com/micromatch/picomatch/pull/246). Simple literal/star repetition is collapsed; capture mode uses the existing literal fallback. Explicit `maxExtglobRecursion: false` still disables picomatch's safeguards. The script checks complete parser source hashes, fails on unexpected versions/source changes, and is idempotent.
+
+This is a local mitigation, not an upstream security release: **npm audit still reports the affected version numbers**. No versions, advisory settings or audit output are changed to hide the findings. Replace/remove the patch when a reviewed patched upstream release is available. `npm audit fix --force` currently proposes incompatible toolchain downgrades for this chain.
+
+Devvit’s transitive `glob@7.2.3` expects the old minimatch matcher shape. The root `postinstall` script also applies the existing checked compatibility fix using the matcher's public `pattern` and `test()` APIs, and normalizes filelist's Windows patterns to match its candidate paths. Keep install scripts enabled; after an intentional `--ignore-scripts` install, run `npm run postinstall`. `npm run test:dependencies` checks legacy glob/filelist consumers, editor temporary-file handling, and timeout-bounded malicious picomatch patterns plus matching compatibility across every installed copy. It also runs in `test:local` and CI.
 
 ## Layout
 
