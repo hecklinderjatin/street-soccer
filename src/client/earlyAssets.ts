@@ -13,13 +13,16 @@ import { startingConfig } from './challenge';
 // downloaded twice. A failed early fetch just falls back to the normal URL.
 
 const early = new Map<string, Promise<string | null>>();
+export const ASSET_DOWNLOAD_TIMEOUT_MS = 8000;
 
 export function startEarlyDownloads(assets = matchAssets(startingConfig())) {
   for (const asset of assets) {
     if (early.has(asset.url)) continue;
     early.set(
       asset.url,
-      fetch(asset.url)
+      fetch(asset.url, {
+        signal: AbortSignal.timeout(ASSET_DOWNLOAD_TIMEOUT_MS),
+      })
         .then((res) => (res.ok ? res.blob() : null))
         .then((blob) => (blob ? URL.createObjectURL(blob) : null))
         .catch(() => null)

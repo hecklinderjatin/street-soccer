@@ -17,6 +17,8 @@
     "test:team-kits-browser": "node checks/team-kits-browser.mjs",
     "test:playground-finish-browser": "node checks/playground-finish-browser.mjs",
     "test:freekick-infinity-browser": "node checks/freekick-infinity-browser.mjs",
+    "test:freekick-loading-browser": "node checks/freekick-loading-browser.mjs",
+    "test:mode-loading-browser": "node checks/mode-loading-browser.mjs",
     "test:freekick-ui-browser": "node checks/freekick-ui-browser.mjs",
     "test:pause-restart": "node checks/pause-restart.mjs && node checks/pause-restart-browser.mjs",
     "test:community": "node checks/community-server.mjs && node checks/community-join-browser.mjs",

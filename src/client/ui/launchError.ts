@@ -2,8 +2,17 @@ import { context, exitExpandedMode } from '@devvit/web/client';
 
 export function showLaunchError(error: unknown) {
   console.error('Could not start Street Soccer', error);
-  const loader = document.getElementById('boot-loading');
-  if (!loader) return;
+  let loader = document.getElementById('boot-loading');
+  // Boot may already have scheduled the old loading element's removal.
+  if (loader?.classList.contains('done')) {
+    loader.remove();
+    loader = null;
+  }
+  if (!loader) {
+    loader = document.createElement('div');
+    loader.id = 'boot-loading';
+    document.body.append(loader);
+  }
 
   const panel = document.createElement('section');
   panel.className = 'launch-error';

@@ -8,6 +8,10 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Faster loading and mode audit (2026-11-18):** All Free Kick gameplay now reuses the compact full-resolution feed atlases and registers their matching frames without unused match animations. Default player artwork drops from 1,067,640 to 276,844 bytes (74.1%); gameplay poses are preserved. Shared match loading now bounds image requests, stops repeated failed retries, avoids preparing incomplete assets, and offers Retry after the original boot overlay disappears. Free Kick previews retain the court when cast art fails. Normal startup and failed-art/Retry checks pass across Classic, Custom/Casual, all four Daily variants and all four Free Kick entries. Stalled-match and compact-frame checks also pass, alongside types/lint/build, 74 gameplay checks, 41 Free Kick rules, panel checks, production smoke and module-recovery browsers. No deployment.
+
+**Free Kick loading recovery (2026-11-18):** Reproduced Infinity's indefinite loading bar when an early art request stalls. Early artwork fetches now time out after eight seconds and fall back to Phaser; Free Kick's fallback images also have an eight-second per-file limit. Missing required art and preparation failures show the existing Retry/Back panel. Ground painting remains a valid fallback. Types, lint, build, panel checks and production Infinity loading regressions pass, including stalled prefetch, missing/stalled required art and successful retry. Production Classic/Free Kick smoke and module-recovery checks passed. No deployment; native Reddit latency unmeasured.
+
 **Playground replay timers (2026-11-17):** Supersedes the first-finish lock: every Play Again/Restart begins a new timed run after briefing; fastest completed run ranks. Pauses/misses count. Per-run server receipts preserve timing across completion retries; result cards show the current run separately from personal best. Full local checks and production Playground replay/failure tests pass; existing Classic/Free Kick production smoke also passes.
 
 **Four team kits and Join label (2026-11-17):** Add Lime, Gold, Navy and Coral to team selectors and baked gameplay/feed atlases. Navy has light shorts/socks; outfield Gold uses its own ramp without changing the goalkeeper. The shared cyan results action is now JOIN in every mode. All 37 player atlases baked and 39 release images optimized; existing kit files unchanged. Full local, community API/browser, new-kit production browser, Playground finish browser and production smoke checks pass. Rendered Lime/Gold and Navy/Coral matches inspected.
@@ -848,6 +852,10 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Reuse existing compact Free Kick atlases at their original resolution: Stage uses the same poses in feed and gameplay. Keep full atlases for matches, where running/tackling/celebration poses are needed. Give all image requests an explicit per-file timeout; let Match retry Boot failures once, then show recovery instead of automatically restarting downloads forever. Recreate a boot overlay when its earlier fade/removal has begun.
+
+- Bound artwork download attempts rather than waiting indefinitely before Phaser starts. Preserve parallel downloads and successful blob reuse. Validate required Free Kick textures before creating the stage; keep the optional ground texture's existing local painting fallback.
+
 - Follow dev-test feedback: reset Playground timers for new runs and keep the minimum completed time. Preserve per-run immutable server finish timestamps; legacy completed receipts without timestamps never acquire fabricated finish times.
 
 - Append colours to the existing kit order to preserve saved identities; bake both full and feed-preview atlases. Keep keeper ramps unchanged and use contrasting Navy shorts/socks. Shorten the shared results/popup label to JOIN while retaining descriptive accessibility labels.
@@ -1344,6 +1352,10 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Measure Free Kick startup on Reddit devices after release; the 74.1% player-art reduction is measured from shipped files, not a claimed 74.1% reduction in end-to-end loading time.
+
+- Verify Infinity loading on Reddit with the user's connection/device after release. Local stalled-download reproduction covers client recovery, but does not measure Reddit hosting or native webview latency.
+
 - Recheck Playground Play Again/Restart on Reddit after the per-run timer change; full local and Playground browser validation passed.
 
 - Inspect the four new kits and cyan JOIN on Reddit devices before release; local validation, saved selection, gameplay/preview asset loading and rendered matches passed.
@@ -1819,6 +1831,10 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-18:** Switch every Free Kick entry to compact full-resolution atlases (74.1% smaller default player downloads), with matching frame registration. Audit shared loading across modes: bound image requests, stop failed retry loops, avoid incomplete Boot preparation, recreate expired error overlays, and retain safe feed scenery on missing cast art. Types/lint/build, 74 gameplay and 41 Free Kick checks, panels, production startup/failure/Retry checks across modes, Classic stalls, compact frames, smoke and module-recovery browsers pass. No deployment.
+
+- **2026-11-18:** Bound early artwork downloads and Free Kick's fallback images (explicit per-file XHR settings, since Phaser's image defaults override the global timeout); surface required-art/preparation failures through the existing launch recovery panel. Types/lint/build, panel checks, production Infinity startup/failure/Retry regressions, Classic/Free Kick smoke and module-recovery checks pass. No deployment.
 
 - **2026-11-17:** Reset shared Playground timers for each new play, rank best completed time, and distinguish current result from personal best. Full local checks and production Playground browser tests pass, covering zeroed new timers, improved bests, slower results, immutable save retries, server timing, ties, concurrency and erasure. Native Reddit verification pending.
 

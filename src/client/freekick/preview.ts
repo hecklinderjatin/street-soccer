@@ -81,6 +81,7 @@ class FreeKickPreviewScene extends Phaser.Scene {
       })
       .then(() => {
         if (!this.sys.isActive() || !this.stage) return;
+        if (cast.some((asset) => !this.textures.exists(asset.key))) return;
         registerPlayerAtlases(this, previewAtlasFrames(), false);
         createBallTexture(this);
         this.stage.addCast({
@@ -90,7 +91,10 @@ class FreeKickPreviewScene extends Phaser.Scene {
         // The kicker has just appeared: give him his whole run-up.
         if (!this.play)
           this.nextAt = Math.max(this.nextAt, this.clock + FK.runupSec + 0.1);
-      });
+      })
+      .catch((error: unknown) =>
+        console.error('Could not load Free Kick preview', error)
+      );
   }
 
   // Loads `assets` (from their early downloads where there are some).
@@ -116,9 +120,7 @@ class FreeKickPreviewScene extends Phaser.Scene {
     const config = freeKickChallenge();
     this.setup = postKick(
       config,
-      endlessFreeKick(config)
-        ? this.attempt++
-        : this.attempt++ % config.goals,
+      endlessFreeKick(config) ? this.attempt++ : this.attempt++ % config.goals,
       context?.postId ?? 'local'
     );
     const contact = ballContact(((this.attempt % 3) - 1) * 0.5, 0.4);

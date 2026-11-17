@@ -25,8 +25,10 @@ import Phaser from 'phaser';
 import { BALL, FREE_KICK as FK } from '../../shared/tuning';
 import { BALL_KEY, createBallTexture } from '../art/ballArt';
 import { queueAssets, type Asset } from '../art/gameAssets';
-import { freeKickAssets } from '../art/assetList';
+import { FREE_KICK_GROUND_KEY, freeKickAssets } from '../art/assetList';
+import { showLaunchError } from '../ui/launchError';
 import { registerPlayerAtlases } from '../art/playerArt';
+import { previewAtlasFrames } from '../art/playerSheets';
 import { freeKickChallenge, startingConfig } from '../challenge';
 import {
   challengeOutcome,
@@ -40,7 +42,11 @@ import {
 import { DIFFICULTY_LABEL } from '../../shared/types';
 import { PlaygroundLink } from './playgroundLink';
 import { practiceNextLabel, practicePicks } from './practicePicks';
-import { releaseEarlyDownloads, withEarlyDownloads } from '../earlyAssets';
+import {
+  ASSET_DOWNLOAD_TIMEOUT_MS,
+  releaseEarlyDownloads,
+  withEarlyDownloads,
+} from '../earlyAssets';
 import { playAttempt, playReady } from '../playMetrics';
 import { newProjected } from '../render/Projector';
 import { PAL, PX } from '../ui/palette';
@@ -329,16 +335,41 @@ export class FreeKickScene extends Phaser.Scene {
     // The art usually started downloading before this code arrived
     // (earlyAssets.ts); the loader then reads those copies.
     const assets = freeKickAssets(startingConfig());
-    void withEarlyDownloads(assets).then((ready) => {
-      if (!queueAssets(this, ready)) return this.ready(assets);
-      this.load.once(Phaser.Loader.Events.COMPLETE, () => this.ready(assets));
-      this.load.start();
-    });
+    void this.loadArtwork(assets).catch(showLaunchError);
   }
 
-  private ready(assets: readonly Asset[]) {
-    void releaseEarlyDownloads(assets);
-    registerPlayerAtlases(this);
+  private async loadArtwork(assets: readonly Asset[]) {
+    try {
+      const ready = await withEarlyDownloads(assets);
+      if (!this.sys.isActive()) return;
+      if (queueAssets(this, ready, ASSET_DOWNLOAD_TIMEOUT_MS)) {
+        await new Promise<void>((resolve) => {
+          this.load.once(Phaser.Loader.Events.COMPLETE, resolve);
+          this.load.start();
+        });
+      }
+      if (!this.sys.isActive()) return;
+      // The ground can be painted locally. Missing player/ball art needs a
+      // visible retry instead of broken sprites or a permanent loading bar.
+      if (
+        assets.some(
+          (asset) =>
+            asset.key !== FREE_KICK_GROUND_KEY &&
+            !this.textures.exists(asset.key)
+        )
+      )
+        throw new Error('Free Kick artwork could not be downloaded');
+      this.ready();
+      const loader = document.getElementById('boot-loading');
+      loader?.classList.add('done');
+      setTimeout(() => loader?.remove(), 400);
+    } finally {
+      await releaseEarlyDownloads(assets);
+    }
+  }
+
+  private ready() {
+    registerPlayerAtlases(this, previewAtlasFrames(), false);
     createBallTexture(this);
     this.contactBall = this.add
       .image(0, 0, BALL_KEY, 'a')
@@ -352,9 +383,6 @@ export class FreeKickScene extends Phaser.Scene {
     this.lifeIcons = Array.from({ length: this.maxLives }, () =>
       this.add.image(0, 0, BALL_KEY, 'a').setDepth(HUD)
     );
-    const loader = document.getElementById('boot-loading');
-    loader?.classList.add('done');
-    setTimeout(() => loader?.remove(), 400);
     this.loadSounds();
     const sound = this.sound;
     this.music = new StreamMusic(

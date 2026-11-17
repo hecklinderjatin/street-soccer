@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { FREE_KICK as FK } from '../../shared/tuning';
 import { PAL } from '../ui/palette';
+import { ASSET_DOWNLOAD_TIMEOUT_MS } from '../earlyAssets';
 import { FreeKickScene } from './FreeKickScene';
 import type { PlaygroundLink } from './playgroundLink';
 
@@ -30,6 +31,7 @@ export function createFreeKickGame(
       autoCenter: Phaser.Scale.CENTER_BOTH,
     },
     input: { activePointers: 2 },
+    loader: { timeout: ASSET_DOWNLOAD_TIMEOUT_MS, maxRetries: 0 },
     render: { powerPreference: 'high-performance' },
     callbacks: {
       preBoot: (instance) => {

@@ -6,6 +6,7 @@ import {
   REST_ASSETS,
   firstAssets,
   queueAssets,
+  assetsLoaded,
   type Asset,
 } from '../art/gameAssets';
 import { currentPostType, startingConfig } from '../challenge';
@@ -61,19 +62,31 @@ export class BootScene extends Phaser.Scene {
   // The files usually started downloading before the game code arrived
   // (earlyAssets.ts): the loader then reads those copies.
   private download(assets: readonly Asset[], name: string, next: Stage) {
-    void withEarlyDownloads(assets).then((ready) => {
-      if (!this.scene.isActive()) return;
-      if (!queueAssets(this, ready)) {
-        this.stage = next;
-        return;
-      }
-      this.load.once(Phaser.Loader.Events.COMPLETE, () => {
-        markTiming(name);
-        void releaseEarlyDownloads(assets);
-        this.stage = next;
+    void withEarlyDownloads(assets)
+      .then((ready) => {
+        if (!this.scene.isActive()) return;
+        if (!queueAssets(this, ready)) {
+          void releaseEarlyDownloads(assets);
+          this.stage = next;
+          return;
+        }
+        this.load.once(Phaser.Loader.Events.COMPLETE, () => {
+          markTiming(name);
+          void releaseEarlyDownloads(assets);
+          if (assetsLoaded(this, assets) !== assets.length) {
+            // Let Match retry missing art; never prepare incomplete atlases.
+            void releaseEarlyDownloads(REST_ASSETS);
+            this.scene.stop();
+            return;
+          }
+          this.stage = next;
+        });
+        this.load.start();
+      })
+      .catch((error: unknown) => {
+        console.error('Could not preload match art', error);
+        this.scene.stop();
       });
-      this.load.start();
-    });
   }
 
   override update() {

@@ -7,6 +7,7 @@ import {
   rulesOf,
 } from '../../shared/chaos';
 import { currentPostType } from '../challenge';
+import { showLaunchError } from '../ui/launchError';
 import { createMatchJourney } from '../matchJourney';
 import { journeyAppReady, sendJourney } from '../journeys';
 import { playAttempt, playReady } from '../playMetrics';
@@ -261,6 +262,7 @@ export class MatchScene extends Phaser.Scene {
   private lastFrameAt = 0;
   private loadingText: Phaser.GameObjects.BitmapText | null = null;
   private ready = false;
+  private loadFailed = false;
 
   constructor() {
     super('Match');
@@ -280,6 +282,7 @@ export class MatchScene extends Phaser.Scene {
     this.homeShape = FORMATIONS[data.home.formation];
     this.awayShape = FORMATIONS[data.away.formation];
     this.ready = false;
+    this.loadFailed = false;
     this.loadingText = null;
     this.fixed.reset();
     this.home = [];
@@ -404,6 +407,7 @@ export class MatchScene extends Phaser.Scene {
   // progress; if Boot has finished without some of it (a failed download),
   // fetch the rest here.
   private waitForPlayers() {
+    if (this.loadFailed) return false;
     const assets = matchAssets(this.config);
     const loaded = assetsLoaded(this, assets);
     if (loaded === assets.length) return true;
@@ -412,8 +416,16 @@ export class MatchScene extends Phaser.Scene {
       !this.scene.isActive('Boot') &&
       !this.load.isLoading() &&
       queueAssets(this, assets)
-    )
+    ) {
+      this.load.once(Phaser.Loader.Events.COMPLETE, () => {
+        if (assetsLoaded(this, assets) !== assets.length) {
+          this.loadFailed = true;
+          if (!this.demo)
+            showLaunchError(new Error('Match artwork could not be downloaded'));
+        }
+      });
       this.load.start();
+    }
     return false;
   }
 
@@ -623,7 +635,13 @@ export class MatchScene extends Phaser.Scene {
       }
       this.loadingText?.destroy();
       this.loadingText = null;
-      this.finishCreate();
+      try {
+        this.finishCreate();
+      } catch (error: unknown) {
+        this.loadFailed = true;
+        if (!this.demo) showLaunchError(error);
+        return;
+      }
       this.ready = true;
       if (!this.demo) this.gameCount = trackGame(this.config);
       markTiming('match ready');

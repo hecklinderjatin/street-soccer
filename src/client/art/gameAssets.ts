@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { ASSET_DOWNLOAD_TIMEOUT_MS } from '../earlyAssets';
 import {
   AUTHORED_BALL_TEXTURE,
   AUTHORED_SHOT_BALL_TEXTURE,
@@ -31,11 +32,20 @@ function missing(scene: Phaser.Scene, asset: Asset) {
 
 // Queues the missing ones on `scene`'s loader (the caller starts it);
 // returns how many were queued.
-export function queueAssets(scene: Phaser.Scene, assets: readonly Asset[]) {
+export function queueAssets(
+  scene: Phaser.Scene,
+  assets: readonly Asset[],
+  timeout = ASSET_DOWNLOAD_TIMEOUT_MS
+) {
+  scene.load.maxRetries = 0;
   let queued = 0;
   for (const asset of assets) {
     if (!missing(scene, asset)) continue;
-    scene.load.image(asset.key, asset.url);
+    scene.load.image({
+      key: asset.key,
+      url: asset.url,
+      xhrSettings: { responseType: 'blob', timeout },
+    });
     queued++;
   }
   return queued;

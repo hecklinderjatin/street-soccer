@@ -42,11 +42,7 @@ export const matchAssets = (config: MatchConfig): Asset[] => [
 // The Free Kick feed preview: the same texture keys, from the small
 // preview atlases (only the poses the preview draws; playerSheets.ts).
 export const freeKickPreviewAssets = (config: MatchConfig): Asset[] =>
-  freeKickAssets(config).map((asset) =>
-    asset.url.startsWith('/art/player-')
-      ? { key: asset.key, url: `/art/${previewAtlasKey(asset.key)}.webp` }
-      : asset
-  );
+  freeKickAssets(config);
 
 // The Free Kick ground, baked (`npm run art:court`): loading it saves
 // painting it (art/groundPaint.ts), which is painted only if it fails.
@@ -56,8 +52,15 @@ export const FREE_KICK_GROUND_ASSET: Asset = {
   url: '/art/freekick-ground.png',
 };
 
-export const freeKickAssets = (config: MatchConfig): Asset[] => [
-  FREE_KICK_GROUND_ASSET,
-  ...firstAssets(config),
-  ...FREE_KICK_REST_ASSETS,
-];
+// Gameplay uses the same poses as the feed: keep the full-resolution compact
+// atlases instead of downloading unrelated running/tackling/celebration frames.
+export const freeKickAssets = (config: MatchConfig): Asset[] =>
+  [
+    FREE_KICK_GROUND_ASSET,
+    ...firstAssets(config),
+    ...FREE_KICK_REST_ASSETS,
+  ].map((asset) =>
+    asset.url.startsWith('/art/player-')
+      ? { key: asset.key, url: `/art/${previewAtlasKey(asset.key)}.webp` }
+      : asset
+  );
