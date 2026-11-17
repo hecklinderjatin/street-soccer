@@ -19,3 +19,61 @@
 .community-join-status.is-success {
   color: #b7efca;
 }
+.community-join-note {
+  margin: 0;
+  color: #a8b9cd;
+  font:
+    11px/1.5 ui-monospace,
+    monospace;
+  text-align: center;
+}
+.community-join-dialog {
+  box-sizing: border-box;
+  width: min(520px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  overflow: auto;
+  padding: 24px;
+  border: 2px solid #3c5877;
+  border-top: 4px solid #ffec27;
+  border-radius: 0;
+  background: #0a1526;
+  color: #fff1e8;
+  box-shadow: 8px 8px 0 #0008;
+  font:
+    14px/1.6 ui-monospace,
+    monospace;
+  text-align: center;
+}
+.community-join-dialog::backdrop {
+  background: #030914cc;
+}
+.community-join-dialog h2 {
+  margin: 0 0 20px;
+  font-size: 17px;
+  color: #ffec27;
+}
+.community-join-dialog p {
+  color: #a8b9cd;
+}
+.community-join-dialog-actions {
+  display: grid;
+  gap: 12px;
+  margin-top: 24px;
+}
+.community-join-dialog-actions .casual-button {
+  width: 100%;
+  min-width: 0;
+}
+.community-join-dialog-actions .casual-button:focus-visible {
+  outline: 3px solid #ffec27;
+  outline-offset: 3px;
+}
+@media (max-height: 400px) {
+  .community-join-dialog {
+    padding: 16px;
+  }
+  .community-join-dialog-actions {
+    gap: 8px;
+    margin-top: 12px;
+  }
+}

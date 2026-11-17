@@ -51,6 +51,9 @@ try {
       subredditId: 't5_s',
       subredditName: 'street_soccer_dev',
     };
+    window.navigateTo = (url) => {
+      window.openedCommunity = url;
+    };
     window.allowed = true;
     window.ok = true;
     window.writes = 0;
@@ -140,12 +143,16 @@ try {
       false
     );
     await page.getByRole('button', { name: 'PLAY AGAIN', exact: true }).click();
-    const actions = await page.locator('.results-actions > button').evaluateAll(
-      (buttons) => buttons.map((button) => button.getBoundingClientRect().toJSON())
-    );
+    const actions = await page
+      .locator('.results-actions > button')
+      .evaluateAll((buttons) =>
+        buttons.map((button) => button.getBoundingClientRect().toJSON())
+      );
     assert.ok(actions.every((button) => button.width === actions[0].width));
     assert.equal(actions[3].top, actions[portrait ? 2 : 0].top);
-    assert.ok(actions.every((button) => button.top >= 0 && button.bottom <= height));
+    assert.ok(
+      actions.every((button) => button.top >= 0 && button.bottom <= height)
+    );
     if (width === 390 || width === 844)
       await page.screenshot({
         path: portrait
@@ -160,25 +167,30 @@ try {
     .click();
   await page.waitForFunction(
     () =>
-      document.querySelector('[role=status]').textContent ===
-      'Couldn’t join right now. You can join from the community page.'
+      document.querySelector('dialog[open] p')?.textContent ===
+      'Couldn’t join right now. Please try again or open the community.'
   );
   assert.equal(await page.evaluate(() => window.writes), 0);
   await page.evaluate(() => {
     window.allowed = true;
     window.ok = false;
   });
-  await page
-    .getByRole('button', { name: 'JOIN COMMUNITY', exact: true })
-    .click();
+  await page.getByRole('button', { name: 'TRY AGAIN', exact: true }).click();
   await page.waitForFunction(
     () =>
-      document.querySelector('[role=status]').textContent ===
-      'Couldn’t join right now. You can join from the community page.'
+      document.querySelector('dialog[open] p')?.textContent ===
+      'Couldn’t join right now. Please try again or open the community.'
   );
   assert.equal(
     await page.getByRole('button', { name: 'RETRY JOIN', exact: true }).count(),
     0
+  );
+  await page
+    .getByRole('button', { name: 'OPEN COMMUNITY', exact: true })
+    .click();
+  assert.equal(
+    await page.evaluate(() => window.openedCommunity),
+    'https://www.reddit.com/r/street_soccer_dev/'
   );
   await page.evaluate(() => {
     window.ok = true;
@@ -230,9 +242,105 @@ try {
     1,
     'old popup preference must not hide the result button'
   );
+  // Expired reminders and legacy permanent flags never hide Join forever.
+  await page.evaluate(() => {
+    window.deferConsent = true;
+    localStorage.setItem(
+      'street-soccer:joined-at:t2_other:t5_s',
+      String(Date.now() - 8 * 86400000)
+    );
+    localStorage.setItem('street-soccer:joined:t2_other:t5_s', 'yes');
+  });
+  await open(true);
+  await page.clock.install();
+  await page
+    .getByRole('button', { name: 'JOIN COMMUNITY', exact: true })
+    .click();
+  await page.clock.fastForward(30001);
+  await page.getByRole('dialog', { name: 'Join community' }).waitFor();
+  const writesBeforeLateConsent = await page.evaluate(() => window.writes);
+  await page.evaluate(() => window.resolveConsent(true));
+  await page.waitForTimeout(20);
+  assert.equal(
+    await page.evaluate(() => window.writes),
+    writesBeforeLateConsent
+  );
+  assert.equal(
+    await page
+      .getByRole('button', { name: 'TRY AGAIN' })
+      .evaluate((e) => e === document.activeElement),
+    true
+  );
+  await page.keyboard.press('Shift+Tab');
+  assert.equal(
+    await page
+      .getByRole('button', { name: 'CLOSE', exact: true })
+      .evaluate((e) => e === document.activeElement),
+    true
+  );
+  await page.keyboard.press('Tab');
+  assert.equal(
+    await page
+      .getByRole('button', { name: 'TRY AGAIN' })
+      .evaluate((e) => e === document.activeElement),
+    true
+  );
+  for (const [width, height] of [
+    [320, 480],
+    [844, 390],
+    [1280, 720],
+  ]) {
+    await page.setViewportSize({ width, height });
+    const dialog = page.getByRole('dialog', { name: 'Join community' });
+    assert.equal(
+      await dialog.evaluate((e) => e.scrollWidth > e.clientWidth),
+      false
+    );
+    await page.screenshot({
+      path: join(tmpdir(), `community-failure-${width}.png`),
+    });
+  }
+  await page.keyboard.press('Escape');
+  assert.equal(
+    await page
+      .getByRole('button', { name: 'JOIN COMMUNITY', exact: true })
+      .evaluate((e) => e === document.activeElement),
+    true
+  );
+  await page.evaluate(() => {
+    window.deferConsent = false;
+  });
+  await page
+    .getByRole('button', { name: 'JOIN COMMUNITY', exact: true })
+    .click();
+  await page.waitForFunction(() =>
+    document.querySelector('.community-join-status.is-success')
+  );
+  assert.equal(
+    await page
+      .getByRole('button', { name: 'PLAY AGAIN', exact: true })
+      .evaluate((e) => e === document.activeElement),
+    true
+  );
+  // Login failures use the same generic popup and never call the API.
+  await page.evaluate(() => {
+    window.context.userId = undefined;
+  });
+  await open(true);
+  const beforeGuest = await page.evaluate(() => window.writes);
+  await page
+    .getByRole('button', { name: 'JOIN COMMUNITY', exact: true })
+    .click();
+  assert.equal(
+    await page.getByRole('dialog').innerText(),
+    'JOIN COMMUNITY\n\nCouldn’t join right now. Please try again or open the community.\n\nTRY AGAIN\nOPEN COMMUNITY\nCLOSE'
+  );
+  assert.equal(await page.evaluate(() => window.writes), beforeGuest);
+  await page.evaluate(() => window.community.destroy());
+  assert.equal(await page.locator('dialog').count(), 0);
   assert.deepEqual(errors, []);
   console.log(
-    'Inline results Join passed: immediate usable results, no popup/focus trap, placement, responsive layout, consent/error/success, no retry, suppression and cleanup.'
+    'Inline results Join passed: immediate usable results, no popup/focus trap, placement, responsive layout, consent/error/success, generic failure popup, retry/navigation, timeout/late consent, focus, cooldown and cleanup.'
   );
 } finally {
   await browser.close();
