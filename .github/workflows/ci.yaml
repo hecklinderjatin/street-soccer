@@ -19,6 +19,8 @@ jobs:
           node-version: 24.18.0
       - name: Install Dependencies
         run: npm ci --no-fund
+      - name: Audit registry dependencies
+        run: npm audit --audit-level=high
       - name: Dependency compatibility and security mitigation
         run: npm run test:dependencies
       - name: Typecheck

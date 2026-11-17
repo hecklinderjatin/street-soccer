@@ -1,0 +1,19 @@
+{
+  "name": "@street-soccer/picomatch-v2",
+  "version": "2.3.2",
+  "private": true,
+  "description": "Street Soccer maintained fork: Locally patched picomatch 2.3.2 for CVE-2026-112366",
+  "license": "MIT",
+  "main": "index.js",
+  "engines": {
+    "node": ">=8.6"
+  },
+  "upstream": {
+    "name": "picomatch",
+    "version": "2.3.2",
+    "repository": "micromatch/picomatch",
+    "integrity": "sha512-V7+vQEJ06Z+c5tSye8S+nHUfI51xoXIXjHQ99cQtKUkQqqO1kO/KCJUfZXuB47h/YBlDhah2H3hdUGXn8ie0oA==",
+    "mitigation": "https://github.com/micromatch/picomatch/pull/246",
+    "commit": "f03bec2c02e46f063fbfdc161aae1d0f854b2565"
+  }
+}

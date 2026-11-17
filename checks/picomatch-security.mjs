@@ -1,19 +1,34 @@
 // Keep a regression from blocking CI: exercise hostile patterns in a child
 // process with a hard timeout, then verify normal matching in every installed copy.
 import assert from 'node:assert/strict';
+import '../scripts/verify-vendored-picomatch.mjs';
 import { execFileSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const lock = JSON.parse(readFileSync('package-lock.json', 'utf8'));
 let checked = 0;
 for (const path of Object.keys(lock.packages)) {
-  if (
-    !path.endsWith('/picomatch') ||
-    !existsSync(resolve(path, 'package.json'))
-  )
-    continue;
+  if (!path.endsWith('/picomatch')) continue;
+  assert.match(lock.packages[path].resolved, /^vendor\/picomatch-v[24]$/);
+  assert.equal(
+    lock.packages[path].link,
+    true,
+    'no affected registry picomatch copies may remain'
+  );
+  if (!existsSync(resolve(path, 'package.json'))) continue;
   const entry = resolve(path);
+  const metadata = JSON.parse(
+    readFileSync(resolve(entry, 'package.json'), 'utf8')
+  );
+  assert.match(
+    metadata.name,
+    /^@street-soccer\/picomatch-v[24]$/,
+    'every consumer must use a reviewed fork'
+  );
+  const major = metadata.name.endsWith('v2') ? 2 : 4;
+  assert.equal(lock.packages[path].resolved, `vendor/picomatch-v${major}`);
+  assert.equal(realpathSync(entry), realpathSync(`vendor/picomatch-v${major}`));
   execFileSync(
     process.execPath,
     [

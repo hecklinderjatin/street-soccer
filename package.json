@@ -41,8 +41,8 @@
     "test:logic": "rolldown checks/logic-check.ts --platform node --format esm --external node:assert/strict -o node_modules/.cache/logic-check.mjs && node node_modules/.cache/logic-check.mjs",
     "test:freekick": "rolldown checks/freekick-check.ts --platform node --format esm --external node:assert/strict -o node_modules/.cache/freekick-check.mjs && node node_modules/.cache/freekick-check.mjs && node checks/freekick-panels.mjs && node checks/freekick-server.mjs",
     "test:privacy": "rolldown checks/privacy-check.ts --platform node --format esm --external node:assert/strict -o node_modules/.cache/privacy-check.mjs && node node_modules/.cache/privacy-check.mjs",
-    "test:dependencies": "node checks/dependency-check.mjs && node checks/picomatch-security.mjs",
-    "postinstall": "node scripts/patch-glob-compat.mjs && node scripts/patch-picomatch-security.mjs",
+    "test:dependencies": "node checks/dependency-check.mjs && node checks/picomatch-security.mjs && node checks/matcher-consumers.mjs",
+    "postinstall": "node scripts/patch-glob-compat.mjs && node scripts/verify-vendored-picomatch.mjs",
     "test:journeys": "rolldown checks/journeys-check.ts --platform node --format esm -o node_modules/.cache/journeys-check.mjs && node node_modules/.cache/journeys-check.mjs",
     "test:freekick-journeys-browser": "node checks/freekick-journeys-browser.mjs",
     "test:journeys-browser": "node checks/journeys-browser.mjs"
@@ -56,7 +56,8 @@
     "@devvit/web": "0.15.4",
     "@hono/node-server": "2.1.8",
     "hono": "4.13.19",
-    "phaser": "3.90.0"
+    "phaser": "3.90.0",
+    "picomatch": "file:vendor/picomatch-v4"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
@@ -68,13 +69,32 @@
     "prettier": "3.10.1",
     "typescript": "6.0.3",
     "typescript-eslint": "8.73.0",
-    "vite": "8.3.8"
+    "vite": "8.3.8",
+    "picomatch-v2": "file:vendor/picomatch-v2"
   },
   "overrides": {
     "@devvit/cli": {
       "isomorphic-git": "1.44.12"
     },
     "minimatch": "11.0.7",
-    "tmp": "0.2.7"
+    "tmp": "0.2.7",
+    "anymatch": {
+      "picomatch": "$picomatch-v2"
+    },
+    "micromatch": {
+      "picomatch": "$picomatch-v2"
+    },
+    "readdirp": {
+      "picomatch": "$picomatch-v2"
+    },
+    "tinyglobby": {
+      "picomatch": "$picomatch",
+      "fdir": {
+        "picomatch": "*"
+      }
+    },
+    "vite": {
+      "picomatch": "$picomatch"
+    }
   }
 }

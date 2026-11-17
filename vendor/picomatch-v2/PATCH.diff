@@ -1,0 +1,47 @@
+===================================================================
+--- a/lib/parse.js
++++ b/lib/parse.js
+@@ -279,8 +279,16 @@
+ 
+   return depth;
+ };
+ 
++// Single-branch star repetition absorbs further repetitions. Restrict this
++// rewrite to literal/star branches; preserve the existing handling otherwise.
++const isSelfRepeatingStarBranch = branch => {
++  return branch.includes('*') &&
++    !branch.includes('**') &&
++    !/[\\/"?()[\]{}|!+@]/.test(branch);
++};
++
+ const analyzeRepeatedExtglob = (body, options) => {
+   if (options.maxExtglobRecursion === false) {
+     return { risky: false };
+   }
+@@ -291,8 +299,13 @@
+       : constants.DEFAULT_MAX_EXTGLOB_RECURSION;
+ 
+   const branches = splitTopLevel(body).map(branch => branch.trim());
+ 
++  if (branches.length === 1 && isSelfRepeatingStarBranch(branches[0])) {
++    // Repeated captures cannot be collapsed without changing capture semantics.
++    return options.capture === true ? { risky: true } : { risky: false, collapse: true };
++  }
++
+   if (branches.length > 1) {
+     if (
+       branches.some(branch => branch === '') ||
+       branches.some(branch => /^[*?]+$/.test(branch)) ||
+@@ -535,8 +548,12 @@
+       decrement('parens');
+       return;
+     }
+ 
++    if (analysis.collapse === true && (token.type === 'plus' || token.type === 'star')) {
++      token.close = token.type === 'plus' ? ')' : ')?';
++    }
++
+     let output = token.close + (opts.capture ? ')' : '');
+     let rest;
+ 
+     if (token.type === 'negate') {
