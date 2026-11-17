@@ -31,6 +31,12 @@ Choose **Create Street Soccer match → Free Kick → Challenge** to create a st
 
 Choose **Free Kick → Infinity** for an endless post. Creators set only the kicker/wall colours and lives (plus standard post title/flair/description). No goal target, distance or difficulty fields: gameplay starts at Easy level 2, rises one level every two goals through Normal/Hard to Pro, and continues at the Pro cap until all lives are lost. Each miss costs a life and retries the spot; no great-save exemptions or bonus lives. The post supplies a repeatable sequence with fresh Pro-level setups later in the run and at most four wall defenders. Infinity reuses portrait info/pause/restart/quit, a neutral **Run Complete** summary, seven-day score/goal-speed boards, optional Join and Journeys. Practice remains unranked. The removed legacy Play mode remains unavailable.
 
+## Shared Playground leaderboards
+
+Shared Playground posts rank **Fastest Finish** (lowest milliseconds, displayed as seconds to three decimal places) and **Fastest Goals** (highest km/h). After the briefing, the server starts one timer per player and post. Aiming, misses, pauses, restarts, closing the game and refreshing all count until the first submitted goal locks the finish. A replay cannot improve this locked time, but can improve the speed record. Equal finish milliseconds share rank. Logged-out play and the Playground builder remain unranked. Old point records do not become times.
+
+Clocks and locked finishes expire with their start day's seven-UTC-day window, matching the app's retained player-data policy; after expiry a new timed entry can begin. The authoritative finish uses server receipt time, so network delay can affect close results. Goal reports use the existing validated run receipts; this is not a server-simulated or cheat-proof game.
+
 ## For moderators
 
 Moderators choose **Create Street Soccer match** in the subreddit menu, then select **Daily Challenge**, **Classic**, **Custom**, or **Free Kick**. Daily Challenge opens a second choice: **Comeback**, **Shield**, **Rampage**, or **Chaos**, followed by settings for that template.
@@ -115,6 +121,8 @@ Run these in WSL from this folder:
 - `npm start`: build and play locally at http://localhost:4173 (as a guest, outside Reddit)
 - `npm run dev`: build and playtest in the dev subreddit (`r/street_soccer_dev`)
 - `npm run test:local`: type check, lint, dependency compatibility, unit and logic checks, build
+- `npm run test:team-kits-browser`: check the new team kits in built Custom matches and the shared cyan JOIN action (build first)
+- `npm run test:playground-finish-browser`: production shared Playground timer, replay, feed and result checks with mocked APIs (build first; set `CHROMIUM_PATH` if using system Chromium)
 - `npm run test:casual-browser`: browser interaction checks against a running local build (install Playwright Chromium first, or set `CHROMIUM_PATH` to a system Chromium)
 - `npm run test:chaos-browser`: test Chaos preview geometry, actual shots/goals, percentage rules, replay and Custom isolation with mocked Reddit APIs
 - `npm run test:journeys`: check tracking boundaries, privacy allowlists, denial/failure handling and rematch lifecycle

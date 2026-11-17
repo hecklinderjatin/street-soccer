@@ -60,6 +60,8 @@ export async function forgetPost(postId: string) {
       boardKey(postId, date),
       statsKey(postId, date),
       speedKey(postId, date),
+      `fk-finish:${postId}:${date}`,
+      `fk-finish:${postId}:${date}:stats`,
       `fk-score:${postId}:${date}`,
       `fk-speed:${postId}:${date}`,
       `fk-goals:${postId}:${date}`,

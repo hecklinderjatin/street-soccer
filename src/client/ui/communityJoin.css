@@ -1,5 +1,9 @@
-.results-actions > .community-join-button {
+.results-actions > .casual-button.community-join-button {
   min-width: 0;
+  color: #0a1526;
+  background: #29adff;
+  border-color: #7fd3ff;
+  border-bottom-color: #17699d;
 }
 .results-actions > .community-join-button[hidden] {
   display: none !important;

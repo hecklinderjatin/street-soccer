@@ -68,6 +68,18 @@ export const PAL = {
   kitMaroon: 0x8c294e,
   kitMaroonShade: 0x501c37,
   kitMaroonLight: 0xc55b7c,
+  kitLime: 0xb6f542,
+  kitLimeShade: 0x699a25,
+  kitLimeLight: 0xe4ff9b,
+  kitTeamGold: 0xd9a441, // outfield gold; retain the keeper's existing gold ramp
+  kitTeamGoldShade: 0x916426,
+  kitTeamGoldLight: 0xffda83,
+  kitNavy: 0x243b73,
+  kitNavyShade: 0x17264c,
+  kitNavyLight: 0x91aad9,
+  kitCoral: 0xff7f73,
+  kitCoralShade: 0xb6494c,
+  kitCoralLight: 0xffbbb0,
   kitPurple: 0x9064c4,
   kitPurpleShade: 0x573e84,
   kitPurpleLight: 0xbb97e4,
@@ -86,6 +98,10 @@ export const JERSEY_SWATCH: Record<JerseyColor, number> = {
   yellow: PAL.kitYellow,
   cyan: PAL.kitCyan,
   maroon: PAL.kitMaroon,
+  lime: PAL.kitLime,
+  gold: PAL.kitTeamGold,
+  navy: PAL.kitNavy,
+  coral: PAL.kitCoral,
 };
 
 export const css = (color: number, alpha = 1) =>

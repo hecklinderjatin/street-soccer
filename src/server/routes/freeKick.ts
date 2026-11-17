@@ -6,6 +6,7 @@ import { Hono } from 'hono';
 import { context, reddit, redis } from '@devvit/web/server';
 import { postType } from '../../shared/postType';
 import {
+  finishTime,
   freeKickDay,
   freeKickRunId,
   readFreeKickStats,
@@ -41,6 +42,7 @@ freeKickApi.get('/leaders', async (c) => {
 });
 for (const action of ['start', 'result', 'post-score'] as const)
   freeKickApi.post(`/${action}`, async (c) => {
+    const receivedAt = Date.now();
     try {
       const username = await reddit.getCurrentUsername();
       if (!username)
@@ -67,7 +69,7 @@ for (const action of ['start', 'result', 'post-score'] as const)
         );
         if (!stats || stats.mode !== Reflect.get(body, 'mode'))
           return c.json({ error: 'Invalid completed Free Kick run' }, 400);
-        await saveFreeKick(context.postId!, username, run, stats);
+        await saveFreeKick(context.postId!, username, run, stats, receivedAt);
         return c.json(await freeKickLeaders(context.postId!, username));
       }
       const stats = await finishedFreeKick(context.postId!, username, run);
@@ -96,7 +98,14 @@ for (const action of ['start', 'result', 'post-score'] as const)
       if ((await tx.exec()).length !== 1)
         return c.json({ error: 'Please retry shortly' }, 429);
       try {
-        const detail = `**u/${username}:** Free Kick — ${stats.score} points | ${stats.goals} goals / ${stats.shots} shots | Level ${stats.level} | Best streak ${stats.bestStreak} | Fastest goal ${stats.fastestGoalKmh} km/h`;
+        const finish =
+          stats.mode === 'custom'
+            ? (await freeKickLeaders(context.postId!, username)).finish?.me
+            : null;
+        const detail =
+          stats.mode === 'custom'
+            ? `**u/${username}:** Free Kick Playground — First finish ${finish ? finishTime(finish.value) : 'not ranked'} | ${stats.shots} shots this run | Fastest goal ${stats.fastestGoalKmh} km/h`
+            : `**u/${username}:** Free Kick — ${stats.score} points | ${stats.goals} goals / ${stats.shots} shots | Level ${stats.level} | Best streak ${stats.bestStreak} | Fastest goal ${stats.fastestGoalKmh} km/h`;
         const posted = await reddit.submitComment({
           id: comment ? context.postId! : await scoreThread(context.postId!),
           text: [comment, include ? detail : ''].filter(Boolean).join('\n\n'),

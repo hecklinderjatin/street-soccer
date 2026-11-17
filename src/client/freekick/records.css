@@ -147,7 +147,8 @@
 }
 .fk-results-screen .results-panel .results-actions > :first-child,
 .fk-results-screen .results-actions > .results-post-score,
-.fk-results-screen .results-actions:not(:has(.community-join-button:not([hidden])))
+.fk-results-screen
+  .results-actions:not(:has(.community-join-button:not([hidden])))
   > a {
   grid-column: span 3;
 }
@@ -159,4 +160,18 @@
 .fk-results-screen .results-actions {
   min-width: 0;
   overflow: visible;
+}
+
+/* A retained first finish can span days; keep its full precision on phones. */
+.fk-results-screen.is-playground .results-hero {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+.fk-results-screen.is-playground .results-goals {
+  min-width: 0;
+  width: 100%;
+  text-align: right;
+}
+.fk-results-screen.is-playground .results-goals .lobby-pixel {
+  max-width: 100%;
+  height: auto;
 }

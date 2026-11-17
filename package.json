@@ -14,6 +14,8 @@
     "prettier": "prettier --write .",
     "start": "npm run build && node scripts/serve.mjs",
     "serve": "node scripts/serve.mjs",
+    "test:team-kits-browser": "node checks/team-kits-browser.mjs",
+    "test:playground-finish-browser": "node checks/playground-finish-browser.mjs",
     "test:freekick-infinity-browser": "node checks/freekick-infinity-browser.mjs",
     "test:freekick-ui-browser": "node checks/freekick-ui-browser.mjs",
     "test:pause-restart": "node checks/pause-restart.mjs && node checks/pause-restart-browser.mjs",

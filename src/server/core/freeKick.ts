@@ -1,3 +1,4 @@
+import { playgroundFinish } from './playgroundFinish';
 import { postFreeKickChallenge } from '../../shared/freeKickChallenge';
 import { context, redis } from '@devvit/web/server';
 import { FREE_KICK as FK } from '../../shared/tuning';
@@ -17,7 +18,7 @@ import { saveSpeed } from './speedBoard';
 export const freeKickKey = (
   post: string,
   day: string,
-  kind: 'score' | 'speed' | 'goals' | 'runs' | 'attempts'
+  kind: 'score' | 'speed' | 'goals' | 'runs' | 'attempts' | 'finish'
 ) => `fk-${kind}:${post}:${day}`;
 const today = () => new Date().toISOString().slice(0, 10);
 type Receipt = {
@@ -155,7 +156,9 @@ export async function beginFreeKick(
 ) {
   const run = { id, day: today() };
   await freeKickReceipt(post, username, run);
-  return run;
+  return postFreeKickChallenge(context.postData).mode === 'custom'
+    ? { ...run, finish: await playgroundFinish(post, username) }
+    : run;
 }
 export async function finishedFreeKick(
   post: string,
@@ -171,13 +174,16 @@ export async function saveFreeKick(
   post: string,
   username: string,
   run: FreeKickRun,
-  stats: FreeKickStats
+  stats: FreeKickStats,
+  receivedAt = Date.now()
 ) {
   const receipt = await freeKickReceipt(post, username, run, stats);
   // Only Challenges that reached their goal target rank (user request,
   // 2026-11-11); a failed run is recorded (games played) but not ranked.
   const config = postFreeKickChallenge(context.postData);
   if (stats.mode === 'challenge' && stats.goals < config.goals) return;
+  if (stats.mode === 'custom')
+    await playgroundFinish(post, username, true, receivedAt);
   const day = receipt.completedDay ?? run.day,
     guards = [`privacy:deleting:${username}`, gamesDeletedKey(post)];
   for (const [kind, value] of [
@@ -185,6 +191,7 @@ export async function saveFreeKick(
     ['speed', stats.fastestGoalKmh],
     ['goals', stats.goals], // Infinity's Most Goals board
   ] as const) {
+    if (stats.mode === 'custom' && kind !== 'speed') continue;
     if (value === 0 && kind !== 'score') continue;
     const key = freeKickKey(post, day, kind);
     await registerBoard(key, day);
@@ -201,7 +208,7 @@ export async function freeKickLeaders(
   const days = Array.from({ length: WINDOW_DAYS }, (_, i) =>
     new Date(start - i * 86_400_000).toISOString().slice(0, 10)
   );
-  const read = async (kind: 'score' | 'speed' | 'goals') =>
+  const read = async (kind: 'score' | 'speed' | 'goals' | 'finish') =>
     rankFreeKicks(
       (
         await Promise.all(
@@ -211,7 +218,8 @@ export async function freeKickLeaders(
         )
       ).flat(),
       username,
-      limit
+      limit,
+      kind === 'finish'
     );
   // Each player's runs started over the same seven days.
   const tries = new Map<string, number>();
@@ -231,6 +239,9 @@ export async function freeKickLeaders(
   };
   return {
     day,
+    ...(postFreeKickChallenge(context.postData).mode === 'custom'
+      ? { finish: await read('finish') }
+      : {}),
     score: withTries(await read('score')),
     speed: withTries(await read('speed')),
     goals: withTries(await read('goals')),

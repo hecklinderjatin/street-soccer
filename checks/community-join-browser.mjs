@@ -163,7 +163,7 @@ try {
   assert.equal(await page.evaluate(() => window.played), 4);
   await page.evaluate(() => (window.allowed = false));
   await page
-    .getByRole('button', { name: 'JOIN COMMUNITY', exact: true })
+    .getByRole('button', { name: 'JOIN', exact: true })
     .click();
   await page.waitForFunction(
     () =>
@@ -197,7 +197,7 @@ try {
     window.deferConsent = true;
   });
   await page
-    .getByRole('button', { name: 'JOIN COMMUNITY', exact: true })
+    .getByRole('button', { name: 'JOIN', exact: true })
     .click();
   await page.getByRole('button', { name: 'PLAY AGAIN', exact: true }).click();
   assert.equal(await page.evaluate(() => window.played), 5);
@@ -210,7 +210,7 @@ try {
   );
   assert.equal(
     await page
-      .getByRole('button', { name: 'JOIN COMMUNITY', exact: true })
+      .getByRole('button', { name: 'JOIN', exact: true })
       .isVisible(),
     false
   );
@@ -221,7 +221,7 @@ try {
   await open(true);
   assert.equal(await page.locator('.community-join-button').count(), 1);
   await page
-    .getByRole('button', { name: 'JOIN COMMUNITY', exact: true })
+    .getByRole('button', { name: 'JOIN', exact: true })
     .click();
   await page.evaluate(() => {
     window.community.destroy();
@@ -254,7 +254,7 @@ try {
   await open(true);
   await page.clock.install();
   await page
-    .getByRole('button', { name: 'JOIN COMMUNITY', exact: true })
+    .getByRole('button', { name: 'JOIN', exact: true })
     .click();
   await page.clock.fastForward(30001);
   await page.getByRole('dialog', { name: 'Join community' }).waitFor();
@@ -303,7 +303,7 @@ try {
   await page.keyboard.press('Escape');
   assert.equal(
     await page
-      .getByRole('button', { name: 'JOIN COMMUNITY', exact: true })
+      .getByRole('button', { name: 'JOIN', exact: true })
       .evaluate((e) => e === document.activeElement),
     true
   );
@@ -311,7 +311,7 @@ try {
     window.deferConsent = false;
   });
   await page
-    .getByRole('button', { name: 'JOIN COMMUNITY', exact: true })
+    .getByRole('button', { name: 'JOIN', exact: true })
     .click();
   await page.waitForFunction(() =>
     document.querySelector('.community-join-status.is-success')
@@ -329,11 +329,11 @@ try {
   await open(true);
   const beforeGuest = await page.evaluate(() => window.writes);
   await page
-    .getByRole('button', { name: 'JOIN COMMUNITY', exact: true })
+    .getByRole('button', { name: 'JOIN', exact: true })
     .click();
   assert.equal(
     await page.getByRole('dialog').innerText(),
-    'JOIN COMMUNITY\n\nCouldn’t join right now. Please try again or open the community.\n\nTRY AGAIN\nOPEN COMMUNITY\nCLOSE'
+    'JOIN\n\nCouldn’t join right now. Please try again or open the community.\n\nTRY AGAIN\nOPEN COMMUNITY\nCLOSE'
   );
   assert.equal(await page.evaluate(() => window.writes), beforeGuest);
   await page.evaluate(() => window.community.destroy());

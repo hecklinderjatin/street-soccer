@@ -235,31 +235,31 @@ function detailsPage(
           'A kick built by a player in the Playground.',
           'Everyone faces the same spot, wall and keeper.',
           'Retry until you score: misses cost no life.',
-          'Each miss lowers what the goal is worth.',
-          'Your best score and fastest goal rank on this post.',
+          'Timer includes aiming, misses, pauses and restarts.',
+          'First finish locks your time. Replay for fastest goal speed.',
         ]
       : infinity && challenge
-      ? [
-          `Score as many goals as possible with ${challenge.lives} lives.`,
-          'Start at Easy. Every two goals raises your level, up to Pro.',
-          'At Pro, keep scoring until your lives run out.',
-          'Every miss costs one life and retries the current spot.',
-          'Your best score and fastest goal rank on this post.',
-        ]
-      : challenge
         ? [
-            `Score ${challenge.goals} goals before your ${challenge.lives} ${challenge.lives === 1 ? 'life runs' : 'lives run'} out.`,
-            `Spots around ${challenge.distanceM} m, wall ${challenge.wallGapM} m from the ball.`,
-            'Same wall and keeper every round; each goal moves the spot further and wider.',
-            'Harder spots (low XG) and better finishes (XGOT) score more points.',
-            'Only completed challenges rank: highest score and fastest goal.',
+            `Score as many goals as possible with ${challenge.lives} lives.`,
+            'Start at Easy. Every two goals raises your level, up to Pro.',
+            'At Pro, keep scoring until your lives run out.',
+            'Every miss costs one life and retries the current spot.',
+            'Your best score and fastest goal rank on this post.',
           ]
-        : [
-            'Low XG spots pay more. A better finish (XGOT) pays up to 3x.',
-            'A miss costs a life. A great save (XGOT 0.5+) does not.',
-            `Every ${FK.goalsPerLevel} goals raises the wall and keeper difficulty.`,
-            'Completed runs rank by highest score over seven UTC days.',
-          ];
+        : challenge
+          ? [
+              `Score ${challenge.goals} goals before your ${challenge.lives} ${challenge.lives === 1 ? 'life runs' : 'lives run'} out.`,
+              `Spots around ${challenge.distanceM} m, wall ${challenge.wallGapM} m from the ball.`,
+              'Same wall and keeper every round; each goal moves the spot further and wider.',
+              'Harder spots (low XG) and better finishes (XGOT) score more points.',
+              'Only completed challenges rank: highest score and fastest goal.',
+            ]
+          : [
+              'Low XG spots pay more. A better finish (XGOT) pays up to 3x.',
+              'A miss costs a life. A great save (XGOT 0.5+) does not.',
+              `Every ${FK.goalsPerLevel} goals raises the wall and keeper difficulty.`,
+              'Completed runs rank by highest score over seven UTC days.',
+            ];
   const notesTop = card.y + 180 + 3 * 116 + 16;
   notes.forEach((line, i) =>
     items.push(
@@ -328,10 +328,10 @@ function helpPage(
         ? 'Unlimited retries at this level and spot. NEW SPOT moves on; SETUP changes the level or kick.'
         : challenge
           ? challenge.mode === 'custom'
-            ? 'Unlimited retries until you score. Each miss makes the spot count as easier, so the goal pays less.'
+            ? 'First goal locks your finish time. Misses, pauses and restarts count. Replays can improve goal speed.'
             : challenge.mode === 'infinity'
-            ? `${challenge.lives} lives. Every miss costs one. Two goals per level: Easy to Pro, then keep scoring until lives run out.`
-            : `${challenge.lives} ${challenge.lives === 1 ? 'life' : 'lives'}, ${challenge.goals} goals to win. A miss costs a life. Each goal advances the fixed sequence.`
+              ? `${challenge.lives} lives. Every miss costs one. Two goals per level: Easy to Pro, then keep scoring until lives run out.`
+              : `${challenge.lives} ${challenge.lives === 1 ? 'life' : 'lives'}, ${challenge.goals} goals to win. A miss costs a life. Each goal advances the fixed sequence.`
           : `Start with ${FK.lives} lives. A miss costs one and retries the spot. Every ${FK.goalsPerLevel} goals raises the level.`,
     ],
     [
@@ -339,12 +339,14 @@ function helpPage(
       "The wall may jump or stay down. A lying defender blocks low shots. Watch the keeper's position.",
     ],
     [
-      '6. XG SCORING',
+      challenge?.mode === 'custom' ? '6. FASTEST FINISH' : '6. XG SCORING',
       practice
         ? 'XG shows how hard the spot is. XGOT how hard your shot was to save.'
-        : challenge
-          ? 'Low XG spots pay more. A high XGOT finish pays up to 3x. Your points are shown at the end.'
-          : 'Low XG spots pay more. A high XGOT finish pays up to 3x. A great save costs no life.',
+        : challenge?.mode === 'custom'
+          ? 'Timer starts after the briefing. Lowest time wins; equal times share rank. Speed records stay open to replays.'
+          : challenge
+            ? 'Low XG spots pay more. A high XGOT finish pays up to 3x. Your points are shown at the end.'
+            : 'Low XG spots pay more. A high XGOT finish pays up to 3x. A great save costs no life.',
     ],
   ];
   const sectionH = 134;

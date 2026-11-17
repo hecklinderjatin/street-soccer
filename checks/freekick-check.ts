@@ -92,6 +92,34 @@ function playOut(setup: KickSetup, strike: Strike) {
 }
 
 check(
+  'Playground time ranking: lowest milliseconds and shared tie ranks',
+  () => {
+    const board = rankFreeKicks(
+      [
+        { member: 'c', score: 15000 },
+        { member: 'b', score: 12347 },
+        { member: 'a', score: 12347 },
+        { member: 'pending', score: -1 },
+        { member: 'b', score: 16000 },
+        { member: 'old', score: NaN },
+      ],
+      'c',
+      25,
+      true
+    );
+    assert.deepEqual(
+      board.top.map((row) => [row.username, row.rank, row.value]),
+      [
+        ['a', 1, 12347],
+        ['b', 1, 12347],
+        ['c', 3, 15000],
+      ]
+    );
+    assert.equal(board.me?.rank, 3);
+  }
+);
+
+check(
   'controls: left shot selector stays below the power bar and outside shooting area',
   () => {
     for (const [width, height] of [

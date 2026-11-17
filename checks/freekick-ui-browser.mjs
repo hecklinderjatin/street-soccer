@@ -217,7 +217,7 @@ try {
   assert.equal(await page.locator('.results-stats > div').count(), 6);
   assert.equal(
     await page
-      .getByRole('button', { name: 'JOIN COMMUNITY', exact: true })
+      .getByRole('button', { name: 'JOIN', exact: true })
       .isVisible(),
     true
   );

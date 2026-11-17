@@ -1,4 +1,8 @@
-export function gamePostFallback(mode: string, objective: string, play: string) {
+export function gamePostFallback(
+  mode: string,
+  objective: string,
+  play: string
+) {
   return {
     text: [
       `**Street Soccer · ${mode}**`,
@@ -11,7 +15,7 @@ export function gamePostFallback(mode: string, objective: string, play: string) 
 export function playgroundPostFallback(distanceM: number) {
   return gamePostFallback(
     'Free Kick Playground',
-    `Score this player-built free kick from ${distanceM} m. Retry until you score.`,
+    `Score this player-built free kick from ${distanceM} m. Race to your first goal for Fastest Finish, or replay for Fastest Goals. Misses and restarts count toward your finish time.`,
     'Play'
   );
 }

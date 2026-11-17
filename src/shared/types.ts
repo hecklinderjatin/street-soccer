@@ -36,7 +36,11 @@ export type JerseyColor =
   | 'teal'
   | 'yellow'
   | 'cyan'
-  | 'maroon';
+  | 'maroon'
+  | 'lime'
+  | 'gold'
+  | 'navy'
+  | 'coral';
 export const JERSEY_COLORS: readonly JerseyColor[] = [
   'pink',
   'blue',
@@ -49,6 +53,10 @@ export const JERSEY_COLORS: readonly JerseyColor[] = [
   'yellow',
   'cyan',
   'maroon',
+  'lime',
+  'gold',
+  'navy',
+  'coral',
 ];
 
 // Outfield shapes (back-mid-forward) for the 4 outfielders; spots in

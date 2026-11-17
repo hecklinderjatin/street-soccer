@@ -5,7 +5,7 @@ import {
   showForm,
   requestExpandedMode,
 } from '@devvit/web/client';
-import type { FreeKickStats } from '../../shared/freeKick';
+import { finishTime, type FreeKickStats } from '../../shared/freeKick';
 import type { FreeKickChallengeConfig } from '../../shared/freeKickChallenge';
 import { endlessFreeKick, infinitySkill } from '../../shared/freeKickChallenge';
 import { DIFFICULTY_LABEL } from '../../shared/types';
@@ -51,6 +51,7 @@ export function freeKickResults(
     }
   );
   screen.element.classList.add('results-screen', 'fk-results-screen');
+  if (custom) screen.element.classList.add('is-playground');
   screen.element.setAttribute('role', 'dialog');
   screen.panel.classList.add('results-panel');
   screen.panel.dataset.mode = 'ranked';
@@ -86,10 +87,10 @@ export function freeKickResults(
   scoreboard.className = 'fk-results-scoreboard';
   const label = document.createElement('span');
   label.className = 'results-team-name';
-  label.textContent = 'POINTS';
+  label.textContent = custom ? 'FIRST FINISH' : 'POINTS';
   const points = document.createElement('strong');
   points.className = 'results-goals';
-  pixelLabel(points, stats.score.toLocaleString());
+  pixelLabel(points, custom ? '—' : stats.score.toLocaleString());
   scoreboard.append(points, label);
   hero.append(outcome, scoreboard);
   summary.append(hero);
@@ -230,14 +231,19 @@ export function freeKickResults(
   async function save() {
     status.textContent = 'Saving run...';
     try {
-      await records.save(stats);
+      const boards = await records.save(stats);
+      const finish = boards?.finish?.me;
+      if (custom && finish && !closed)
+        pixelLabel(points, finishTime(finish.value));
       if (closed) return;
       saved = true;
       if (!sharing && !posted) post.disabled = false;
       status.textContent =
         challenge.config.mode !== 'infinity' && !challenge.won
           ? 'Run saved. Only completed challenges rank on the leaderboard.'
-          : 'Run saved. Leaderboards updated.';
+          : custom
+            ? 'First finish locked. Replay to improve your goal speed.'
+            : 'Run saved. Leaderboards updated.';
       retry.hidden = true;
     } catch {
       if (!closed)

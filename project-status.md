@@ -8,6 +8,12 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Four team kits and Join label (2026-11-17):** Add Lime, Gold, Navy and Coral to team selectors and baked gameplay/feed atlases. Navy has light shorts/socks; outfield Gold uses its own ramp without changing the goalkeeper. The shared cyan results action is now JOIN in every mode. All 37 player atlases baked and 39 release images optimized; existing kit files unchanged. Full local, community API/browser, new-kit production browser, Playground finish browser and production smoke checks pass. Rendered Lime/Gold and Navy/Coral matches inspected.
+
+**Cyan Join button (2026-11-17):** Highlight the shared results Join Community action in cyan with navy pixel text and a darker blue raised border. Applies to Classic, Daily, Custom and ranked Free Kick results, preserving size, position and behavior. Build and community API/browser checks pass; built CSS colours verified across shared result variants and portrait screenshot inspected.
+
+**Playground finish ranking (2026-11-17):** Shared Playground uses a separate Fastest Finish millisecond board plus replayable Fastest Goals. The first server timer survives restart/refresh/quit and locks on the first submitted goal; equal times share rank. UI/help/comments updated. Full local checks and 41 Free Kick rules pass; server regressions cover clock persistence, ties, concurrent submissions, replay speed, expiry and erasure. New Playground production browser checks and the existing Classic/Free Kick production smoke pass. Phone and desktop screenshots inspected.
+
 **Join recovery (2026-11-17):** Add a results-themed generic failure dialog with Try Again, Open Community and Close. Bound consent waiting, ignore late consent, cancel on exit, preserve success focus and use a seven-day reminder cooldown instead of permanent membership assumptions. Focused mocked server/browser checks, the full local suite and production browser smoke pass.
 
 **Dependency maintenance (2026-11-17):** Upgrade Devvit packages together to 0.15.4, Hono to 4.13.19, its Node adapter to 2.1.8, ESLint to 10.15.0, Playwright to 1.65.1, Prettier to 3.10.1 and typescript-eslint to 8.73.0. Full local checks and production Chromium smoke pass; npm audit reports zero vulnerabilities. The unit runner discovers zero tests; the separate gameplay/server regressions execute successfully.
@@ -840,6 +846,12 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Append colours to the existing kit order to preserve saved identities; bake both full and feed-preview atlases. Keep keeper ramps unchanged and use contrasting Navy shorts/socks. Shorten the shared results/popup label to JOIN while retaining descriptive accessibility labels.
+
+- Use the shared Join component’s results-only CSS for cyan emphasis across modes, keeping existing replay/Playground colours and layout.
+
+- Retain clocks/locked finishes for the start day’s existing seven-UTC-day window; erase them with player/post data. Use server receipt timestamps, not client elapsed values, and send completion at the goal before celebration. Preserve Challenge/Infinity point boards and historical points without reinterpreting them as times. Server-validated reports do not simulate goals server-side; network delay affects close times.
+
 - Keep join failures generic for players. Use the existing pixel buttons/navy results palette for recovery, native modal keyboard handling, and Devvit navigation. Explain app-wide permissions visibly; never claim device storage establishes membership.
 
 - Apply the requested non-major dependency updates only; retain Phaser 3.90.0, TypeScript 6.0.3 and Node 24 types. Keep Devvit packages at the same version and retain security overrides and the glob compatibility patch.
@@ -1328,6 +1340,12 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Inspect the four new kits and cyan JOIN on Reddit devices before release; local validation, saved selection, gameplay/preview asset loading and rendered matches passed.
+
+- Check the cyan Join action in Reddit’s native result screens after release; local browser/build validation passed.
+
+- Playtest the shared Playground first-finish clock and speed replays in Reddit, including native networking latency. Clock retention is the start day’s seven-UTC-day window, after which a fresh timed entry is allowed.
+
 - Validate Join recovery in Chromium, then verify native consent and navigation during Reddit playtest.
 
 - Playtest Devvit 0.15.4 in Reddit before release; local checks and production browser smoke passed. The pre-existing Custom browser suite colour expectation remains a separate follow-up.
@@ -1795,6 +1813,12 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-17:** Add Lime (#B6F542), Gold (#D9A441), Navy (#243B73) and Coral (#FF7F73) kits, swatches and full/feed atlases; rename the shared results action to JOIN. Art release, full local checks, community/kit/Playground production browsers and Classic/Free Kick smoke pass. Full/preview assets load for every new colour; Lime/Gold and Navy/Coral rendered matches inspected. No deployment.
+
+- **2026-11-17:** Highlight Join Community in cyan (#29ADFF), navy text (#0A1526), and a dark blue bottom border across every results screen. No placement or interaction changes. Build, community API/browser checks and computed styles against built CSS pass; portrait screenshot inspected.
+
+- **2026-11-17:** Add shared Playground Fastest Finish/goal-speed boards, server-persisted first-finish clock, immediate goal reporting, time HUD/results/help/comment copy and expiry/privacy handling. Full local checks pass (41 Free Kick rules, server/privacy/gameplay/Daily/Journeys, types/lint/build; unit runner discovers zero tests). New browser checks cover briefing/start, miss/restart/refresh, immediate goal snapshot, immutable retry after a failed report, time/speed tabs, locked replay and feed/results layouts. New Playground and existing Classic/Free Kick production smoke pass; phone/desktop screenshots inspected. Native Reddit playtest remains pending.
 
 - **2026-11-17:** Implement generic Join recovery popup, bounded consent, cancellation, reminder expiry, visible permission explanation and focus restoration. Browser regressions pass for generic failure, retry/navigation, timeout/late consent, keyboard/focus, cooldown and cleanup; full local suite passes. Inspected 320px portrait and 844px landscape popup screenshots. Production smoke also passes for Classic feed-to-results and all four Free Kick entries. Live Reddit consent/navigation remain unverified.
 

@@ -1659,9 +1659,9 @@ check(
   }
 );
 check(
-  'Yellow, Cyan and Maroon kits validate, persist and resolve to shipped atlases',
+  'Additional kits validate, persist and resolve to shipped atlases',
   () => {
-    for (const jersey of ['yellow', 'cyan', 'maroon'] as const) {
+    for (const jersey of ['yellow', 'cyan', 'maroon', 'lime', 'gold', 'navy', 'coral'] as const) {
       const created = readChallenge(
         formValues({ homeJersey: [jersey] }),
         parseMatchConfig

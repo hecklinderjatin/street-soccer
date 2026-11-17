@@ -6,7 +6,7 @@ import {
 } from '../../shared/freeKickJourneys';
 import { context, exitExpandedMode } from '@devvit/web/client';
 import { launchSpeedKmh } from '../../shared/goalSpeed';
-import type { FreeKickStats } from '../../shared/freeKick';
+import { finishTime, type FreeKickStats } from '../../shared/freeKick';
 import { FreeKickRecords } from './records';
 import { freeKickResults } from './results';
 import { pixelLabel } from '../ui/pixelLabel';
@@ -265,7 +265,8 @@ export class FreeKickScene extends Phaser.Scene {
       typeof round === 'number' &&
       Number.isInteger(round) &&
       round >= 0 &&
-      (endlessFreeKick(freeKickChallenge()) || round < freeKickChallenge().goals)
+      (endlessFreeKick(freeKickChallenge()) ||
+        round < freeKickChallenge().goals)
         ? round
         : null;
     this.challenge = this.practice ? null : freeKickChallenge();
@@ -445,7 +446,11 @@ export class FreeKickScene extends Phaser.Scene {
                 this.practiceRound,
                 context?.postId ?? 'local'
               )
-            : practiceKick(freeKickChallenge(), this.practiceLevel, Math.random);
+            : practiceKick(
+                freeKickChallenge(),
+                this.practiceLevel,
+                Math.random
+              );
       this.lastPower = null;
       this.contact = ballContact(0, 0);
       this.power = FK.defaultPower;
@@ -524,7 +529,7 @@ export class FreeKickScene extends Phaser.Scene {
     // Practice is unranked: the spot's xG only, no point values (user
     // request, 2026-11-11); each shot's XGOT shows on its banner.
     this.xgText.setText(
-      this.practice && !this.playground
+      (this.practice && !this.playground) || this.challenge?.mode === 'custom'
         ? `XG ${xg.toFixed(2)}`
         : `XG ${xg.toFixed(2)}  GOAL ${goalPoints(xg, 0, next)}-${goalPoints(xg, 1, next)}`
     );
@@ -532,8 +537,13 @@ export class FreeKickScene extends Phaser.Scene {
 
   private frameCamera() {
     // In the Playground, only the part of the view above its sheet.
-    const shown = this.playground && this.editing ? this.playground.viewRatio : 1;
-    this.cam.frame(this.setup.spot, this.scale.width, this.scale.height * shown);
+    const shown =
+      this.playground && this.editing ? this.playground.viewRatio : 1;
+    this.cam.frame(
+      this.setup.spot,
+      this.scale.width,
+      this.scale.height * shown
+    );
     this.cam.project(GOAL_X, GOAL_Y, BAR_Z / 2, at);
     // The flight's push-in is about a point beyond the goal, which brings
     // the goal toward the middle of the view as it grows.
@@ -654,6 +664,8 @@ export class FreeKickScene extends Phaser.Scene {
       this.bestStreak = Math.max(this.bestStreak, this.streak);
       const { points, tags } = scoreGoal(play, this.streak, this.shotXg, xgot);
       this.score += points;
+      if (!this.practice && this.challenge?.mode === 'custom')
+        this.records.finish(this.currentStats());
       const up = this.challenge
         ? challengeOutcome(this.goals, this.lives, this.challenge) === 'open' &&
           freeKickRoundLevel(this.challenge, this.goals) >
@@ -669,7 +681,11 @@ export class FreeKickScene extends Phaser.Scene {
         milestone ? PAL.orange : PAL.yellow,
         [
           ...(milestone ? ['GOAL!'] : []),
-          this.practice ? xgotLine : `+${points}  ${xgotLine}`,
+          this.practice
+            ? xgotLine
+            : this.challenge?.mode === 'custom'
+              ? 'GOAL! CHECK RESULTS'
+              : `+${points}  ${xgotLine}`,
           ...(this.challenge ? [this.challengeLine()] : []),
           ...tags,
         ].join('\n'),
@@ -961,6 +977,8 @@ export class FreeKickScene extends Phaser.Scene {
   // ---- Frame --------------------------------------------------------------
 
   override update(_time: number, deltaMs: number) {
+    if (!this.practice && this.challenge?.mode === 'custom' && this.scoreText)
+      this.updateHud();
     if (this.overlay !== null) return;
     const dt = Math.min(0.05, deltaMs / 1000);
     this.clock += dt;
@@ -1457,7 +1475,11 @@ export class FreeKickScene extends Phaser.Scene {
     )
       which = 'help';
     else if (which === null) {
-      if (this.introPending) this.beginJourney();
+      if (this.introPending) {
+        this.beginJourney();
+        if (!this.practice && this.challenge?.mode === 'custom')
+          this.records.start();
+      }
       this.introPending = false;
     }
     this.overlay = which;
@@ -1639,14 +1661,24 @@ export class FreeKickScene extends Phaser.Scene {
   }
 
   private updateHud() {
-    this.scoreText.setText(String(this.practice ? this.goals : this.score));
+    const timed = !this.practice && this.challenge?.mode === 'custom';
+    const elapsed = this.records.elapsedMs();
+    this.scoreText.setText(
+      timed
+        ? elapsed === null
+          ? '—'
+          : finishTime(elapsed)
+        : String(this.practice ? this.goals : this.score)
+    );
     const multiplier = streakMultiplier(this.streak);
     this.streakText.setText(
       this.challenge
         ? this.challenge.mode === 'infinity'
           ? `INFINITY - ${this.goals} GOALS`
           : this.challenge.mode === 'custom'
-            ? 'PLAYGROUND - SCORE TO FINISH'
+            ? this.records.finishLocked
+              ? 'SPEED REPLAY - FINISH LOCKED'
+              : 'PLAYGROUND - FASTEST FINISH'
             : `GOALS ${this.goals}/${this.challenge.goals}`
         : this.streak >= 2
           ? `STREAK ${this.streak}  X${multiplier}`
@@ -1667,8 +1699,8 @@ export class FreeKickScene extends Phaser.Scene {
       return this.goals > 0
         ? 'SCORED! RUN COMPLETE'
         : this.shots === 0
-          ? 'SCORE TO FINISH: EVERY MISS LOWERS THE PRIZE'
-          : `ATTEMPT ${this.shots + 1} - PRIZE FALLS WITH EACH MISS`;
+          ? 'SCORE TO FINISH: TIMER KEEPS RUNNING'
+          : `SHOT ${this.shots + 1} - TIMER KEEPS RUNNING`;
     if (c.mode === 'infinity' && this.lives <= 0)
       return 'INFINITY RUN COMPLETE';
     if (c.mode === 'infinity')
@@ -1683,13 +1715,9 @@ export class FreeKickScene extends Phaser.Scene {
     this.resultFx.show(goal, text, color, sub);
   }
 
-  // Results: score, goals, best streak and the best score on this device.
-  private showCard() {
-    if (this.practice || this.resultScreen || !this.challenge) return;
-    this.resultFx.hide();
-    this.hintText.setText('');
-    const stats: FreeKickStats = {
-      mode: freeKickRankedMode(this.challenge),
+  private currentStats(): FreeKickStats {
+    return {
+      mode: this.challenge ? freeKickRankedMode(this.challenge) : 'play',
       score: this.score,
       goals: this.goals,
       shots: this.shots,
@@ -1702,6 +1730,14 @@ export class FreeKickScene extends Phaser.Scene {
       greatSaves: this.greatSaves,
       xg: Math.round(this.xgTotal * 100),
     };
+  }
+
+  // Results: score, goals, best streak and the best score on this device.
+  private showCard() {
+    if (this.practice || this.resultScreen || !this.challenge) return;
+    this.resultFx.hide();
+    this.hintText.setText('');
+    const stats = this.currentStats();
     this.resultScreen = freeKickResults(
       stats,
       this.records,

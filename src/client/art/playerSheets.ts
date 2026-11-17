@@ -255,6 +255,17 @@ const KITS: Record<Kit, KitColors> = {
     PAL.kitMaroonLight,
     PAL.ink
   ),
+  lime: plainKit(PAL.kitLime, PAL.kitLimeShade, PAL.kitLimeLight, PAL.ink),
+  gold: plainKit(PAL.kitTeamGold, PAL.kitTeamGoldShade, PAL.kitTeamGoldLight, PAL.ink),
+  navy: {
+    ...plainKit(PAL.kitNavy, PAL.kitNavyShade, PAL.kitNavyLight, PAL.ink),
+    // Light shorts and socks keep the dark shirt visible on the street.
+    shorts: PAL.kitNavyLight,
+    shortsShade: PAL.kitBlueShade,
+    socks: PAL.kitNavyLight,
+    sockShade: PAL.kitBlueShade,
+  },
+  coral: plainKit(PAL.kitCoral, PAL.kitCoralShade, PAL.kitCoralLight, PAL.ink),
   homeKeeper: {
     shirt: PAL.kitGreen,
     shirtShade: PAL.kitGreenShade,
@@ -286,6 +297,10 @@ export const KIT_NAMES: readonly Kit[] = [
   'yellow',
   'cyan',
   'maroon',
+  'lime',
+  'gold',
+  'navy',
+  'coral',
   'homeKeeper',
   'awayKeeper',
 ];

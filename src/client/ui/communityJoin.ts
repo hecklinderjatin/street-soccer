@@ -36,7 +36,7 @@ export function communityJoin(results: HTMLElement) {
   note.textContent =
     'Optional. Reddit may ask for joining and posting permissions. Joining won’t post anything. You can keep playing without joining.';
   const join = casualButton(
-    'JOIN COMMUNITY',
+    'JOIN',
     (event) => void subscribe(event),
     true
   );
@@ -46,7 +46,7 @@ export function communityJoin(results: HTMLElement) {
   dialog.className = 'community-join-dialog';
   dialog.setAttribute('aria-label', 'Join community');
   const heading = document.createElement('h2');
-  pixelLabel(heading, 'JOIN COMMUNITY');
+  pixelLabel(heading, 'JOIN');
   const message = document.createElement('p');
   message.textContent = FAILURE;
   const controls = document.createElement('div');
@@ -173,7 +173,7 @@ export function communityJoin(results: HTMLElement) {
       pending = false;
       if (!disposed) {
         join.disabled = false;
-        pixelLabel(join, 'JOIN COMMUNITY');
+        pixelLabel(join, 'JOIN');
       }
     }
   }

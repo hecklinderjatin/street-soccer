@@ -9,7 +9,15 @@ const state = {
     subredditName: 'test',
     postData: {
       matchType: 'freekick',
-      freeKick: { kicker: 'pink', wall: 'blue', lives: 4, goals: 2, distanceM: 25, wallGapM: 9, difficulty: 'normal' },
+      freeKick: {
+        kicker: 'pink',
+        wall: 'blue',
+        lives: 4,
+        goals: 2,
+        distanceM: 25,
+        wallGapM: 9,
+        difficulty: 'normal',
+      },
     },
   },
   values: new Map(),
@@ -358,29 +366,241 @@ assert.equal(failed.body.speed.me, null);
 assert.ok(!failed.body.score.top.some((row) => row.username === 'bob'));
 state.name = 'alice';
 
-state.context.postData.freeKick={mode:'infinity',kicker:'pink',wall:'blue',lives:2};
-const inf=await call('/start',{mode:'infinity',id:'infinity-run-identifier-1234'});
-assert.equal(inf.status,200);age(inf.body);
-const infStats={...valid,mode:'infinity',goals:2,shots:4,level:3,greatSaves:0};
-assert.equal((await call('/result',{...inf.body,mode:'challenge',result:infStats})).status,400);
-assert.equal((await call('/result',{...inf.body,mode:'infinity',result:{...infStats,shots:3}})).status,400);
-assert.equal((await call('/result',{...inf.body,mode:'infinity',result:infStats})).status,200);
-const infSaved=await call('/result',{...inf.body,mode:'infinity',result:infStats});
-assert.equal(infSaved.status,200);
-assert.ok(infSaved.body.goals.me.value>=2,'Infinity runs rank on Most Goals');
+state.context.postData.freeKick = {
+  mode: 'infinity',
+  kicker: 'pink',
+  wall: 'blue',
+  lives: 2,
+};
+const inf = await call('/start', {
+  mode: 'infinity',
+  id: 'infinity-run-identifier-1234',
+});
+assert.equal(inf.status, 200);
+age(inf.body);
+const infStats = {
+  ...valid,
+  mode: 'infinity',
+  goals: 2,
+  shots: 4,
+  level: 3,
+  greatSaves: 0,
+};
+assert.equal(
+  (await call('/result', { ...inf.body, mode: 'challenge', result: infStats }))
+    .status,
+  400
+);
+assert.equal(
+  (
+    await call('/result', {
+      ...inf.body,
+      mode: 'infinity',
+      result: { ...infStats, shots: 3 },
+    })
+  ).status,
+  400
+);
+assert.equal(
+  (await call('/result', { ...inf.body, mode: 'infinity', result: infStats }))
+    .status,
+  200
+);
+const infSaved = await call('/result', {
+  ...inf.body,
+  mode: 'infinity',
+  result: infStats,
+});
+assert.equal(infSaved.status, 200);
+assert.ok(
+  infSaved.body.goals.me.value >= 2,
+  'Infinity runs rank on Most Goals'
+);
 
 // Shared Playground posts use the same explicit score-comment flow.
-const { CUSTOM_KICK_DEFAULT: shareKick } = await import('../node_modules/.cache/fk-server/custom.mjs');
-state.context.postData.freeKick={mode:'custom',custom:shareKick,kicker:'pink',wall:'blue'};
-const customShareRun=await call('/start',{mode:'custom',id:'custom-share-run-identifier-1234'});
-assert.equal(customShareRun.status,200);age(customShareRun.body);
-const customShareStats={...valid,mode:'custom',goals:1,shots:2,bestStreak:1,level:5,greatSaves:0};
-assert.equal((await call('/result',{...customShareRun.body,mode:'custom',result:customShareStats})).status,200);
+const { CUSTOM_KICK_DEFAULT: shareKick } =
+  await import('../node_modules/.cache/fk-server/custom.mjs');
+state.context.postData.freeKick = {
+  mode: 'custom',
+  custom: shareKick,
+  kicker: 'pink',
+  wall: 'blue',
+};
+const customShareRun = await call('/start', {
+  mode: 'custom',
+  id: 'custom-share-run-identifier-1234',
+});
+assert.equal(customShareRun.status, 200);
+age(customShareRun.body);
+const customShareStats = {
+  ...valid,
+  mode: 'custom',
+  goals: 1,
+  shots: 2,
+  bestStreak: 1,
+  level: 5,
+  greatSaves: 0,
+};
+assert.equal(
+  (
+    await call('/result', {
+      ...customShareRun.body,
+      mode: 'custom',
+      result: customShareStats,
+    })
+  ).status,
+  200
+);
 state.values.delete('cooldown:comment:t3_fk:alice');
-assert.equal((await call('/post-score',{...customShareRun.body,mode:'custom',comment:'',includeStats:true})).status,200);
-assert.equal(state.comments.at(-1).runAs,'USER');
-assert.equal(state.comments.at(-1).id,'t1_scores');
-assert.match(state.comments.at(-1).text,/500 points/);
+assert.equal(
+  (
+    await call('/post-score', {
+      ...customShareRun.body,
+      mode: 'custom',
+      comment: '',
+      includeStats: true,
+    })
+  ).status,
+  200
+);
+assert.equal(state.comments.at(-1).runAs, 'USER');
+assert.equal(state.comments.at(-1).id, 't1_scores');
+assert.match(state.comments.at(-1).text, /First finish \d+\.\d{3} s/);
+
+// Timed Playground: persistent first start, immutable first finish, replay speed.
+const RealDate = Date;
+let clockNow = new RealDate().setUTCHours(23, 59, 55, 0);
+globalThis.Date = class extends RealDate {
+  constructor(...args) {
+    super(...(args.length ? args : [clockNow]));
+  }
+  static now() {
+    return clockNow;
+  }
+};
+try {
+  state.name = 'timed';
+  const first = await call('/start', {
+    mode: 'custom',
+    id: 'timed-first-identifier-1234',
+  });
+  assert.deepEqual(first.body.finish, { elapsedMs: 0, locked: false });
+  clockNow += 4000;
+  const restart = await call('/start', {
+    mode: 'custom',
+    id: 'timed-restart-identifier-1234',
+  });
+  assert.equal(restart.body.finish.elapsedMs, 4000);
+  clockNow += 8347; // crosses UTC midnight; refresh/restart retains prior clock
+  const refresh = await call('/start', {
+    mode: 'custom',
+    id: 'timed-refresh-identifier-1234',
+  });
+  assert.equal(refresh.body.finish.elapsedMs, 12347);
+  age(restart.body);
+  const finished = await call('/result', {
+    ...restart.body,
+    mode: 'custom',
+    result: customShareStats,
+  });
+  assert.equal(finished.status, 200);
+  assert.equal(finished.body.finish.me.value, 12347);
+  clockNow += 20000;
+  const replay = await call('/start', {
+    mode: 'custom',
+    id: 'timed-replay-identifier-1234',
+  });
+  assert.deepEqual(replay.body.finish, { elapsedMs: 12347, locked: true });
+  age(replay.body);
+  const speedReplay = await call('/result', {
+    ...replay.body,
+    mode: 'custom',
+    result: { ...customShareStats, fastestGoalKmh: 110 },
+  });
+  assert.equal(speedReplay.status, 200);
+  assert.equal(speedReplay.body.finish.me.value, 12347);
+  assert.equal(speedReplay.body.speed.me.value, 110);
+  assert.equal(
+    speedReplay.body.score.me,
+    null,
+    'old points do not populate the time board'
+  );
+  // A client-provided time is ignored. Only server timestamps rank.
+  state.name = 'tie';
+  const tie = await call('/start', {
+    mode: 'custom',
+    id: 'timed-tie-identifier-1234',
+  });
+  clockNow += 12347;
+  age(tie.body);
+  const tied = await call('/result', {
+    ...tie.body,
+    mode: 'custom',
+    result: { ...customShareStats, finishMs: 1 },
+  });
+  assert.equal(tied.body.finish.me.value, 12347);
+  const timeRows = tied.body.finish.top.filter((row) =>
+    ['tie', 'timed'].includes(row.username)
+  );
+  assert.equal(timeRows.length, 2);
+  assert.equal(timeRows[0].rank, timeRows[1].rank, 'equal ms share rank');
+  state.name = 'racer';
+  const concurrent = await Promise.all(
+    [1, 2].map((n) =>
+      call('/start', { mode: 'custom', id: `timed-concurrent-identifier-${n}` })
+    )
+  );
+  assert.ok(concurrent.every((r) => r.status === 200));
+  assert.deepEqual(concurrent[0].body.finish, concurrent[1].body.finish);
+  clockNow += 5000;
+  for (const r of concurrent) age(r.body);
+  const saves = await Promise.all(
+    concurrent.map((r) =>
+      call('/result', { ...r.body, mode: 'custom', result: customShareStats })
+    )
+  );
+  assert.ok(saves.every((r) => r.status === 200));
+  assert.ok(saves.every((r) => r.body.finish.me.value === 5000));
+  state.name = 'pending';
+  await call('/start', { mode: 'custom', id: 'timed-pending-identifier-1234' });
+  assert.equal(
+    (await call('/leaders')).body.finish.me,
+    null,
+    'unscored clocks never rank'
+  );
+  await removePlayerResults(
+    eraser,
+    [...(state.boards.get('privacy:boards') ?? new Map()).keys()],
+    'timed'
+  );
+  assert.ok(
+    ![...state.hashes.entries()].some(
+      ([key, users]) => key.startsWith('fk-finish:') && users.has('timed')
+    )
+  );
+  // Once the retained clock ages out of the seven-day window, a fresh entry is allowed.
+  clockNow += 8 * 86400000;
+  state.name = 'tie';
+  const expired = await call('/start', {
+    mode: 'custom',
+    id: 'timed-expired-identifier-1234',
+  });
+  assert.deepEqual(expired.body.finish, { elapsedMs: 0, locked: false });
+} finally {
+  // Remove synthetic future buckets: the in-memory Redis does not run TTLs.
+  const realDay = new RealDate().toISOString().slice(0, 10);
+  for (const map of [state.boards, state.hashes])
+    for (const key of map.keys())
+      if (key.startsWith('fk-') && key.split(':')[2] > realDay) {
+        map.delete(key);
+        state.boards.get('privacy:boards')?.delete(key.replace(/:stats$/, ''));
+      }
+  globalThis.Date = RealDate;
+  state.name = 'alice';
+}
+console.log(
+  'Playground time passed: server ms, restart/refresh/midnight, immutable first goal, replay speed, ties, concurrency, expiry and erasure.'
+);
 
 await removePlayerResults(
   eraser,
@@ -452,11 +672,18 @@ state.postFlairs = [
   { id: 'mod-only', text: 'Playground', modOnly: true },
   { id: 'daily', text: 'Daily Challenge', modOnly: false },
 ];
-await assert.rejects(sharePlayground('testSharer', setup), /Playground post flair/);
+await assert.rejects(
+  sharePlayground('testSharer', setup),
+  /Playground post flair/
+);
 assert.equal(state.newPost, undefined);
 assert.equal(state.values.has(playgroundCooldownKey('testSharer')), false);
 assert.equal(state.values.has(playgroundSharesKey('testSharer')), false);
-state.postFlairs.push({ id: 'playground-flair', text: 'PLAYGROUND', modOnly: false });
+state.postFlairs.push({
+  id: 'playground-flair',
+  text: 'PLAYGROUND',
+  modOnly: false,
+});
 await sharePlayground('testSharer', setup);
 assert.equal(state.flairSubreddit, 'test');
 assert.equal(state.newPost.flairId, 'playground-flair');
@@ -466,7 +693,8 @@ assert.match(
   /Free Kick Playground.*Score this player-built free kick.*\*\*Play\*\*/s
 );
 assert.ok(!JSON.stringify(state.newPost.postData).includes('testSharer'));
-const legacy = 'A custom free kick built by u/oldPlayer in the Playground. One shot: score it to rank.';
+const legacy =
+  'A custom free kick built by u/oldPlayer in the Playground. One shot: score it to rank.';
 state.oldPost = {
   matchType: 'freekick',
   freeKick: { mode: 'custom', custom: CUSTOM_KICK_DEFAULT },
@@ -480,4 +708,6 @@ assert.equal(state.oldPost.description, PLAYGROUND_DESCRIPTION);
 assert.equal(state.oldPost.other, 42);
 assert.deepEqual(state.oldPost.freeKick.custom, CUSTOM_KICK_DEFAULT);
 assert.equal(await cleanPlaygroundDescription('t3_fk', 'test'), false);
-console.log('Playground privacy passed: save-only cleanup, lookup outage, save isolation, and legacy post descriptions.');
+console.log(
+  'Playground privacy passed: save-only cleanup, lookup outage, save isolation, and legacy post descriptions.'
+);

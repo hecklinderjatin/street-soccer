@@ -18,7 +18,11 @@ export type FreeKickStats = {
   greatSaves: number; // saved shots on target that cost no life
   xg: number; // the run's expected goals (sum over shots), in hundredths
 };
-export type FreeKickRun = { id: string; day: string };
+export type FreeKickRun = {
+  id: string;
+  day: string;
+  finish?: { elapsedMs: number; locked: boolean };
+};
 export type FreeKickLeader = {
   rank: number;
   username: string;
@@ -31,6 +35,7 @@ export type FreeKickBoard = {
 };
 export type FreeKickBoards = {
   day: string;
+  finish?: FreeKickBoard; // shared Playground only: milliseconds, lowest first
   score: FreeKickBoard;
   speed: FreeKickBoard;
   goals: FreeKickBoard; // most goals in a run (shown for Infinity)
@@ -183,21 +188,36 @@ export const freeKickGoalMax = Math.ceil(
 export function rankFreeKicks(
   entries: readonly { member: string; score: number }[],
   username: string | null,
-  limit = 3
+  limit = 3,
+  fastestFinish = false
 ): FreeKickBoard {
   const best = new Map<string, number>();
   for (const row of entries)
     if (
       Number.isFinite(row.score) &&
       row.score >= 0 &&
-      row.score > (best.get(row.member) ?? -1)
+      (fastestFinish
+        ? row.score < (best.get(row.member) ?? Infinity)
+        : row.score > (best.get(row.member) ?? -1))
     )
       best.set(row.member, row.score);
+  const tiedRanks = new Map<number, number>();
   const rows = [...best]
-    .sort(([a, x], [b, y]) => y - x || a.localeCompare(b))
-    .map(([name, value], i) => ({ username: name, value, rank: i + 1 }));
+    .sort(
+      ([a, x], [b, y]) => (fastestFinish ? x - y : y - x) || a.localeCompare(b)
+    )
+    .map(([name, value], i) => {
+      if (!tiedRanks.has(value)) tiedRanks.set(value, i + 1);
+      return {
+        username: name,
+        value,
+        rank: fastestFinish ? tiedRanks.get(value)! : i + 1,
+      };
+    });
   return {
     top: rows.slice(0, limit),
     me: rows.find((row) => row.username === username) ?? null,
   };
 }
+
+export const finishTime = (ms: number) => `${(ms / 1000).toFixed(3)} s`;

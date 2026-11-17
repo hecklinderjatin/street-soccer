@@ -25,9 +25,9 @@ KIT_COLOURS = 256
 MAX_MEAN_CHANNEL_ERROR = 5.0
 
 baked = sorted(BAKED.glob("player-*.png"))
-# 11 outfield kits + 2 keeper kits + the skin and hair layers, and the
-# Free Kick feed preview's small copy of each but the home keeper (14).
-EXPECTED_ATLASES = 15 + 14
+# 15 outfield kits + 2 keeper kits + the skin and hair layers, and the
+# Free Kick feed preview's small copy of each but the home keeper (18).
+EXPECTED_ATLASES = 19 + 18
 if len(baked) != EXPECTED_ATLASES:
     raise SystemExit(f"Run `npm run art:bake` first (expected {EXPECTED_ATLASES} atlases in art-baked/)")
 inputs = sorted(SOURCE.glob("ball-*.png")) + baked
