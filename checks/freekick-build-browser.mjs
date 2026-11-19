@@ -94,6 +94,11 @@ try {
       `${origin}/splash.html?debug${freeKick ? '&freeKick' : ''}`
     );
     await page.locator('.mobile-play').waitFor();
+    if (freeKick) {
+      const create = page.getByRole('link', { name: 'CREATE', exact: true });
+      await create.waitFor();
+      assert.equal(await create.getAttribute('href'), 'freekick-playground.html');
+    }
     assert.equal(await page.locator('canvas').count(), 0);
     await page.evaluate(() => {
       window.setFeedVisibility(true);
@@ -240,7 +245,7 @@ try {
         scene.gameOver();
       });
       const replay = page.getByRole('button', { name: 'PLAY AGAIN' });
-      const playground = page.getByRole('link', { name: 'PLAYGROUND' });
+      const create = page.getByRole('link', { name: 'CREATE', exact: true });
       assert.equal(
         await replay.evaluate(
           (button) => getComputedStyle(button).backgroundColor
@@ -248,7 +253,7 @@ try {
         'rgb(255, 163, 0)'
       );
       assert.equal(
-        await playground.evaluate(
+        await create.evaluate(
           (button) => getComputedStyle(button).backgroundColor
         ),
         'rgb(0, 228, 54)'

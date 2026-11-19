@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Free Kick button labels (2026-11-19):** The preview and results buttons display CREATE and open the Playground builder. The Playground mode and builder retain their names.
+
 **Main security update (2026-11-18):** The tested vendored-picomatch fix is collected directly on main for the user's requested commit and push. Existing Windows/Linux clean installs, zero-finding registry audits, source/security/consumer checks, full local suite and production browser smoke pass. Reinstall with npm ci after pulling the updated branch; the user handles Reddit playtest deployment.
 
 **Vendored picomatch security fix (2026-11-18):** Supersedes the install-time mitigation below. Replace all affected registry picomatch copies with explicitly named private local forks of 2.3.2 and 4.0.7, preserving each consumer's original major API. Both contain the reviewed parser mitigation before installation, complete MIT licenses, baseline archive provenance, source diffs and checked source hashes. Clean npm ci and a separate installed-tree npm audit report zero vulnerabilities. npm audit does not assess local sources: source verification, timeout-bounded attack regressions and real matching/filesystem/watcher checks remain required. CI now also enforces registry audit at high severity. Windows/npm 12 and isolated Linux/npm 11 clean installs, audits, npm dependency-tree validation and dependency checks pass. Full test:local and production Infinity swipe/restart plus Classic/all-Free-Kick browser smoke pass. The unit runner still discovers zero tests; gameplay/server regressions execute separately. No deployment.
@@ -862,6 +864,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Use CREATE for the action that opens the builder on the Free Kick preview and results screens. Use Playground for the mode and builder.
+
 - Commit the tested dependency fix directly on main as requested; this checkout is already on main. Retain both registry audit and local fork verification in CI.
 
 - Maintain explicitly named private picomatch forks with the parser fix baked in until a reviewed upstream release is available. Preserve upstream API majors and baseline versions, archive provenance, MIT licenses and reviewable diffs; do not fabricate patched versions or suppress advisories. Registry audit and local source/security/consumer checks cover different code and are both required. Keep the explicit recursion opt-out documented.
@@ -1370,6 +1374,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Verify the Free Kick preview and results CREATE buttons during the next Reddit playtest.
+
 - Pull the updated main branch in Codespaces and run npm ci before the user's next playtest upload.
 
 - Monitor GHSA-fc5q-39xc-vjpf and replace the vendored picomatch forks/overrides when a reviewed patched npm version is released. Until then verify local source hashes, attack regressions, original consumer API majors and registry audit on dependency updates; npm audit alone does not assess the forks.
@@ -1855,6 +1861,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-19:** Rename the Free Kick preview and results buttons to CREATE. Both still open the Playground builder. Update the browser checks for the two labels.
 
 - **2026-11-18:** Collect the tested vendored-picomatch security fix directly on main for the requested commit and push. Full validation results are recorded above; no Reddit deployment.
 

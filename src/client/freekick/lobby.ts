@@ -20,9 +20,9 @@ let stopBoard: (() => void) | undefined;
 
 // A Free Kick post's card: the live preview with the post's mode tag
 // (CHALLENGE, INFINITY or PLAYGROUND) at its top right, the post's
-// settings and its buttons: the ranked run, PRACTICE and PLAYGROUND (the
+// settings and its buttons: the ranked run, PRACTICE and CREATE (the
 // kick builder). A Playground post is one shot at a player-built kick:
-// PLAY and PLAYGROUND only (user request, 2026-11-11).
+// PLAY and CREATE only.
 export function showFreeKickLobby() {
   const host = document.getElementById('game');
   if (!host) return;
@@ -49,7 +49,7 @@ export function showFreeKickLobby() {
       <div class="preview-actions">
         <a class="freekick-challenge mobile-play" href="freekick-challenge.html">PLAY CHALLENGE</a>
         <a class="freekick-practice mobile-casual" href="freekick-practice.html">PRACTICE</a>
-        <a class="freekick-playground mobile-casual" href="freekick-playground.html">PLAYGROUND</a>
+        <a class="freekick-playground mobile-casual" href="freekick-playground.html">CREATE</a>
       </div>
       <p class="freekick-mode-notes preview-activity"></p>
     </div>`;
@@ -83,7 +83,7 @@ export function showFreeKickLobby() {
       infinity ? 'freekick-infinity' : 'freekick-challenge',
     ],
     ['.freekick-practice', 'PRACTICE', 'freekick-practice'],
-    ['.freekick-playground', 'PLAYGROUND', 'freekick-playground'],
+    ['.freekick-playground', 'CREATE', 'freekick-playground'],
   ]) {
     const button = card.querySelector<HTMLAnchorElement>(selector ?? '');
     if (!button || !text || !entry) continue;

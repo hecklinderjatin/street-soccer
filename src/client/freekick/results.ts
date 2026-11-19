@@ -150,7 +150,7 @@ export function freeKickResults(
   actions.append(casualButton('PLAY AGAIN', again), post);
   for (const { label, entry } of [
     { label: 'PRACTICE', entry: 'freekick-practice' },
-    { label: 'PLAYGROUND', entry: 'freekick-playground' },
+    { label: 'CREATE', entry: 'freekick-playground' },
   ]) {
     const link = document.createElement('a');
     link.className = 'casual-button secondary';

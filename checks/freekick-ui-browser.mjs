@@ -226,7 +226,7 @@ try {
     await page.evaluate(() => window.__expandedEntry),
     'freekick-practice'
   );
-  await page.getByRole('link', { name: 'PLAYGROUND', exact: true }).click();
+  await page.getByRole('link', { name: 'CREATE', exact: true }).click();
   assert.equal(
     await page.evaluate(() => window.__expandedEntry),
     'freekick-playground'
