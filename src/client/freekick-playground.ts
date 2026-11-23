@@ -800,7 +800,7 @@ const message = (error: unknown) =>
 
 // ---- Start --------------------------------------------------------------------
 
-function startGame(root: HTMLElement, notice = '') {
+function startGame(root: HTMLElement) {
   link.onGoal = () => {
     if (scored) return;
     scored = true;
@@ -808,7 +808,6 @@ function startGame(root: HTMLElement, notice = '') {
   };
   link.onReady = () => {
     buildSheet(root);
-    if (notice) setStatus(notice);
     render();
   };
   void import('./freekick/game')
@@ -816,21 +815,4 @@ function startGame(root: HTMLElement, notice = '') {
     .catch(showLaunchError);
 }
 
-async function continueGame(root: HTMLElement) {
-  try {
-    const [latest] = await playgroundSaves(
-      'saves',
-      undefined,
-      AbortSignal.timeout(8000)
-    );
-    if (latest) loadSave(latest);
-    startGame(root, latest ? '' : 'No saved game available.');
-  } catch {
-    startGame(root, 'Couldn’t load the saved game. Try again from Saved.');
-  }
-}
-
-if (host) {
-  if (host.hasAttribute('data-continue')) void continueGame(host);
-  else startGame(host);
-}
+if (host) startGame(host);

@@ -12,7 +12,7 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 **Free Kick goalkeeper (2026-11-23).** The keeper weighs both open gaps and the shot angle for its starting stance, favors the more exposed corner on guesses, and tracks shots after accumulating clear sight past the moving wall. Lateral steps and jump takeoff have distinct poses, and save banners describe how the ball was stopped.
 
-**Playground finish dialog (2026-11-23).** Finishing a shared Playground game opens Create Your Own Game over results. Create Game opens a fresh setup, Continue Game resumes the latest saved kick, and Back to Results dismisses the dialog. Direct builder entry opens the setup immediately. The three dialog actions have matching dimensions and centered labels. Create Game uses the same green as the results action.
+**Playground finish dialog (2026-11-23).** Finishing a shared Playground game opens Create Your Own Game over results. Create Game opens a fresh setup. Continue Game dismisses the dialog and returns to the same results. Direct builder entry opens the setup immediately. Both dialog actions have matching dimensions and centered labels. Create Game uses the same green as the results action.
 
 **Free Kick button labels (2026-11-19):** The preview and results buttons display CREATE and open the Playground builder. The Playground mode and builder retain their names.
 
@@ -870,17 +870,19 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Continue Game returns to the finished shared game’s results so the player can replay or post their score.
+
 - Share the green Create styling between the Playground finish dialog and the results action.
 
 - Use native buttons and consistent sizing for all actions in the Playground finish dialog.
 
-- Open the creation dialog only after a shared Playground goal finishes the run. Use a Devvit entrypoint for Continue Game so it loads the latest save without relying on storage shared between webviews.
+- Open the creation dialog only after a shared Playground goal finishes the run.
 
 - Use Reddit’s comment byline as the source of author attribution for Free Kick score shares.
 
 - Blend the starting stance across both gaps so it moves smoothly as the wall shifts. Keep ranked defence seeded and hold the Playground keeper style steady during geometry changes. Use the simulated save pose and reach for feedback.
 
-- Use the existing account save slots. Continue opens the latest slot, and the Saved panel still lists all slots. Create starts with the existing setup defaults and acquires a slot only on Save.
+- Use the existing account save slots. The builder’s Saved panel lists all slots. Create starts with the existing setup defaults and acquires a slot only on Save.
 
 - Use CREATE for the action that opens the builder on the Free Kick preview and results screens. Use Playground for the mode and builder.
 
@@ -1392,6 +1394,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Verify that Continue Game stays on the shared results during the next Reddit playtest.
+
 - Check the green Create Game button in the next Reddit playtest.
 
 - Check the Playground finish dialog layout in the next mobile Reddit playtest.
@@ -1889,6 +1893,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-23.** Route Continue Game back to the finished Playground results and keep Create Game as the route to the builder.
 
 - **2026-11-23.** Match the Playground dialog’s Create Game button to the green results action.
 

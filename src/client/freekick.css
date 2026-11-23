@@ -287,10 +287,3 @@ body {
   justify-content: center;
   min-width: 0;
 }
-.playground-prompt [role='status'] {
-  overflow-wrap: anywhere;
-}
-.playground-prompt .casual-button:disabled {
-  opacity: 0.55;
-  cursor: default;
-}
