@@ -38,12 +38,14 @@ try {
       return route.fulfill({ path: resolve('dist/client', '.' + pathname) });
     });
 
-    const startPractice = async () => {
+    const start = async () => {
       if (entry === 'freekick-practice')
         await page.getByRole('button', { name: 'START PRACTICE' }).click();
+      if (entry === 'freekick-playground')
+        await page.getByRole('button', { name: 'Create Game' }).click();
     };
     await page.goto(`http://localhost/${entry}.html?debug`);
-    await startPractice();
+    await start();
     const error = page.getByRole('heading', { name: 'Couldn’t load the game' });
     await error.waitFor();
     assert.ok(await error.evaluate((title) => document.activeElement === title));
@@ -59,7 +61,7 @@ try {
       page.waitForEvent('domcontentloaded'),
       page.getByRole('button', { name: 'Retry' }).click(),
     ]);
-    await startPractice();
+    await start();
     await page.locator('#boot-loading').waitFor({ state: 'detached' });
     await page.locator('canvas').waitFor();
     assert.equal(await error.count(), 0);
