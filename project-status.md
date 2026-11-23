@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Free Kick score comments (2026-11-23).** Generated score text starts with the mode name. Reddit displays the author.
+
 **Free Kick goalkeeper (2026-11-23).** The keeper weighs both open gaps and the shot angle for its starting stance, favors the more exposed corner on guesses, and tracks shots after accumulating clear sight past the moving wall. Lateral steps and jump takeoff have distinct poses, and save banners describe how the ball was stopped.
 
 **Playground start dialog (2026-11-23).** Opening the Free Kick builder shows Create Your Own Game. Create Game opens a fresh setup and Continue Game resumes the latest saved kick.
@@ -868,6 +870,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Use Reddit’s comment byline as the source of author attribution for Free Kick score shares.
+
 - Blend the starting stance across both gaps so it moves smoothly as the wall shifts. Keep ranked defence seeded and hold the Playground keeper style steady during geometry changes. Use the simulated save pose and reach for feedback.
 
 - Use the existing account save slots. Continue opens the latest slot, and the Saved panel still lists all slots. Create starts with the existing setup defaults and acquires a slot only on Save.
@@ -1382,6 +1386,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Verify the Free Kick score text on the next Reddit playtest.
+
 - Check Free Kick goalkeeper balance and animation readability on Reddit across Practice, Challenge, Infinity and Playground.
 
 - Verify the Playground start dialog with empty and populated save slots during the next Reddit playtest.
@@ -1873,6 +1879,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-23.** Remove the repeated username from generated Challenge, Infinity and Playground score comments.
 
 - **2026-11-23.** Improve Free Kick goalkeeper positioning, wall occlusion, corner guesses, movement cues and save feedback. Add regressions for stance, weighted guesses and shots emerging beside or above the wall.
 

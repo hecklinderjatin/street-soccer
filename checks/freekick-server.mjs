@@ -222,7 +222,7 @@ const shared = await call('/post-score', {
 assert.equal(shared.status, 200);
 assert.equal(state.comments[0].runAs, 'USER');
 assert.equal(state.comments[0].id, 't1_scores');
-assert.match(state.comments[0].text, /400 points/);
+assert.match(state.comments[0].text, /^Free Kick — 400 points/);
 assert.equal(
   (
     await call('/post-score', {
@@ -465,7 +465,7 @@ assert.equal(
 );
 assert.equal(state.comments.at(-1).runAs, 'USER');
 assert.equal(state.comments.at(-1).id, 't1_scores');
-assert.match(state.comments.at(-1).text, /Best finish \d+\.\d{3} s/);
+assert.match(state.comments.at(-1).text, /^Free Kick Playground — Best finish \d+\.\d{3} s/);
 
 // Every new run gets a fresh server timer; the leaderboard keeps the best.
 const RealDate = Date;
