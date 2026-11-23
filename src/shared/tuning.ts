@@ -981,14 +981,20 @@ export const FREE_KICK = {
   // Keeper: stands in the part of the goal the wall leaves open.
   keeperLineOff: 20, // in front of the goal line
   keeperWallShade: [0.12, 0.4], // shifts this share of the open part toward the wall (level 1, top level)
-  keeperReactSec: [0.34, 0.2], // reads the shot this long after the strike (level 1, top level)
+  keeperReactSec: [0.34, 0.2], // needs this much clear sight to read the shot (level 1, top level)
   keeperReactJitter: 0.04, // +- random per kick
-  keeperScreenedSec: 0.12, // extra when the ball comes over the wall (it saw it late)
+  keeperEyeHeight: 92, // sight line origin above the pitch
+  keeperNearPostBias: 0.75, // extra weight for the exposed near side, scaled by shot angle
+  keeperFullShadeShare: 0.5, // shadow width needed for the full shade, as a share of goal half-width
+  keeperMinOpenShare: 0.2, // blend toward the middle when the wall covers nearly all the goal
+  keeperStanceLimit: 0.82, // maximum starting offset from the middle, as a share of the half-width
+  keeperGuessMin: 0.25, // minimum probability of guessing either corner
   keeperShuffleSpeed: 140, // after reacting it side-steps toward the ball's line ...
   keeperCommitSec: 0.42, // ... and commits to a save when the ball is this far away in time
   keeperReadNoise: [28, 8], // px its read of the crossing point can be off (level 1, top level)
   keeperDiveReach: [118, 160], // farthest hands reach from its spot in a full dive
   keeperDiveSec: 0.5, // a full dive, take-off to landing
+  keeperHandExtendShare: 0.625, // share of dive time at which the hands are fully extended
   keeperHandReach: 52, // hands beyond the body at full stretch
   keeperStandReach: 40, // ball centre this close sideways is saved standing ...
   keeperStandReachZ: 112, // ... up to this high

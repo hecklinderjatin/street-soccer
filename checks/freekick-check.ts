@@ -62,6 +62,7 @@ import {
   startPlay,
   stepPlay,
   strikeBall,
+  wallTop,
   type KickSetup,
   type Strike,
 } from '../src/client/freekick/rules';
@@ -353,6 +354,7 @@ check('keeper: a shot straight at it is saved', () => {
   const open = { ...kick, wall: { ...kick.wall, men: [] } };
   const play = playOut(open, { power: 0.3, targetY: kick.keeperY, contact: centre });
   assert.equal(play.outcome, 'saved');
+  assert.equal(play.saveKind, 'standing');
 });
 
 check('scoring: xG x finish x a capped streak; tags are labels only', () => {
@@ -538,19 +540,26 @@ check('keeper: a cheating keeper stands nearer the wall', () => {
 check('keeper: a guessing keeper drifts to its corner before reading', () => {
   const kick = makeKick(levelFor(0), seeded(9));
   const open = { ...kick, wall: { ...kick.wall, men: [] } };
-  // 0.01: it guesses (chance 0.1 at level 1), the -y corner.
+  // 0.01: it guesses (chance 0.1 at level 1), choosing the near corner.
   const play = startPlay(open, { power: 0.5, targetY: GOAL_Y, contact: centre }, always(0.01));
   const guess = play.keeper.guessY;
-  assert.ok(guess !== null && guess < GOAL_Y);
+  assert.ok(guess !== null && (guess - GOAL_Y) * kick.nearSide > 0);
   const from = play.keeper.y;
-  while (play.t < play.keeper.readAt - STEP && play.outcome === null)
+  while (play.t <= FK.keeperGuessSec) stepPlay(play, STEP);
+  assert.equal(play.keeper.stepDir, kick.nearSide);
+  while (play.t < play.keeper.reactSec - STEP && play.outcome === null)
     stepPlay(play, STEP);
-  assert.ok(play.keeper.y < from - 10, 'moved toward the guess');
+  assert.ok((play.keeper.y - from) * kick.nearSide > 10, 'moved toward the guess');
 });
 
 check('keeper: higher levels allow for part of the curl', () => {
   const kick = makeKick(levelFor(0), seeded(9));
-  const open = { ...kick, wall: { ...kick.wall, men: [] } };
+  // Start wide of the ball so both reads have room to affect the dive.
+  const open = {
+    ...kick,
+    keeperY: GOAL_Y - POST_HALF * 0.65,
+    wall: { ...kick.wall, men: [] },
+  };
   // A curler that bends well off its launch line but stays inside the posts.
   const keeperX = GOAL_X - FK.keeperLineOff;
   const strikes = Array.from({ length: 40 }, (_, i) => ({
@@ -859,14 +868,87 @@ check('playground kicks: limits, fixed setup, one-life ranked runs', () => {
   assert.equal(typeof parseCustomSetup({...setup, wall: 'pink'}), 'string');
 });
 
-check('keeper guards the bigger gap the wall leaves', () => {
-  const base = {...CUSTOM_KICK_DEFAULT, angleDeg: 20, wallMen: 2};
-  // Covering the near post (the usual wall): the keeper is on the far side.
-  const usual = customKick(base);
-  assert.ok((usual.keeperY - GOAL_Y) * usual.nearSide < 0);
-  // Slid well off the near post: the open near side is now the keeper's.
-  const slid = customKick({...base, wallShift: base.angleDeg > 0 ? FK.customShiftSteps : -FK.customShiftSteps});
-  assert.ok((slid.keeperY - GOAL_Y) * slid.nearSide > 0);
+check('keeper: the stance and corner bias follow a shifted wall on both sides', () => {
+  const central = makeKick(levelFor(0), steady, {
+    angle: 0, distance: 800, wallFromGoal: 500, shift: 300,
+  });
+  assert.equal(central.keeperY, GOAL_Y);
+  assert.equal(central.keeperNearGuess, 0.5);
+
+  for (const side of [-1, 1]) {
+    const base = { ...CUSTOM_KICK_DEFAULT, angleDeg: 20 * side, wallMen: 2 };
+    const setups = Array.from({ length: FK.customShiftSteps + 1 }, (_, shift) =>
+      customKick({ ...base, wallShift: shift * side })
+    );
+    const usual = setups[0];
+    const slid = setups[setups.length - 1];
+    assert.ok((usual.keeperY - GOAL_Y) * side < 0);
+    assert.ok((slid.keeperY - GOAL_Y) * side > 0);
+    assert.ok(usual.keeperNearGuess < 0.5);
+    assert.ok(slid.keeperNearGuess > 0.5);
+    assert.ok(
+      setups.every(
+        (setup, i) =>
+          i === 0 ||
+          Math.abs(setup.keeperY - setups[i - 1].keeperY) < POST_HALF / 2
+      )
+    );
+
+    // The same seeded guess changes sides as the exposed corner changes.
+    const strike = { power: 0.5, targetY: GOAL_Y, contact: centre };
+    const rolls = () => {
+      const sequence = [0.5, 0.5, 0.5, 0, 0.5];
+      return () => sequence.shift() ?? 0.5;
+    };
+    const first = startPlay(usual, strike, rolls());
+    const second = startPlay(slid, strike, rolls());
+    assert.ok(first.keeper.guessY !== null && (first.keeper.guessY - GOAL_Y) * side < 0);
+    assert.ok(second.keeper.guessY !== null && (second.keeper.guessY - GOAL_Y) * side > 0);
+    assert.deepEqual(first, startPlay(usual, strike, rolls()));
+  }
+});
+
+check('keeper: a screened strike becomes visible beside or above the wall', () => {
+  const setup = customKick({
+    ...CUSTOM_KICK_DEFAULT, distanceM: 30, angleDeg: 15, wallMen: 3, jump: false,
+  });
+  for (const { strike, over } of [
+    {
+      strike: { power: 0.2, targetY: GOAL_Y + 90, contact: ballContact(0.8, 0.1) },
+      over: false,
+    },
+    {
+      strike: { power: 0.35, targetY: GOAL_Y - 130, contact: ballContact(0, 1) },
+      over: true,
+    },
+  ]) {
+    const play = startPlay(setup, strike, steady);
+    const jumping = startPlay(
+      { ...setup, level: { ...setup.level, wallJumpChance: 1 } },
+      strike,
+      steady
+    );
+    let screened = false;
+    let emerged = false;
+    while (!play.outcome && play.ball.x < play.wall.x) {
+      const before = play.keeper.visibleSec;
+      const beforeJump = jumping.keeper.visibleSec;
+      stepPlay(play, STEP);
+      stepPlay(jumping, STEP);
+      if (play.keeper.visibleSec === before) screened = true;
+      else if (screened && play.ball.x < play.wall.x) {
+        const share = (play.keeper.x - play.wall.x) / (play.keeper.x - play.ball.x);
+        const sightZ = FK.keeperEyeHeight + (play.ball.z - FK.keeperEyeHeight) * share;
+        assert.equal(sightZ > wallTop(play.wall, play.t), over);
+        if (over)
+          assert.equal(jumping.keeper.visibleSec, beforeJump, 'the jumping wall still screens the chip');
+        assert.ok(!play.keeper.tracking, 'time behind the wall did not count as reaction time');
+        emerged = true;
+        break;
+      }
+    }
+    assert.ok(emerged, 'keeper saw the ball emerge before it crossed the wall');
+  }
 });
 
 check('Infinity Pro+: tiers past level 10 push the spot out and sharpen the defence', () => {
