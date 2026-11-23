@@ -141,7 +141,7 @@ try {
   await page.goto('http://localhost/freekick-challenge.html?debug');
   await ready();
   const prompt = page.getByRole('dialog', { name: 'Create Your Own Game' });
-  const create = prompt.getByRole('link', { name: 'Create Game' });
+  const create = prompt.getByRole('button', { name: 'Create Game' });
   const resume = prompt.getByRole('button', { name: 'Continue Game' });
   assert.equal(await prompt.count(), 0, 'briefing never opens the prompt');
   assert.equal(starts, 0, 'briefing does not start the timer');
@@ -198,8 +198,41 @@ try {
     })
     .waitFor();
   await prompt.getByText('No saved game yet.').waitFor();
+  for (const width of [320, 390, 768]) {
+    await page.setViewportSize({ width, height: 650 });
+    const layout = await prompt.evaluate((dialog) => ({
+      panelWidth: dialog.clientWidth,
+      scrollWidth: dialog.scrollWidth,
+      buttons: Array.from(dialog.querySelectorAll('button'), (button) => {
+        const bounds = button.getBoundingClientRect();
+        const label = button
+          .querySelector('.lobby-pixel')
+          .getBoundingClientRect();
+        return {
+          left: bounds.left,
+          width: bounds.width,
+          height: bounds.height,
+          labelX:
+            label.left + label.width / 2 - (bounds.left + bounds.width / 2),
+          labelY:
+            label.top + label.height / 2 - (bounds.top + bounds.height / 2),
+        };
+      }),
+    }));
+    assert.equal(layout.scrollWidth, layout.panelWidth);
+    const [primary] = layout.buttons;
+    for (const button of layout.buttons) {
+      assert.equal(button.left, primary.left);
+      assert.equal(button.width, primary.width);
+      assert.equal(button.height, primary.height);
+      assert.ok(Math.abs(button.labelX) < 1 && Math.abs(button.labelY) <= 2);
+    }
+  }
+  await page.setViewportSize({ width: 390, height: 650 });
   assert.equal(await resume.isDisabled(), true);
-  assert.ok(await create.evaluate((link) => link === document.activeElement));
+  assert.ok(
+    await create.evaluate((button) => button === document.activeElement)
+  );
   await page.keyboard.press('Tab');
   assert.ok(
     await prompt
