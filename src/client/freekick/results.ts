@@ -14,6 +14,7 @@ import { css, PAL } from '../ui/palette';
 import { pixelLabel } from '../ui/pixelLabel';
 import type { FreeKickRecords } from './records';
 import { freeKickResultsBoard } from './leaderboard';
+import { showPlaygroundPrompt } from './playgroundPrompt';
 
 // The Challenge summary reuses the normal results card. Practice has no
 // terminal result screen. Both boards use the post's Challenge records.
@@ -147,7 +148,8 @@ export function freeKickResults(
   );
   post.classList.add('results-post-score');
   post.disabled = true;
-  actions.append(casualButton('PLAY AGAIN', again), post);
+  const playAgain = casualButton('PLAY AGAIN', again);
+  actions.append(playAgain, post);
   for (const { label, entry } of [
     { label: 'PRACTICE', entry: 'freekick-practice' },
     { label: 'CREATE', entry: 'freekick-playground' },
@@ -253,10 +255,15 @@ export function freeKickResults(
     if (!closed) await board?.refresh();
   }
   const community = communityJoin(screen.element);
+  const dismissPrompt =
+    custom && challenge.won && stats.goals > 0
+      ? showPlaygroundPrompt(playAgain)
+      : undefined;
   void save();
   return {
     destroy() {
       closed = true;
+      dismissPrompt?.();
       community.destroy();
       screen.destroy();
     },

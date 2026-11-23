@@ -20,13 +20,13 @@ import {
   CUSTOM_KICK_DEFAULT,
   customMaxAngle,
   customMaxWallGap,
-  parseCustomSetup,
   parseCustomTitle,
   type CustomKick,
   type CustomSetup,
 } from '../shared/freeKickCustom';
 import type { PlaygroundSave } from '../shared/api';
 import { PlaygroundLink } from './freekick/playgroundLink';
+import { playgroundApi, playgroundSaves } from './freekick/playgroundSaves';
 
 // The Free Kick Playground (user request, 2026-11-11): build one kick on
 // the live game view, test it, then name it, pick kits and save it or
@@ -553,7 +553,7 @@ function showKits() {
     try {
       // At most FK.customSaveSlots saved kicks: a new one needs a free slot
       // (re-saving a loaded kick overwrites its own slot).
-      const existing = await request('saves');
+      const existing = await playgroundSaves('saves');
       const own = existing.some((s) => s.slot === slot);
       if (!own && existing.length >= FK.customSaveSlots) {
         say('');
@@ -575,7 +575,10 @@ function showKits() {
         return;
       }
       if (!own) slot = null;
-      const saved = await api('/api/playground/save', { setup: setup(), slot });
+      const saved = await playgroundApi('/api/playground/save', {
+        setup: setup(),
+        slot,
+      });
       const at: unknown =
         saved && typeof saved === 'object' ? Reflect.get(saved, 'slot') : null;
       const list: unknown =
@@ -642,7 +645,7 @@ function showKits() {
     try {
       if (!(await canRunAsUser(event))) return;
       say('Posting your kick...');
-      const response = await api('/api/playground/share', {
+      const response = await playgroundApi('/api/playground/share', {
         setup: confirmedSetup,
       });
       const url: unknown =
@@ -770,7 +773,7 @@ async function showSaves() {
         }),
         button('DELETE', 'secondary', () => {
           status.textContent = 'Deleting...';
-          void request('delete', { slot: save.slot })
+          void playgroundSaves('delete', { slot: save.slot })
             .then((next) => {
               if (slot === save.slot) slot = null;
               show(next);
@@ -782,7 +785,7 @@ async function showSaves() {
     }
   };
   try {
-    show(await request('saves'));
+    show(await playgroundSaves('saves'));
   } catch (error) {
     status.textContent = message(error);
   }
@@ -795,125 +798,9 @@ const message = (error: unknown) =>
     ? error.message
     : 'Something went wrong. Please retry.';
 
-async function api(
-  path: string,
-  body?: object,
-  signal?: AbortSignal
-): Promise<unknown> {
-  const response = await fetch(path, {
-    method: body ? 'POST' : 'GET',
-    ...(signal ? { signal } : {}),
-    headers: body ? { 'Content-Type': 'application/json' } : {},
-    ...(body ? { body: JSON.stringify(body) } : {}),
-  });
-  const data: unknown = await response.json().catch(() => null);
-  if (!response.ok) {
-    const error: unknown =
-      data && typeof data === 'object' ? Reflect.get(data, 'error') : null;
-    throw new Error(
-      typeof error === 'string'
-        ? error
-        : 'Playground unavailable. Please retry.'
-    );
-  }
-  return data;
-}
-
-// The player's saved kicks, after a list, save or delete.
-async function request(
-  action: 'saves' | 'save' | 'delete',
-  body?: object,
-  signal?: AbortSignal
-): Promise<PlaygroundSave[]> {
-  const data = await api(`/api/playground/${action}`, body, signal);
-  const raw: unknown =
-    data && typeof data === 'object' ? Reflect.get(data, 'saves') : null;
-  if (!Array.isArray(raw)) return [];
-  const saves: PlaygroundSave[] = [];
-  for (const item of raw) {
-    if (!item || typeof item !== 'object') continue;
-    const setup = parseCustomSetup(Reflect.get(item, 'setup'), true);
-    const at: unknown = Reflect.get(item, 'slot');
-    const savedAt: unknown = Reflect.get(item, 'savedAt');
-    if (
-      typeof setup !== 'string' &&
-      typeof at === 'number' &&
-      typeof savedAt === 'number'
-    )
-      saves.push({ slot: at, setup, savedAt });
-  }
-  return saves;
-}
-
 // ---- Start --------------------------------------------------------------------
 
-function showStartPrompt(start: () => void) {
-  const dialog = el('dialog', 'pg-screen pg-start');
-  const panel = el('div', 'practice-panel pg-panel');
-  const heading = el('h1', '', 'Create Your Own Game');
-  heading.id = 'pg-start-title';
-  dialog.setAttribute('aria-labelledby', heading.id);
-  dialog.addEventListener('cancel', (event) => event.preventDefault());
-  const status = el('p', 'pg-status');
-  status.id = 'pg-start-status';
-  status.setAttribute('role', 'status');
-  let latest: PlaygroundSave | undefined;
-  let pending: AbortController | undefined;
-
-  function openBuilder() {
-    pending?.abort();
-    dialog.close();
-    dialog.remove();
-    start();
-  }
-
-  const create = button('Create Game', '', openBuilder);
-  create.autofocus = true;
-  const resume = button('Continue Game', 'secondary', () => {
-    if (latest) {
-      loadSave(latest);
-      openBuilder();
-    } else {
-      void checkSaves();
-    }
-  });
-  resume.setAttribute('aria-describedby', status.id);
-
-  async function checkSaves() {
-    const controller = new AbortController();
-    pending = controller;
-    resume.disabled = true;
-    status.textContent = 'Checking for a saved game…';
-    try {
-      const saves = await request(
-        'saves',
-        undefined,
-        AbortSignal.any([controller.signal, AbortSignal.timeout(8000)])
-      );
-      if (controller.signal.aborted) return;
-      latest = saves[0];
-      resume.disabled = !latest;
-      status.textContent = latest
-        ? `Last saved game: ${latest.setup.title || 'Untitled kick'}`
-        : 'No saved game yet.';
-    } catch (error) {
-      if (controller.signal.aborted) return;
-      status.textContent =
-        error instanceof DOMException && error.name === 'TimeoutError'
-          ? 'Checking saves timed out. Select Continue Game to retry.'
-          : `${message(error)}. Select Continue Game to retry.`;
-      resume.disabled = false;
-    }
-  }
-
-  panel.append(heading, create, resume, status);
-  dialog.append(panel);
-  document.body.append(dialog);
-  dialog.showModal();
-  void checkSaves();
-}
-
-function startGame(root: HTMLElement) {
+function startGame(root: HTMLElement, notice = '') {
   link.onGoal = () => {
     if (scored) return;
     scored = true;
@@ -921,6 +808,7 @@ function startGame(root: HTMLElement) {
   };
   link.onReady = () => {
     buildSheet(root);
+    if (notice) setStatus(notice);
     render();
   };
   void import('./freekick/game')
@@ -928,4 +816,21 @@ function startGame(root: HTMLElement) {
     .catch(showLaunchError);
 }
 
-if (host) showStartPrompt(() => startGame(host));
+async function continueGame(root: HTMLElement) {
+  try {
+    const [latest] = await playgroundSaves(
+      'saves',
+      undefined,
+      AbortSignal.timeout(8000)
+    );
+    if (latest) loadSave(latest);
+    startGame(root, latest ? '' : 'No saved game available.');
+  } catch {
+    startGame(root, 'Couldn’t load the saved game. Try again from Saved.');
+  }
+}
+
+if (host) {
+  if (host.hasAttribute('data-continue')) void continueGame(host);
+  else startGame(host);
+}

@@ -326,7 +326,7 @@ export class FreeKickScene extends Phaser.Scene {
 
     this.input.keyboard?.addCapture(['ESC', 'TAB']);
     this.input.keyboard?.on('keydown-ESC', (event: KeyboardEvent) => {
-      if (event.repeat || this.playground) return;
+      if (event.repeat || this.playground || this.resultScreen) return;
       event.preventDefault();
       if (this.practicePanel) {
         this.closePracticePanel();
@@ -336,7 +336,7 @@ export class FreeKickScene extends Phaser.Scene {
       this.setOverlay(this.overlay ? null : 'pause');
     });
     this.input.keyboard?.on('keydown-TAB', (event: KeyboardEvent) => {
-      if (event.repeat || this.playground) return;
+      if (event.repeat || this.playground || this.resultScreen) return;
       event.preventDefault();
       this.advanceInfo();
     });
@@ -862,8 +862,11 @@ export class FreeKickScene extends Phaser.Scene {
 
   private restart() {
     this.finishJourney(true);
-    this.resultScreen?.destroy();
-    this.resultScreen = null;
+    if (this.resultScreen) {
+      this.resultScreen.destroy();
+      this.resultScreen = null;
+      this.input.keyboard?.addCapture(['ESC', 'TAB']);
+    }
     this.records = new FreeKickRecords();
     this.shots = this.shotKmh = this.fastestGoalKmh = 0;
     this.runStartedAt = 0;
@@ -1779,6 +1782,8 @@ export class FreeKickScene extends Phaser.Scene {
     this.resultFx.hide();
     this.hintText.setText('');
     const stats = this.currentStats();
+    // Results use native controls and may open a modal dialog.
+    this.input.keyboard?.removeCapture(['ESC', 'TAB']);
     this.resultScreen = freeKickResults(
       stats,
       this.records,

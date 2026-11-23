@@ -17,26 +17,6 @@ try {
   const page = await browser.newPage({ viewport: { width: 390, height: 600 } });
   const origin = 'http://localhost';
   const shared = [];
-  let playgroundSaves = [];
-  const savedKick = {
-    slot: 2,
-    savedAt: 200,
-    setup: {
-      title: 'Saved corner kick',
-      kicker: 'pink',
-      wall: 'blue',
-      kick: {
-        distanceM: 27,
-        angleDeg: 10,
-        wallGapM: 9,
-        wallShift: 0,
-        wallMen: 3,
-        jump: true,
-        lyer: false,
-        difficulty: 'normal',
-      },
-    },
-  };
   const leaders = Array.from({ length: 9 }, (_, i) => ({
     rank: i + 1,
     username: `Player${i + 1}`,
@@ -46,8 +26,6 @@ try {
   }));
   await page.route(`${origin}/**`, async (route) => {
     const { pathname } = new URL(route.request().url());
-    if (pathname === '/api/playground/saves')
-      return route.fulfill({ json: { saves: playgroundSaves } });
     if (pathname === '/api/playground/share') {
       shared.push(route.request().postDataJSON());
       return route.fulfill({
@@ -219,49 +197,6 @@ try {
     );
     if (entry === 'practice')
       await page.getByRole('button', { name: 'START PRACTICE' }).click();
-    if (entry === 'playground') {
-      const prompt = page.getByRole('dialog', { name: 'Create Your Own Game' });
-      const create = prompt.getByRole('button', { name: 'Create Game' });
-      const resume = prompt.getByRole('button', { name: 'Continue Game' });
-      await prompt.getByText('No saved game yet.').waitFor();
-      assert.equal(await resume.isDisabled(), true);
-      assert.ok(
-        await create.evaluate((button) => button === document.activeElement)
-      );
-
-      playgroundSaves = [
-        savedKick,
-        {
-          ...savedKick,
-          slot: 0,
-          savedAt: 100,
-          setup: { ...savedKick.setup, title: 'Older kick' },
-        },
-      ];
-      await page.reload();
-      await prompt.getByText('Last saved game: Saved corner kick').waitFor();
-      await create.click();
-      await page.locator('.pg-next:visible').click();
-      assert.equal(
-        await page.getByRole('textbox', { name: 'TITLE' }).inputValue(),
-        ''
-      );
-
-      await page.reload();
-      await resume.click();
-      await page.locator('.pg-next:visible').click();
-      assert.equal(
-        await page.getByRole('textbox', { name: 'TITLE' }).inputValue(),
-        savedKick.setup.title
-      );
-      assert.equal(
-        await page.evaluate(
-          () => window.__game.scene.getScene('FreeKick').playground.kick.distanceM
-        ),
-        savedKick.setup.kick.distanceM
-      );
-      await page.getByRole('button', { name: 'BACK', exact: true }).click();
-    }
     await page
       .waitForFunction(
         () => window.__game?.scene.getScene('FreeKick')?.stage,
@@ -279,6 +214,7 @@ try {
         );
       });
     await page.locator('#boot-loading').waitFor({ state: 'hidden' });
+    assert.equal(await page.locator('.playground-prompt').count(), 0);
     assert.equal(musicRequests, beforeMusic);
     if (entry === 'challenge') {
       await page.evaluate(() =>
@@ -309,6 +245,7 @@ try {
         scene.lives = 0;
         scene.gameOver();
       });
+      assert.equal(await page.locator('.playground-prompt').count(), 0);
       const replay = page.getByRole('button', { name: 'PLAY AGAIN' });
       const create = page.getByRole('link', { name: 'CREATE', exact: true });
       assert.equal(

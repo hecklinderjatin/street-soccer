@@ -123,8 +123,6 @@ try {
           await page
             .getByRole('button', { name: 'START PRACTICE', exact: true })
             .click();
-        if (mode === 'playground')
-          await page.getByRole('button', { name: 'Create Game' }).click();
         if (mode === 'casual' || mode === 'custom')
           await page
             .getByRole('button', { name: 'START MATCH', exact: true })

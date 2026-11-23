@@ -349,26 +349,6 @@
 .pg-panel h1 .lobby-pixel {
   max-width: 100%;
 }
-dialog.pg-start {
-  box-sizing: border-box;
-  width: 100%;
-  height: 100%;
-  max-width: none;
-  max-height: none;
-  margin: 0;
-  border: 0;
-  overflow: auto;
-}
-.pg-start::backdrop {
-  background: #080f1b;
-}
-.pg-start .pg-panel {
-  max-width: 380px;
-}
-.pg-start .casual-button:disabled {
-  opacity: 0.55;
-  cursor: default;
-}
 .pg-title-field {
   display: grid;
   gap: 6px;
