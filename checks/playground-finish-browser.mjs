@@ -198,6 +198,10 @@ try {
     })
     .waitFor();
   await prompt.getByText('No saved game yet.').waitFor();
+  assert.equal(
+    await create.evaluate((button) => getComputedStyle(button).backgroundColor),
+    'rgb(0, 228, 54)'
+  );
   for (const width of [320, 390, 768]) {
     await page.setViewportSize({ width, height: 650 });
     const layout = await prompt.evaluate((dialog) => ({

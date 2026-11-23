@@ -1070,7 +1070,8 @@ body {
   border-color: #467996;
   border-bottom-color: #11263b;
 }
-.results-actions > .results-playground {
+.results-actions > .results-playground,
+.playground-prompt > .playground-create {
   color: #081019;
   background: #00e436;
   border-color: #54f279;

@@ -17,6 +17,7 @@ export function showPlaygroundPrompt(returnFocus: HTMLButtonElement) {
   const create = casualButton('Create Game', (event) =>
     openBuilder(event, 'freekick-playground')
   );
+  create.classList.add('playground-create');
   create.autofocus = true;
   const resume = casualButton(
     'Continue Game',
