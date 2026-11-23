@@ -720,6 +720,14 @@ function showAlert(
 
 // ---- Saved kicks --------------------------------------------------------------
 
+function loadSave(save: PlaygroundSave) {
+  slot = save.slot;
+  kicker = save.setup.kicker;
+  wallKit = save.setup.wall;
+  title = save.setup.title;
+  setKick(save.setup.kick);
+}
+
 async function showSaves() {
   if (!host) return;
   const screen = el('div', 'pg-screen');
@@ -756,11 +764,7 @@ async function showSaves() {
       row.append(
         text,
         button('LOAD', '', () => {
-          slot = save.slot;
-          kicker = save.setup.kicker;
-          wallKit = save.setup.wall;
-          title = save.setup.title;
-          setKick(save.setup.kick);
+          loadSave(save);
           close();
           slide(true);
         }),
@@ -791,9 +795,14 @@ const message = (error: unknown) =>
     ? error.message
     : 'Something went wrong. Please retry.';
 
-async function api(path: string, body?: object): Promise<unknown> {
+async function api(
+  path: string,
+  body?: object,
+  signal?: AbortSignal
+): Promise<unknown> {
   const response = await fetch(path, {
     method: body ? 'POST' : 'GET',
+    ...(signal ? { signal } : {}),
     headers: body ? { 'Content-Type': 'application/json' } : {},
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
@@ -813,9 +822,10 @@ async function api(path: string, body?: object): Promise<unknown> {
 // The player's saved kicks, after a list, save or delete.
 async function request(
   action: 'saves' | 'save' | 'delete',
-  body?: object
+  body?: object,
+  signal?: AbortSignal
 ): Promise<PlaygroundSave[]> {
-  const data = await api(`/api/playground/${action}`, body);
+  const data = await api(`/api/playground/${action}`, body, signal);
   const raw: unknown =
     data && typeof data === 'object' ? Reflect.get(data, 'saves') : null;
   if (!Array.isArray(raw)) return [];
@@ -837,17 +847,85 @@ async function request(
 
 // ---- Start --------------------------------------------------------------------
 
-if (host) {
+function showStartPrompt(start: () => void) {
+  const dialog = el('dialog', 'pg-screen pg-start');
+  const panel = el('div', 'practice-panel pg-panel');
+  const heading = el('h1', '', 'Create Your Own Game');
+  heading.id = 'pg-start-title';
+  dialog.setAttribute('aria-labelledby', heading.id);
+  dialog.addEventListener('cancel', (event) => event.preventDefault());
+  const status = el('p', 'pg-status');
+  status.id = 'pg-start-status';
+  status.setAttribute('role', 'status');
+  let latest: PlaygroundSave | undefined;
+  let pending: AbortController | undefined;
+
+  function openBuilder() {
+    pending?.abort();
+    dialog.close();
+    dialog.remove();
+    start();
+  }
+
+  const create = button('Create Game', '', openBuilder);
+  create.autofocus = true;
+  const resume = button('Continue Game', 'secondary', () => {
+    if (latest) {
+      loadSave(latest);
+      openBuilder();
+    } else {
+      void checkSaves();
+    }
+  });
+  resume.setAttribute('aria-describedby', status.id);
+
+  async function checkSaves() {
+    const controller = new AbortController();
+    pending = controller;
+    resume.disabled = true;
+    status.textContent = 'Checking for a saved game…';
+    try {
+      const saves = await request(
+        'saves',
+        undefined,
+        AbortSignal.any([controller.signal, AbortSignal.timeout(8000)])
+      );
+      if (controller.signal.aborted) return;
+      latest = saves[0];
+      resume.disabled = !latest;
+      status.textContent = latest
+        ? `Last saved game: ${latest.setup.title || 'Untitled kick'}`
+        : 'No saved game yet.';
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      status.textContent =
+        error instanceof DOMException && error.name === 'TimeoutError'
+          ? 'Checking saves timed out. Select Continue Game to retry.'
+          : `${message(error)}. Select Continue Game to retry.`;
+      resume.disabled = false;
+    }
+  }
+
+  panel.append(heading, create, resume, status);
+  dialog.append(panel);
+  document.body.append(dialog);
+  dialog.showModal();
+  void checkSaves();
+}
+
+function startGame(root: HTMLElement) {
   link.onGoal = () => {
     if (scored) return;
     scored = true;
     render();
   };
   link.onReady = () => {
-    buildSheet(host);
+    buildSheet(root);
     render();
   };
   void import('./freekick/game')
     .then(({ createFreeKickGame }) => createFreeKickGame(true, 1, link))
     .catch(showLaunchError);
 }
+
+if (host) showStartPrompt(() => startGame(host));
