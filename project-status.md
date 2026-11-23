@@ -12,7 +12,7 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 **Free Kick goalkeeper (2026-11-23).** The keeper weighs both open gaps and the shot angle for its starting stance, favors the more exposed corner on guesses, and tracks shots after accumulating clear sight past the moving wall. Lateral steps and jump takeoff have distinct poses, and save banners describe how the ball was stopped.
 
-**Playground finish dialog (2026-11-23).** Finishing a shared Playground game opens Create Your Own Game over results. Create Game opens a fresh setup, Continue Game resumes the latest saved kick, and Back to Results dismisses the dialog. Direct builder entry opens the setup immediately.
+**Playground finish dialog (2026-11-23).** Finishing a shared Playground game opens Create Your Own Game over results. Create Game opens a fresh setup, Continue Game resumes the latest saved kick, and Back to Results dismisses the dialog. Direct builder entry opens the setup immediately. The three dialog actions have matching dimensions and centered labels.
 
 **Free Kick button labels (2026-11-19):** The preview and results buttons display CREATE and open the Playground builder. The Playground mode and builder retain their names.
 
@@ -870,6 +870,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Use native buttons and consistent sizing for all actions in the Playground finish dialog.
+
 - Open the creation dialog only after a shared Playground goal finishes the run. Use a Devvit entrypoint for Continue Game so it loads the latest save without relying on storage shared between webviews.
 
 - Use Reddit’s comment byline as the source of author attribution for Free Kick score shares.
@@ -1388,6 +1390,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Check the Playground finish dialog layout in the next mobile Reddit playtest.
+
 - Verify the Playground finish dialog and its builder transitions in the next Reddit playtest.
 
 - Verify the Free Kick score text on the next Reddit playtest.
@@ -1881,6 +1885,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-23.** Align and size the Playground finish dialog buttons consistently, with browser coverage at narrow and wide widths.
 
 - **2026-11-23.** Move Create Your Own Game from builder startup to completed shared Playground results. Keep Create and Continue available from the finish dialog.
 

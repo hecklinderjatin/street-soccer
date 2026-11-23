@@ -14,7 +14,9 @@ export function showPlaygroundPrompt(returnFocus: HTMLButtonElement) {
   const status = document.createElement('p');
   status.id = 'playground-prompt-status';
   status.setAttribute('role', 'status');
-  const create = builderLink('Create Game', 'freekick-playground');
+  const create = casualButton('Create Game', (event) =>
+    openBuilder(event, 'freekick-playground')
+  );
   create.autofocus = true;
   const resume = casualButton(
     'Continue Game',
@@ -41,26 +43,11 @@ export function showPlaygroundPrompt(returnFocus: HTMLButtonElement) {
     if (context?.postId) {
       requestExpandedMode(event, entry);
     } else {
-      // Continue is a button because it also retries a failed save lookup.
       const link = document.createElement('a');
       link.href = `${entry}.html`;
       link.click();
     }
     dismiss();
-  }
-
-  function builderLink(label: string, entry: string) {
-    const link = document.createElement('a');
-    link.className = 'casual-button';
-    link.href = `${entry}.html`;
-    pixelLabel(link, label);
-    link.addEventListener('click', (event) => {
-      if (context?.postId) {
-        event.preventDefault();
-        openBuilder(event, entry);
-      }
-    });
-    return link;
   }
 
   async function checkSaves() {
