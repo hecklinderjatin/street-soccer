@@ -3,12 +3,10 @@ import { parseCustomSetup } from '../../shared/freeKickCustom';
 
 export async function playgroundApi(
   path: string,
-  body?: object,
-  signal?: AbortSignal
+  body?: object
 ): Promise<unknown> {
   const response = await fetch(path, {
     method: body ? 'POST' : 'GET',
-    ...(signal ? { signal } : {}),
     headers: body ? { 'Content-Type': 'application/json' } : {},
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
@@ -28,10 +26,9 @@ export async function playgroundApi(
 // The player's saved kicks, after a list, save or delete.
 export async function playgroundSaves(
   action: 'saves' | 'delete',
-  body?: object,
-  signal?: AbortSignal
+  body?: object
 ): Promise<PlaygroundSave[]> {
-  const data = await playgroundApi(`/api/playground/${action}`, body, signal);
+  const data = await playgroundApi(`/api/playground/${action}`, body);
   const raw: unknown =
     data && typeof data === 'object' ? Reflect.get(data, 'saves') : null;
   if (!Array.isArray(raw)) return [];

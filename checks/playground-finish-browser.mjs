@@ -58,17 +58,7 @@ try {
     results = 0;
   let failNextResult = false;
   const payloads = [];
-  let saves = [];
-  const savedKick = {
-    slot: 2,
-    savedAt: 200,
-    setup: {
-      title: 'Saved corner kick',
-      kicker: 'pink',
-      wall: 'blue',
-      kick: { ...context.postData.freeKick.custom, distanceM: 27 },
-    },
-  };
+  let saveLookups = 0;
   await page.route('http://localhost/**', async (route) => {
     const { pathname } = new URL(route.request().url());
     if (pathname === '/api/freekick/start') {
@@ -95,8 +85,10 @@ try {
       boards.runFinishMs = results === 1 ? 12347 : 20000;
       return route.fulfill({ json: boards });
     }
-    if (pathname === '/api/playground/saves')
-      return route.fulfill({ json: { saves } });
+    if (pathname === '/api/playground/saves') {
+      saveLookups++;
+      return route.fulfill({ json: { saves: [] } });
+    }
     if (pathname === '/api/freekick/leaders')
       return route.fulfill({ json: boards });
     if (pathname.startsWith('/api/')) return route.fulfill({ status: 204 });
@@ -113,10 +105,6 @@ try {
       entrypoints: {
         'freekick-playground': new URL(
           '/freekick-playground.html',
-          location.origin
-        ).href,
-        'freekick-playground-continue': new URL(
-          '/freekick-playground-continue.html',
           location.origin
         ).href,
       },
@@ -197,7 +185,7 @@ try {
       exact: true,
     })
     .waitFor();
-  await prompt.getByText('No saved game yet.').waitFor();
+  await prompt.waitFor();
   assert.equal(
     await create.evaluate((button) => getComputedStyle(button).backgroundColor),
     'rgb(0, 228, 54)'
@@ -233,15 +221,13 @@ try {
     }
   }
   await page.setViewportSize({ width: 390, height: 650 });
-  assert.equal(await resume.isDisabled(), true);
+  assert.equal(await resume.isEnabled(), true);
   assert.ok(
     await create.evaluate((button) => button === document.activeElement)
   );
   await page.keyboard.press('Tab');
   assert.ok(
-    await prompt
-      .getByRole('button', { name: 'Back to Results' })
-      .evaluate((button) => button === document.activeElement)
+    await resume.evaluate((button) => button === document.activeElement)
   );
   await create.click();
   await page.waitForFunction(() =>
@@ -302,15 +288,6 @@ try {
     })
   );
   // A failed immediate report retries the identical frozen goal snapshot.
-  saves = [
-    savedKick,
-    {
-      ...savedKick,
-      slot: 0,
-      savedAt: 100,
-      setup: { ...savedKick.setup, title: 'Older kick' },
-    },
-  ];
   failNextResult = true;
   const failedReport = page.waitForResponse(
     (r) => r.url().endsWith('/api/freekick/result') && r.status() === 503
@@ -340,26 +317,23 @@ try {
     await page.locator('.fk-results-scoreboard').innerText(),
     '20.000 s\nFINISH TIME'
   );
-  await prompt.getByText('Last saved game: Saved corner kick').waitFor();
+  await page.evaluate(() => (window.playgroundEntry = null));
   await resume.click();
-  const continueUrl = await page.waitForFunction(
-    () =>
-      window.playgroundEntry?.endsWith('/freekick-playground-continue.html') &&
-      window.playgroundEntry
-  );
-  await page.goto(`${await continueUrl.jsonValue()}?debug`);
-  await ready();
-  assert.equal(await prompt.count(), 0, 'continue opens the builder directly');
-  await page.locator('.pg-next:visible').click();
+  await prompt.waitFor({ state: 'detached' });
+  assert.equal(await page.evaluate(() => window.playgroundEntry), null);
   assert.equal(
-    await page.getByRole('textbox', { name: 'TITLE' }).inputValue(),
-    savedKick.setup.title
+    saveLookups,
+    0,
+    'the finish dialog does not look up builder saves'
+  );
+  assert.ok(
+    await page
+      .getByRole('button', { name: 'PLAY AGAIN', exact: true })
+      .evaluate((button) => button === document.activeElement)
   );
   assert.equal(
-    await page.evaluate(
-      () => window.__game.scene.getScene('FreeKick').playground.kick.distanceM
-    ),
-    savedKick.setup.kick.distanceM
+    await page.locator('.fk-results-scoreboard').innerText(),
+    '20.000 s\nFINISH TIME'
   );
   await page.goto('http://localhost/splash.html');
   await page

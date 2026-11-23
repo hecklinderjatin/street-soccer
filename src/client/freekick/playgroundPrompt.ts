@@ -1,7 +1,6 @@
 import { context, requestExpandedMode } from '@devvit/web/client';
 import { casualButton } from '../ui/casualScreen';
 import { pixelLabel } from '../ui/pixelLabel';
-import { playgroundSaves } from './playgroundSaves';
 
 export function showPlaygroundPrompt(returnFocus: HTMLButtonElement) {
   const dialog = document.createElement('dialog');
@@ -11,36 +10,19 @@ export function showPlaygroundPrompt(returnFocus: HTMLButtonElement) {
   heading.id = 'playground-prompt-title';
   dialog.setAttribute('aria-labelledby', heading.id);
 
-  const status = document.createElement('p');
-  status.id = 'playground-prompt-status';
-  status.setAttribute('role', 'status');
-  const create = casualButton('Create Game', (event) =>
-    openBuilder(event, 'freekick-playground')
-  );
+  const create = casualButton('Create Game', openBuilder);
   create.classList.add('playground-create');
   create.autofocus = true;
-  const resume = casualButton(
-    'Continue Game',
-    (event) => {
-      if (hasSave) openBuilder(event, 'freekick-playground-continue');
-      else void checkSaves();
-    },
-    true
-  );
-  resume.setAttribute('aria-describedby', status.id);
-  const close = casualButton('Back to Results', () => dismiss(), true);
-
-  let hasSave = false;
-  const controller = new AbortController();
+  const resume = casualButton('Continue Game', () => dismiss(), true);
 
   function dismiss(restoreFocus = true) {
-    controller.abort();
     dialog.close();
     dialog.remove();
     if (restoreFocus) returnFocus.focus({ preventScroll: true });
   }
 
-  function openBuilder(event: MouseEvent, entry: string) {
+  function openBuilder(event: MouseEvent) {
+    const entry = 'freekick-playground';
     if (context?.postId) {
       requestExpandedMode(event, entry);
     } else {
@@ -51,36 +33,12 @@ export function showPlaygroundPrompt(returnFocus: HTMLButtonElement) {
     dismiss();
   }
 
-  async function checkSaves() {
-    resume.disabled = true;
-    status.textContent = 'Checking for a saved game…';
-    try {
-      const [latest] = await playgroundSaves(
-        'saves',
-        undefined,
-        AbortSignal.any([controller.signal, AbortSignal.timeout(8000)])
-      );
-      if (controller.signal.aborted) return;
-      hasSave = Boolean(latest);
-      resume.disabled = !hasSave;
-      status.textContent = latest
-        ? `Last saved game: ${latest.setup.title || 'Untitled kick'}`
-        : 'No saved game yet.';
-    } catch {
-      if (controller.signal.aborted) return;
-      status.textContent =
-        'Couldn’t check saves. Select Continue Game to retry.';
-      resume.disabled = false;
-    }
-  }
-
   dialog.addEventListener('cancel', (event) => {
     event.preventDefault();
     dismiss();
   });
-  dialog.append(heading, create, resume, status, close);
+  dialog.append(heading, create, resume);
   document.body.append(dialog);
   dialog.showModal();
-  void checkSaves();
   return () => dismiss(false);
 }
