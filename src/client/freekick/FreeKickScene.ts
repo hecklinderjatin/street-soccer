@@ -119,6 +119,14 @@ const BANNER: Record<Outcome, string> = {
   short: 'TOO SOFT',
 };
 
+const SAVE_FEEDBACK = {
+  guess: 'KEEPER GUESSED RIGHT',
+  jump: 'KEEPER REACHED IT IN THE AIR',
+  stretch: 'KEEPER SAVED IT AT FULL STRETCH',
+  dive: 'KEEPER DIVED ACROSS',
+  standing: 'KEEPER MADE A STANDING SAVE',
+};
+
 // What to try next after a miss (shown on the retry).
 function advice(play: KickPlay) {
   const outcome = play.outcome;
@@ -128,8 +136,9 @@ function advice(play: KickPlay) {
     return 'THE WALL STAYED DOWN: GO HIGHER OR CURL AROUND';
   if (outcome === 'wall')
     return 'GO OVER, CURL AROUND, OR DRIVE LOW UNDER THE JUMP';
-  if (outcome === 'saved' && play.keeper.guessY !== null)
-    return 'THE KEEPER GUESSED RIGHT: TRY THE OTHER CORNER';
+  if (play.saveKind === 'guess') return 'TRY THE OTHER CORNER';
+  if (play.saveKind === 'dive' || play.saveKind === 'stretch')
+    return 'TRY A HIGHER SHOT INSIDE THE POST';
   if (outcome === 'over') return 'USE LESS POWER OR STRIKE HIGHER';
   if (outcome === 'short') return 'ADD POWER WITH THE SLIDER';
   if (outcome === 'saved') return 'AIM FOR THE CORNERS';
@@ -754,7 +763,11 @@ export class FreeKickScene extends Phaser.Scene {
       this.showBanner(
         great ? 'GREAT SAVE!' : BANNER[outcome],
         outcome === 'saved' ? PAL.blue : PAL.orange,
-        [outcome === 'saved' || this.practice ? xgotLine : '', livesLine]
+        [
+          play.saveKind ? SAVE_FEEDBACK[play.saveKind] : '',
+          outcome === 'saved' || this.practice ? xgotLine : '',
+          livesLine,
+        ]
           .filter((line) => line !== '')
           .join('\n'),
         false

@@ -826,10 +826,12 @@ export class Stage {
       frame = `dive${n + 1}`;
     } else if (k.mode === 'jump') {
       const p = since / FK.keeperJumpSec;
-      frame = p < 0.25 ? 'jump2' : p < 0.8 ? 'jump3' : 'jump4';
+      const n = p < 0.1 ? 1 : p < 0.3 ? 2 : p < 0.8 ? 3 : 4;
+      frame = `jump${n}`;
     } else if (play?.outcome === 'saved') frame = 'block1';
+    else if (k.stepDir !== 0) frame = 'dive1'; // plant into the lateral step
     const diving = k.mode === 'dive' || k.mode === 'down';
-    cast.keeper.draw(cam, k.x, k.y, frame, diving && k.dir < 0);
+    cast.keeper.draw(cam, k.x, k.y, frame, diving ? k.dir < 0 : k.stepDir < 0);
   }
 
   private drawBall(cast: Cast, cam: KickCamera, pose: StagePose) {

@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Free Kick goalkeeper (2026-11-23).** The keeper weighs both open gaps and the shot angle for its starting stance, favors the more exposed corner on guesses, and tracks shots after accumulating clear sight past the moving wall. Lateral steps and jump takeoff have distinct poses, and save banners describe how the ball was stopped.
+
 **Free Kick button labels (2026-11-19):** The preview and results buttons display CREATE and open the Playground builder. The Playground mode and builder retain their names.
 
 **Main security update (2026-11-18):** The tested vendored-picomatch fix is collected directly on main for the user's requested commit and push. Existing Windows/Linux clean installs, zero-finding registry audits, source/security/consumer checks, full local suite and production browser smoke pass. Reinstall with npm ci after pulling the updated branch; the user handles Reddit playtest deployment.
@@ -864,6 +866,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Blend the starting stance across both gaps so it moves smoothly as the wall shifts. Keep ranked defence seeded and hold the Playground keeper style steady during geometry changes. Use the simulated save pose and reach for feedback.
+
 - Use CREATE for the action that opens the builder on the Free Kick preview and results screens. Use Playground for the mode and builder.
 
 - Commit the tested dependency fix directly on main as requested; this checkout is already on main. Retain both registry audit and local fork verification in CI.
@@ -1374,6 +1378,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Check Free Kick goalkeeper balance and animation readability on Reddit across Practice, Challenge, Infinity and Playground.
+
 - Verify the Free Kick preview and results CREATE buttons during the next Reddit playtest.
 
 - Pull the updated main branch in Codespaces and run npm ci before the user's next playtest upload.
@@ -1861,6 +1867,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-23.** Improve Free Kick goalkeeper positioning, wall occlusion, corner guesses, movement cues and save feedback. Add regressions for stance, weighted guesses and shots emerging beside or above the wall.
 
 - **2026-11-19:** Rename the Free Kick preview and results buttons to CREATE. Both still open the Playground builder. Update the browser checks for the two labels.
 
