@@ -58,6 +58,17 @@ try {
     results = 0;
   let failNextResult = false;
   const payloads = [];
+  let saves = [];
+  const savedKick = {
+    slot: 2,
+    savedAt: 200,
+    setup: {
+      title: 'Saved corner kick',
+      kicker: 'pink',
+      wall: 'blue',
+      kick: { ...context.postData.freeKick.custom, distanceM: 27 },
+    },
+  };
   await page.route('http://localhost/**', async (route) => {
     const { pathname } = new URL(route.request().url());
     if (pathname === '/api/freekick/start') {
@@ -84,6 +95,8 @@ try {
       boards.runFinishMs = results === 1 ? 12347 : 20000;
       return route.fulfill({ json: boards });
     }
+    if (pathname === '/api/playground/saves')
+      return route.fulfill({ json: { saves } });
     if (pathname === '/api/freekick/leaders')
       return route.fulfill({ json: boards });
     if (pathname.startsWith('/api/')) return route.fulfill({ status: 204 });
@@ -95,7 +108,24 @@ try {
     });
   });
   await page.addInitScript((context) => {
-    window.devvit = { context };
+    window.devvit = {
+      context,
+      entrypoints: {
+        'freekick-playground': new URL(
+          '/freekick-playground.html',
+          location.origin
+        ).href,
+        'freekick-playground-continue': new URL(
+          '/freekick-playground-continue.html',
+          location.origin
+        ).href,
+      },
+    };
+    window.playgroundEntry = null;
+    addEventListener('message', (event) => {
+      const entry = event.data?.immersiveMode?.entryUrl;
+      if (entry) window.playgroundEntry = entry;
+    });
   }, context);
   const ready = () =>
     page
@@ -110,6 +140,10 @@ try {
     );
   await page.goto('http://localhost/freekick-challenge.html?debug');
   await ready();
+  const prompt = page.getByRole('dialog', { name: 'Create Your Own Game' });
+  const create = prompt.getByRole('link', { name: 'Create Game' });
+  const resume = prompt.getByRole('button', { name: 'Continue Game' });
+  assert.equal(await prompt.count(), 0, 'briefing never opens the prompt');
   assert.equal(starts, 0, 'briefing does not start the timer');
   await play();
   await page.waitForFunction(
@@ -135,6 +169,7 @@ try {
     () => window.__game.scene.getScene('FreeKick').records.elapsedMs() !== null
   );
   assert.equal(results, 0, 'misses never finish the timer');
+  assert.equal(await prompt.count(), 0, 'a miss never opens the prompt');
   await page.reload();
   await ready();
   await play();
@@ -162,6 +197,20 @@ try {
       exact: true,
     })
     .waitFor();
+  await prompt.getByText('No saved game yet.').waitFor();
+  assert.equal(await resume.isDisabled(), true);
+  assert.ok(await create.evaluate((link) => link === document.activeElement));
+  await page.keyboard.press('Tab');
+  assert.ok(
+    await prompt
+      .getByRole('button', { name: 'Back to Results' })
+      .evaluate((button) => button === document.activeElement)
+  );
+  await create.click();
+  await page.waitForFunction(() =>
+    window.playgroundEntry?.endsWith('/freekick-playground.html')
+  );
+  await prompt.waitFor({ state: 'detached' });
   assert.equal(
     await page.locator('.fk-results-scoreboard').innerText(),
     '12.347 s\nFINISH TIME'
@@ -216,6 +265,15 @@ try {
     })
   );
   // A failed immediate report retries the identical frozen goal snapshot.
+  saves = [
+    savedKick,
+    {
+      ...savedKick,
+      slot: 0,
+      savedAt: 100,
+      setup: { ...savedKick.setup, title: 'Older kick' },
+    },
+  ];
   failNextResult = true;
   const failedReport = page.waitForResponse(
     (r) => r.url().endsWith('/api/freekick/result') && r.status() === 503
@@ -244,6 +302,27 @@ try {
   assert.equal(
     await page.locator('.fk-results-scoreboard').innerText(),
     '20.000 s\nFINISH TIME'
+  );
+  await prompt.getByText('Last saved game: Saved corner kick').waitFor();
+  await resume.click();
+  const continueUrl = await page.waitForFunction(
+    () =>
+      window.playgroundEntry?.endsWith('/freekick-playground-continue.html') &&
+      window.playgroundEntry
+  );
+  await page.goto(`${await continueUrl.jsonValue()}?debug`);
+  await ready();
+  assert.equal(await prompt.count(), 0, 'continue opens the builder directly');
+  await page.locator('.pg-next:visible').click();
+  assert.equal(
+    await page.getByRole('textbox', { name: 'TITLE' }).inputValue(),
+    savedKick.setup.title
+  );
+  assert.equal(
+    await page.evaluate(
+      () => window.__game.scene.getScene('FreeKick').playground.kick.distanceM
+    ),
+    savedKick.setup.kick.distanceM
   );
   await page.goto('http://localhost/splash.html');
   await page

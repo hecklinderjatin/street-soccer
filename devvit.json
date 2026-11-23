@@ -24,6 +24,9 @@
       },
       "freekick-playground": {
         "entry": "freekick-playground.html"
+      },
+      "freekick-playground-continue": {
+        "entry": "freekick-playground-continue.html"
       }
     }
   },

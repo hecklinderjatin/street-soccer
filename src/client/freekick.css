@@ -260,3 +260,23 @@ body {
   outline: 3px solid #ffec27;
   outline-offset: 2px;
 }
+
+.playground-prompt.practice-panel {
+  width: min(380px, calc(100% - 24px));
+  max-height: calc(100% - 24px);
+  overflow: auto;
+  padding: 16px 18px;
+  gap: 10px;
+  color: #fff1e8;
+  font: 13px/1.5 ui-monospace, monospace;
+}
+.playground-prompt:not([open]) {
+  display: none;
+}
+.playground-prompt::backdrop {
+  background: #080f1bbf;
+}
+.playground-prompt .casual-button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}

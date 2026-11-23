@@ -41,8 +41,6 @@ try {
     const start = async () => {
       if (entry === 'freekick-practice')
         await page.getByRole('button', { name: 'START PRACTICE' }).click();
-      if (entry === 'freekick-playground')
-        await page.getByRole('button', { name: 'Create Game' }).click();
     };
     await page.goto(`http://localhost/${entry}.html?debug`);
     await start();
