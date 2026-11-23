@@ -86,7 +86,15 @@ try {
         y: r.y + (button.y * r.height) / g.scale.height,
       };
     }, label);
-    await page.mouse.click(point.x, point.y);
+    // Let Phaser process the press on a frame before releasing the button.
+    await page.mouse.move(point.x, point.y);
+    await page.mouse.down();
+    await page.evaluate(() =>
+      new Promise((resolveFrame) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolveFrame))
+      )
+    );
+    await page.mouse.up();
   };
   await press('START GAME');
   await page.waitForFunction(
