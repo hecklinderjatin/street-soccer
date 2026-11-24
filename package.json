@@ -51,24 +51,24 @@
     "node": ">=24.0.0"
   },
   "dependencies": {
-    "@devvit/analytics": "0.15.4",
-    "@devvit/start": "0.15.4",
-    "@devvit/web": "0.15.4",
-    "@hono/node-server": "2.1.8",
-    "hono": "4.13.19",
+    "@devvit/analytics": "0.15.6",
+    "@devvit/start": "0.15.6",
+    "@devvit/web": "0.15.6",
+    "@hono/node-server": "2.1.11",
+    "hono": "4.13.21",
     "phaser": "3.90.0",
     "picomatch": "file:vendor/picomatch-v4"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@types/node": "^24.19.2",
-    "devvit": "0.15.4",
+    "devvit": "0.15.6",
     "eslint": "10.15.0",
     "globals": "17.14.0",
     "playwright": "^1.65.1",
     "prettier": "3.10.1",
     "typescript": "6.0.3",
-    "typescript-eslint": "8.73.0",
+    "typescript-eslint": "8.74.0",
     "vite": "8.3.8",
     "picomatch-v2": "file:vendor/picomatch-v2"
   },
