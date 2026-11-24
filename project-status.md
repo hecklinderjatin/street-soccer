@@ -8,6 +8,8 @@ Hand-off notes for any developer or AI model picking up this project. **Update t
 
 ## Current state
 
+**Dependency upgrades (2026-11-24).** Devvit Analytics, Start, Web and the CLI use 0.15.6. Hono uses 4.13.21, the Hono Node adapter uses 2.1.11, and typescript-eslint uses 8.74.0.
+
 **Free Kick score comments (2026-11-23).** Generated score text starts with the mode name. Reddit displays the author.
 
 **Free Kick goalkeeper (2026-11-23).** The keeper weighs both open gaps and the shot angle for its starting stance, favors the more exposed corner on guesses, and tracks shots after accumulating clear sight past the moving wall. Lateral steps and jump takeoff have distinct poses, and save banners describe how the ball was stopped.
@@ -870,6 +872,8 @@ public/ball.svg             pixel ball shown on the splash
 
 ## Decisions (and why)
 
+- Upgrade the Devvit SDK and CLI together. Preserve the existing local picomatch link targets when regenerating the lockfile.
+
 - Continue Game returns to the finished shared game’s results so the player can replay or post their score.
 
 - Share the green Create styling between the Playground finish dialog and the results action.
@@ -1394,6 +1398,8 @@ Checks the assistant can run (through WSL, since `node_modules` was installed th
 
 ## Next up
 
+- Verify the upgraded Devvit SDK and CLI in the next Reddit playtest.
+
 - Verify that Continue Game stays on the shared results during the next Reddit playtest.
 
 - Check the green Create Game button in the next Reddit playtest.
@@ -1893,6 +1899,8 @@ Then tune from the feedback (most knobs: `LEVELS`, `AI`, `TACKLE`, `KEEPER` in `
 - **Switch boost:** 0.2 s speed boost toward the ball.
 
 ## Changelog
+
+- **2026-11-24.** Upgrade Devvit to 0.15.6, Hono to 4.13.21, the Hono Node adapter to 2.1.11, and typescript-eslint to 8.74.0.
 
 - **2026-11-23.** Route Continue Game back to the finished Playground results and keep Create Game as the route to the builder.
 
